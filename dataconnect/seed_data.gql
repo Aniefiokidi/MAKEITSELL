@@ -1,0 +1,104 @@
+mutation SeedData @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public") @transaction {
+  user_insertMany(data: [
+    {
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      username: "demouser1",
+      email: "demouser1@example.com",
+      createdAt: "2024-04-26T12:00:00Z"
+    },
+    {
+      id: "550e8400-e29b-41d4-a716-446655440001",
+      username: "demouser2",
+      email: "demouser2@example.com",
+      createdAt: "2024-04-26T13:00:00Z"
+    }
+  ])
+  category_insertMany(data: [
+    {
+      id: "650e8400-e29b-41d4-a716-446655440000",
+      name: "Category1"
+    },
+    {
+      id: "650e8400-e29b-41d4-a716-446655440001",
+      name: "Category2"
+    }
+  ])
+  product_insertMany(data: [
+    {
+      id: "750e8400-e29b-41d4-a716-446655440000",
+      name: "Product1",
+      description: "Description1",
+      price: 10.0,
+      stockQuantity: 100,
+      createdAt: "2024-04-26T14:00:00Z",
+      categoryId: "650e8400-e29b-41d4-a716-446655440000",
+      sellerId: "550e8400-e29b-41d4-a716-446655440000"
+    },
+    {
+      id: "750e8400-e29b-41d4-a716-446655440001",
+      name: "Product2",
+      description: "Description2",
+      price: 20.0,
+      stockQuantity: 50,
+      createdAt: "2024-04-26T15:00:00Z",
+      categoryId: "650e8400-e29b-41d4-a716-446655440001",
+      sellerId: "550e8400-e29b-41d4-a716-446655440001"
+    }
+  ])
+  service_insertMany(data: [
+    {
+      id: "850e8400-e29b-41d4-a716-446655440000",
+      name: "Service1",
+      description: "Description1",
+      pricePerHourOrFixed: 50.0,
+      isFixedPrice: true,
+      createdAt: "2024-04-26T16:00:00Z",
+      categoryId: "650e8400-e29b-41d4-a716-446655440000",
+      sellerId: "550e8400-e29b-41d4-a716-446655440000"
+    },
+    {
+      id: "850e8400-e29b-41d4-a716-446655440001",
+      name: "Service2",
+      description: "Description2",
+      pricePerHourOrFixed: 100.0,
+      isFixedPrice: false,
+      createdAt: "2024-04-26T17:00:00Z",
+      categoryId: "650e8400-e29b-41d4-a716-446655440001",
+      sellerId: "550e8400-e29b-41d4-a716-446655440001"
+    }
+  ])
+  image_insertMany(data: [
+    {
+      id: "950e8400-e29b-41d4-a716-446655440000",
+      url: "http://example.com/image1.jpg",
+      createdAt: "2024-04-26T18:00:00Z",
+      productId: "750e8400-e29b-41d4-a716-446655440000"
+    },
+    {
+      id: "950e8400-e29b-41d4-a716-446655440001",
+      url: "http://example.com/image2.jpg",
+      createdAt: "2024-04-26T19:00:00Z",
+      serviceId: "850e8400-e29b-41d4-a716-446655440000"
+    }
+  ])
+  order_insertMany(data: [
+    {
+      id: "a50e8400-e29b-41d4-a716-446655440000",
+      orderDate: "2024-04-26T20:00:00Z",
+      status: "Pending",
+      totalAmount: 10.0,
+      buyerId: "550e8400-e29b-41d4-a716-446655440000",
+      productId: "750e8400-e29b-41d4-a716-446655440000",
+      sellerId: "550e8400-e29b-41d4-a716-446655440001"
+    },
+    {
+      id: "a50e8400-e29b-41d4-a716-446655440001",
+      orderDate: "2024-04-26T21:00:00Z",
+      status: "Completed",
+      totalAmount: 50.0,
+      buyerId: "550e8400-e29b-41d4-a716-446655440001",
+      serviceId: "850e8400-e29b-41d4-a716-446655440000",
+      sellerId: "550e8400-e29b-41d4-a716-446655440000"
+    }
+  ])
+}

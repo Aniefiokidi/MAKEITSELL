@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Firebase Connection Test</title>
+    <script type="module">
+        // Test Firebase connection
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, doc, setDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getAuth } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyC9rq63GsDb47zyDqZnMeWBab1PSla-CIE",
+            authDomain: "branda-e95a1.firebaseapp.com",
+            projectId: "branda-e95a1",
+            storageBucket: "branda-e95a1.firebasestorage.app",
+            messagingSenderId: "322810617501",
+            appId: "1:322810617501:web:ec336d26ee17fedb5bfe74"
+        };
+
+        window.onload = async function() {
+            const log = document.getElementById('log');
+            
+            function addLog(message, isError = false) {
+                const p = document.createElement('p');
+                p.textContent = message;
+                p.style.color = isError ? 'red' : 'green';
+                log.appendChild(p);
+            }
+
+            try {
+                addLog('✓ Initializing Firebase...');
+                const app = initializeApp(firebaseConfig);
+                
+                addLog('✓ Getting Auth instance...');
+                const auth = getAuth(app);
+                addLog('✓ Auth initialized: ' + (auth ? 'YES' : 'NO'));
+                
+                addLog('✓ Getting Firestore instance...');
+                const db = getFirestore(app);
+                addLog('✓ Firestore initialized: ' + (db ? 'YES' : 'NO'));
+                
+                addLog('✓ Firebase setup successful!');
+                addLog('');
+                addLog('Now try signing up at: http://localhost:3001/signup');
+                
+            } catch (error) {
+                addLog('✗ Error: ' + error.message, true);
+                addLog('✗ Code: ' + error.code, true);
+            }
+        };
+    </script>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #fff;
+        }
+        h1 {
+            color: #4CAF50;
+        }
+        #log p {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Firebase Connection Test</h1>
+    <div id="log"></div>
+</body>
+</html>

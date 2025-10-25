@@ -1,0 +1,60 @@
+type User @table {
+  username: String!
+  email: String!
+  createdAt: Timestamp!
+  displayName: String
+  profilePictureUrl: String
+  isSeller: Boolean
+}
+
+type Category @table {
+  name: String!
+  description: String
+  parentCategory: Category
+}
+
+type Product @table {
+  name: String!
+  description: String!
+  price: Float!
+  stockQuantity: Int!
+  createdAt: Timestamp!
+  weight: Float
+  dimensions: String
+  seller: User
+  category: Category
+}
+
+type Service @table {
+  name: String!
+  description: String!
+  pricePerHourOrFixed: Float!
+  isFixedPrice: Boolean!
+  createdAt: Timestamp!
+  averageCompletionTime: Int
+  bookingInstructions: String
+  seller: User
+  category: Category
+}
+
+type Image @table {
+  url: String!
+  createdAt: Timestamp!
+  altText: String
+  order: Int
+  product: Product
+  service: Service
+}
+
+type Order @table {
+  orderDate: Timestamp!
+  totalAmount: Float!
+  status: String!
+  shippingAddress: String
+  serviceBookingDate: Date
+  serviceBookingTime: String
+  buyer: User
+  seller: User
+  product: Product
+  service: Service
+}

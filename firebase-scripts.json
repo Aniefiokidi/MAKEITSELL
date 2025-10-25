@@ -1,0 +1,16 @@
+{
+  "name": "gote-marketplace",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "firebase:init": "firebase login && firebase init",
+    "firebase:indexes": "firebase deploy --only firestore:indexes",
+    "firebase:rules": "firebase deploy --only firestore:rules",
+    "firebase:deploy": "firebase deploy --only firestore",
+    "setup": "npm install && npm run firebase:deploy",
+    "check-indexes": "firebase firestore:indexes"
+  }
+}
