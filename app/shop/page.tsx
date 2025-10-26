@@ -194,7 +194,7 @@ export default function ShopPage() {
             <h1 className="text-3xl font-bold mb-4">Discover Stores</h1>
             <p className="text-muted-foreground">Browse amazing stores from trusted sellers in your area</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {Array.from({ length: 6 }).map((_, i) => (
               <Card key={i}>
                 <CardContent className="p-4">
@@ -332,7 +332,7 @@ export default function ShopPage() {
             </div>
 
             {loading ? (
-              <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
+              <div className={viewMode === "grid" ? "grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
                 {Array.from({ length: 6 }).map((_, i) => (
                   <Card key={i}>
                     <CardContent className="p-4">
@@ -361,7 +361,7 @@ export default function ShopPage() {
               </div>
             ) : (
               <div
-                className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}
+                className={viewMode === "grid" ? "grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}
               >
                 {filteredStores.map((store, index) => (
                   <Link key={store.id} href={`/store/${store.id}`}>
