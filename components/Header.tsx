@@ -16,7 +16,7 @@ export default function Header() {
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
 
-  // Prevent body scroll when menu is open
+  // Prevent body scroll when mobile menu is open
   useEffect(() => {
     document.body.style.overflow = isMenuOpen ? "hidden" : ""
   }, [isMenuOpen])
@@ -42,16 +42,15 @@ export default function Header() {
                 type="search"
                 placeholder="Search products, brands, categories..."
                 className="pl-10 pr-4 h-10 rounded-2xl border-2 border-gray-200 
-                           focus:border-[oklch(0.21_0.194_29.234)] 
-                           focus:ring-[oklch(0.21_0.194_29.234)]/20 
-                           transition-all shadow-sm"
+                  focus:border-[oklch(0.21_0.194_29.234)] focus:ring-[oklch(0.21_0.194_29.234)]/20 
+                  transition-all shadow-sm"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
           </div>
 
-          {/* Desktop Navigation */}
+          {/* Desktop Nav */}
           <nav className="hidden xl:flex items-center space-x-8">
             {["Shop", "Services", "About", "Contact", "Support"].map((link) => (
               <Link
@@ -75,7 +74,7 @@ export default function Header() {
 
           {/* Right Icons */}
           <div className="flex items-center gap-2">
-            {/* Mobile Search Icon */}
+            {/* Mobile Search */}
             <Button
               variant="ghost"
               size="icon"
@@ -90,10 +89,10 @@ export default function Header() {
               <CartSidebar />
             </div>
 
-            {/* User Menu */}
+            {/* User menu (desktop) */}
             {userProfile ? <UserMenu /> : null}
 
-            {/* Mobile Menu Button */}
+            {/* Mobile Menu Toggle */}
             <Button
               variant="ghost"
               size="icon"
@@ -106,7 +105,7 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Mobile Search Bar (slide down) */}
+      {/* Mobile Search Dropdown */}
       <AnimatePresence>
         {isSearchOpen && (
           <motion.div
@@ -123,20 +122,20 @@ export default function Header() {
                 placeholder="Search products..."
                 autoFocus
                 className="pl-10 pr-10 py-2 rounded-xl border border-gray-300 
-                           focus:outline-none focus:ring-2 
-                           focus:ring-[oklch(0.21_0.194_29.234)]/50 
-                           shadow-[0_0_12px_rgba(59,130,246,0.3)]"
+                  focus:outline-none focus:ring-2 
+                  focus:ring-[oklch(0.21_0.194_29.234)]/50 
+                  shadow-[0_0_12px_rgba(59,130,246,0.3)]"
               />
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Mobile Drawer (Right side) */}
+      {/* Mobile Drawer */}
       <AnimatePresence>
         {isMenuOpen && (
           <>
-            {/* Overlay */}
+            {/* Background overlay */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.4 }}
@@ -148,67 +147,66 @@ export default function Header() {
 
             {/* Drawer Panel */}
             <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="fixed top-0 right-0 w-[80%] max-w-sm h-full bg-white shadow-2xl z-50 flex flex-col"
+              initial={{ x: "100%", opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: "100%", opacity: 0 }}
+              transition={{ type: "spring", stiffness: 120, damping: 15 }}
+              className="fixed top-16 right-0 w-72 h-[calc(100vh-4rem)] bg-white shadow-lg border-l border-gray-200 z-50 flex flex-col"
             >
-              {/* Header */}
-              <div className="flex items-center justify-between px-5 py-4 border-b">
-                <img src="/images/logo.png" alt="BRANDA" className="h-10 object-contain" />
-                <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(false)}>
-                  <X className="h-5 w-5" />
-                </Button>
+              {/* Navigation Links */}
+              <div className="px-4 pt-4 space-y-2 flex-1 overflow-y-auto">
+                <Link
+                  href="/shop"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="block px-3 py-2 text-gray-700 hover:text-[oklch(0.21_0.194_29.234)] hover:bg-gray-50 rounded-md transition-colors"
+                >
+                  Products
+                </Link>
+                <Link
+                  href="/services"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="block px-3 py-2 text-gray-700 hover:text-[oklch(0.21_0.194_29.234)] hover:bg-gray-50 rounded-md transition-colors"
+                >
+                  Services
+                </Link>
+                <Link
+                  href="/categories"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="block px-3 py-2 text-gray-700 hover:text-[oklch(0.21_0.194_29.234)] hover:bg-gray-50 rounded-md transition-colors"
+                >
+                  Categories
+                </Link>
+                <Link
+                  href="/cart"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="block px-3 py-2 text-gray-700 hover:text-[oklch(0.21_0.194_29.234)] hover:bg-gray-50 rounded-md transition-colors"
+                >
+                  Cart
+                </Link>
               </div>
 
-              {/* Links */}
-              <nav className="flex flex-col px-5 py-4 space-y-4 overflow-y-auto">
-                {["Shop", "Services", "About", "Contact", "Support"].map((link) => (
-                  <Link
-                    key={link}
-                    href={`/${link.toLowerCase()}`}
-                    onClick={() => setIsMenuOpen(false)}
-                    className="text-sm font-semibold hover:text-[oklch(0.21_0.194_29.234)] transition-all"
-                  >
-                    {link}
+              {/* Footer */}
+              <div className="px-6 py-6 border-t border-gray-200">
+                <p className="text-sm text-gray-600 mb-4">
+                  Become a Branda member to buy smarter, sell faster, and grow with the community.{" "}
+                  <span className="font-medium text-black cursor-pointer">Learn more</span>
+                </p>
+                <div className="flex space-x-3">
+                  <Link href="/signup" onClick={() => setIsMenuOpen(false)}>
+                    <Button className="bg-black text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-gray-800">
+                      Join Us
+                    </Button>
                   </Link>
-                ))}
-
-                {userProfile?.role !== "vendor" && (
-                  <Link
-                    href="/become-seller"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="text-sm font-semibold text-white bg-[oklch(0.21_0.194_29.234)] rounded-md px-4 py-2 text-center hover:bg-[oklch(0.32_0.194_29.234)] transition-all"
-                  >
-                    Become a Seller
+                  <Link href="/login" onClick={() => setIsMenuOpen(false)}>
+                    <Button
+                      variant="outline"
+                      className="border border-gray-400 px-4 py-2 rounded-full text-sm font-medium hover:bg-gray-100"
+                    >
+                      Sign In
+                    </Button>
                   </Link>
-                )}
-
-                {/* Nike-style message + buttons */}
-                {!userProfile && (
-                  <div className="mt-8 border-t pt-6 space-y-3 text-center">
-                    <p className="text-xs text-gray-500">
-                      Join <span className="font-semibold text-black">Branda</span> — buy smarter, sell faster.
-                    </p>
-                    <div className="flex flex-col gap-2">
-                      <Link href="/sign-in" onClick={() => setIsMenuOpen(false)}>
-                        <Button
-                          variant="outline"
-                          className="w-full border-[oklch(0.21_0.194_29.234)] text-[oklch(0.21_0.194_29.234)] hover:bg-[oklch(0.21_0.194_29.234)] hover:text-white"
-                        >
-                          Sign In
-                        </Button>
-                      </Link>
-                      <Link href="/sign-up" onClick={() => setIsMenuOpen(false)}>
-                        <Button className="w-full bg-[oklch(0.21_0.194_29.234)] text-white hover:bg-[oklch(0.32_0.194_29.234)]">
-                          Sign Up
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                )}
-              </nav>
+                </div>
+              </div>
             </motion.div>
           </>
         )}
