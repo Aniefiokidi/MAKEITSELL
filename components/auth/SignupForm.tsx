@@ -514,8 +514,9 @@ export default function SignupForm() {
               checked={acceptTerms}
               onCheckedChange={(checked) => setAcceptTerms(checked as boolean)}
               disabled={loading}
+              className="border-2 border-[oklch(0.21_0.194_29.234)] data-[state=checked]:bg-[oklch(0.21_0.194_29.234)] data-[state=checked]:border-[oklch(0.21_0.194_29.234)]"
             />
-            <Label htmlFor="terms" className="text-sm">
+            <Label htmlFor="terms" className="text-sm cursor-pointer">
               I agree to the{" "}
               <Link href="/terms" className="text-accent hover:underline">
                 Terms of Service
