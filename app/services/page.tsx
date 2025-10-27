@@ -188,12 +188,30 @@ export default function ServicesPage() {
             {filteredServices.map((service, index) => (
               <Card 
                 key={service.id} 
-                className="group hover-lift animate-scale-in overflow-hidden"
+                className="group hover-lift animate-scale-in overflow-hidden hover:shadow-lg transition-all duration-300"
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
-                {/* Service Image */}
                 <Link href={`/service/${service.id}`}>
-                  <div className="relative h-48 overflow-hidden bg-muted">
+                  {/* Service Provider Banner */}
+                  <div className="relative h-32 overflow-hidden bg-gradient-to-r from-[oklch(0.21_0.194_29.234)] to-[oklch(0.32_0.194_29.234)]">
+                    {service.providerImage ? (
+                      <img
+                        src={service.providerImage}
+                        alt={service.providerName}
+                        className="w-full h-full object-cover opacity-30"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-r from-[oklch(0.21_0.194_29.234)] to-[oklch(0.32_0.194_29.234)]" />
+                    )}
+                    {service.featured && (
+                      <Badge className="absolute top-2 right-2 bg-white text-[oklch(0.21_0.194_29.234)]">
+                        Featured
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Service Image */}
+                  <div className="relative h-48 overflow-hidden bg-muted -mt-16 mx-4 rounded-lg shadow-lg border-4 border-white">
                     {service.images && service.images.length > 0 ? (
                       <img
                         src={service.images[0]}
@@ -201,19 +219,14 @@ export default function ServicesPage() {
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-6xl">
+                      <div className="w-full h-full flex items-center justify-center text-6xl bg-muted">
                         🛠️
                       </div>
-                    )}
-                    {service.featured && (
-                      <Badge className="absolute top-2 right-2 bg-accent text-accent-foreground">
-                        Featured
-                      </Badge>
                     )}
                   </div>
                 </Link>
 
-                <CardHeader>
+                <CardHeader className="pt-6">
                   <CardTitle className="line-clamp-1">
                     <Link href={`/service/${service.id}`} className="hover:text-accent transition-colors">
                       {service.title}
