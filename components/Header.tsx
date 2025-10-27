@@ -186,27 +186,29 @@ export default function Header() {
               </div>
 
               {/* Footer */}
-              <div className="px-6 py-6 border-t border-gray-200">
-                <p className="text-sm text-gray-600 mb-4">
-                  Become a Branda member to buy smarter, sell faster, and grow with the community.{" "}
-                  <span className="font-medium text-black cursor-pointer">Learn more</span>
-                </p>
-                <div className="flex space-x-3">
-                  <Link href="/signup" onClick={() => setIsMenuOpen(false)}>
-                    <Button className="bg-black text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-gray-800">
-                      Join Us
-                    </Button>
-                  </Link>
-                  <Link href="/login" onClick={() => setIsMenuOpen(false)}>
-                    <Button
-                      variant="outline"
-                      className="border border-gray-400 px-4 py-2 rounded-full text-sm font-medium hover:bg-gray-100"
-                    >
-                      Sign In
-                    </Button>
-                  </Link>
+              {!userProfile && (
+                <div className="px-6 py-6 border-t border-gray-200">
+                  <p className="text-sm text-gray-600 mb-4">
+                    Become a Branda member to buy smarter, sell faster, and grow with the community.{" "}
+                    <span className="font-medium text-black cursor-pointer">Learn more</span>
+                  </p>
+                  <div className="flex space-x-3">
+                    <Link href="/signup" onClick={() => setIsMenuOpen(false)}>
+                      <Button className="bg-black text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-gray-800">
+                        Join Us
+                      </Button>
+                    </Link>
+                    <Link href="/login" onClick={() => setIsMenuOpen(false)}>
+                      <Button
+                        variant="outline"
+                        className="border border-gray-400 px-4 py-2 rounded-full text-sm font-medium hover:bg-gray-100"
+                      >
+                        Sign In
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
-              </div>
+              )}
             </motion.div>
           </>
         )}
