@@ -12,7 +12,7 @@ import { useCart } from "@/contexts/CartContext"
 import Link from "next/link"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
-import { getProducts } from "@/lib/firestore"
+// import { getProducts } from "@/lib/firestore"
 
 // Use real products from Firestore
 
@@ -35,9 +35,11 @@ export default function CategoryPage() {
 
   useEffect(() => {
     async function fetchProducts() {
-      const all = await getProducts();
-      setProducts(all.map((p: any) => ({
-        ...p,
+      // TODO: Replace with API call to fetch products from MongoDB
+      // Example stub:
+      // const all = await fetch(`/api/products?category=${categorySlug}`).then(res => res.json())
+      // setProducts(all.map((p: any) => ({
+      //   ...p,
         name: p.title,
         image: Array.isArray(p.images) ? p.images[0] : p.image || "/placeholder.svg",
         vendor: p.vendorName || p.vendor || "Vendor",

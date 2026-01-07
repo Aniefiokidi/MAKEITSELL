@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
-import { getDocument } from "@/lib/firestore"
+// import { getDocument } from "@/lib/firestore"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -27,12 +27,14 @@ export default function SupportTicketDetailPage() {
       if (user && id) {
         setLoading(true)
         try {
-          const result = await getDocument("supportTickets", id as string) as any
-          if (result && result.customerId === user.uid) {
-            setTicket(result)
-          } else {
-            router.push("/support")
-          }
+          // TODO: Replace with API call to fetch ticket from MongoDB
+          // Example stub:
+          // const result = await fetch(`/api/support/ticket/${id}`).then(res => res.json())
+          // if (result && result.customerId === user.uid) {
+          //   setTicket(result)
+          // } else {
+          //   router.push("/support")
+          // }
         } catch (error) {
           console.error("Error fetching ticket:", error)
           router.push("/support")
