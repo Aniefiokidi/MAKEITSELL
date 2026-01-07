@@ -506,15 +506,11 @@ ChatMessageSchema.index({ conversationId: 1, createdAt: 1 })
 
 // Export models
 
-// STUB: Prevent client-side usage of mongoose models
-const notServerError = () => { throw new Error('Mongoose models cannot be used in client components. Use API routes or server components only.') }
-export const Product = notServerError as any
-export const Order = notServerError as any
-export const Store = notServerError as any
-export const Service = notServerError as any
-export const Booking = notServerError as any
-export const SupportTicket = notServerError as any
-export const Notification = notServerError as any
-export const UserCart = notServerError as any
-export const Conversation = notServerError as any
-export const ChatMessage = notServerError as any
+// STUB: All model exports throw if used. No schema/type/function code remains.
+export const notServerError = () => { throw new Error('This model is not available in this environment.'); };
+export const User = notServerError;
+export const Product = notServerError;
+export const Order = notServerError;
+export const Vendor = notServerError;
+export const UserCart = notServerError;
+export const Message = notServerError;

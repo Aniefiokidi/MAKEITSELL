@@ -1,63 +1,12 @@
-// All exports in this file are stubbed to prevent client-side usage.
-// Do not import this file in client components. Use API routes only.
-
-// STUB: All MongoDB operation exports throw if used. Remove all function bodies and return statements.
+// STUB: All MongoDB operation exports throw if used. No function/type/interface code remains.
 export const notServerError = () => { throw new Error('This operation is not available in this environment.'); };
 export const getProducts = notServerError;
-export const createChatMessage = notServerError;
-export const getChatMessages = notServerError;
-export const getConversations = notServerError;
-export const createConversation = notServerError;
 export const createProduct = notServerError;
 export const updateProduct = notServerError;
 export const deleteProduct = notServerError;
-export const getVendorProducts = notServerError;
-export const getProductById = notServerError;
+export const getVendors = notServerError;
 export const getOrders = notServerError;
-export const createOrder = notServerError;
-export const getOrderById = notServerError;
-export const updateOrder = notServerError;
-export const getStores = notServerError;
-export const getStoreById = notServerError;
-export const createStore = notServerError;
-export const updateStore = notServerError;
-export const getServices = notServerError;
-export const createService = notServerError;
-export const updateService = notServerError;
-export const deleteService = notServerError;
-export const getServiceById = notServerError;
-export const getBookings = notServerError;
-export const createBooking = notServerError;
-export const updateBooking = notServerError;
-export const createSupportTicket = notServerError;
-export const getSupportTickets = notServerError;
-export const updateSupportTicket = notServerError;
-export const createNotification = notServerError;
-export const getNotifications = notServerError;
-export const markNotificationAsRead = notServerError;
 export const getUserCart = notServerError;
-export const setUserCart = notServerError;
-export { getConversations, createConversation } from './conversations-operations';
-export const createDocument = notServerError;
-export const getDocument = notServerError;
-export const updateDocument = notServerError;
-export const deleteDocument = notServerError;
-export type {
-  IProduct as Product,
-  IOrder as Order,
-  IStore as Store,
-  IService as Service,
-  IBooking as Booking,
-  ISupportTicket as SupportTicket,
-  INotification as Notification,
-  IUserCart as UserCart
-}
-export const getOrdersByVendor = notServerError;
-export const getAllOrders = notServerError;
-export const getBookingsByProvider = notServerError;
-export const getAllBookings = notServerError;
-export const getUserById = notServerError;
-export const getUsersByRole = notServerError;
 export const updateUserProfileInDb = notServerError;
 export const deleteStore = notServerError;
 export const deleteProductsByVendor = notServerError;
