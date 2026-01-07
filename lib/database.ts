@@ -1,11 +1,78 @@
 // MongoDB Database Operations - Drop-in replacement for Firestore
 // This file provides the same interface as firestore.ts but uses MongoDB
 
-import * as mongoOperations from './mongodb-operations'
-import { Conversation, ChatMessage } from './models'
-import * as mongoAuth from './mongodb-auth'
-import { withMongoDBRetry } from './mongodb'
-import { IProduct, IOrder, IStore, IService, IBooking, ISupportTicket, INotification, IUserCart, IConversation, IChatMessage } from './models'
+// STUB: This file should not be imported in client components!
+// All database logic must be accessed via API routes or server components only.
+
+const notServerError = () => {
+  throw new Error('Database functions cannot be used in client components. Use API routes instead.')
+}
+
+// Example stub exports (add more as needed)
+export const getProducts = notServerError
+export const createProduct = notServerError
+export const updateProduct = notServerError
+export const deleteProduct = notServerError
+export const getVendorProducts = notServerError
+export const getProductById = notServerError
+export const getOrders = notServerError
+export const createOrder = notServerError
+export const getOrderById = notServerError
+export const updateOrder = notServerError
+export const getStores = notServerError
+export const getStoreById = notServerError
+export const createStore = notServerError
+export const updateStore = notServerError
+export const getServices = notServerError
+export const createService = notServerError
+export const updateService = notServerError
+export const deleteService = notServerError
+export const getServiceById = notServerError
+export const getBookings = notServerError
+export const createBooking = notServerError
+export const updateBooking = notServerError
+export const createSupportTicket = notServerError
+export const getSupportTickets = notServerError
+export const updateSupportTicket = notServerError
+export const createNotification = notServerError
+export const getNotifications = notServerError
+export const markNotificationAsRead = notServerError
+export const getUserCart = notServerError
+export const setUserCart = notServerError
+export const getUserById = notServerError
+export const getConversations = notServerError
+export const createConversation = notServerError
+export const getChatMessages = notServerError
+export const createChatMessage = notServerError
+export const createDocument = notServerError
+export const getDocument = notServerError
+export const updateDocument = notServerError
+export const deleteDocument = notServerError
+
+// Types and utility stubs
+export type ProductType = any
+export type OrderType = any
+export type StoreType = any
+export type ServiceType = any
+export type BookingType = any
+export type SupportTicketType = any
+export type NotificationType = any
+export type UserCartType = any
+export type ConversationType = any
+export type ChatMessageType = any
+
+export interface Product {}
+export interface Order {}
+export interface Store {}
+export interface Service {}
+export interface Booking {}
+export interface SupportTicket {}
+export interface Notification {}
+export interface UserCart {}
+export interface Conversation {}
+export interface ChatMessage {}
+
+export const isDbAvailable = async () => false
 
 // Re-export all MongoDB operations with the same interface as Firestore
 export const getProducts = mongoOperations.getProducts

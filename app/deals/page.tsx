@@ -10,7 +10,8 @@ import { Clock, ShoppingCart, Heart, Zap } from "lucide-react"
 import { useCart } from "@/contexts/CartContext"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
-import { getProducts } from "@/lib/database"
+// TODO: Fetch deals from an API route instead of importing getProducts directly.
+// import { getProducts } from "@/lib/database"
 
 export default function DealsPage() {
   const [products, setProducts] = useState<any[]>([])
