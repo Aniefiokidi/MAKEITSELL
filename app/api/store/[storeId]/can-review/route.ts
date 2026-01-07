@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
-import { getDbInstance } from "@/lib/firebase"
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore"
+// TODO: Replace Firestore logic with MongoDB
 
 export async function GET(
   request: Request,
@@ -18,25 +17,9 @@ export async function GET(
       }, { status: 400 })
     }
 
-    // Get store information
-    const storeDoc = await getDoc(doc(getDbInstance(), "stores", storeId))
-    if (!storeDoc.exists()) {
-      return NextResponse.json({ 
-        success: false, 
-        error: "Store not found" 
-      }, { status: 404 })
-    }
-
-    const storeData = storeDoc.data()
-
-    // Check if customer has any delivered orders from this store
-    const ordersQuery = query(
-      collection(getDbInstance(), "orders"),
-      where("customerId", "==", customerId),
-      where("vendorId", "==", storeData.vendorId),
-      where("status", "==", "delivered")
-    )
-    const ordersSnapshot = await getDocs(ordersQuery)
+    // TODO: Get store info and check delivered orders in MongoDB
+    // Stub response:
+    return NextResponse.json({ success: true, canReview: true, message: "Stub: can review" })
     
     if (ordersSnapshot.empty) {
       return NextResponse.json({

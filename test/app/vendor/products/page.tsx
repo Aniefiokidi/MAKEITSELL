@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import VendorLayout from "@/components/vendor/VendorLayout"
 import { useAuth } from "@/contexts/AuthContext"
-import { getProducts, Product, deleteProduct } from "@/lib/firestore"
+// TODO: Replace with API call to fetch products from MongoDB
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,7 +17,7 @@ import Image from "next/image"
 const VendorProductsPage = () => {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
-  const [products, setProducts] = useState<Product[]>([])
+  const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showAll, setShowAll] = useState(false)
   const { user } = useAuth()
@@ -31,11 +31,19 @@ const VendorProductsPage = () => {
         if (!showAll && user?.uid) {
           // Only fetch this vendor's products
           console.log('Fetching products for vendorId:', user.uid)
-          result = await getProducts({ vendorId: user.uid })
+          // TODO: Replace with API call to fetch products for vendor
+          // Example:
+          // const response = await fetch("/api/products?vendorId=" + user.uid)
+          // result = await response.json()
+          result = [] // Stub: empty array
         } else {
           // Fetch all products
           console.log('Fetching all products')
-          result = await getProducts()
+          // TODO: Replace with API call to fetch all products
+          // Example:
+          // const response = await fetch("/api/products")
+          // result = await response.json()
+          result = [] // Stub: empty array
         }
         console.log('Fetched products:', result)
         setProducts(result || [])
