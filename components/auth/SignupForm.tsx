@@ -25,13 +25,26 @@ export default function SignupForm() {
   const paymentError = searchParams.get("error")
   const { register } = useAuth() // Add auth context hook
 
-  const [formData, setFormData] = useState({
+  type RoleType = "customer" | "vendor" | "admin";
+  const [formData, setFormData] = useState<{
+    email: string
+    password: string
+    confirmPassword: string
+    displayName: string
+    role: RoleType
+    vendorType: "goods" | "services" | "both"
+    storeName: string
+    storeDescription: string
+    storeCategory: string
+    storeAddress: string
+    storePhone: string
+  }>({
     email: "",
     password: "",
     confirmPassword: "",
     displayName: "",
-    role: (isVendorSignup ? "vendor" : "customer") as "customer" | "vendor" | "admin",
-    vendorType: "both" as "goods" | "services" | "both",
+    role: (isVendorSignup ? "vendor" : "customer"),
+    vendorType: "both",
     // Store-specific fields
     storeName: "",
     storeDescription: "",
@@ -196,13 +209,13 @@ export default function SignupForm() {
       }
 
       // If not vendor, create account normally (customer/admin)
-      if (formData.role !== "vendor") {
+      if (formData.role === "customer" || formData.role === "admin") {
         console.log("Step 1: Creating customer/admin account via AuthContext...");
         await register(
           formData.email,
           formData.password,
           formData.displayName,
-          formData.role
+          formData.role === "admin" ? "customer" : formData.role // fallback to "customer" for admin
         );
         console.log("Step 1: Customer/admin account created successfully");
         // No store/service creation for customers/admins

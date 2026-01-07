@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { updateUser, getUserById } from '@/lib/mongodb-operations'
+import { updateUserProfileInDb, getUserById } from '@/lib/mongodb-operations'
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const result = await updateUser(userId, updateData)
+    const result = await updateUserProfileInDb(userId, updateData)
 
     if (result.success) {
       // Get updated user data

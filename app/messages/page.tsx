@@ -68,6 +68,34 @@ export default function MessagesPage() {
       const result = await res.json()
       // Sort conversations by lastMessageTime descending
       const sorted = (result.conversations || []).sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime())
+      interface Conversation {
+        id: string
+        customerId: string
+        customerName: string
+        providerId: string
+        providerName: string
+        storeImage?: string
+        storeName?: string
+        lastMessage: string
+        lastMessageTime: string
+        unreadCount?: number
+      }
+
+      interface Message {
+        id: string
+        conversationId: string
+        senderId: string
+        senderName: string
+        senderRole: "provider" | "customer"
+        receiverId: string
+        message: string
+        read: boolean
+        createdAt: string
+      }
+
+      const [conversations, setConversations] = useState<Conversation[]>([])
+      const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
+      const [messages, setMessages] = useState<Message[]>([])
       setConversations(sorted)
     } catch (error) {
       console.error("Error fetching conversations:", error)

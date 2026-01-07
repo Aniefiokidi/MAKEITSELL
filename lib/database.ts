@@ -2,6 +2,7 @@
 // This file provides the same interface as firestore.ts but uses MongoDB
 
 import * as mongoOperations from './mongodb-operations'
+import { Conversation, ChatMessage } from './models'
 import * as mongoAuth from './mongodb-auth'
 import { withMongoDBRetry } from './mongodb'
 import { IProduct, IOrder, IStore, IService, IBooking, ISupportTicket, INotification, IUserCart, IConversation, IChatMessage } from './models'
@@ -49,11 +50,9 @@ export const getUserById = mongoOperations.getUserById
 
 export const getConversations = mongoOperations.getConversations
 export const createConversation = mongoOperations.createConversation
-export const updateConversation = mongoOperations.updateConversation
 
 export const getChatMessages = mongoOperations.getChatMessages
 export const createChatMessage = mongoOperations.createChatMessage
-export const markMessagesAsRead = mongoOperations.markMessagesAsRead
 
 export const createDocument = mongoOperations.createDocument
 export const getDocument = mongoOperations.getDocument
@@ -69,10 +68,11 @@ export type {
   Booking as BookingType,
   SupportTicket as SupportTicketType,
   Notification as NotificationType,
-  UserCart as UserCartType,
-  Conversation as ConversationType,
-  ChatMessage as ChatMessageType
+  UserCart as UserCartType
 } from './mongodb-operations'
+
+export type ConversationType = typeof Conversation;
+export type ChatMessageType = typeof ChatMessage;
 
 // For backward compatibility, create interface definitions that match Firestore
 export interface Product extends IProduct {}
