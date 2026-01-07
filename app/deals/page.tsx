@@ -10,8 +10,7 @@ import { Clock, ShoppingCart, Heart, Zap } from "lucide-react"
 import { useCart } from "@/contexts/CartContext"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
-// TODO: Fetch deals from an API route instead of importing getProducts directly.
-// import { getProducts } from "@/lib/database"
+// All product fetching must be done via API route only. Do not import getProducts or any database logic directly in client components.
 
 export default function DealsPage() {
   const [products, setProducts] = useState<any[]>([])
