@@ -12,6 +12,7 @@ const nextConfig = {
   },
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-dialog', '@radix-ui/react-select'],
+    turbo: false, // Disable Turbopack, force Webpack
   },
   images: {
     unoptimized: process.env.NODE_ENV === 'development',
