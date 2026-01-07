@@ -2,9 +2,15 @@
 
 import type React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
-import { type User, onAuthStateChanged } from "firebase/auth"
-import { getAuthInstance } from "@/lib/firebase"
-import { getUserProfile, type UserProfile, signIn, signUp, logOut } from "@/lib/auth"
+import { getUserProfile, type UserProfile, signIn, signUp, logOut } from "@/lib/auth-client"
+
+// Updated User interface for MongoDB
+interface User {
+  uid: string
+  email: string
+  displayName: string
+  role: "customer" | "vendor" | "admin"
+}
 
 interface AuthContextType {
   user: User | null
@@ -48,6 +54,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  // Inactivity timer
+  const INACTIVITY_LIMIT = 40 * 60 * 1000; // 40 minutes in ms
+  let inactivityTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  // Reset inactivity timer
+  const resetInactivityTimer = () => {
+    if (inactivityTimeout) clearTimeout(inactivityTimeout);
+    inactivityTimeout = setTimeout(() => {
+      logout();
+    }, INACTIVITY_LIMIT);
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    // Events that count as activity
+    const events = ["mousemove", "keydown", "scroll", "touchstart", "click"];
+    events.forEach((event) => window.addEventListener(event, resetInactivityTimer));
+    resetInactivityTimer();
+    return () => {
+      if (inactivityTimeout) clearTimeout(inactivityTimeout);
+      events.forEach((event) => window.removeEventListener(event, resetInactivityTimer));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   // Handle hydration
   useEffect(() => {
@@ -61,28 +91,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return
     }
 
-    const auth = getAuthInstance()
-
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user)
-
-      if (user) {
-        // Get user profile from Firestore
-        const profile = await getUserProfile(user.uid)
-        setUserProfile(profile)
-      } else {
+    // Check for existing session using HTTP-only cookie
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' })
+        const data = await res.json()
+        if (data.user) {
+          setUser({
+            uid: data.user.id,
+            email: data.user.email,
+            displayName: data.user.name,
+            role: data.user.role
+          })
+          setUserProfile(data.userProfile)
+        } else {
+          setUser(null)
+          setUserProfile(null)
+        }
+      } catch (error) {
+        setUser(null)
         setUserProfile(null)
+      } finally {
+        setLoading(false)
       }
+    }
 
-      setLoading(false)
-    })
-
-    return () => unsubscribe()
+    checkAuth()
   }, [])
 
   const login = async (email: string, password: string) => {
-    const user = await signIn(email, password)
-    return user
+    try {
+      setLoading(true)
+      const result = await signIn(email, password)
+      console.log('Login result in AuthContext:', result)
+      console.log('Setting user in AuthContext:', result.user)
+      console.log('Setting userProfile in AuthContext:', result.userProfile)
+      setUser(result.user)
+      setUserProfile(result.userProfile)
+      // No need to store session in localStorage; session is managed by HTTP-only cookie
+      return result
+    } catch (error) {
+      console.error('Login error in AuthContext:', error)
+      throw error
+    } finally {
+      setLoading(false)
+    }
   }
 
   const register = async (
@@ -91,12 +144,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     displayName: string,
     role: "customer" | "vendor" = "customer",
   ) => {
-    const result = await signUp(email, password, displayName, role)
-    return result
+    try {
+      setLoading(true)
+      const result = await signUp(email, password, displayName, role)
+      console.log('Register result in AuthContext:', result)
+      console.log('Setting user in AuthContext:', result.user)
+      console.log('Setting userProfile in AuthContext:', result.userProfile)
+      setUser(result.user)
+      setUserProfile(result.userProfile)
+      // No need to store session in localStorage; session is managed by HTTP-only cookie
+      return result
+    } catch (error) {
+      console.error('Register error in AuthContext:', error)
+      throw error
+    } finally {
+      setLoading(false)
+    }
   }
 
   const logout = async () => {
-    await logOut()
+    try {
+      await logOut()
+    } catch (error) {
+      console.error('Logout error:', error)
+    } finally {
+      // Always clear state regardless of API call success
+      setUser(null)
+      setUserProfile(null)
+      
+      // Ensure localStorage is cleared
+      // No need to clear localStorage; session is managed by HTTP-only cookie
+    }
   }
 
   // Handle hydration mismatch

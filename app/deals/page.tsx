@@ -10,13 +10,18 @@ import { Clock, ShoppingCart, Heart, Zap } from "lucide-react"
 import { useCart } from "@/contexts/CartContext"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
-import { getProducts } from "@/lib/firestore"
+import { getProducts } from "@/lib/database"
 
 export default function DealsPage() {
   const [products, setProducts] = useState<any[]>([])
   const [filteredProducts, setFilteredProducts] = useState<any[]>([])
   const [sortBy, setSortBy] = useState("discount")
   const { addToCart } = useCart()
+
+  // Format currency with commas
+  const formatCurrency = (amount: number) => {
+    return amount.toLocaleString('en-NG')
+  }
 
   useEffect(() => {
     async function fetchProducts() {
@@ -70,14 +75,14 @@ export default function DealsPage() {
   const handleAddToCart = (product: any) => {
     addToCart({
       productId: product.id,
-      title: product.name,
+      id: product.id,
+      title: product.name || product.title,
       price: product.price,
-      image: product.image,
+      image: product.image || '',
       quantity: 1,
-      vendorId: product.vendor || "", 
-      vendorName: product.vendor,
-      maxStock: product.inStock ? 999 : 0,
-      id: product
+      vendorId: product.vendor || '', 
+      vendorName: product.vendor || 'Unknown Vendor',
+      maxStock: product.inStock ? 999 : 0
     });
   };
 
@@ -231,13 +236,13 @@ export default function DealsPage() {
                     {/* Price */}
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold">₦{product.price}</span>
+                        <span className="text-lg font-bold">₦{formatCurrency(product.price)}</span>
                         <span className="text-sm text-muted-foreground line-through">
-                          ₦{product.originalPrice?.toFixed(2)}
+                          ₦{formatCurrency(product.originalPrice)}
                         </span>
                       </div>
                       <div className="flex items-center text-sm text-green-600">
-                        <span>You save ₦{(product.originalPrice - product.price).toFixed(2)}</span>
+                        <span>You save ₦{formatCurrency(product.originalPrice - product.price)}</span>
                       </div>
                     </div>
 

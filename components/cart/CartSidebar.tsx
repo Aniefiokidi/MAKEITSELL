@@ -4,12 +4,45 @@ import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useCart } from "@/contexts/CartContext"
+import React, { useEffect, useState } from "react"
 import { ShoppingCart, Plus, Minus, Trash2, ShoppingBag } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 
 export default function CartSidebar() {
   const { items, totalItems, totalPrice, updateQuantity, removeItem, isOpen, setIsOpen } = useCart()
+  const [storeNames, setStoreNames] = useState<{ [vendorId: string]: string }>({})
+  // Debug: Log cart items and storeNames mapping
+  useEffect(() => {
+    if (items.length > 0) {
+      console.log('[CartSidebar] Cart items:', items);
+      console.log('[CartSidebar] Store names mapping:', storeNames);
+    }
+  }, [items, storeNames]);
+
+  useEffect(() => {
+    const fetchStoreNames = async () => {
+      const vendorIds = Array.from(new Set(items.map(item => item.vendorId).filter(Boolean)))
+      const names: { [vendorId: string]: string } = {}
+      await Promise.all(
+        vendorIds.map(async (vendorId) => {
+          try {
+            const res = await fetch(`/api/database/stores?vendorId=${vendorId}`)
+            const json = await res.json()
+            if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+              names[vendorId] = json.data[0].storeName || json.data[0].name || "Store"
+            } else {
+              names[vendorId] = "Store"
+            }
+          } catch {
+            names[vendorId] = "Store"
+          }
+        })
+      )
+      setStoreNames(names)
+    }
+    if (items.length > 0) fetchStoreNames()
+  }, [items])
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -37,7 +70,7 @@ export default function CartSidebar() {
             <h3 className="text-lg font-semibold mb-2">Your cart is empty</h3>
             <p className="text-muted-foreground mb-4">Add some products to get started</p>
             <Button asChild onClick={() => setIsOpen(false)}>
-              <Link href="/shop">Continue Shopping</Link>
+              <Link href="/stores">Continue Shopping</Link>
             </Button>
           </div>
         ) : (
@@ -51,7 +84,7 @@ export default function CartSidebar() {
                     </div>
                     <div className="flex-1 space-y-1">
                       <h4 className="text-sm font-medium line-clamp-2">{item.title}</h4>
-                      <p className="text-xs text-muted-foreground">by {item.vendorName}</p>
+                      <p className="text-xs text-muted-foreground">by {storeNames[item.vendorId] || item.vendorName}</p>
                       <p className="text-sm font-semibold">₦{item.price.toFixed(2)}</p>
                     </div>
                     <div className="flex flex-col items-end space-y-2">

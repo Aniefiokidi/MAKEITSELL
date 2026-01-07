@@ -29,9 +29,9 @@ export default function TermsPage() {
               <div className="flex items-start gap-4">
                 <Scale className="w-8 h-8 text-primary mt-1" />
                 <div>
-                  <h2 className="text-xl font-semibold mb-2">Welcome to BRANDA Marketplace</h2>
+                  <h2 className="text-xl font-semibold mb-2">Welcome to Make It Sell Marketplace</h2>
                   <p className="text-muted-foreground">
-                    These Terms of Service govern your use of the BRANDA Marketplace platform. By accessing or using our services, 
+                    These Terms of Service govern your use of the Make It Sell Marketplace platform. By accessing or using our services, 
                     you agree to be bound by these terms. Please read them carefully.
                   </p>
                 </div>
@@ -62,6 +62,10 @@ export default function TermsPage() {
                   <AlertTriangle className="w-4 h-4" />
                   <span className="text-sm">Prohibited Conduct</span>
                 </Link>
+                <Link href="#vendor-subscription" className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                  <Users className="w-4 h-4" />
+                  <span className="text-sm">Vendor Subscriptions</span>
+                </Link>
                 <Link href="#liability" className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
                   <Shield className="w-4 h-4" />
                   <span className="text-sm">Liability & Disclaimers</span>
@@ -84,7 +88,7 @@ export default function TermsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                By accessing and using the BRANDA Marketplace platform, you acknowledge that you have read, understood, 
+                By accessing and using the Make It Sell Marketplace platform, you acknowledge that you have read, understood, 
                 and agree to be bound by these Terms of Service and all applicable laws and regulations.
               </p>
               <div>
@@ -238,7 +242,7 @@ export default function TermsPage() {
               <div>
                 <h4 className="font-semibold mb-2">Our Content</h4>
                 <p className="text-sm text-muted-foreground">
-                  The BRANDA Marketplace platform, including its design, features, and content, is protected by copyright, 
+                  The Make It Sell Marketplace platform, including its design, features, and content, is protected by copyright, 
                   trademark, and other intellectual property laws. You may not copy, distribute, or create derivative works 
                   without our express permission.
                 </p>
@@ -249,6 +253,80 @@ export default function TermsPage() {
                   By posting content on our platform, you grant us a non-exclusive license to use, display, and distribute 
                   that content in connection with our services. You retain ownership of your content and are responsible 
                   for ensuring you have the rights to post it.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Vendor Subscription Terms */}
+          <Card className="mb-6" id="vendor-subscription">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Vendor Subscription Terms
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <h4 className="font-semibold mb-2">Monthly Subscription Requirement</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  All vendors on Make It Sell Marketplace are required to maintain an active monthly subscription 
+                  of ₦2,500 to list products and services on our platform.
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-2 pl-4">
+                  <li>• Monthly subscription fee: ₦2,500</li>
+                  <li>• Payment is due on the same date each month as your initial registration</li>
+                  <li>• Subscriptions automatically renew unless cancelled</li>
+                  <li>• All payments are processed securely through Paystack</li>
+                </ul>
+              </div>
+              
+              <div>
+                <h4 className="font-semibold mb-2">Account Suspension Policy</h4>
+                <p className="text-sm text-muted-foreground mb-3">
+                  To maintain platform integrity and ensure continuous service, the following policies apply 
+                  to overdue subscription payments:
+                </p>
+                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                  <div className="space-y-2">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-yellow-800">7 Days Overdue - Warning Email</p>
+                        <p className="text-xs text-yellow-700">You will receive a warning email about the overdue payment</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-orange-600 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-orange-800">10 Days Overdue - Account Suspension</p>
+                        <p className="text-xs text-orange-700">Your store will be hidden from customers and suspended from the marketplace</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-red-800">20 Days Overdue - Account Deletion</p>
+                        <p className="text-xs text-red-700">Your account and all associated data will be permanently deleted</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <ul className="text-sm text-muted-foreground space-y-1 pl-4">
+                  <li>• Suspended accounts cannot receive new orders or customer inquiries</li>
+                  <li>• Your store will not appear in search results or category listings</li>
+                  <li>• Account suspension can be reversed immediately upon payment</li>
+                  <li>• After 20 days, account deletion is permanent and irreversible</li>
+                  <li>• You will receive email notifications at each stage of the process</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="font-semibold mb-2">Payment Recovery</h4>
+                <p className="text-sm text-muted-foreground">
+                  If your account is suspended due to non-payment, you can reactivate it by logging into 
+                  your vendor dashboard and completing the overdue payment. Your store will be restored 
+                  to active status within 24 hours of successful payment.
                 </p>
               </div>
             </CardContent>
@@ -266,21 +344,21 @@ export default function TermsPage() {
               <div>
                 <h4 className="font-semibold mb-2">Platform Role</h4>
                 <p className="text-sm text-muted-foreground">
-                  BRANDA Marketplace is a platform that facilitates transactions between buyers and sellers. We are not a party 
+                  Make It Sell Marketplace is a platform that facilitates transactions between buyers and sellers. We are not a party 
                   to any transaction and do not guarantee the quality, safety, legality, or accuracy of listings.
                 </p>
               </div>
               <div>
                 <h4 className="font-semibold mb-2">Limitation of Liability</h4>
                 <p className="text-sm text-muted-foreground">
-                  To the fullest extent permitted by law, BRANDA Marketplace shall not be liable for any indirect, incidental, 
+                  To the fullest extent permitted by law, Make It Sell Marketplace shall not be liable for any indirect, incidental, 
                   special, or consequential damages arising from your use of our platform.
                 </p>
               </div>
               <div>
                 <h4 className="font-semibold mb-2">Indemnification</h4>
                 <p className="text-sm text-muted-foreground">
-                  You agree to indemnify and hold harmless BRANDA Marketplace from any claims, damages, or expenses arising 
+                  You agree to indemnify and hold harmless Make It Sell Marketplace from any claims, damages, or expenses arising 
                   from your use of the platform or violation of these terms.
                 </p>
               </div>
@@ -334,7 +412,7 @@ export default function TermsPage() {
                 If you have any questions about these Terms of Service, please contact us:
               </p>
               <div className="space-y-2 text-sm">
-                <p><strong>Email:</strong> legal@BRANDA.com</p>
+                <p><strong>Email:</strong> legal@makeitsell.com</p>
                 <p><strong>Address:</strong> 123 Allen Avenue, Legal Department, Lagos, Nigeria</p>
                 <p><strong>Phone:</strong> +234 812 9380 869</p>
               </div>

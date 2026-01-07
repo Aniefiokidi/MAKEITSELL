@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { getProductById, deleteProduct } from "@/lib/firestore"
 import VendorLayout from "@/components/vendor/VendorLayout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -20,8 +19,12 @@ export default function ProductViewPage() {
     async function fetchProduct() {
       setLoading(true)
       try {
-        const prod = await getProductById(id)
-        setProduct(prod)
+        const response = await fetch(`/api/vendor/products/${id}`)
+        if (!response.ok) {
+          throw new Error('Product not found')
+        }
+        const data = await response.json()
+        setProduct(data.product)
       } catch (err: any) {
         setError("Product not found")
       } finally {

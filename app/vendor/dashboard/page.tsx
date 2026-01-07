@@ -10,96 +10,136 @@ import {
   ShoppingCart,
   AlertTriangle,
   TrendingUp,
-  DollarSign,
+  Banknote,
   Wrench,
   Calendar,
   Clock,
   Star,
-  Plus
+  Plus,
+  CreditCard
 } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
+import { getSessionToken } from "@/lib/auth-client"
 import Link from "next/link"
 import VendorLayout from "@/components/vendor/VendorLayout"
 
+
 export default function VendorDashboardPage() {
-  const { user, userProfile } = useAuth()
-  const [orders, setOrders] = useState<any[]>([])
-  const [products, setProducts] = useState<any[]>([])
-  const [services, setServices] = useState<any[]>([])
-  const [bookings, setBookings] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { user, userProfile, loading } = useAuth();
+  const [dashboard, setDashboard] = useState<any>(null);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<{
+    status: 'active' | 'suspended' | 'expired';
+    expiryDate: Date | null;
+    daysUntilExpiry: number;
+    accountStatus: 'active' | 'suspended' | 'deleted';
+  } | null>(null);
+
+  // Handle subscription renewal
+  const handleRenewSubscription = async () => {
+    if (!user || !userProfile) return
+
+    try {
+      setDataLoading(true)
+      const response = await fetch('/api/payments/vendor-subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          vendorId: user.uid,
+          email: user.email || userProfile.email
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to initialize payment')
+      }
+
+      const result = await response.json()
+
+      if (result.success && result.authorization_url) {
+        // Redirect to Paystack payment
+        window.location.href = result.authorization_url
+      } else {
+        throw new Error('Payment initialization failed')
+      }
+    } catch (error) {
+      console.error('Renewal error:', error)
+      alert('Failed to process subscription renewal. Please try again.')
+    } finally {
+      setDataLoading(false)
+    }
+  }
+
+  // Format currency with commas
+  const formatCurrency = (amount: number) => {
+    return amount.toLocaleString('en-NG')
+  }
 
   useEffect(() => {
-    const loadData = async () => {
-      if (!user) return
-
+    const loadDashboard = async () => {
+      if (!user) return;
+      setDataLoading(true);
       try {
-        const { getOrders, getVendorProducts, getServices, getBookings } = await import("@/lib/firestore")
-
-        const vendorType = userProfile?.vendorType || "both"
-
-        // Load goods data if vendor sells goods
-        if (vendorType === "goods" || vendorType === "both") {
-          const vendorOrders = await getOrders({ vendorId: user.uid })
-          setOrders(vendorOrders)
-
-          const vendorProducts = await getVendorProducts(user.uid)
-          setProducts(vendorProducts)
-        }
-
-        // Load services data if vendor offers services
-        if (vendorType === "services" || vendorType === "both") {
-          const vendorServices = await getServices({ providerId: user.uid })
-          setServices(vendorServices)
-
-          const vendorBookings = await getBookings({ providerId: user.uid })
-          setBookings(vendorBookings)
+        const res = await fetch(`/api/vendor/dashboard?vendorId=${encodeURIComponent(user.uid)}`);
+        const data = await res.json();
+        if (data.success) {
+          setDashboard(data.data);
         }
       } catch (error) {
-        console.error("Error loading vendor data:", error)
+        console.error("Error loading dashboard data:", error);
       } finally {
-        setLoading(false)
+        setDataLoading(false);
       }
-    }
-    loadData()
-  }, [user, userProfile?.vendorType])
+    };
+    loadDashboard();
+  }, [user]);
 
-  // Check if user is a vendor
-  if (!user || userProfile?.role !== "vendor") {
+  // Show loading while authentication is being checked or userProfile is loading
+  if (loading || (user && !userProfile)) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <Card className="max-w-md">
           <CardHeader>
-            <CardTitle>Access Denied</CardTitle>
+            <CardTitle>Loading...</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground mb-4">
-              You need to be a vendor to access this page.
+            <p className="text-muted-foreground">
+              {loading ? "Checking authentication..." : "Loading profile..."}
             </p>
-            <Button asChild>
-              <a href="/become-seller">Become a Seller</a>
-            </Button>
           </CardContent>
         </Card>
       </div>
     )
   }
 
-  const totalRevenue = orders.reduce((sum, order) => sum + order.totalAmount, 0)
-  const serviceRevenue = bookings
-    .filter(b => b.status === "completed")
-    .reduce((sum, booking) => sum + booking.totalPrice, 0)
-  const totalOrders = orders.length
-  const totalProducts = products.length
-  const totalServices = services.length
-  const totalBookings = bookings.length
-  const pendingBookings = bookings.filter(b => b.status === "pending").length
-  const conversionRate = totalOrders > 0 ? ((totalOrders / (totalOrders + 50)) * 100).toFixed(1) : "0.0"
+  // Check if user is a vendor - redirect if not
+  if (!user || userProfile?.role !== "vendor") {
+    if (typeof window !== 'undefined') {
+      window.location.href = '/unauthorized'
+    }
+    return null
+  }
 
-  const lowStockProducts = products.filter(product => product.stock < 5)
-  const recentOrders = orders.slice(0, 5)
-  const recentBookings = bookings.slice(0, 5)
-  const activeServices = services.filter(s => s.status === "active").length
+  const totalRevenue = dashboard?.totalRevenue || 0;
+  const totalOrders = dashboard?.totalOrders || 0;
+  const totalProducts = dashboard?.totalProducts || 0;
+  const revenueChange = dashboard?.revenueChange;
+  const ordersChange = dashboard?.ordersChange;
+  const productsChange = dashboard?.productsChange;
+  const newProductsThisWeek = dashboard?.newProductsThisWeek;
+  const conversionRate = dashboard?.conversionRate?.toFixed(1) || "0.0";
+  const conversionRateChange = dashboard?.conversionRateChange;
+  const lowStockProducts = dashboard?.lowStockProducts || [];
+  const recentOrders = dashboard?.recentOrders || [];
+  const serviceRevenue = dashboard?.serviceRevenue || 0;
+  const totalServices = dashboard?.totalServices || 0;
+  const totalBookings = dashboard?.totalBookings || 0;
+  const pendingBookings = dashboard?.pendingBookings || 0;
+  const activeServices = dashboard?.activeServices || 0;
+  const recentBookings = dashboard?.recentBookings || [];
 
   const vendorType = userProfile?.vendorType || "both"
 
@@ -109,6 +149,104 @@ export default function VendorDashboardPage() {
         <h1 className="text-lg font-bold" style={{ textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))' }}>Dashboard</h1>
         <p className="text-xs text-muted-foreground">Welcome back! Here's what's happening with your store.</p>
       </div>
+
+      {/* Subscription Status */}
+      {subscriptionStatus && (
+        <div className="mt-6 mb-6">
+          <Card className={`border-l-4 ${
+            subscriptionStatus.status === 'active' && subscriptionStatus.daysUntilExpiry > 7 
+              ? 'border-l-green-500 bg-green-50' 
+              : subscriptionStatus.status === 'active' && subscriptionStatus.daysUntilExpiry <= 7
+                ? 'border-l-yellow-500 bg-yellow-50'
+                : subscriptionStatus.status === 'expired' 
+                  ? 'border-l-orange-500 bg-orange-50'
+                  : 'border-l-red-500 bg-red-50'
+          }`}>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <CreditCard className={`h-6 w-6 ${
+                    subscriptionStatus.status === 'active' && subscriptionStatus.daysUntilExpiry > 7 
+                      ? 'text-green-600' 
+                      : subscriptionStatus.status === 'active' && subscriptionStatus.daysUntilExpiry <= 7
+                        ? 'text-yellow-600'
+                        : subscriptionStatus.status === 'expired' 
+                          ? 'text-orange-600'
+                          : 'text-red-600'
+                  }`} />
+                  <div>
+                    <p className="font-semibold">
+                      {subscriptionStatus.status === 'active' && subscriptionStatus.daysUntilExpiry > 7
+                        ? 'Subscription Active'
+                        : subscriptionStatus.status === 'active' && subscriptionStatus.daysUntilExpiry <= 7
+                          ? 'Subscription Expiring Soon'
+                          : subscriptionStatus.status === 'expired'
+                            ? 'Subscription Expired'
+                            : subscriptionStatus.accountStatus === 'suspended'
+                              ? 'Account Suspended'
+                              : 'Subscription Issue'
+                      }
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {subscriptionStatus.daysUntilExpiry > 0 
+                        ? `Expires in ${subscriptionStatus.daysUntilExpiry} day${subscriptionStatus.daysUntilExpiry === 1 ? '' : 's'}`
+                        : subscriptionStatus.daysUntilExpiry === 0 
+                          ? 'Expires today'
+                          : `Expired ${Math.abs(subscriptionStatus.daysUntilExpiry)} day${Math.abs(subscriptionStatus.daysUntilExpiry) === 1 ? '' : 's'} ago`
+                      }
+                      {subscriptionStatus.expiryDate && (
+                        <span className="ml-2">
+                          ({new Date(subscriptionStatus.expiryDate).toLocaleDateString('en-NG')})
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {(subscriptionStatus.status !== 'active' || subscriptionStatus.daysUntilExpiry <= 7) && (
+                    <Button size="sm" onClick={handleRenewSubscription} disabled={dataLoading} className="hover:bg-accent/80 hover:scale-105 transition-all hover:shadow-lg">
+                      {dataLoading ? 'Processing...' : 'Renew Subscription'}
+                    </Button>
+                  )}
+                  {subscriptionStatus.accountStatus === 'suspended' && (
+                    <Badge variant="destructive">
+                      Suspended
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              {(subscriptionStatus.daysUntilExpiry <= 7 && subscriptionStatus.daysUntilExpiry > 0) && (
+                <div className="mt-2 p-2 bg-yellow-100 rounded text-sm text-yellow-800">
+                  <AlertTriangle className="h-4 w-4 inline mr-2" />
+                  Your subscription expires soon. Renew now to avoid service interruption.
+                </div>
+              )}
+              {subscriptionStatus.daysUntilExpiry < 0 && subscriptionStatus.accountStatus !== 'suspended' && (
+                <div className="mt-2 p-2 bg-orange-100 rounded text-sm text-orange-800">
+                  <AlertTriangle className="h-4 w-4 inline mr-2" />
+                  Your subscription is overdue. Account will be suspended after 10 days of non-payment.
+                  {Math.abs(subscriptionStatus.daysUntilExpiry) >= 10 && (
+                    <span className="block mt-1 font-semibold">
+                      Account suspension: {20 - Math.abs(subscriptionStatus.daysUntilExpiry)} days remaining before permanent deletion
+                    </span>
+                  )}
+                </div>
+              )}
+              {subscriptionStatus.accountStatus === 'suspended' && (
+                <div className="mt-2 p-2 bg-red-100 rounded text-sm text-red-800">
+                  <AlertTriangle className="h-4 w-4 inline mr-2" />
+                  Your account is suspended. Your store is hidden from customers. 
+                  {Math.abs(subscriptionStatus.daysUntilExpiry) < 20 && (
+                    <span className="block mt-1 font-semibold">
+                      Permanent deletion in: {20 - Math.abs(subscriptionStatus.daysUntilExpiry)} days
+                    </span>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Dashboard Content */}
       <div className="mt-8">
@@ -152,10 +290,17 @@ export default function VendorDashboardPage() {
     revenue: number,
     productsCount: number,
     ordersCount: number,
-    conversion: string,
+    conversion: string | number,
     lowStock: any[],
     recent: any[]
   ) {
+    // Defensive fallback for undefined/null values
+    const safeRevenueChange = typeof revenueChange === 'number' ? revenueChange : 0;
+    const safeProductsChange = typeof productsChange === 'number' ? productsChange : 0;
+    const safeOrdersChange = typeof ordersChange === 'number' ? ordersChange : 0;
+    const safeConversionRateChange = typeof conversionRateChange === 'number' ? conversionRateChange : 0;
+    const safeConversion = typeof conversion === 'string' ? conversion : (typeof conversion === 'number' ? conversion.toFixed(1) : '0.0');
+
     return (
       <>
         {/* Stats Cards */}
@@ -164,11 +309,13 @@ export default function VendorDashboardPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xl font-bold">₦{revenue.toFixed(2)}</p>
+                  <p className="text-xl font-bold">₦{formatCurrency(revenue)}</p>
                   <p className="text-xs text-gray-600">Product Revenue</p>
-                  <p className="text-xs text-green-600">+12% from last month</p>
+                  <p className="text-xs text-green-600">
+                    {`${safeRevenueChange >= 0 ? "+" : ""}${safeRevenueChange.toFixed(1)}% from last month`}
+                  </p>
                 </div>
-                <DollarSign className="h-8 w-8 text-accent animate-pulse-glow" />
+                <Banknote className="h-8 w-8 text-accent animate-pulse-glow" />
               </div>
             </CardContent>
           </Card>
@@ -179,7 +326,10 @@ export default function VendorDashboardPage() {
                 <div>
                   <p className="text-xl font-bold">{productsCount}</p>
                   <p className="text-xs text-gray-600">Products Listed</p>
-                  <p className="text-xs text-green-600">+2 new this week</p>
+                  <p className="text-xs text-green-600">
+                    {typeof newProductsThisWeek === "number" ? `+${newProductsThisWeek} new this week` : ""}
+                    {` (${safeProductsChange >= 0 ? "+" : ""}${safeProductsChange.toFixed(1)}% vs last week)`}
+                  </p>
                 </div>
                 <Package className="h-8 w-8 text-accent animate-pulse-glow" style={{ animationDelay: '0.2s' }} />
               </div>
@@ -192,7 +342,9 @@ export default function VendorDashboardPage() {
                 <div>
                   <p className="text-xl font-bold">{ordersCount}</p>
                   <p className="text-xs text-gray-600">Total Orders</p>
-                  <p className="text-xs text-green-600">+8% from last month</p>
+                  <p className="text-xs text-green-600">
+                    {`${safeOrdersChange >= 0 ? "+" : ""}${safeOrdersChange.toFixed(1)}% from last month`}
+                  </p>
                 </div>
                 <ShoppingCart className="h-8 w-8 text-accent animate-pulse-glow" style={{ animationDelay: '0.4s' }} />
               </div>
@@ -203,9 +355,11 @@ export default function VendorDashboardPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xl font-bold">{conversion}%</p>
+                  <p className="text-xl font-bold">{safeConversion}%</p>
                   <p className="text-xs text-gray-600">Conversion Rate</p>
-                  <p className="text-xs text-green-600">+0.5% from last month</p>
+                  <p className="text-xs text-green-600">
+                    {`${safeConversionRateChange >= 0 ? "+" : ""}${safeConversionRateChange.toFixed(1)}% from last month`}
+                  </p>
                 </div>
                 <TrendingUp className="h-8 w-8 text-accent animate-pulse-glow" style={{ animationDelay: '0.6s' }} />
               </div>
@@ -235,8 +389,8 @@ export default function VendorDashboardPage() {
               ) : (
                 <>
                   <div className="space-y-4">
-                    {recent.map((order) => (
-                      <div key={order.id} className="flex justify-between items-center p-3 rounded-lg hover:bg-accent/5 transition-colors">
+                    {recent.map((order, index) => (
+                      <div key={order.id || order._id || index} className="flex justify-between items-center p-3 rounded-lg hover:bg-accent/5 transition-colors">
                         <div>
                           <p className="font-medium">Order #{order.id.slice(-8)}</p>
                           <p className="text-sm text-gray-600">
@@ -272,8 +426,8 @@ export default function VendorDashboardPage() {
               ) : (
                 <>
                   <div className="space-y-2">
-                    {lowStock.map((product) => (
-                      <div key={product.id} className="flex justify-between items-center p-2 rounded hover:bg-accent/5">
+                    {lowStock.map((product, index) => (
+                      <div key={product.id || product._id || index} className="flex justify-between items-center p-2 rounded hover:bg-accent/5">
                         <span className="text-sm">{product.title}</span>
                         <Badge variant="destructive">{product.stock} left</Badge>
                       </div>
@@ -308,11 +462,11 @@ export default function VendorDashboardPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xl font-bold">₦{revenue.toFixed(2)}</p>
+                  <p className="text-xl font-bold">₦{formatCurrency(revenue)}</p>
                   <p className="text-xs text-gray-600">Service Revenue</p>
                   <p className="text-xs text-green-600">Completed bookings</p>
                 </div>
-                <DollarSign className="h-8 w-8 text-accent animate-pulse-glow" />
+                <Banknote className="h-8 w-8 text-accent animate-pulse-glow" />
               </div>
             </CardContent>
           </Card>
@@ -342,23 +496,6 @@ export default function VendorDashboardPage() {
               </div>
             </CardContent>
           </Card>
-
-          <Card className="animate-scale-in hover-lift" style={{ animationDelay: '0.4s' }}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xl font-bold">4.8</p>
-                  <p className="text-xs text-gray-600">Average Rating</p>
-                  <div className="flex items-center mt-1">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="h-3 w-3 fill-amber-400 text-amber-400" />
-                    ))}
-                  </div>
-                </div>
-                <TrendingUp className="h-8 w-8 text-accent animate-pulse-glow" style={{ animationDelay: '0.6s' }} />
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Recent Bookings and Service Performance */}
@@ -383,8 +520,8 @@ export default function VendorDashboardPage() {
               ) : (
                 <>
                   <div className="space-y-4">
-                    {recent.map((booking) => (
-                      <div key={booking.id} className="flex justify-between items-center p-3 rounded-lg hover:bg-accent/5 transition-colors">
+                    {recent.map((booking, index) => (
+                      <div key={booking.id || booking._id || index} className="flex justify-between items-center p-3 rounded-lg hover:bg-accent/5 transition-colors">
                         <div className="flex items-start gap-3">
                           <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
                           <div>

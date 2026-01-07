@@ -6,7 +6,6 @@ import { useState } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { uploadImageToStorage } from "@/lib/firebase"
 import { uploadToCloudinary } from "@/lib/cloudinary"
-import { createProduct } from "@/lib/firestore"
 import { useRouter } from "next/navigation"
 import VendorLayout from "@/components/vendor/VendorLayout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Upload, X, Loader2 } from "lucide-react"
+import { Upload, X, Loader2, Plus } from "lucide-react"
 
 const categories = [
   "Electronics",
@@ -45,9 +44,72 @@ export default function NewProduct() {
     stock: "",
     sku: "",
     featured: false,
+    hasColorOptions: false,
+    hasSizeOptions: false,
   })
   const [images, setImages] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
+  const [colors, setColors] = useState<string[]>([])
+  const [sizes, setSizes] = useState<string[]>([])
+  const [newColor, setNewColor] = useState("")
+  const [newSize, setNewSize] = useState("")
+  const [colorImages, setColorImages] = useState<{ [color: string]: File[] }>({})
+  const [colorPreviews, setColorPreviews] = useState<{ [color: string]: string[] }>({})
+
+  const addColor = () => {
+    if (newColor && !colors.includes(newColor)) {
+      setColors([...colors, newColor])
+      setNewColor("")
+    }
+  }
+
+  const removeColor = (color: string) => {
+    setColors(colors.filter(c => c !== color))
+    // Remove color images too
+    const newColorImages = { ...colorImages }
+    const newColorPreviews = { ...colorPreviews }
+    delete newColorImages[color]
+    delete newColorPreviews[color]
+    setColorImages(newColorImages)
+    setColorPreviews(newColorPreviews)
+  }
+
+  const addSize = () => {
+    if (newSize && !sizes.includes(newSize)) {
+      setSizes([...sizes, newSize])
+      setNewSize("")
+    }
+  }
+
+  const removeSize = (size: string) => {
+    setSizes(sizes.filter(s => s !== size))
+  }
+
+  const handleColorImagesUpload = (color: string, files: FileList | null) => {
+    if (!files) return
+    
+    const fileArray = Array.from(files)
+    const newPreviews: string[] = []
+    
+    fileArray.forEach(file => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        newPreviews.push(e.target?.result as string)
+        if (newPreviews.length === fileArray.length) {
+          setColorPreviews(prev => ({
+            ...prev,
+            [color]: [...(prev[color] || []), ...newPreviews]
+          }))
+        }
+      }
+      reader.readAsDataURL(file)
+    })
+    
+    setColorImages(prev => ({
+      ...prev,
+      [color]: [...(prev[color] || []), ...fileArray]
+    }))
+  }
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -94,27 +156,57 @@ export default function NewProduct() {
         throw new Error("You must be logged in as a vendor to add products.")
       }
 
-      // Upload images to Cloudinary
+      // Upload main product images to Cloudinary
       const imageUrls: string[] = []
       for (const file of images) {
         const url = await uploadToCloudinary(file)
         imageUrls.push(url)
       }
 
-      // Save product to Firestore
-      await createProduct({
-        title: formData.title,
-        description: formData.description,
-        price: Number(formData.price),
-        category: formData.category,
-        images: imageUrls,
-        vendorId: user.uid,
-        vendorName: userProfile?.displayName || user.email || "Vendor",
-        stock: Number(formData.stock) || 0,
-        sku: formData.sku,
-        featured: formData.featured,
-        status: "active",
+      // Upload color-specific images to Cloudinary
+      const colorImagesUploaded: { [key: string]: string[] } = {}
+      for (const [colorName, imageFiles] of Object.entries(colorImages)) {
+        if (imageFiles && imageFiles.length > 0) {
+          const colorImageUrls: string[] = []
+          for (const file of imageFiles) {
+            const url = await uploadToCloudinary(file)
+            colorImageUrls.push(url)
+          }
+          colorImagesUploaded[colorName] = colorImageUrls
+        }
+      }
+
+      // Create product via API
+      const response = await fetch('/api/database/products', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: formData.title,
+          description: formData.description,
+          price: Number(formData.price),
+          category: formData.category,
+          images: imageUrls,
+          vendorId: user.uid,
+          vendorName: userProfile?.displayName || user.email || "Vendor",
+          stock: Number(formData.stock) || 0,
+          sku: formData.sku,
+          featured: formData.featured,
+          status: "active",
+          sales: 0,
+          hasColorOptions: colors.length > 0,
+          hasSizeOptions: sizes.length > 0,
+          colors: colors,
+          sizes: sizes,
+          colorImages: colorImagesUploaded,
+        })
       })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create product')
+      }
 
       router.push("/vendor/products")
     } catch (error: any) {
@@ -286,6 +378,158 @@ export default function NewProduct() {
                       disabled={loading}
                     />
                   </label>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Product Options */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Product Options</CardTitle>
+              <CardDescription>Add color and size options for your product (recommended for fashion items)</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Colors Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-semibold">Colors</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addColor}
+                    disabled={loading}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Color
+                  </Button>
+                </div>
+                
+                {colors.length > 0 && (
+                  <div className="space-y-4">
+                    {colors.map((color, index) => (
+                      <div key={index} className="p-4 border rounded-lg space-y-4">
+                        <div className="flex items-center justify-between">
+                          <Input
+                            placeholder="Color name (e.g., Red, Blue, Black)"
+                            value={color}
+                            onChange={(e) => {
+                              const newColors = [...colors]
+                              newColors[index] = e.target.value
+                              setColors(newColors)
+                            }}
+                            disabled={loading}
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => removeColor(index)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+
+                        {/* Color-specific images */}
+                        <div className="space-y-2">
+                          <Label className="text-sm">Images for {color || 'this color'}</Label>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            {colorPreviews[color]?.map((preview, imgIndex) => (
+                              <div
+                                key={imgIndex}
+                                className="relative aspect-square rounded border overflow-hidden"
+                              >
+                                <img
+                                  src={preview}
+                                  alt={`${color} ${imgIndex + 1}`}
+                                  className="w-full h-full object-cover"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="destructive"
+                                  size="icon"
+                                  className="absolute top-1 right-1 h-5 w-5"
+                                  onClick={() => {
+                                    const newColorImages = { ...colorImages }
+                                    const newColorPreviews = { ...colorPreviews }
+                                    if (newColorImages[color]) {
+                                      newColorImages[color] = newColorImages[color].filter((_, i) => i !== imgIndex)
+                                      newColorPreviews[color] = newColorPreviews[color].filter((_, i) => i !== imgIndex)
+                                      if (newColorImages[color].length === 0) {
+                                        delete newColorImages[color]
+                                        delete newColorPreviews[color]
+                                      }
+                                    }
+                                    setColorImages(newColorImages)
+                                    setColorPreviews(newColorPreviews)
+                                  }}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))}
+                            <label className="aspect-square rounded border-2 border-dashed border-muted-foreground/25 flex flex-col items-center justify-center cursor-pointer hover:border-muted-foreground/50 transition-colors text-center">
+                              <Upload className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground mt-1">Add Images</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                className="hidden"
+                                onChange={(e) => handleColorImagesUpload(color, e)}
+                                disabled={loading}
+                              />
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Sizes Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-semibold">Sizes</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addSize}
+                    disabled={loading}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Size
+                  </Button>
+                </div>
+                
+                {sizes.length > 0 && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {sizes.map((size, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Input
+                          placeholder="Size (e.g., S, M, L, XL)"
+                          value={size}
+                          onChange={(e) => {
+                            const newSizes = [...sizes]
+                            newSizes[index] = e.target.value
+                            setSizes(newSizes)
+                          }}
+                          disabled={loading}
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          onClick={() => removeSize(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </CardContent>

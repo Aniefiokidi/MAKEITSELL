@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { getProductById, updateProduct } from "@/lib/firestore"
 import VendorLayout from "@/components/vendor/VendorLayout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -21,7 +20,12 @@ export default function ProductEditPage() {
     async function fetchProduct() {
       setLoading(true)
       try {
-        const prod:any = await getProductById(id)
+        const response = await fetch(`/api/vendor/products/${id}`)
+        if (!response.ok) {
+          throw new Error('Product not found')
+        }
+        const data = await response.json()
+        const prod = data.product
         setProduct(prod)
         setForm({
           title: prod.title,
@@ -47,7 +51,18 @@ export default function ProductEditPage() {
   const handleSubmit = async (e: any) => {
     e.preventDefault()
     try {
-      await updateProduct(id, form)
+      const response = await fetch(`/api/vendor/products/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(form)
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to update product')
+      }
+      
       router.push(`/vendor/products/${id}`)
     } catch (err) {
       setError("Failed to update product")

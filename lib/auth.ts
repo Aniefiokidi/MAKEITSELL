@@ -77,77 +77,88 @@ export const signUp = async (
 
 // Sign in user
 export const signIn = async (email: string, password: string) => {
-  const authInstance = getAuthInstance()
-  const db = getDbInstance()
-
-  if (!authInstance) {
-    throw new Error("Auth not available in server environment")
-  }
-
   try {
-    const userCredential = await signInWithEmailAndPassword(authInstance, email, password)
-    const user = userCredential.user
-
-    const userProfile = await getUserProfile(user.uid)
-
-    return {
-      user: {
-        ...user,
-        role: userProfile?.role || "customer",
-      },
-      userProfile,
-    }
-  } catch (error: any) {
-    console.error("Sign in error:", error)
+    // Use MongoDB authentication
+    console.log("Using MongoDB authentication for user:", email)
     
-    // Provide user-friendly error messages
-    if (error.code === "auth/invalid-credential" || error.code === "auth/wrong-password" || error.code === "auth/user-not-found") {
-      throw new Error("Invalid email or password. Please check your credentials and try again.")
-    } else if (error.code === "auth/invalid-email") {
-      throw new Error("Invalid email address. Please enter a valid email.")
-    } else if (error.code === "auth/user-disabled") {
-      throw new Error("This account has been disabled. Please contact support.")
-    } else if (error.code === "auth/network-request-failed") {
-      throw new Error("Network error. Please check your internet connection and try again.")
-    } else if (error.code === "auth/too-many-requests") {
-      throw new Error("Too many failed login attempts. Please try again later.")
-    } else {
-      throw new Error(error.message || "Failed to sign in. Please try again.")
+    // Use the MongoDB auth system
+    const mongoAuth = await import('./mongodb-auth')
+    const result = await mongoAuth.signIn(email, password)
+    
+    if (result && result.user && result.sessionToken) {
+      // Store user session in localStorage for persistence
+      localStorage.setItem('currentUser', JSON.stringify(result.user))
+      localStorage.setItem('sessionToken', result.sessionToken)
+      
+      return {
+        user: {
+          uid: result.user.id,
+          email: result.user.email,
+          displayName: result.user.name,
+          role: result.user.role,
+        },
+        userProfile: {
+          uid: result.user.id,
+          email: result.user.email,
+          displayName: result.user.name,
+          role: result.user.role,
+          vendorType: result.user.role === 'vendor' ? 'both' : undefined,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+      }
     }
+    
+    throw new Error("Authentication failed")
+  } catch (mongoError: any) {
+    console.log("MongoDB authentication failed:", mongoError.message)
+    throw mongoError
   }
 }
 
 // Sign out user
 export const logOut = async () => {
-  const authInstance = getAuthInstance()
-
-  if (!authInstance) {
-    throw new Error("Auth not available in server environment")
-  }
-
   try {
-    await signOut(authInstance)
+    // Clear localStorage session
+    localStorage.removeItem('currentUser')
+    localStorage.removeItem('sessionToken')
+    localStorage.removeItem('authToken')
+    console.log("User signed out successfully")
   } catch (error: any) {
     console.error("Sign out error:", error)
     throw new Error(error.message || "Failed to sign out. Please try again.")
   }
 }
 
+// Get current user from localStorage 
+export const getCurrentUser = () => {
+  try {
+    const userStr = localStorage.getItem('currentUser')
+    return userStr ? JSON.parse(userStr) : null
+  } catch {
+    return null
+  }
+}
 
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
-  const db = getDbInstance()
-
   try {
-    const docRef = doc(db, "users", uid)
-    const docSnap = await getDoc(docRef)
-
-    if (docSnap.exists()) {
-      return docSnap.data() as UserProfile
-    } else {
-      return null
+    // Use MongoDB to get user profile
+    const mongoAuth = await import('./mongodb-auth')
+    const user = await mongoAuth.getUserById(uid)
+    if (user) {
+      return {
+        uid: user._id.toString(),
+        email: user.email,
+        displayName: user.name,
+        role: user.role,
+        vendorType: user.role === 'vendor' ? 'both' : undefined,
+        createdAt: user.createdAt || new Date(),
+        updatedAt: user.updatedAt || new Date()
+      }
     }
-  } catch (error) {
-    console.error("Error getting user profile:", error)
+    return null
+  } catch (error: any) {
+    console.warn("Error getting user profile:", error)
     return null
   }
 }

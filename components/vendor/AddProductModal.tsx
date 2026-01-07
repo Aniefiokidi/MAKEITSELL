@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAuth } from "@/contexts/AuthContext"
-import { createProduct } from "@/lib/firestore"
+import { createProduct } from "@/lib/database-client"
 import { Plus, Upload, X } from "lucide-react"
 import Image from "next/image"
 

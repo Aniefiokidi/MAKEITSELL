@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "@/components/ui/calendar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Service, createBooking } from "@/lib/firestore"
+import { Service, createBooking } from "@/lib/database-client"
 import { useAuth } from "@/contexts/AuthContext"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
@@ -99,7 +99,7 @@ export default function BookingModal({ service, isOpen, onClose }: BookingModalP
         duration: duration,
         totalPrice: service.price,
         status: "pending" as const,
-        locationType: (service.locationType === "both" ? "in-person" : service.locationType) as "online" | "in-person",
+        locationType: service.locationType as "online" | "home-service" | "store",
         location: service.location,
         notes: notes,
       }
@@ -149,7 +149,7 @@ export default function BookingModal({ service, isOpen, onClose }: BookingModalP
             <div className="text-sm space-y-1 text-muted-foreground">
               <p>Provider: {service.providerName}</p>
               <p>Duration: {service.duration || "Variable"} minutes</p>
-              <p>Price: ${service.price}</p>
+              <p>Price: ₦{service.price?.toLocaleString('en-NG')}</p>
               <p className="capitalize">Location: {service.locationType.replace("-", " ")}</p>
             </div>
           </div>
@@ -217,7 +217,7 @@ export default function BookingModal({ service, isOpen, onClose }: BookingModalP
                 <p>Date: {format(selectedDate, "MMMM d, yyyy")}</p>
                 <p>Time: {selectedTime}</p>
                 <p>Duration: {service.duration || "Variable"} minutes</p>
-                <p className="font-semibold text-accent">Total: ${service.price}</p>
+                <p className="font-semibold text-accent">Total: ₦{service.price?.toLocaleString('en-NG')}</p>
               </div>
             </div>
           )}

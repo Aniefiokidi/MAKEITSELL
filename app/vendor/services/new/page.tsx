@@ -10,7 +10,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
-import { createService } from "@/lib/firestore"
 import { uploadToCloudinary } from "@/lib/cloudinary"
 import { useAuth } from "@/contexts/AuthContext"
 import { useToast } from "@/hooks/use-toast"
@@ -44,9 +43,14 @@ export default function NewServicePage() {
     pricingType: "fixed" as "fixed" | "hourly" | "per-session" | "custom",
     duration: "",
     location: "",
-    locationType: "in-person" as "online" | "in-person" | "both",
+    state: "",
+    locationType: "online" as "online" | "home-service" | "store",
     tags: "",
   })
+
+  const [locationSuggestions, setLocationSuggestions] = useState<any[]>([])
+  const [loadingLocation, setLoadingLocation] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
 
   const [availability, setAvailability] = useState<any>(
     DAYS.reduce((acc, day) => ({
@@ -86,6 +90,37 @@ export default function NewServicePage() {
     setImageFiles((prev) => prev.filter((_, i) => i !== index))
   }
 
+  // Address autocomplete using Google Maps Places API
+  const searchAddress = async (query: string) => {
+    if (query.length < 3) {
+      setLocationSuggestions([])
+      setShowSuggestions(false)
+      return
+    }
+
+    setLoadingLocation(true)
+    try {
+      // Using Google Maps Places Autocomplete API
+      const response = await fetch(`/api/maps/autocomplete?input=${encodeURIComponent(query)}&region=ng`)
+      
+      if (response.ok) {
+        const data = await response.json()
+        setLocationSuggestions(data.predictions || [])
+        setShowSuggestions(true)
+      }
+    } catch (error) {
+      console.error('Error fetching address suggestions:', error)
+    } finally {
+      setLoadingLocation(false)
+    }
+  }
+
+  const selectAddress = (suggestion: any) => {
+    setFormData({ ...formData, location: suggestion.description })
+    setLocationSuggestions([])
+    setShowSuggestions(false)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -107,6 +142,13 @@ export default function NewServicePage() {
       )
 
       // Prepare service data
+      let locationValue = "Online"
+      if (formData.locationType === "home-service") {
+        locationValue = formData.state || "Nigeria"
+      } else if (formData.locationType === "store") {
+        locationValue = formData.location || "Not specified"
+      }
+
       const serviceData: any = {
         providerId: user.uid,
         providerName: userProfile.displayName,
@@ -116,12 +158,10 @@ export default function NewServicePage() {
         category: formData.category,
         price: parseFloat(formData.price),
         pricingType: formData.pricingType,
-        location: formData.location,
+        location: locationValue,
         locationType: formData.locationType,
         images: imageUrls,
         availability,
-        rating: 0,
-        reviewCount: 0,
         featured: false,
         status: "active" as const,
         tags: formData.tags.split(",").map((t) => t.trim()).filter(Boolean),
@@ -132,19 +172,45 @@ export default function NewServicePage() {
         serviceData.duration = parseInt(formData.duration)
       }
 
-      await createService(serviceData)
+      // Create service via API
+      const response = await fetch('/api/vendor/services/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(serviceData)
+      })
+
+      console.log('Response status:', response.status)
+      console.log('Response headers:', response.headers)
+
+      if (!response.ok) {
+        let errorData
+        const contentType = response.headers.get('content-type')
+        
+        if (contentType && contentType.includes('application/json')) {
+          errorData = await response.json()
+        } else {
+          const text = await response.text()
+          errorData = { error: text || 'Failed to create service' }
+        }
+        
+        console.error('Service creation failed:', errorData)
+        console.error('Service data sent:', serviceData)
+        throw new Error(errorData.error || errorData.details || 'Failed to create service')
+      }
 
       toast({
         title: "Service Created",
         description: "Your service has been added successfully",
       })
 
-      router.push("/vendor/services")
-    } catch (error) {
+      router.push("/vendor/dashboard")
+    } catch (error: any) {
       console.error("Error creating service:", error)
       toast({
         title: "Error",
-        description: "Failed to create service. Please try again.",
+        description: error.message || "Failed to create service. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -237,7 +303,7 @@ export default function NewServicePage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Price ($) *</Label>
+                  <Label htmlFor="price">Price (₦) *</Label>
                   <Input
                     id="price"
                     type="number"
@@ -285,34 +351,151 @@ export default function NewServicePage() {
           <Card>
             <CardHeader>
               <CardTitle>Location</CardTitle>
+              <CardDescription>Choose how customers will access your service</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="locationType">Service Location *</Label>
                 <Select
                   value={formData.locationType}
-                  onValueChange={(value: any) => setFormData({ ...formData, locationType: value })}
+                  onValueChange={(value: any) => {
+                    setFormData({ ...formData, locationType: value, location: "", state: "" })
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="online">Online</SelectItem>
-                    <SelectItem value="in-person">In-Person</SelectItem>
-                    <SelectItem value="both">Both</SelectItem>
+                    <SelectItem value="online">Online - Service provided remotely</SelectItem>
+                    <SelectItem value="home-service">Home Service - I visit customers</SelectItem>
+                    <SelectItem value="store">Store/Office - Customers visit me</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              {(formData.locationType === "in-person" || formData.locationType === "both") && (
+              {formData.locationType === "home-service" && (
                 <div className="space-y-2">
-                  <Label htmlFor="location">Address/Location</Label>
-                  <Input
-                    id="location"
-                    placeholder="123 Main St, City, State"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  />
+                  <Label htmlFor="state">State/Region *</Label>
+                  <Select
+                    value={formData.state}
+                    onValueChange={(value) => setFormData({ ...formData, state: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select state" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      <SelectItem value="Abia">Abia</SelectItem>
+                      <SelectItem value="Adamawa">Adamawa</SelectItem>
+                      <SelectItem value="Akwa Ibom">Akwa Ibom</SelectItem>
+                      <SelectItem value="Anambra">Anambra</SelectItem>
+                      <SelectItem value="Bauchi">Bauchi</SelectItem>
+                      <SelectItem value="Bayelsa">Bayelsa</SelectItem>
+                      <SelectItem value="Benue">Benue</SelectItem>
+                      <SelectItem value="Borno">Borno</SelectItem>
+                      <SelectItem value="Cross River">Cross River</SelectItem>
+                      <SelectItem value="Delta">Delta</SelectItem>
+                      <SelectItem value="Ebonyi">Ebonyi</SelectItem>
+                      <SelectItem value="Edo">Edo</SelectItem>
+                      <SelectItem value="Ekiti">Ekiti</SelectItem>
+                      <SelectItem value="Enugu">Enugu</SelectItem>
+                      <SelectItem value="FCT">FCT - Abuja</SelectItem>
+                      <SelectItem value="Gombe">Gombe</SelectItem>
+                      <SelectItem value="Imo">Imo</SelectItem>
+                      <SelectItem value="Jigawa">Jigawa</SelectItem>
+                      <SelectItem value="Kaduna">Kaduna</SelectItem>
+                      <SelectItem value="Kano">Kano</SelectItem>
+                      <SelectItem value="Katsina">Katsina</SelectItem>
+                      <SelectItem value="Kebbi">Kebbi</SelectItem>
+                      <SelectItem value="Kogi">Kogi</SelectItem>
+                      <SelectItem value="Kwara">Kwara</SelectItem>
+                      <SelectItem value="Lagos">Lagos</SelectItem>
+                      <SelectItem value="Nasarawa">Nasarawa</SelectItem>
+                      <SelectItem value="Niger">Niger</SelectItem>
+                      <SelectItem value="Ogun">Ogun</SelectItem>
+                      <SelectItem value="Ondo">Ondo</SelectItem>
+                      <SelectItem value="Osun">Osun</SelectItem>
+                      <SelectItem value="Oyo">Oyo</SelectItem>
+                      <SelectItem value="Plateau">Plateau</SelectItem>
+                      <SelectItem value="Rivers">Rivers</SelectItem>
+                      <SelectItem value="Sokoto">Sokoto</SelectItem>
+                      <SelectItem value="Taraba">Taraba</SelectItem>
+                      <SelectItem value="Yobe">Yobe</SelectItem>
+                      <SelectItem value="Zamfara">Zamfara</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Select the state where you provide home services</p>
+                </div>
+              )}
+
+              {formData.locationType === "store" && (
+                <div className="space-y-2 relative">
+                  <Label htmlFor="location">Store/Office Address *</Label>
+                  <div className="relative">
+                    <Input
+                      id="location"
+                      required
+                      placeholder="Start typing your address..."
+                      value={formData.location}
+                      onChange={(e) => {
+                        setFormData({ ...formData, location: e.target.value })
+                        searchAddress(e.target.value)
+                      }}
+                      onFocus={() => {
+                        if (locationSuggestions.length > 0) {
+                          setShowSuggestions(true)
+                        }
+                      }}
+                      autoComplete="off"
+                    />
+                    {loadingLocation && (
+                      <div className="absolute right-3 top-3">
+                        <div className="animate-spin h-4 w-4 border-2 border-accent border-t-transparent rounded-full"></div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Suggestions Dropdown */}
+                  {showSuggestions && locationSuggestions.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {locationSuggestions.map((suggestion, index) => (
+                        <button
+                          key={suggestion.place_id || index}
+                          type="button"
+                          className="w-full px-4 py-3 text-left hover:bg-accent/10 transition-colors border-b last:border-b-0 flex items-start gap-2"
+                          onMouseDown={(e) => {
+                            e.preventDefault() // Prevent input blur
+                            selectAddress(suggestion)
+                          }}
+                        >
+                          <svg className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{suggestion.structured_formatting?.main_text || suggestion.description}</p>
+                            {suggestion.structured_formatting?.secondary_text && (
+                              <p className="text-xs text-muted-foreground">{suggestion.structured_formatting.secondary_text}</p>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <p className="text-xs text-muted-foreground">
+                    <svg className="w-3 h-3 inline mr-1 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    Verified by Mapbox - Start typing to see suggestions
+                  </p>
+                </div>
+              )}
+
+              {formData.locationType === "online" && (
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-blue-900">
+                    ✓ Your service will be provided remotely via video calls, phone, or online platforms
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -411,7 +594,10 @@ export default function NewServicePage() {
               </div>
               {images.length < 5 && (
                 <p className="text-sm text-amber-600">
-                  ⚠️ Tip: Upload at least 5 images to showcase your work portfolio effectively
+                  <svg className="inline w-4 h-4 text-yellow-500 mr-2 animate-pulse" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2L1 21h22L12 2zm0 3.84L19.53 19H4.47L12 5.84zM11 16h2v2h-2v-2zm0-6h2v4h-2v-4z"/>
+                  </svg>
+                  Tip: Upload at least 5 images to showcase your work portfolio effectively
                 </p>
               )}
             </CardContent>

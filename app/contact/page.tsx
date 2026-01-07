@@ -65,7 +65,7 @@ export default function ContactPage() {
                       <p className="font-semibold">Thank you for your message!</p>
                       <p>We'll get back to you within 24 hours.</p>
                     </div>
-                    <Button onClick={() => setSubmitted(false)}>Send Another Message</Button>
+                    <Button onClick={() => setSubmitted(false)} className="hover:bg-accent/80 hover:scale-105 transition-all hover:shadow-lg">Send Another Message</Button>
                   </div>
                 ) : (
                   <form onSubmit={handleSubmit} className="space-y-6">
@@ -128,7 +128,7 @@ export default function ContactPage() {
                       />
                     </div>
 
-                    <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    <Button type="submit" className="w-full hover:bg-accent/80 hover:scale-105 transition-all hover:shadow-lg" disabled={isSubmitting}>
                       {isSubmitting ? "Sending..." : "Send Message"}
                     </Button>
                   </form>
@@ -149,8 +149,8 @@ export default function ContactPage() {
                     </div>
                     <div>
                       <h3 className="font-semibold mb-1">Email</h3>
-                      <p className="text-muted-foreground">support@branda.com</p>
-                      <p className="text-muted-foreground">sales@branda.com</p>
+                      <p className="text-muted-foreground">support@makeitsell.com</p>
+                      <p className="text-muted-foreground">sales@makeitsell.com</p>
                     </div>
                   </div>
 
@@ -208,7 +208,7 @@ export default function ContactPage() {
                     <h4 className="font-semibold mb-2">How do I become a seller?</h4>
                     <p className="text-muted-foreground text-sm">
                       Visit our{" "}
-                      <a href="/become-seller" className="text-primary hover:underline">
+                      <a href="/become-seller" className="text-primary hover:text-accent hover:underline transition-colors">
                         Become a Seller
                       </a>{" "}
                       page to get started with your seller account.

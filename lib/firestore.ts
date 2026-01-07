@@ -196,7 +196,7 @@ export const updateSupportTicket = async (ticketId: string, ticketData: Partial<
     throw error
   }
 }
-import { getDbInstance } from "./firebase"
+// import { getDbInstance } from "./firebase"
 import {
   collection,
   doc,
@@ -334,7 +334,7 @@ export interface Notification {
 // Generic CRUD operations
 export const createDocument = async (collectionName: string, data: any) => {
   try {
-    const db = getDbInstance()
+    throw new Error("Firestore is deprecated. Use MongoDB-based logic instead.")
     const docRef = await addDoc(collection(db, collectionName), {
       ...data,
       createdAt: Timestamp.now(),
@@ -349,7 +349,7 @@ export const createDocument = async (collectionName: string, data: any) => {
 
 export const getDocument = async (collectionName: string, docId: string) => {
   try {
-    const db = getDbInstance()
+    throw new Error("Firestore is deprecated. Use MongoDB-based logic instead.")
     const docRef = doc(db, collectionName, docId)
     const docSnap = await getDoc(docRef)
 
@@ -366,7 +366,7 @@ export const getDocument = async (collectionName: string, docId: string) => {
 
 export const updateDocument = async (collectionName: string, docId: string, data: any) => {
   try {
-    const db = getDbInstance()
+    throw new Error("Firestore is deprecated. Use MongoDB-based logic instead.")
     const docRef = doc(db, collectionName, docId)
     await updateDoc(docRef, {
       ...data,
@@ -380,7 +380,7 @@ export const updateDocument = async (collectionName: string, docId: string, data
 
 export const deleteDocument = async (collectionName: string, docId: string) => {
   try {
-    const db = getDbInstance()
+    throw new Error("Firestore is deprecated. Use MongoDB-based logic instead.")
     await deleteDoc(doc(db, collectionName, docId))
   } catch (error) {
     console.error("Error deleting document:", error)
@@ -396,7 +396,7 @@ export const getProducts = async (filters?: {
   limitCount?: number
 }) => {
   try {
-    const db = getDbInstance()
+    throw new Error("Firestore is deprecated. Use MongoDB-based logic instead.")
     let q = query(collection(db, "products"))
 
     if (filters?.category) {
@@ -438,7 +438,7 @@ export const getProducts = async (filters?: {
 
 export const createProduct = async (productData: Omit<Product, "id" | "createdAt" | "updatedAt">) => {
   try {
-    const db = getDbInstance()
+    throw new Error("Firestore is deprecated. Use MongoDB-based logic instead.")
     const docRef = await addDoc(collection(db, "products"), {
       ...productData,
       status: productData.stock > 0 ? "active" : "out_of_stock",
@@ -454,7 +454,7 @@ export const createProduct = async (productData: Omit<Product, "id" | "createdAt
 
 export const updateProduct = async (productId: string, productData: Partial<Product>) => {
   try {
-    const db = getDbInstance()
+    throw new Error("Firestore is deprecated. Use MongoDB-based logic instead.")
     const docRef = doc(db, "products", productId)
 
     // Auto-update status based on stock
@@ -474,7 +474,7 @@ export const updateProduct = async (productId: string, productData: Partial<Prod
 
 export const deleteProduct = async (productId: string) => {
   try {
-    const db = getDbInstance()
+    throw new Error("Firestore is deprecated. Use MongoDB-based logic instead.")
     await deleteDoc(doc(db, "products", productId))
   } catch (error) {
     console.error("Error deleting product:", error)
@@ -484,7 +484,7 @@ export const deleteProduct = async (productId: string) => {
 
 export const getVendorProducts = async (vendorId: string) => {
   try {
-    const db = getDbInstance()
+    throw new Error("Firestore is deprecated. Use MongoDB-based logic instead.")
     const q = query(collection(db, "products"), where("vendorId", "==", vendorId))
 
     const querySnapshot = await getDocs(q)
@@ -530,6 +530,7 @@ export interface Store {
   storeImage: string
   storeBanner?: string
   bannerImages?: string[]
+  backgroundImage?: string
   category: string
   rating: number
   reviewCount: number
@@ -550,7 +551,7 @@ export const getStores = async (filters?: {
   limitCount?: number
 }) => {
   try {
-    const db = getDbInstance()
+    throw new Error("Firestore is deprecated. Use MongoDB-based logic instead.")
     let q = query(collection(db, "stores"))
 
     if (filters?.category && filters.category !== "all") {
@@ -560,29 +561,25 @@ export const getStores = async (filters?: {
       q = query(q, where("isOpen", "==", filters.isOpen))
     }
 
-    const snapshot = await getDocs(q)
-    let stores = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Store[]
-    
-    // Sort in memory by rating
-    stores.sort((a, b) => {
-      return (b.rating || 0) - (a.rating || 0) // Descending order (highest rating first)
-    })
-    
-    // Apply limit if specified
+    // Add limit at query level for better performance
     if (filters?.limitCount) {
-      stores = stores.slice(0, filters.limitCount)
+      q = query(q, limit(filters.limitCount))
     }
+
+    const snapshot = await getDocs(q)
+    const stores = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Store[]
     
+    // Stores are returned in the order they were added
     return stores
   } catch (error) {
     console.error("Error getting stores:", error)
-    throw error
+    return [] // Return empty array instead of throwing to prevent page crashes
   }
 }
 
 export const getStoreById = async (storeId: string) => {
   try {
-    const db = getDbInstance()
+    throw new Error("Firestore is deprecated. Use MongoDB-based logic instead.")
     const docRef = doc(db, "stores", storeId)
     const docSnap = await getDoc(docRef)
     
@@ -600,7 +597,7 @@ export const getStoreById = async (storeId: string) => {
 export const createStore = async (storeData: Omit<Store, "id" | "createdAt" | "updatedAt">) => {
   console.log("Creating store for vendor:", storeData.vendorId)
   try {
-    const db = getDbInstance()
+    throw new Error("Firestore is deprecated. Use MongoDB-based logic instead.")
     const docRef = await addDoc(collection(db, "stores"), {
       ...storeData,
       createdAt: Timestamp.now(),
@@ -616,7 +613,7 @@ export const createStore = async (storeData: Omit<Store, "id" | "createdAt" | "u
 
 export const updateStore = async (storeId: string, storeData: Partial<Store>) => {
   try {
-    const db = getDbInstance()
+    throw new Error("Firestore is deprecated. Use MongoDB-based logic instead.")
     const docRef = doc(db, "stores", storeId)
     await updateDoc(docRef, {
       ...storeData,
@@ -728,7 +725,7 @@ export const getServices = async (filters?: {
   limitCount?: number
 }) => {
   try {
-    const db = getDbInstance()
+    throw new Error("Firestore is deprecated. Use MongoDB-based logic instead.")
     let q = query(collection(db, "services"))
 
     if (filters?.category && filters.category !== "all") {
@@ -769,7 +766,7 @@ export const getServices = async (filters?: {
 
 export const getServiceById = async (id: string) => {
   try {
-    const db = getDbInstance()
+    throw new Error("Firestore is deprecated. Use MongoDB-based logic instead.")
     const docRef = doc(db, "services", id)
     const docSnap = await getDoc(docRef)
     if (docSnap.exists()) {
@@ -785,7 +782,7 @@ export const getServiceById = async (id: string) => {
 
 export const createService = async (serviceData: Omit<Service, "id" | "createdAt" | "updatedAt">) => {
   try {
-    const db = getDbInstance()
+    throw new Error("Firestore is deprecated. Use MongoDB-based logic instead.")
     const docRef = await addDoc(collection(db, "services"), {
       ...serviceData,
       createdAt: Timestamp.now(),
@@ -800,7 +797,7 @@ export const createService = async (serviceData: Omit<Service, "id" | "createdAt
 
 export const updateService = async (serviceId: string, serviceData: Partial<Service>) => {
   try {
-    const db = getDbInstance()
+    throw new Error("Firestore is deprecated. Use MongoDB-based logic instead.")
     const docRef = doc(db, "services", serviceId)
     await updateDoc(docRef, {
       ...serviceData,
@@ -814,7 +811,7 @@ export const updateService = async (serviceId: string, serviceData: Partial<Serv
 
 export const deleteService = async (serviceId: string) => {
   try {
-    const db = getDbInstance()
+    throw new Error("Firestore is deprecated. Use MongoDB-based logic instead.")
     await deleteDoc(doc(db, "services", serviceId))
   } catch (error) {
     console.error("Error deleting service:", error)
@@ -898,32 +895,16 @@ export const updateBooking = async (bookingId: string, bookingData: Partial<Book
   }
 }
 
-// Chat & Messaging operations
-export const getConversations = async (userId: string, role: "customer" | "provider") => {
-  try {
-    const db = getDbInstance()
-    const fieldName = role === "customer" ? "customerId" : "providerId"
-    
-    // Query without orderBy to avoid composite index requirement
-    const q = query(
-      collection(db, "conversations"),
-      where(fieldName, "==", userId)
-    )
-    
-    const snapshot = await getDocs(q)
-    const conversations = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Conversation[]
-    
-    // Sort in memory instead of in query
-    return conversations.sort((a, b) => {
-      const timeA = a.lastMessageTime?.toMillis() || 0
-      const timeB = b.lastMessageTime?.toMillis() || 0
-      return timeB - timeA // Descending order (newest first)
-    })
-  } catch (error) {
-    console.error("Error getting conversations:", error)
-    throw error
-  }
-}
+// Chat & Messaging operations (MongoDB)
+import {
+  getConversations,
+  getChatMessages,
+  createConversation,
+  createChatMessage,
+  updateConversation
+} from "./mongodb-operations"
+
+export { getConversations, getChatMessages, createConversation, createChatMessage, updateConversation }
 
 export const getMessages = async (conversationId: string, limitCount?: number) => {
   try {
@@ -981,20 +962,6 @@ export const sendMessage = async (messageData: Omit<ChatMessage, "id" | "created
   }
 }
 
-export const createConversation = async (conversationData: Omit<Conversation, "id" | "createdAt" | "updatedAt">) => {
-  try {
-    const db = getDbInstance()
-    const docRef = await addDoc(collection(db, "conversations"), {
-      ...conversationData,
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
-    })
-    return docRef.id
-  } catch (error) {
-    console.error("Error creating conversation:", error)
-    throw error
-  }
-}
 
 export const markMessagesAsRead = async (conversationId: string, userId: string) => {
   try {

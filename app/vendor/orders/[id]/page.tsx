@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
-import { getDocument } from "@/lib/firestore"
+// import { getDocument } from "@/lib/firestore"
 import VendorLayout from "@/components/vendor/VendorLayout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -21,23 +21,24 @@ export default function VendorOrderDetailPage() {
   useEffect(() => {
     const fetchOrder = async () => {
       if (user && id) {
-        setLoading(true)
+        setLoading(true);
         try {
-          const result = await getDocument("orders", id as string) as any
-          if (result && result.vendorId === user.uid) {
-            setOrder(result)
+          const res = await fetch(`/api/database/orders/${id}`);
+          const data = await res.json();
+          if (data.success && data.data && (data.data.vendorId === user.uid || (Array.isArray(data.data.vendors) && data.data.vendors.some((v: any) => v.vendorId === user.uid)))) {
+            setOrder(data.data);
           } else {
-            router.push("/vendor/orders")
+            router.push("/vendor/orders");
           }
         } catch (error) {
-          console.error("Error fetching order:", error)
-          router.push("/vendor/orders")
+          console.error("Error fetching order:", error);
+          router.push("/vendor/orders");
         } finally {
-          setLoading(false)
+          setLoading(false);
         }
       }
-    }
-    fetchOrder()
+    };
+    fetchOrder();
   }, [user, id, router])
 
   const getStatusColor = (status: string) => {

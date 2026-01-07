@@ -9,14 +9,18 @@ import { Suspense } from "react"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "𝘉𝘙𝘈𝘕𝘋𝘈 - The Marketplace",
-  description: "AI-powered marketplace with unified customer service",
+  title: "Make It Sell - The Marketplace",
+  description: "AI-powered marketplace with unified customer service - Make It Sell",
   generator: "v0.app",
   icons: {
     icon: "/images/logo2.png",
     shortcut: "/images/logo2.png",
     apple: "/images/logo2.png",
   },
+  // Performance optimizations
+  other: {
+    "preload": "true",
+  }
 }
 
 export default function RootLayout({
@@ -24,20 +28,23 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const ThemeProvider = require("@/components/theme-provider").ThemeProvider;
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
       </head>
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning={true}>
-        <Suspense fallback={null}>
-          <AuthProvider>
-            <CartProvider>{children}</CartProvider>
-          </AuthProvider>
-        </Suspense>
-        <Analytics />
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <Suspense fallback={null}>
+            <AuthProvider>
+              <CartProvider>{children}</CartProvider>
+            </AuthProvider>
+          </Suspense>
+          <Analytics />
+        </ThemeProvider>
       </body>
     </html>
   )

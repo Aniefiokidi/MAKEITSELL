@@ -11,9 +11,9 @@ export default function Footer() {
           <div>
             <Link href="/" className="flex justify-center sm:justify-start items-center mb-4">
               <img
-                src="/images/logo.png"
+                src="/images/logo (2).png"
                 alt="Logo"
-                className="h-14 w-auto object-contain transition-transform duration-300 hover:scale-105"
+                className="h-8 w-auto object-contain transition-transform duration-300 hover:scale-105"
               />
             </Link>
             <p className="text-muted-foreground mb-5 text-sm leading-relaxed max-w-xs mx-auto sm:mx-0">
@@ -36,10 +36,9 @@ export default function Footer() {
           <div>
             <h3 className="font-semibold mb-4 text-lg text-center sm:text-left">Quick Links</h3>
             <ul className="space-y-2 text-sm">
-              <li><Link href="/shop" className="text-muted-foreground hover:text-accent">Shop</Link></li>
+              <li><Link href="/stores" className="text-muted-foreground hover:text-accent">Stores</Link></li>
               <li><Link href="/categories" className="text-muted-foreground hover:text-accent">Categories</Link></li>
               <li><Link href="/deals" className="text-muted-foreground hover:text-accent">Deals</Link></li>
-              <li><Link href="/become-seller" className="text-muted-foreground hover:text-accent">Become a Seller</Link></li>
             </ul>
           </div>
 
@@ -60,7 +59,7 @@ export default function Footer() {
             <ul className="space-y-3 text-sm">
               <li className="flex justify-center sm:justify-start items-center space-x-3">
                 <Mail className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">support@branda.com</span>
+                <span className="text-muted-foreground">support@makeitsell.com</span>
               </li>
               <li className="flex justify-center sm:justify-start items-center space-x-3">
                 <Phone className="h-4 w-4 text-muted-foreground" />
@@ -79,7 +78,7 @@ export default function Footer() {
         {/* Bottom Section */}
         <div className="border-t mt-10 pt-6 flex flex-col md:flex-row justify-between items-center text-center md:text-left gap-3">
           <p className="text-muted-foreground text-sm">
-            © 2026 BRANDA Marketplace. All rights reserved.
+            © 2026 Make It Sell Marketplace. All rights reserved.
           </p>
           <div className="flex flex-wrap justify-center md:justify-end gap-x-6 gap-y-2 text-sm">
             <Link href="/privacy" className="text-muted-foreground hover:text-accent transition-colors">

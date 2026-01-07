@@ -2,15 +2,38 @@
 
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { getDocument, createConversation, getConversations } from "@/lib/firestore"
-import type { Product } from "@/lib/firestore"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
-import { MessageCircle } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
-import { Timestamp } from "firebase/firestore"
+import { useCart } from "@/contexts/CartContext"
+
+interface Product {
+  _id?: string
+  id?: string
+  name?: string
+  title?: string
+  description: string
+  price: number
+  category: string
+  images: string[]
+  vendorId: string
+  vendorName?: string
+  vendor?: {
+    _id: string
+    name: string
+    email: string
+  }
+  stock?: number
+  rating?: number
+  reviews?: any[]
+  hasColorOptions?: boolean
+  colors?: string[]
+  colorImages?: { [color: string]: string[] }
+  hasSizeOptions?: boolean
+  sizes?: string[]
+}
 
 const ProductPage = () => {
     const { id } = useParams() as { id: string }
@@ -22,55 +45,9 @@ const ProductPage = () => {
     const [mainImage, setMainImage] = useState<string>("")
     const [selectedColor, setSelectedColor] = useState<string>("")
     const [selectedSize, setSelectedSize] = useState<string>("")
-    const [messagingVendor, setMessagingVendor] = useState(false)
-    const { addToCart } = require("@/contexts/CartContext").useCart();
+    const { addToCart } = useCart()
 
-    const handleMessageVendor = async () => {
-        if (!user || !userProfile) {
-            router.push("/login")
-            return
-        }
-
-        if (!product?.vendorId) {
-            alert("Vendor information is not available.")
-            return
-        }
-
-        try {
-            setMessagingVendor(true)
-            
-            // Check if conversation exists
-            const existingConversations = await getConversations(user.uid, "customer")
-            const existingConversation = existingConversations.find(
-                conv => conv.providerId === product.vendorId
-            )
-
-            if (existingConversation) {
-                router.push("/messages")
-                return
-            }
-
-            // Create new conversation
-            await createConversation({
-                customerId: user.uid,
-                customerName: userProfile.displayName,
-                providerId: product.vendorId,
-                providerName: product.vendorName || "Vendor",
-                storeName: product.vendorName || "Vendor Store",
-                storeImage: "",
-                lastMessage: "Interested in: " + product.title,
-                lastMessageTime: Timestamp.now(),
-                unreadCount: 0
-            })
-
-            router.push("/messages")
-        } catch (error) {
-            console.error("Error creating conversation:", error)
-            alert("Failed to start conversation. Please try again.")
-        } finally {
-            setMessagingVendor(false)
-        }
-    }
+    // ...messages feature removed for rebuild...
 
     useEffect(() => {
         const fetchProduct = async () => {
@@ -78,7 +55,162 @@ const ProductPage = () => {
                 try {
                     setLoading(true)
                     setError("")
-                    const prod = await getDocument("products", id) as Product | null
+                    
+                    // Fetch product from API
+                    const response = await fetch(`/api/database/products/${id}`)
+                    let prod: Product | null = null
+                    
+                    if (response.ok) {
+                        const result = await response.json()
+                        prod = result.success ? result.data : null
+                    }
+                    
+                    if (!prod) {
+                        const mockProducts = [
+                            {
+                                id: "1",
+                                title: "iPhone 15 Pro Max",
+                                description: "The latest iPhone with advanced features, exceptional camera system, and powerful A17 Pro chip.",
+                                price: 650000,
+                                originalPrice: 750000,
+                                category: "Electronics",
+                                images: ["https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800&h=800&fit=crop&crop=center"],
+                                vendorName: "Apple Store Nigeria",
+                                vendorId: "apple-store",
+                                rating: 4.8,
+                                reviews: 234,
+                                featured: true,
+                                tags: ["smartphone", "apple", "premium", "camera"],
+                                specifications: {
+                                    "Display": "6.7-inch Super Retina XDR",
+                                    "Chip": "A17 Pro",
+                                    "Storage": "256GB",
+                                    "Camera": "48MP Main + 12MP Ultra Wide + 12MP Telephoto",
+                                    "Battery": "Up to 29 hours video playback"
+                                },
+                                colors: ["Natural Titanium", "Blue Titanium", "White Titanium", "Black Titanium"],
+                                sizes: ["128GB", "256GB", "512GB", "1TB"]
+                            },
+                            {
+                                id: "2",
+                                title: "Samsung Galaxy S24 Ultra",
+                                description: "Premium Android smartphone with S Pen, powerful camera system, and all-day battery life.",
+                                price: 580000,
+                                category: "Electronics",
+                                images: ["https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=800&h=800&fit=crop&crop=center"],
+                                vendorName: "Samsung Official",
+                                vendorId: "samsung-official",
+                                rating: 4.6,
+                                reviews: 178,
+                                featured: true,
+                                tags: ["smartphone", "samsung", "android", "s-pen"],
+                                specifications: {
+                                    "Display": "6.8-inch Dynamic AMOLED 2X",
+                                    "Processor": "Snapdragon 8 Gen 3",
+                                    "RAM": "12GB",
+                                    "Storage": "512GB",
+                                    "Camera": "200MP Main + 50MP Periscope + 50MP Ultra Wide + 12MP Front"
+                                },
+                                colors: ["Titanium Black", "Titanium Gray", "Titanium Violet", "Titanium Yellow"],
+                                sizes: ["256GB", "512GB", "1TB"]
+                            },
+                            {
+                                id: "3",
+                                title: "Nike Air Jordan 1 Retro",
+                                description: "Classic basketball sneakers with iconic design, premium leather construction, and legendary comfort.",
+                                price: 85000,
+                                originalPrice: 120000,
+                                category: "Fashion",
+                                images: ["https://images.unsplash.com/photo-1549298916-b41d501d3772?w=800&h=800&fit=crop&crop=center"],
+                                vendorName: "Nike Store",
+                                vendorId: "nike-store",
+                                rating: 4.9,
+                                reviews: 456,
+                                featured: true,
+                                tags: ["sneakers", "nike", "basketball", "retro"],
+                                specifications: {
+                                    "Material": "Premium Leather and Synthetic",
+                                    "Sole": "Rubber Outsole",
+                                    "Technology": "Air Cushioning",
+                                    "Style": "High-Top Basketball"
+                                },
+                                colors: ["Chicago Red", "Bred", "Royal Blue", "Shadow Gray"],
+                                sizes: ["7", "8", "9", "10", "11", "12", "13"]
+                            },
+                            {
+                                id: "4",
+                                title: "MacBook Pro 14\" M3",
+                                description: "Professional laptop with M3 chip, Liquid Retina XDR display, and all-day battery life for creative professionals.",
+                                price: 1200000,
+                                category: "Electronics",
+                                images: ["https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&h=800&fit=crop&crop=center"],
+                                vendorName: "Apple Store Nigeria",
+                                vendorId: "apple-store",
+                                rating: 4.7,
+                                reviews: 89,
+                                featured: true,
+                                tags: ["laptop", "apple", "professional", "m3"],
+                                specifications: {
+                                    "Chip": "Apple M3",
+                                    "Display": "14-inch Liquid Retina XDR",
+                                    "Memory": "16GB Unified Memory",
+                                    "Storage": "512GB SSD",
+                                    "Battery": "Up to 18 hours"
+                                },
+                                colors: ["Space Gray", "Silver"],
+                                sizes: ["512GB", "1TB", "2TB"]
+                            },
+                            {
+                                id: "5",
+                                title: "Sony WH-1000XM5",
+                                description: "Industry-leading noise canceling headphones with exceptional sound quality and 30-hour battery life.",
+                                price: 180000,
+                                originalPrice: 220000,
+                                category: "Electronics",
+                                images: ["https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=800&fit=crop&crop=center"],
+                                vendorName: "Electronics Hub",
+                                vendorId: "electronics-hub",
+                                rating: 4.5,
+                                reviews: 167,
+                                featured: true,
+                                tags: ["headphones", "sony", "noise-canceling"],
+                                specifications: {
+                                    "Driver": "30mm Dynamic",
+                                    "Noise Canceling": "Industry-leading",
+                                    "Battery": "30 hours",
+                                    "Connectivity": "Bluetooth 5.2, USB-C"
+                                },
+                                colors: ["Black", "Silver"],
+                                sizes: ["One Size"]
+                            },
+                            {
+                                id: "6",
+                                title: "Apple Watch Series 9",
+                                description: "Advanced health and fitness tracking with the powerful S9 chip and beautiful Always-On Retina display.",
+                                price: 195000,
+                                originalPrice: 220000,
+                                category: "Electronics",
+                                images: ["https://images.unsplash.com/photo-1434493789847-2f02dc6ca35d?w=800&h=800&fit=crop&crop=center"],
+                                vendorName: "Apple Store Nigeria",
+                                vendorId: "apple-store",
+                                rating: 4.8,
+                                reviews: 234,
+                                featured: true,
+                                tags: ["smartwatch", "apple", "fitness", "health"],
+                                specifications: {
+                                    "Display": "45mm Always-On Retina",
+                                    "Chip": "S9 SiP",
+                                    "Health": "ECG, Blood Oxygen, Heart Rate",
+                                    "Battery": "Up to 18 hours"
+                                },
+                                colors: ["Midnight", "Starlight", "Silver", "Product Red"],
+                                sizes: ["41mm", "45mm"]
+                            }
+                        ]
+                        
+                        prod = mockProducts.find(p => p.id === id) || null
+                    }
+                    
                     if (prod) {
                         setProduct(prod)
                         setMainImage(prod.images?.[0] || "/placeholder.svg")
@@ -99,9 +231,6 @@ const ProductPage = () => {
     if (error) return <div className="container py-20 text-red-500">{error}</div>
     if (!product) return null
 
-    const colorOptions = ["Black", "Cream", "Green", "Blue", "Red"]
-    const sizeOptions = ["XS", "S", "M", "L", "XL", "XXL", "XXXL"]
-
     return (
         <>
             <Header />
@@ -114,7 +243,7 @@ const ProductPage = () => {
                             <div className="relative w-full max-w-lg aspect-square rounded-2xl overflow-hidden border bg-slate-100 mx-auto">
                                 <Image
                                     src={mainImage}
-                                    alt={product.title}
+                                    alt={product.title || product.name || 'Product image'}
                                     width={800}
                                     height={800}
                                     className="object-cover transition-transform w-full h-full duration-500 hover:scale-105"
@@ -142,57 +271,63 @@ const ProductPage = () => {
                                 <span className="inline-block bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full">
                                     NEW ARRIVAL
                                 </span>
-                                <h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-900">{product.title}</h1>
-                                <div className="flex items-center gap-2 mt-2 text-yellow-500">
-                                    <span>★</span>
-                                    <span className="font-semibold">4.5</span>
-                                    <span className="text-gray-500 text-sm">623 reviews</span>
-                                    <span className="text-gray-500 text-sm ml-2">1,919 Sold</span>
+                                <h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-900">{product.title || product.name || 'Product'}</h1>
+                                <div className="mt-2 text-gray-500 text-sm">
+                                    <span>by {(product as any).vendorName || 'Vendor'}</span>
                                 </div>
-                                <p className="text-3xl font-bold text-accent mt-4">₦{product.price}</p>
-                            </div>
-
-                            {/* Color */}
-                            <div>
-                                <div className="mb-2 text-sm font-medium text-slate-700">Select Color</div>
-                                <div className="flex gap-2 flex-wrap">
-                                    {colorOptions.map(color => (
-                                        <button
-                                            key={color}
-                                            onClick={() => setSelectedColor(color)}
-                                            className={`px-4 py-2 rounded-full border text-sm transition-all 
-                        ${selectedColor === color
-                                                    ? "bg-indigo-600 text-white border-indigo-600"
-                                                    : "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200"}`}
-                                        >
-                                            {color}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Size */}
-                            <div>
-                                <div className="mb-2 text-sm font-medium text-slate-700">
-                                    Select Size {product.stock <= 5 && (
-                                        <span className="text-red-500 ml-2 text-xs">Only {product.stock} left!</span>
+                                <div className="mt-4 flex items-center gap-3">
+                                    <p className="text-3xl font-bold text-accent">₦{product.price?.toLocaleString()}</p>
+                                    {(product as any).originalPrice && (
+                                        <p className="text-xl text-gray-500 line-through">₦{(product as any).originalPrice.toLocaleString()}</p>
                                     )}
                                 </div>
-                                <div className="flex gap-2 flex-wrap">
-                                    {sizeOptions.map(size => (
-                                        <button
-                                            key={size}
-                                            onClick={() => setSelectedSize(size)}
-                                            className={`px-4 py-2 rounded-full border text-sm transition-all 
-                        ${selectedSize === size
-                                                    ? "bg-indigo-600 text-white border-indigo-600"
-                                                    : "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200"}`}
-                                        >
-                                            {size}
-                                        </button>
-                                    ))}
-                                </div>
                             </div>
+
+                            {/* Color Options - Only show if product has colors enabled and is fashion or vendor allows it */}
+                            {product.hasColorOptions && product.colors && product.colors.length > 0 && (
+                                <div>
+                                    <div className="mb-2 text-sm font-medium text-slate-700">Select Color</div>
+                                    <div className="flex gap-2 flex-wrap">
+                                        {product.colors.map((color: string) => (
+                                            <button
+                                                key={color}
+                                                onClick={() => setSelectedColor(color)}
+                                                className={`px-4 py-2 rounded-full border text-sm transition-all 
+                            ${selectedColor === color
+                                                        ? "bg-indigo-600 text-white border-indigo-600"
+                                                        : "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200"}`}
+                                            >
+                                                {color}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Size Options - Only show if product has sizes enabled and is fashion or vendor allows it */}
+                            {product.hasSizeOptions && product.sizes && product.sizes.length > 0 && (
+                                <div>
+                                    <div className="mb-2 text-sm font-medium text-slate-700">
+                                        Select Size {product.stock <= 5 && (
+                                            <span className="text-red-500 ml-2 text-xs">Only {product.stock} left!</span>
+                                        )}
+                                    </div>
+                                    <div className="flex gap-2 flex-wrap">
+                                        {product.sizes.map((size: string) => (
+                                            <button
+                                                key={size}
+                                                onClick={() => setSelectedSize(size)}
+                                                className={`px-4 py-2 rounded-full border text-sm transition-all 
+                            ${selectedSize === size
+                                                        ? "bg-indigo-600 text-white border-indigo-600"
+                                                        : "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200"}`}
+                                            >
+                                                {size}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Description */}
                             <div className="bg-slate-50 rounded-xl p-5">
@@ -210,34 +345,48 @@ const ProductPage = () => {
                                     <span>★</span><span>4.8</span>
                                     <span className="text-gray-500 ml-1">17.5k reviews</span>
                                 </div>
-                                <Button variant="outline" size="sm">Visit Store</Button>
+                                <Button variant="outline" size="sm" className="hover:bg-accent/10 hover:text-accent transition-all">Visit Store</Button>
                                 <p className="text-xs text-gray-500">Estimated Shipping <b>₦1,500</b></p>
                             </div>
 
                             {/* Add to Cart */}
                             <Button
-                                className="w-full py-6 text-lg font-bold rounded-xl bg-accent text-white hover:bg-indigo-500 transition"
-                                onClick={() => addToCart({
-                                    id: product.id,
-                                    productId: product.id,
-                                    title: product.title,
-                                    vendorId: product.vendorId,
-                                    vendorName: product.vendorName,
-                                    price: product.price,
-                                    image: mainImage,
-                                    quantity: 1,
-                                    maxStock: product.stock,
-                                    color: selectedColor,
-                                    size: selectedSize
-                                })}
-                                disabled={product.stock === 0}
+                                className="w-full py-6 text-lg font-bold rounded-xl bg-accent text-white hover:bg-indigo-500 hover:scale-105 transition-all"
+                                onClick={() => {
+                                    if (!product) {
+                                        console.error("Product data not available")
+                                        return
+                                    }
+                                    
+                                    const cartItem = {
+                                        id: product.id || product._id || '',
+                                        productId: product.id || product._id || '',
+                                        title: product.title || product.name || '',
+                                        vendorId: product.vendorId || '',
+                                        vendorName: product.vendorName || (product as any).vendor?.name || 'Unknown Vendor',
+                                        price: product.price || 0,
+                                        image: mainImage || product.images?.[0] || '',
+                                        quantity: 1,
+                                        maxStock: product.stock || 100
+                                    }
+                                    
+                                    // Validate required fields
+                                    if (!cartItem.productId || !cartItem.title || !cartItem.price) {
+                                        console.error("Invalid product data:", product)
+                                        alert("Unable to add product to cart. Product data is incomplete.")
+                                        return
+                                    }
+                                    
+                                    addToCart(cartItem)
+                                }}
+                                disabled={product?.stock === 0}
                             >
                                 {product.stock === 0 ? "Out of Stock" : "Add to Cart"}
                             </Button>
 
                             {/* Message Vendor */}
                             <Button
-                                className="w-full py-6 text-lg font-bold rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition flex items-center justify-center gap-2"
+                                className="w-full py-6 text-lg font-bold rounded-xl bg-blue-600 text-white hover:bg-blue-700 hover:scale-105 transition-all flex items-center justify-center gap-2"
                                 onClick={handleMessageVendor}
                                 disabled={messagingVendor}
                                 variant="outline"

@@ -12,14 +12,18 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { signUp } from "@/lib/auth"
-import { createStore } from "@/lib/firestore"
+import { useAuth } from "@/contexts/AuthContext"
+import { createStore } from "@/lib/database-client"
+import { createService } from "@/lib/database-client"
 import { uploadToCloudinary } from "@/lib/cloudinary"
 import { Eye, EyeOff, Loader2, Upload, X } from "lucide-react"
+import LocationPicker from "@/components/LocationPicker"
 
 export default function SignupForm() {
   const searchParams = useSearchParams()
   const isVendorSignup = searchParams.get("type") === "vendor"
+  const paymentError = searchParams.get("error")
+  const { register } = useAuth() // Add auth context hook
 
   const [formData, setFormData] = useState({
     email: "",
@@ -39,10 +43,18 @@ export default function SignupForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [acceptTerms, setAcceptTerms] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
+  const [error, setError] = useState(
+    paymentError === "payment_failed" ? "Payment was cancelled. Please complete payment to activate your vendor account." :
+    paymentError === "payment_verification_failed" ? "Payment verification failed. Please try again." :
+    paymentError === "payment_unsuccessful" ? "Payment was not successful. Please try again." :
+    paymentError === "callback_error" ? "Payment processing error. Please contact support." :
+    ""
+  )
   const [storeLogoFile, setStoreLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [storeCoordinates, setStoreCoordinates] = useState<{ lat: number; lng: number } | null>(null)
+  const [storeCity, setStoreCity] = useState<string | null>(null)
   const router = useRouter()
 
   const handleInputChange = (field: string, value: string) => {
@@ -129,61 +141,71 @@ export default function SignupForm() {
     }
 
     try {
-      // Create user account first
-      console.log("Step 1: Creating user account...")
-      const result = await signUp(
-        formData.email, 
-        formData.password, 
-        formData.displayName, 
-        formData.role,
-        formData.role === "vendor" ? formData.vendorType : undefined
-      )
-      console.log("Step 1: User account created successfully")
-
-      // If vendor, create store
-      if (formData.role === "vendor" && result.user) {
-        console.log("Step 2: Vendor detected, creating store...")
-        let storeLogoUrl = "/placeholder.svg" // Default logo
-        
-        // Upload logo if provided
-        if (storeLogoFile) {
-          setUploadingLogo(true)
-          console.log("Step 2a: Uploading logo to Cloudinary...")
-          try {
-            storeLogoUrl = await uploadToCloudinary(storeLogoFile)
-            console.log("Step 2a: Logo uploaded successfully")
-          } catch (uploadError) {
-            console.error("Step 2a: Failed to upload logo:", uploadError)
-            // Continue with default logo if upload fails
-          }
-          setUploadingLogo(false)
-        }
-
-        // Create store
-        console.log("Step 2b: Creating store document...")
+      console.log("=== SIGNUP FLOW DEBUG ===")
+      console.log("Form data role:", formData.role)
+      console.log("isVendorSignup:", isVendorSignup)
+      console.log("URL search params:", window.location.search)
+      
+      // If vendor, process subscription payment FIRST before creating account
+      if (formData.role === "vendor") {
+        console.log("Step 1: VENDOR DETECTED - Processing subscription payment first (NO ACCOUNT CREATION YET)...")
         try {
-          await createStore({
-            vendorId: result.user.uid,
-            storeName: formData.storeName.trim(),
-            storeDescription: formData.storeDescription.trim(),
-            storeImage: storeLogoUrl,
-            category: formData.storeCategory,
-            rating: 5.0, // Default rating
-            reviewCount: 0,
-            isOpen: true,
-            deliveryTime: "30-60 min", // Default delivery time
-            deliveryFee: 500, // Default delivery fee in Naira
-            minimumOrder: 2000, // Default minimum order in Naira
-            address: formData.storeAddress.trim(),
-            phone: formData.storePhone.trim(),
-            email: formData.email,
+          // Store signup data temporarily for after payment
+          const pendingSignupData = {
+            ...formData,
+            storeLogoUrl: storeLogoFile ? await uploadToCloudinary(storeLogoFile) : "/placeholder.svg",
+            timestamp: Date.now()
+          }
+          
+          sessionStorage.setItem('pendingSignupData', JSON.stringify(pendingSignupData))
+
+          // Initialize vendor subscription payment (no user created yet)
+          const subscriptionResponse = await fetch('/api/payments/vendor-subscription-signup', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: formData.email,
+              signupData: pendingSignupData
+            }),
           })
-          console.log("Step 2b: Store created successfully")
-        } catch (storeError: any) {
-          console.error("Step 2b: Store creation failed:", storeError)
-          // Don't block signup if store creation fails
-          setError("Account created but store setup failed. Please complete setup in dashboard.")
+
+          if (!subscriptionResponse.ok) {
+            const errorData = await subscriptionResponse.json()
+            throw new Error(errorData.error || 'Failed to initialize subscription payment')
+          }
+
+          const paymentData = await subscriptionResponse.json()
+          console.log("Step 1: Payment initialization successful", paymentData)
+
+          // Redirect to Paystack for payment
+          if (paymentData.success && paymentData.authorization_url) {
+            console.log("Step 1: Redirecting to Paystack payment page...")
+            window.location.href = paymentData.authorization_url
+            return
+          } else {
+            throw new Error('Payment initialization failed: No authorization URL received')
+          }
+        } catch (paymentError: any) {
+          console.error("Step 1: Subscription payment initialization failed:", paymentError)
+          setError(`Failed to process subscription payment: ${paymentError.message}`)
+          setLoading(false)
+          return
         }
+      }
+
+      // If not vendor, create account normally (customer/admin)
+      if (formData.role !== "vendor") {
+        console.log("Step 1: Creating customer/admin account via AuthContext...");
+        await register(
+          formData.email,
+          formData.password,
+          formData.displayName,
+          formData.role
+        );
+        console.log("Step 1: Customer/admin account created successfully");
+        // No store/service creation for customers/admins
       }
 
       console.log("Step 3: Redirecting user...")
@@ -214,7 +236,18 @@ export default function SignupForm() {
           {isVendorSignup ? "Create Seller Account" : "Create Account"}
         </CardTitle>
         <CardDescription>
-          {isVendorSignup ? "Start selling on BRANDA marketplace" : "Join BRANDA marketplace today"}
+          {isVendorSignup ? (
+            <div className="space-y-2">
+              <p>Start selling on Make It Sell marketplace</p>
+              <div className="bg-accent/10 border border-accent/20 rounded-md p-2">
+                <p className="text-xs font-medium text-accent">
+                  Vendor Subscription: ₦2,500/month (billed monthly)
+                </p>
+              </div>
+            </div>
+          ) : (
+            "Join Make It Sell marketplace today"
+          )}
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
@@ -264,7 +297,7 @@ export default function SignupForm() {
                 <SelectContent>
                   <SelectItem value="customer">Customer - Buy products</SelectItem>
                   <SelectItem value="vendor">Vendor - Sell products</SelectItem>
-                  {formData.email === "admin@branda.com" && (
+                  {formData.email === "admin@makeitsell.com" && (
                     <SelectItem value="admin">Admin - Platform management</SelectItem>
                   )}
                 </SelectContent>
@@ -299,6 +332,39 @@ export default function SignupForm() {
                     {formData.vendorType === "services" && "You'll offer professional services"}
                     {formData.vendorType === "both" && "You'll sell both products and services"}
                   </p>
+                </div>
+
+                {/* Vendor Subscription Notice */}
+                <div className="bg-accent/10 border border-accent/20 rounded-lg p-4 mb-4">
+                  <h4 className="font-semibold text-accent mb-2">📦 Vendor Subscription Required</h4>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    As a vendor on Make It Sell, you'll need to subscribe to our monthly vendor plan:
+                  </p>
+                  <div className="flex items-center justify-between bg-white/50 rounded-md p-3 mb-2">
+                    <div>
+                      <p className="font-semibold text-lg">₦2,500 / month</p>
+                      <p className="text-xs text-muted-foreground">Billed monthly • Auto-renewable</p>
+                    </div>
+                    <div className="text-accent">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    <p className="mb-1"><strong>What's included:</strong></p>
+                    <ul className="list-disc list-inside space-y-0.5 ml-2">
+                      <li>Unlimited product/service listings</li>
+                      <li>Store management dashboard</li>
+                      <li>Order & booking management</li>
+                      <li>Analytics & sales insights</li>
+                      <li>Customer support tools</li>
+                      <li>Secure payment processing</li>
+                    </ul>
+                    <p className="mt-2 font-medium text-accent">
+                      First payment will be processed after account creation
+                    </p>
+                  </div>
                 </div>
 
                 {/* Store Logo Upload */}
@@ -423,15 +489,21 @@ export default function SignupForm() {
                 {/* Store Address */}
                 <div className="space-y-2">
                   <Label htmlFor="storeAddress">Store Address *</Label>
-                  <Input
-                    id="storeAddress"
-                    type="text"
-                    placeholder="Enter your store location/address"
-                    value={formData.storeAddress}
-                    onChange={(e) => handleInputChange("storeAddress", e.target.value)}
-                    required={formData.role === "vendor"}
-                    disabled={loading}
+                  <LocationPicker
+                    onLocationSelect={(location) => {
+                      handleInputChange("storeAddress", location.address)
+                      setStoreCoordinates(location.coordinates || null)
+                      setStoreCity(location.city || null)
+                    }}
+                    initialAddress={formData.storeAddress}
+                    placeholder="Search for your store location..."
                   />
+                  {storeCoordinates && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <span className="inline-block w-2 h-2 rounded-full bg-green-500"></span>
+                      Location set: {storeCity || 'Selected'}
+                    </p>
+                  )}
                 </div>
 
                 {/* Store Phone */}
@@ -536,8 +608,8 @@ export default function SignupForm() {
               ? "Uploading Logo..." 
               : loading 
                 ? "Creating Account..." 
-                : isVendorSignup 
-                  ? "Create Seller Account & Store" 
+                : isVendorSignup || formData.role === "vendor"
+                  ? "Create Seller Account (₦2,500/month)" 
                   : "Create Account"
             }
           </Button>

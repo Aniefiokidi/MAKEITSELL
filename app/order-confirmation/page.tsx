@@ -1,11 +1,25 @@
+"use client"
+
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle, Package, Truck, CreditCard } from "lucide-react"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
+import { useCart } from "@/contexts/CartContext"
 
 export default function OrderConfirmationPage() {
+  const { clearCart } = useCart()
+  const router = useRouter()
+
+  useEffect(() => {
+    // Clear the cart when landing on order confirmation page
+    clearCart()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -58,11 +72,11 @@ export default function OrderConfirmationPage() {
           </Card>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button asChild>
-              <Link href="/orders">View Order Status</Link>
+            <Button asChild className="hover:bg-accent/50 hover:text-white hover:scale-105 transition-all hover:shadow-lg">
+              <Link href="/order">View Order Status</Link>
             </Button>
-            <Button variant="outline" asChild>
-              <Link href="/shop">Continue Shopping</Link>
+            <Button variant="outline" asChild className="hover:bg-accent/10 hover:text-accent transition-all">
+              <Link href="/stores">Continue Shopping</Link>
             </Button>
           </div>
         </div>

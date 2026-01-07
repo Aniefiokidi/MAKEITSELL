@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { signIn } from "@/lib/auth"
+import { useAuth } from "@/contexts/AuthContext"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 
 export default function LoginForm() {
@@ -21,14 +21,19 @@ export default function LoginForm() {
   const [error, setError] = useState("")
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { login } = useAuth() // Add auth context hook
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError("")
 
+    console.log('Login attempt:', { email })
+
     try {
-      const result = await signIn(email, password)
+      const result = await login(email, password) // Use AuthContext login instead
+
+      console.log('Login successful:', result)
 
       const redirectTo = searchParams.get("redirect")
 
@@ -41,11 +46,13 @@ export default function LoginForm() {
         } else if (result.userProfile?.role === "admin") {
           router.push("/admin/dashboard")
         } else {
-          router.push("/")
+          // Customers go to shop page
+          router.push("/stores")
         }
       }
     } catch (error: any) {
-      setError(error.message || "Failed to sign in")
+      console.error('Login error:', error)
+      setError(error.message || "Failed to sign in. Please check your credentials.")
     } finally {
       setLoading(false)
     }
@@ -55,8 +62,9 @@ export default function LoginForm() {
     <Card className="w-full max-w-md mx-auto animate-scale-in">
       <CardHeader className="text-center animate-fade-in">
         <CardTitle className="text-2xl font-bold" style={{ textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))' }}>Welcome Back</CardTitle>
-        <CardDescription>Sign in to your BRANDA account</CardDescription>
+        <CardDescription>Sign in to your Make It Sell account</CardDescription>
       </CardHeader>
+      
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
           {error && (

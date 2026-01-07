@@ -7,24 +7,39 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { UserCheck, UserX } from "lucide-react"
-import { useState } from "react"
-
-// Mock user profile data
-const mockUser = {
-  id: "user_001",
-  name: "John Doe",
-  email: "john@example.com",
-  role: "customer",
-  status: "active",
-  joinDate: "2024-01-10",
-  orders: 12,
-  totalSpent: 1299.99,
-  address: "123 Main St, Washington, DC",
-  phone: "+1 555-1234",
-}
+import { useState, useEffect } from "react"
+import { useAuth } from "@/contexts/AuthContext"
 
 export default function UserProfilePage() {
-  const [user, setUser] = useState(mockUser)
+  const { user, userProfile } = useAuth()
+  const [profile, setProfile] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (userProfile) {
+      setProfile({
+        id: userProfile.uid,
+        name: userProfile.displayName,
+        email: userProfile.email,
+        role: userProfile.role,
+        status: "active",
+        joinDate: userProfile.createdAt?.toISOString().split('T')[0] || "2024-01-01",
+        orders: 0, // This would come from actual orders data
+        totalSpent: 0, // This would come from actual orders data
+        address: "", // This would come from user profile
+        phone: "", // This would come from user profile
+      })
+    }
+    setLoading(false)
+  }, [userProfile])
+
+  if (loading) {
+    return <div>Loading...</div>
+  }
+
+  if (!profile) {
+    return <div>Please log in to view your profile.</div>
+  }
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -45,7 +60,7 @@ export default function UserProfilePage() {
   }
 
   const handleStatusChange = (newStatus: string) => {
-    setUser((prev) => ({ ...prev, status: newStatus }))
+    setProfile((prev) => prev ? ({ ...prev, status: newStatus }) : null)
   }
 
   return (
@@ -62,25 +77,25 @@ export default function UserProfilePage() {
           <CardContent>
             <div className="space-y-4">
               <div>
-                <span className="font-medium">Name:</span> {user.name}
+                <span className="font-medium">Name:</span> {profile.name}
               </div>
               <div>
-                <span className="font-medium">Email:</span> {user.email}
+                <span className="font-medium">Email:</span> {profile.email}
               </div>
               <div>
-                <span className="font-medium">Role:</span> {getRoleBadge(user.role)}
+                <span className="font-medium">Role:</span> {getRoleBadge(profile.role)}
               </div>
               <div>
-                <span className="font-medium">Status:</span> {getStatusBadge(user.status)}
+                <span className="font-medium">Status:</span> {getStatusBadge(profile.status)}
               </div>
               <div>
-                <span className="font-medium">Join Date:</span> {new Date(user.joinDate).toLocaleDateString()}
+                <span className="font-medium">Join Date:</span> {new Date(profile.joinDate).toLocaleDateString()}
               </div>
               <div>
-                <span className="font-medium">Address:</span> {user.address}
+                <span className="font-medium">Address:</span> {profile.address || 'Not provided'}
               </div>
               <div>
-                <span className="font-medium">Phone:</span> {user.phone}
+                <span className="font-medium">Phone:</span> {profile.phone || 'Not provided'}
               </div>
             </div>
           </CardContent>
@@ -100,10 +115,10 @@ export default function UserProfilePage() {
               </TableHeader>
               <TableBody>
                 <TableRow>
-                  <TableCell>{user.orders}</TableCell>
-                  <TableCell>${user.totalSpent.toFixed(2)}</TableCell>
+                  <TableCell>{profile.orders}</TableCell>
+                  <TableCell>${profile.totalSpent.toFixed(2)}</TableCell>
                   <TableCell>
-                    {user.status === "active" ? (
+                    {profile.status === "active" ? (
                       <Button variant="destructive" size="sm" onClick={() => handleStatusChange("suspended")}> <UserX className="mr-2 h-4 w-4" /> Suspend </Button>
                     ) : (
                       <Button variant="secondary" size="sm" onClick={() => handleStatusChange("active")}> <UserCheck className="mr-2 h-4 w-4" /> Activate </Button>

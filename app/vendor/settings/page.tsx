@@ -8,12 +8,19 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import ThemeSelect from "@/components/vendor/ThemeSelect"
 import { useAuth } from "@/contexts/AuthContext"
-import { Settings, Save, Shield, Bell, Palette, Globe } from "lucide-react"
+import { Settings, Save, Shield, Bell, Palette, Globe, Trash2, AlertTriangle } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 
 export default function VendorSettingsPage() {
-  const { user, userProfile } = useAuth()
+    // Add next-themes logic
+    const { setTheme } = require('next-themes').useTheme?.() || {};
+  const { user, userProfile, logout } = useAuth()
   const [loading, setLoading] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [confirmationText, setConfirmationText] = useState("")
   const [settings, setSettings] = useState({
     // Account Settings
     displayName: userProfile?.displayName || "",
@@ -60,6 +67,62 @@ export default function VendorSettingsPage() {
       ...prev,
       [field]: value
     }))
+    if (field === "theme" && setTheme) {
+      setTheme(value);
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    console.log("Delete button clicked")
+    console.log("Confirmation text:", confirmationText)
+    console.log("Trimmed confirmation text:", confirmationText.trim())
+    console.log("Required text: 'DELETE MY ACCOUNT'")
+    console.log("Match:", confirmationText.trim() === "DELETE MY ACCOUNT")
+    
+    if (confirmationText.trim() !== "DELETE MY ACCOUNT") {
+      alert("Please type 'DELETE MY ACCOUNT' to confirm")
+      return
+    }
+
+    console.log("Starting deletion process...")
+    console.log("User:", user)
+    
+    setDeleteLoading(true)
+    try {
+      console.log("Sending delete request...")
+      
+      const response = await fetch('/api/vendor/delete-account', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          vendorId: user?.uid,
+          userId: user?.uid
+        })
+      })
+
+      console.log("Response status:", response.status)
+      console.log("Response ok:", response.ok)
+      
+      const result = await response.json()
+      console.log("Response data:", result)
+
+      if (result.success) {
+        alert("Your account and all associated data have been permanently deleted.")
+        await logout()
+        window.location.href = '/'
+      } else {
+        throw new Error(result.error || 'Failed to delete account')
+      }
+    } catch (error: any) {
+      console.error('Account deletion error:', error)
+      alert(`Failed to delete account: ${error.message}`)
+    } finally {
+      setDeleteLoading(false)
+      setDeleteDialogOpen(false)
+      setConfirmationText("")
+    }
   }
 
   return (
@@ -231,19 +294,7 @@ export default function VendorSettingsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>Theme</Label>
-                    <Select
-                      value={settings.theme}
-                      onValueChange={(value) => handleInputChange("theme", value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="light">Light</SelectItem>
-                        <SelectItem value="dark">Dark</SelectItem>
-                        <SelectItem value="system">System</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <ThemeSelect value={settings.theme} onValueChange={v => handleInputChange("theme", v)} />
                   </div>
 
                   <div className="space-y-2">
@@ -318,6 +369,102 @@ export default function VendorSettingsPage() {
                       <SelectItem value="240">4 hours</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Danger Zone - Delete Account */}
+            <Card className="border-destructive">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-destructive">
+                  <AlertTriangle className="h-5 w-5" />
+                  Danger Zone
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="p-4 border border-destructive/20 rounded-lg bg-destructive/5">
+                  <h3 className="font-semibold text-destructive mb-2">Delete Account & Store</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Permanently delete your vendor account, store, and all associated data. This action cannot be undone.
+                  </p>
+                  
+                  <div className="text-sm text-muted-foreground mb-4">
+                    <p className="font-medium mb-2">This will permanently delete:</p>
+                    <ul className="list-disc list-inside space-y-1 ml-4">
+                      <li>Your store and all products</li>
+                      <li>All services and bookings</li>
+                      <li>Order history and customer conversations</li>
+                      <li>Your vendor account and profile</li>
+                      <li>All associated data and analytics</li>
+                    </ul>
+                  </div>
+
+                  <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="destructive" className="w-full">
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete Account & Store
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-destructive">
+                          <AlertTriangle className="h-5 w-5" />
+                          Delete Account & Store
+                        </DialogTitle>
+                        <DialogDescription>
+                          This action cannot be undone. This will permanently delete your vendor account, 
+                          store, and all associated data including products, orders, and customer conversations.
+                        </DialogDescription>
+                      </DialogHeader>
+                      
+                      <div className="space-y-4">
+                        <div className="p-3 border border-destructive/20 rounded bg-destructive/5">
+                          <p className="text-sm font-medium text-destructive mb-2">
+                            All of the following will be permanently deleted:
+                          </p>
+                          <ul className="text-xs text-muted-foreground space-y-1">
+                            <li>• Your store "{userProfile?.vendorInfo?.businessName || 'Your Store'}"</li>
+                            <li>• All products and services</li>
+                            <li>• Order history and analytics</li>
+                            <li>• Customer conversations and bookings</li>
+                            <li>• Your vendor account and profile</li>
+                          </ul>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="confirmation">
+                            Type <strong>DELETE MY ACCOUNT</strong> to confirm:
+                          </Label>
+                          <Input
+                            id="confirmation"
+                            value={confirmationText}
+                            onChange={(e) => setConfirmationText(e.target.value)}
+                            placeholder="DELETE MY ACCOUNT"
+                          />
+                        </div>
+                      </div>
+
+                      <DialogFooter className="gap-2">
+                        <Button 
+                          variant="outline" 
+                          onClick={() => {
+                            setDeleteDialogOpen(false)
+                            setConfirmationText("")
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button 
+                          variant="destructive" 
+                          onClick={handleDeleteAccount}
+                          disabled={deleteLoading || confirmationText.trim() !== "DELETE MY ACCOUNT"}
+                        >
+                          {deleteLoading ? "Deleting..." : "Delete Forever"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </CardContent>
             </Card>

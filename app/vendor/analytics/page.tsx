@@ -5,46 +5,37 @@ import VendorLayout from "@/components/vendor/VendorLayout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/contexts/AuthContext"
-import { getOrders, getVendorProducts } from "@/lib/firestore"
 import { BarChart3, TrendingUp, Users, DollarSign, Package, ShoppingCart } from "lucide-react"
 
+
 export default function VendorAnalyticsPage() {
-  const { user } = useAuth()
-  const [orders, setOrders] = useState<any[]>([])
-  const [products, setProducts] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const { user } = useAuth();
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const loadData = async () => {
-      if (!user) return
-
+    const loadAnalytics = async () => {
+      if (!user) return;
+      setLoading(true);
+      setError("");
       try {
-        const [vendorOrders, vendorProducts] = await Promise.all([
-          getOrders({ vendorId: user.uid }),
-          getVendorProducts(user.uid)
-        ])
-
-        setOrders(vendorOrders)
-        setProducts(vendorProducts)
-      } catch (error) {
-        console.error("Error loading analytics data:", error)
+        if (!user?.uid) throw new Error("No vendor ID");
+        const res = await fetch(`/api/vendor/analytics?vendorId=${encodeURIComponent(user.uid)}`);
+        const data = await res.json();
+        if (data.success) {
+          setAnalytics(data.data);
+        } else {
+          setError(data.error || "Failed to load analytics");
+        }
+      } catch (err) {
+        setError("Failed to load analytics");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
-    loadData()
-  }, [user])
-
-  const totalRevenue = orders.reduce((sum, order) => sum + order.totalAmount, 0)
-  const totalOrders = orders.length
-  const totalProducts = products.length
-  const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
-
-  const recentOrders = orders.slice(0, 5)
-  const topProducts = products
-    .filter(product => product.sales > 0)
-    .sort((a, b) => (b.sales || 0) - (a.sales || 0))
-    .slice(0, 5)
+    };
+    loadAnalytics();
+  }, [user]);
 
   if (loading) {
     return (
@@ -53,8 +44,30 @@ export default function VendorAnalyticsPage() {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
       </VendorLayout>
-    )
+    );
   }
+
+  if (error) {
+    return (
+      <VendorLayout>
+        <div className="flex items-center justify-center py-16 text-red-600">{error}</div>
+      </VendorLayout>
+    );
+  }
+
+  const totalRevenue = analytics?.totalRevenue || 0;
+  const totalOrders = analytics?.totalOrders || 0;
+  const totalProducts = analytics?.totalProducts || 0;
+  const averageOrderValue = analytics?.avgOrderValue || 0;
+  // Format currency in Naira
+  const formatNaira = (amount: number) => `₦${amount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const revenueChange = analytics?.revenueChange;
+  const ordersChange = analytics?.ordersChange;
+  const productsChange = analytics?.productsChange;
+  const avgOrderValueChange = analytics?.avgOrderValueChange;
+  const newProductsThisWeek = analytics?.newProductsThisWeek;
+  const recentOrders = analytics?.recentOrders || [];
+  const topProducts = analytics?.topProducts || [];
 
   return (
     <VendorLayout>
@@ -70,9 +83,11 @@ export default function VendorAnalyticsPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-2xl font-bold">${totalRevenue.toFixed(2)}</p>
+                  <p className="text-2xl font-bold">{formatNaira(totalRevenue)}</p>
                   <p className="text-sm text-gray-600">Total Revenue</p>
-                  <p className="text-xs text-green-600">+12% from last month</p>
+                  <p className="text-xs text-green-600">
+                    {revenueChange === null ? "" : `${revenueChange >= 0 ? "+" : ""}${revenueChange.toFixed(1)}% from last month`}
+                  </p>
                 </div>
                 <DollarSign className="h-8 w-8 text-gray-400" />
               </div>
@@ -85,7 +100,9 @@ export default function VendorAnalyticsPage() {
                 <div>
                   <p className="text-2xl font-bold">{totalOrders}</p>
                   <p className="text-sm text-gray-600">Total Orders</p>
-                  <p className="text-xs text-green-600">+8% from last month</p>
+                  <p className="text-xs text-green-600">
+                    {ordersChange === null ? "" : `${ordersChange >= 0 ? "+" : ""}${ordersChange.toFixed(1)}% from last month`}
+                  </p>
                 </div>
                 <ShoppingCart className="h-8 w-8 text-gray-400" />
               </div>
@@ -98,7 +115,10 @@ export default function VendorAnalyticsPage() {
                 <div>
                   <p className="text-2xl font-bold">{totalProducts}</p>
                   <p className="text-sm text-gray-600">Products Listed</p>
-                  <p className="text-xs text-green-600">+2 new this week</p>
+                  <p className="text-xs text-green-600">
+                    {typeof newProductsThisWeek === "number" ? `+${newProductsThisWeek} new this week` : ""}
+                    {productsChange !== null && ` (${productsChange >= 0 ? "+" : ""}${productsChange.toFixed(1)}% vs last week)`}
+                  </p>
                 </div>
                 <Package className="h-8 w-8 text-gray-400" />
               </div>
@@ -109,9 +129,11 @@ export default function VendorAnalyticsPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-2xl font-bold">${averageOrderValue.toFixed(2)}</p>
+                  <p className="text-2xl font-bold">{formatNaira(averageOrderValue)}</p>
                   <p className="text-sm text-gray-600">Avg Order Value</p>
-                  <p className="text-xs text-green-600">+5% from last month</p>
+                  <p className="text-xs text-green-600">
+                    {avgOrderValueChange === null ? "" : `${avgOrderValueChange >= 0 ? "+" : ""}${avgOrderValueChange.toFixed(1)}% from last month`}
+                  </p>
                 </div>
                 <TrendingUp className="h-8 w-8 text-gray-400" />
               </div>
@@ -130,17 +152,17 @@ export default function VendorAnalyticsPage() {
                 <p className="text-gray-600">No orders yet.</p>
               ) : (
                 <div className="space-y-4">
-                  {recentOrders.map((order) => (
-                    <div key={order.id} className="flex justify-between items-center border-b pb-2">
+                  {recentOrders.map((order: any) => (
+                    <div key={order._id || order.id} className="flex justify-between items-center border-b pb-2">
                       <div>
-                        <p className="font-medium">Order #{order.id.slice(-8)}</p>
+                        <p className="font-medium">Order #{(order._id || order.id || "").toString().slice(-8)}</p>
                         <p className="text-sm text-gray-600">
-                          {order.createdAt?.toDate?.()?.toLocaleDateString()}
+                          {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : ""}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="font-medium">${order.totalAmount.toFixed(2)}</p>
-                        <Badge variant="outline">{order.status}</Badge>
+                        <p className="font-medium">{formatNaira(order.total || order.totalAmount || 0)}</p>
+                        <Badge variant="outline">{order.status || "N/A"}</Badge>
                       </div>
                     </div>
                   ))}
@@ -158,10 +180,10 @@ export default function VendorAnalyticsPage() {
                 <p className="text-gray-600">No sales data yet.</p>
               ) : (
                 <div className="space-y-4">
-                  {topProducts.map((product) => (
-                    <div key={product.id} className="flex justify-between items-center border-b pb-2">
+                  {topProducts.map((product: any) => (
+                    <div key={product._id || product.id} className="flex justify-between items-center border-b pb-2">
                       <div>
-                        <p className="font-medium">{product.title}</p>
+                        <p className="font-medium">{product.title || product.name}</p>
                         <p className="text-sm text-gray-600">{product.sales || 0} sold</p>
                       </div>
                       <div className="text-right">

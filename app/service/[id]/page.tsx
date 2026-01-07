@@ -11,11 +11,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog"
-import { getServiceById, Service, createConversation, getConversations } from "@/lib/firestore"
+// import { getServiceById, Service, createConversation, getConversations } from "@/lib/database"
+import type { Service } from "@/lib/models"
 import { useAuth } from "@/contexts/AuthContext"
-import { ArrowLeft, MapPin, Clock, DollarSign, Star, Calendar, MessageCircle, CheckCircle, X, ChevronLeft, ChevronRight } from "lucide-react"
+import { ArrowLeft, MapPin, Clock, DollarSign, Calendar, MessageCircle, CheckCircle, X, ChevronLeft, ChevronRight, Star } from "lucide-react"
 import BookingModal from "@/components/services/BookingModal"
-import { Timestamp } from "firebase/firestore"
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 
 export default function ServiceDetailPage() {
@@ -27,46 +27,49 @@ export default function ServiceDetailPage() {
   const [showBookingModal, setShowBookingModal] = useState(false)
   const [selectedImage, setSelectedImage] = useState(0)
   const [messagingProvider, setMessagingProvider] = useState(false)
+  const [showMessageModal, setShowMessageModal] = useState(false)
+  const [quickMessage, setQuickMessage] = useState("")
+  const [sendingQuickMessage, setSendingQuickMessage] = useState(false)
   const [showImageModal, setShowImageModal] = useState(false)
   const [modalImageIndex, setModalImageIndex] = useState(0)
 
   useEffect(() => {
-    fetchService()
+    const fetchService = async () => {
+      try {
+        setLoading(true)
+        const res = await fetch(`/api/database/services/${params.id}`)
+        if (!res.ok) throw new Error("Failed to fetch service")
+        const json = await res.json()
+        setService(json.data)
+      } catch (error) {
+        console.error("Error fetching service:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    if (params.id) fetchService()
   }, [params.id])
 
-  const fetchService = async () => {
-    try {
-      setLoading(true)
-      const data = await getServiceById(params.id as string)
-      setService(data)
-    } catch (error) {
-      console.error("Error fetching service:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleMessageProvider = async () => {
+  const handleMessageProvider = () => {
     if (!user || !userProfile) {
       router.push("/login")
       return
     }
+    setShowMessageModal(true)
+  }
 
-    if (!service) return
-
+  const handleSendQuickMessage = async () => {
+    if (!quickMessage.trim() || !service || !user || !userProfile) return
+    setSendingQuickMessage(true)
     try {
-      setMessagingProvider(true)
-      
-      // Check if conversation already exists
-      const existingConversations = await getConversations(user.uid, "customer")
-      const existingConv = existingConversations.find(
-        conv => conv.providerId === service.providerId && conv.serviceId === service.id
+      // Check if conversation exists
+      const res = await fetch(`/api/database/conversations?userId=${user.uid}&role=customer`)
+      const json = await res.json()
+      let conversationId = null
+      let existingConv = (json.data || []).find(
+        (conv: any) => conv.providerId === service.providerId && conv.serviceId === service.id
       )
-
-      if (existingConv) {
-        // Navigate to existing conversation
-        router.push("/messages")
-      } else {
+      if (!existingConv) {
         // Create new conversation
         const conversationData = {
           customerId: user.uid,
@@ -76,18 +79,40 @@ export default function ServiceDetailPage() {
           serviceId: service.id,
           storeName: service.providerName,
           storeImage: service.providerImage,
-          lastMessage: "Interested in your service",
-          lastMessageTime: Timestamp.now(),
+          lastMessage: quickMessage.trim(),
+          lastMessageTime: new Date(),
           unreadCount: 0,
         }
-
-        await createConversation(conversationData)
-        router.push("/messages")
+        const createRes = await fetch(`/api/database/conversations`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(conversationData),
+        })
+        const createJson = await createRes.json()
+        conversationId = createJson.data?.id
+      } else {
+        conversationId = existingConv.id
       }
+      // Send message
+      await fetch("/api/messages/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationId,
+          senderId: user.uid,
+          senderName: userProfile.displayName,
+          senderRole: "customer",
+          receiverId: service.providerId,
+          message: quickMessage.trim(),
+          read: false,
+        }),
+      })
+      setQuickMessage("")
+      setShowMessageModal(false)
     } catch (error) {
-      console.error("Error creating conversation:", error)
+      console.error("Error sending quick message:", error)
     } finally {
-      setMessagingProvider(false)
+      setSendingQuickMessage(false)
     }
   }
 
@@ -99,7 +124,16 @@ export default function ServiceDetailPage() {
       "per-session": "/session",
       custom: "",
     }
-    return `$${service.price}${priceTypeMap[service.pricingType]}`
+    return `₦${service.price?.toLocaleString('en-NG')}${priceTypeMap[service.pricingType]}`
+  }
+
+  const getLocationTypeLabel = (locationType: string) => {
+    const labels = {
+      "online": "Online Service",
+      "home-service": "Home Service (I visit you)",
+      "store": "Visit Store/Office"
+    }
+    return labels[locationType as keyof typeof labels] || locationType
   }
 
   const getAvailabilityDays = () => {
@@ -136,7 +170,7 @@ export default function ServiceDetailPage() {
         <Header />
         <main className="flex-1 container mx-auto px-4 py-8 text-center">
           <h1 className="text-2xl font-bold mb-4">Service not found</h1>
-          <Button onClick={() => router.push("/services")}>Browse Services</Button>
+          <Button onClick={() => router.push("/services")} className="hover:bg-accent/80 hover:scale-105 transition-all hover:shadow-lg">Browse Services</Button>
         </main>
         <Footer />
       </div>
@@ -168,7 +202,7 @@ export default function ServiceDetailPage() {
             {/* Back Button */}
             <Button
               variant="ghost"
-              className="mb-4 text-white hover:bg-white/20 backdrop-blur-sm"
+              className="mb-4 text-white hover:bg-white/20 hover:scale-105 backdrop-blur-sm transition-all"
               onClick={() => router.push("/services")}
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -179,22 +213,6 @@ export default function ServiceDetailPage() {
               <div className="text-white">
                 <h1 className="text-4xl md:text-5xl font-bold mb-2">{service.title}</h1>
                 <p className="text-lg text-white/90 mb-4">{service.providerName}</p>
-                {service.reviewCount > 0 && (
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="flex items-center">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`w-5 h-5 ${
-                            i < Math.floor(service.rating) ? "text-yellow-400 fill-current" : "text-white/30"
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <span className="font-medium">{service.rating.toFixed(1)}</span>
-                    <span className="text-white/80">({service.reviewCount} reviews)</span>
-                  </div>
-                )}
               </div>
               
               {service.featured && (
@@ -213,7 +231,7 @@ export default function ServiceDetailPage() {
                     setShowImageModal(true)
                   }
                 }}
-                className="bg-white/20 backdrop-blur-md text-white border-2 border-white/40 hover:bg-white/30 hover:border-white/60 transition-all duration-300 shadow-lg hover:shadow-xl px-6 py-3 text-base font-semibold"
+                className="bg-white/20 backdrop-blur-md text-white border-2 border-white/40 hover:bg-white/30 hover:border-white/60 hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl px-6 py-3 text-base font-semibold"
               >
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
@@ -257,7 +275,7 @@ export default function ServiceDetailPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="absolute top-4 right-4 z-50 text-white hover:bg-white/20"
+                className="absolute top-4 right-4 z-50 text-white hover:bg-white/20 hover:scale-110 transition-all"
                 onClick={() => setShowImageModal(false)}
               >
                 <X className="h-6 w-6" />
@@ -278,7 +296,7 @@ export default function ServiceDetailPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20"
+                        className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 hover:scale-110 transition-all"
                         onClick={() => setModalImageIndex((prev) => (prev === 0 ? service.images!.length - 1 : prev - 1))}
                       >
                         <ChevronLeft className="h-8 w-8" />
@@ -286,7 +304,7 @@ export default function ServiceDetailPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 hover:scale-110 transition-all"
                         onClick={() => setModalImageIndex((prev) => (prev === service.images!.length - 1 ? 0 : prev + 1))}
                       >
                         <ChevronRight className="h-8 w-8" />
@@ -322,16 +340,8 @@ export default function ServiceDetailPage() {
                   </div>
                 </div>
 
-                {service.reviewCount > 0 && (
-                  <div className="flex items-center gap-1">
-                    <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-                    <span className="font-semibold">{service.rating.toFixed(1)}</span>
-                    <span className="text-muted-foreground">({service.reviewCount} reviews)</span>
-                  </div>
-                )}
-
                 <Badge variant="outline" className="capitalize">
-                  {service.locationType.replace("-", " ")}
+                  {getLocationTypeLabel(service.locationType)}
                 </Badge>
               </div>
             </div>
@@ -425,7 +435,7 @@ export default function ServiceDetailPage() {
 
                   <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-muted-foreground" />
-                    <span className="capitalize">{service.locationType.replace("-", " ")}</span>
+                    <span>{getLocationTypeLabel(service.locationType)}</span>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -436,7 +446,7 @@ export default function ServiceDetailPage() {
 
                 <div className="pt-4 border-t space-y-2">
                   <Button
-                    className="w-full"
+                    className="w-full hover:bg-accent/90 hover:scale-105 transition-all"
                     size="lg"
                     onClick={() => {
                       if (!user) {
@@ -452,14 +462,42 @@ export default function ServiceDetailPage() {
 
                   <Button 
                     variant="outline" 
-                    className="w-full" 
+                    className="w-full hover:bg-accent/10 hover:text-accent transition-all" 
                     size="lg"
                     onClick={handleMessageProvider}
-                    disabled={messagingProvider}
                   >
                     <MessageCircle className="h-4 w-4 mr-2" />
-                    {messagingProvider ? "Opening chat..." : "Message Provider"}
+                    Message Provider
                   </Button>
+                      {/* Quick Message Modal */}
+                      <Dialog open={showMessageModal} onOpenChange={setShowMessageModal}>
+                        <DialogContent className="max-w-md mx-auto">
+                          <DialogTitle>Message Provider</DialogTitle>
+                          <div className="space-y-4">
+                            <input
+                              type="text"
+                              className="w-full border rounded px-3 py-2"
+                              placeholder="Type your message..."
+                              value={quickMessage}
+                              onChange={e => setQuickMessage(e.target.value)}
+                              disabled={sendingQuickMessage}
+                              onKeyDown={e => {
+                                if (e.key === "Enter" && !e.shiftKey) {
+                                  e.preventDefault()
+                                  handleSendQuickMessage()
+                                }
+                              }}
+                            />
+                            <Button
+                              onClick={handleSendQuickMessage}
+                              disabled={!quickMessage.trim() || sendingQuickMessage}
+                              className="w-full"
+                            >
+                              Send
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
                 </div>
               </CardContent>
             </Card>

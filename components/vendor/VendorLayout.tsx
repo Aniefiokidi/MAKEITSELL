@@ -86,7 +86,7 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
           })}
         </nav>
         
-        <div className="border-t p-4" onClick={() => routes.push('/')}>
+        <div className="border-t p-4" onClick={() => routes.push('/stores')}>
           <Button variant="outline" className="w-full">
             <Store className="mr-2 h-4 w-4" />
               Back To home
@@ -114,7 +114,7 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
                 Add Product
               </Button>
             </AddProductModal>
-            <Button variant="outline" onClick={() => routes.push('/')}>
+            <Button variant="outline" onClick={() => routes.push('/stores')}>
               <Store className="mr-2 h-4 w-4" />
               Back To home
             </Button>

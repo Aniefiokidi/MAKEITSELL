@@ -1,6 +1,25 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
+// NotificationBox component
+function NotificationBox({ message, show, onClose, type = "success" }: { message: string; show: boolean; onClose: () => void; type?: "success" | "error" }) {
+  return (
+    <div
+      className={`fixed bottom-6 right-6 z-50 transition-transform duration-300 ${show ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'} ${type === 'success' ? 'bg-green-600' : 'bg-red-600'} text-white px-6 py-4 rounded shadow-lg flex items-center`}
+      style={{ minWidth: 250 }}
+      role="alert"
+    >
+      <span className="flex-1">{message}</span>
+      <button
+        className="ml-4 text-white hover:text-gray-200 focus:outline-none"
+        onClick={onClose}
+        aria-label="Close notification"
+      >
+        ×
+      </button>
+    </div>
+  );
+}
 import VendorLayout from "@/components/vendor/VendorLayout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,24 +27,36 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAuth } from "@/contexts/AuthContext"
-import { getStores, createStore, updateStore, type Store as StoreType } from "@/lib/firestore"
+import type { IStore as StoreType } from "@/lib/models"
 import { uploadToCloudinary } from "@/lib/cloudinary"
-import { Store, Save, Upload, X, Loader2, Image } from "lucide-react"
+import { updateUserProfile } from "@/lib/update-user-profile"
+import { Save, Loader2 } from "lucide-react"
+import LocationPicker from "@/components/LocationPicker"
 
 export default function VendorStoreSettingsPage() {
   const { user, userProfile } = useAuth()
   const [loading, setLoading] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [uploadingBanner, setUploadingBanner] = useState(false)
   const [storeData, setStoreData] = useState<StoreType | null>(null)
-  const [logoFile, setLogoFile] = useState<File | null>(null)
-  const [bannerFile, setBannerFile] = useState<File | null>(null)
-  const [additionalBannerFiles, setAdditionalBannerFiles] = useState<File[]>([])
-  const [logoPreview, setLogoPreview] = useState<string | null>(null)
-  const [bannerPreview, setBannerPreview] = useState<string | null>(null)
-  const [additionalBannerPreviews, setAdditionalBannerPreviews] = useState<string[]>([])
+  // Notification state
+  const [notification, setNotification] = useState("");
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationType, setNotificationType] = useState<"success" | "error">("success");
+  const notificationTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  function showNotificationBox(msg: string, type: "success" | "error" = "success") {
+    setNotification(msg);
+    setNotificationType(type);
+    setShowNotification(true);
+    if (notificationTimeout.current) clearTimeout(notificationTimeout.current);
+    notificationTimeout.current = setTimeout(() => setShowNotification(false), 3500);
+  }
+  // No virtual store logic: always allow saving if a real store exists
+  const isVirtualStore = false;
   const [settings, setSettings] = useState({
+    fullName: userProfile?.displayName || "",
+    email: userProfile?.email || "",
     storeName: "",
     storeDescription: "",
     contactEmail: "",
@@ -42,395 +73,374 @@ export default function VendorStoreSettingsPage() {
     autoFulfill: false,
     emailNotifications: true,
   })
+  const [backgroundImage, setBackgroundImage] = useState<string>("")
+  const [newBackgroundFile, setNewBackgroundFile] = useState<File | null>(null)
+  const [backgroundPreview, setBackgroundPreview] = useState<string>("")
+  const [bgUploading, setBgUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Profile Card Image (large background/profile photo)
+  const [profileImage, setProfileImage] = useState<string>("");
+  const [newProfileFile, setNewProfileFile] = useState<File | null>(null);
+  const [profilePreview, setProfilePreview] = useState<string>("");
+  const [profileUploading, setProfileUploading] = useState(false);
+  const profileInputRef = useRef<HTMLInputElement>(null);
+
+  const loadStoreData = async () => {
+    if (user) {
+      try {
+        // Fetch the store for this vendor via API
+        const res = await fetch(`/api/database/stores`);
+        const data = await res.json();
+        let userStore = null;
+        if (data.success && Array.isArray(data.data)) {
+          userStore = data.data.find((store: any) => store.vendorId === user.uid);
+        }
+        if (userStore) {
+          setStoreData(userStore);
+          setSettings(prev => ({
+            ...prev,
+            storeName: userStore.storeName || "",
+            storeDescription: userStore.storeDescription || "",
+            contactEmail: userStore.email || userProfile?.email || "",
+            contactPhone: userStore.phone || "",
+            businessAddress: userStore.address || "",
+            storeCategory: userStore.category || "",
+            deliveryTime: userStore.deliveryTime || "30-60 min",
+            deliveryFee: userStore.deliveryFee || 500,
+            minimumOrder: userStore.minimumOrder || 2000,
+          }));
+          setBackgroundImage(userStore.backgroundImage || userStore.storeImage || userStore.logoImage || "");
+          setBackgroundPreview("");
+          setProfileImage(userStore.profileImage || "");
+          setProfilePreview("");
+        } else if (userProfile) {
+          setSettings(prev => ({
+            ...prev,
+            storeName: userProfile.displayName || "",
+            contactEmail: userProfile.email || "",
+          }));
+        }
+      } catch (error) {
+        console.error("Error loading store data:", error);
+      }
+    }
+  };
 
   useEffect(() => {
-    const loadStoreData = async () => {
-      if (user) {
-        try {
-          const stores = await getStores({ limitCount: 1 })
-          const userStore = stores.find(store => store.vendorId === user.uid)
-          
-          if (userStore) {
-            setStoreData(userStore)
-            setSettings(prev => ({
-              ...prev,
-              storeName: userStore.storeName || "",
-              storeDescription: userStore.storeDescription || "",
-              contactEmail: userStore.email || userProfile?.email || "",
-              contactPhone: userStore.phone || "",
-              businessAddress: userStore.address || "",
-              storeCategory: userStore.category || "",
-              deliveryTime: userStore.deliveryTime || "30-60 min",
-              deliveryFee: userStore.deliveryFee || 500,
-              minimumOrder: userStore.minimumOrder || 2000,
-            }))
-          } else if (userProfile) {
-            // If no store exists, use user profile data
-            setSettings(prev => ({
-              ...prev,
-              storeName: userProfile.displayName || "",
-              contactEmail: userProfile.email || "",
-            }))
-          }
-        } catch (error) {
-          console.error("Error loading store data:", error)
-        }
-      }
-    }
+    loadStoreData();
+  }, [user, userProfile]);
 
-    loadStoreData()
-  }, [user, userProfile])
-
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert("Logo file size must be less than 5MB")
-        return
-      }
-      if (!file.type.startsWith('image/')) {
-        alert("Please select a valid image file")
-        return
-      }
-      setLogoFile(file)
-      const reader = new FileReader()
-      reader.onloadend = () => setLogoPreview(reader.result as string)
-      reader.readAsDataURL(file)
-    }
-  }
-
-  const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-        alert("Banner file size must be less than 10MB")
-        return
-      }
-      if (!file.type.startsWith('image/')) {
-        alert("Please select a valid image file")
-        return
-      }
-      setBannerFile(file)
-      const reader = new FileReader()
-      reader.onloadend = () => setBannerPreview(reader.result as string)
-      reader.readAsDataURL(file)
-    }
-  }
-
-  const uploadLogo = async () => {
-    if (!logoFile || !user) return null
-    setUploading(true)
-    try {
-      const logoUrl = await uploadToCloudinary(logoFile)
-      setLogoFile(null)
-      setLogoPreview(null)
-      return logoUrl
-    } catch (error) {
-      console.error("Error uploading logo:", error)
-      throw error
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  const uploadBanner = async () => {
-    if (!bannerFile || !user) return null
-    setUploadingBanner(true)
-    try {
-      const bannerUrl = await uploadToCloudinary(bannerFile)
-      setBannerFile(null)
-      setBannerPreview(null)
-      return bannerUrl
-    } catch (error) {
-      console.error("Error uploading banner:", error)
-      throw error
-    } finally {
-      setUploadingBanner(false)
-    }
-  }
-
-  const handleAdditionalBannersChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    const validFiles = files.filter(file => {
-      if (file.size > 10 * 1024 * 1024) {
-        alert(`${file.name} is too large. Maximum size is 10MB`)
-        return false
-      }
-      if (!file.type.startsWith('image/')) {
-        alert(`${file.name} is not a valid image file`)
-        return false
-      }
-      return true
-    })
-
-    setAdditionalBannerFiles(prev => [...prev, ...validFiles])
-    
-    // Create previews
-    validFiles.forEach(file => {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setAdditionalBannerPreviews(prev => [...prev, reader.result as string])
-      }
-      reader.readAsDataURL(file)
-    })
-  }
-
-  const removeAdditionalBanner = (index: number) => {
-    setAdditionalBannerFiles(prev => prev.filter((_, i) => i !== index))
-    setAdditionalBannerPreviews(prev => prev.filter((_, i) => i !== index))
-  }
-
-  const uploadAdditionalBanners = async () => {
-    if (additionalBannerFiles.length === 0) return []
-    
-    try {
-      const uploadPromises = additionalBannerFiles.map(file => uploadToCloudinary(file))
-      const urls = await Promise.all(uploadPromises)
-      setAdditionalBannerFiles([])
-      setAdditionalBannerPreviews([])
-      return urls
-    } catch (error) {
-      console.error("Error uploading additional banners:", error)
-      throw error
-    }
+  const handleInputChange = (field: string, value: any) => {
+    setSettings(prev => ({ ...prev, [field]: value }))
   }
 
   const handleSave = async () => {
-    if (!user) return
-    
-    setLoading(true)
+    if (!user || loading || bgUploading) return;
+    setLoading(true);
     try {
-      let logoUrl = storeData?.storeImage
-      let bannerUrl = storeData?.storeBanner
-
-      // Upload new logo if selected
-      if (logoFile) {
-        const newLogoUrl = await uploadLogo()
-        if (newLogoUrl) logoUrl = newLogoUrl
+      let bgUrl = backgroundImage;
+      let logoUrl = storeData?.storeImage;
+      let profileUrl = profileImage;
+      // Handle background image upload
+      if (newBackgroundFile) {
+        setBgUploading(true);
+        const uploadedUrl = await uploadToCloudinary(newBackgroundFile);
+        bgUrl = uploadedUrl;
+        logoUrl = uploadedUrl;
+        setBackgroundImage(uploadedUrl);
+        setBgUploading(false);
       }
-
-      // Upload new banner if selected
-      if (bannerFile) {
-        const newBannerUrl = await uploadBanner()
-        if (newBannerUrl) bannerUrl = newBannerUrl
+      // Handle profile card image upload
+      if (newProfileFile) {
+        setProfileUploading(true);
+        const uploadedUrl = await uploadToCloudinary(newProfileFile);
+        profileUrl = uploadedUrl;
+        setProfileImage(uploadedUrl);
+        setProfileUploading(false);
       }
-
-      // Upload additional banners
-      const newAdditionalBanners = await uploadAdditionalBanners()
-      const existingBanners = storeData?.bannerImages || []
-      const allBanners = [...existingBanners, ...newAdditionalBanners]
-
+      // Update user profile if fullName or email changed
+      if (
+        (settings.fullName && settings.fullName !== userProfile?.displayName) ||
+        (settings.email && settings.email !== userProfile?.email)
+      ) {
+        await updateUserProfile(user.uid, {
+          displayName: settings.fullName,
+          email: settings.email,
+        });
+      }
+      // Always provide a valid storeImage (uploaded, existing, or default)
+      let storeImage = logoUrl;
+      if (!storeImage) {
+        storeImage = "/placeholder.svg";
+      }
       const storeInfo = {
         vendorId: user.uid,
         storeName: settings.storeName,
         storeDescription: settings.storeDescription,
-        storeImage: logoUrl || "/placeholder.svg",
-        storeBanner: bannerUrl,
-        bannerImages: allBanners,
+        email: settings.contactEmail,
+        phone: settings.contactPhone,
+        address: settings.businessAddress,
         category: settings.storeCategory || "electronics",
-        rating: storeData?.rating || 5.0,
-        reviewCount: storeData?.reviewCount || 0,
-        isOpen: true,
         deliveryTime: settings.deliveryTime,
         deliveryFee: settings.deliveryFee,
         minimumOrder: settings.minimumOrder,
-        address: settings.businessAddress,
-        phone: settings.contactPhone,
-        email: settings.contactEmail,
-      }
-
+        returnPolicy: settings.returnPolicy,
+        shippingPolicy: settings.shippingPolicy,
+        acceptReturns: settings.acceptReturns,
+        acceptExchanges: settings.acceptExchanges,
+        autoFulfill: settings.autoFulfill,
+        emailNotifications: settings.emailNotifications,
+        backgroundImage: bgUrl,
+        profileImage: profileUrl,
+        isOpen: storeData?.isOpen ?? true,
+        storeImage,
+      };
+      let saveSuccess = false;
       if (storeData) {
         // Update existing store
-        await updateStore(storeData.id, storeInfo)
+        console.log("PATCH payload:", storeInfo);
+        const res = await fetch(`/api/database/stores/${storeData._id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(storeInfo),
+        });
+        let data = {};
+        if (res.ok) {
+          const text = await res.text();
+          data = text ? JSON.parse(text) : {};
+        }
+        console.log("PATCH response:", data);
+        saveSuccess = (data as any).success;
       } else {
         // Create new store
-        await createStore(storeInfo)
+        const res = await fetch(`/api/database/stores`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(storeInfo),
+        });
+        let data = {};
+        if (res.ok) {
+          const text = await res.text();
+          data = text ? JSON.parse(text) : {};
+        }
+        saveSuccess = (data as any).success;
       }
-
-      alert("Settings saved successfully!")
-      
-      // Reload store data
-      const stores = await getStores({ limitCount: 1 })
-      const userStore = stores.find(store => store.vendorId === user.uid)
-      if (userStore) {
-        setStoreData(userStore)
+      if (saveSuccess) {
+        // Reload store data
+        await loadStoreData();
+        setNewBackgroundFile(null);
+        showNotificationBox("Settings saved successfully!", "success");
+      } else {
+        showNotificationBox("Failed to save settings. Please try again.", "error");
       }
     } catch (error) {
-      console.error("Error saving settings:", error)
-      alert("Error saving settings: " + (error as Error).message)
+      console.error("Error saving settings:", error);
+      showNotificationBox("Failed to save settings. Please try again.", "error");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
-
-  const handleInputChange = (field: string, value: any) => {
-    setSettings(prev => ({
-      ...prev,
-      [field]: value
-    }))
-  }
+  };
 
   return (
     <VendorLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Store Settings</h1>
-          <p className="text-muted-foreground">Configure your store information and policies</p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Store Information */}
-          <div className="lg:col-span-2 space-y-6">
-            <Card>
+      <div className="container mx-auto py-10">
+        <div className="flex flex-col md:flex-row gap-8">
+          <form className="flex-1 space-y-8" onSubmit={e => { e.preventDefault(); handleSave(); }}>
+            {/* Profile Information Card */}
+            <Card id="profile-info">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Store className="h-5 w-5" />
-                  Store Information
-                </CardTitle>
+                <CardTitle>Profile Information</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="storeName">Store Name</Label>
-                    <Input
-                      id="storeName"
-                      value={settings.storeName}
-                      onChange={(e) => handleInputChange("storeName", e.target.value)}
-                      placeholder="Your Store Name"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="contactEmail">Contact Email</Label>
-                    <Input
-                      id="contactEmail"
-                      type="email"
-                      value={settings.contactEmail}
-                      onChange={(e) => handleInputChange("contactEmail", e.target.value)}
-                      placeholder="contact@yourstore.com"
-                    />
-                  </div>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Label htmlFor="fullName">Full Name</Label>
+                  <Input id="fullName" value={settings.fullName} onChange={e => handleInputChange("fullName", e.target.value)} />
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="storeDescription">Store Description</Label>
-                  <Textarea
-                    id="storeDescription"
-                    value={settings.storeDescription}
-                    onChange={(e) => handleInputChange("storeDescription", e.target.value)}
-                    placeholder="Tell customers about your store..."
-                    rows={3}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="contactPhone">Contact Phone</Label>
-                    <Input
-                      id="contactPhone"
-                      value={settings.contactPhone}
-                      onChange={(e) => handleInputChange("contactPhone", e.target.value)}
-                      placeholder="+234 812 938 0869"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="businessAddress">Business Address</Label>
-                    <Input
-                      id="businessAddress"
-                      value={settings.businessAddress}
-                      onChange={(e) => handleInputChange("businessAddress", e.target.value)}
-                      placeholder="123 Allen Avenue, Lagos, Nigeria"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="storeCategory">Store Category</Label>
-                    <select
-                      id="storeCategory"
-                      value={settings.storeCategory}
-                      onChange={(e) => handleInputChange("storeCategory", e.target.value)}
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <option value="">Select Category</option>
-                      <option value="electronics">Electronics</option>
-                      <option value="fashion">Fashion & Clothing</option>
-                      <option value="food">Food & Beverage</option>
-                      <option value="home">Home & Garden</option>
-                      <option value="beauty">Beauty & Health</option>
-                      <option value="sports">Sports & Fitness</option>
-                      <option value="books">Books & Media</option>
-                      <option value="automotive">Automotive</option>
-                      <option value="toys">Toys & Games</option>
-                      <option value="art">Arts & Crafts</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="deliveryTime">Delivery Time</Label>
-                    <Input
-                      id="deliveryTime"
-                      value={settings.deliveryTime}
-                      onChange={(e) => handleInputChange("deliveryTime", e.target.value)}
-                      placeholder="30-60 min"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="deliveryFee">Delivery Fee (₦)</Label>
-                    <Input
-                      id="deliveryFee"
-                      type="number"
-                      value={settings.deliveryFee}
-                      onChange={(e) => handleInputChange("deliveryFee", parseInt(e.target.value) || 0)}
-                      placeholder="500"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="minimumOrder">Minimum Order (₦)</Label>
-                  <Input
-                    id="minimumOrder"
-                    type="number"
-                    value={settings.minimumOrder}
-                    onChange={(e) => handleInputChange("minimumOrder", parseInt(e.target.value) || 0)}
-                    placeholder="2000"
-                  />
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" type="email" value={settings.email} onChange={e => handleInputChange("email", e.target.value)} />
                 </div>
               </CardContent>
             </Card>
-
-            {/* Policies */}
-            <Card>
+            {/* Store Information Card */}
+            <Card id="store-info">
+              <CardHeader>
+                <CardTitle>Store Information</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="md:col-span-2">
+                                  <Label htmlFor="businessAddress">Business Address</Label>
+                                  <LocationPicker
+                                        
+                  value={settings.businessAddress}
+                  onChange={val => handleInputChange("businessAddress", val)}
+                  onLocationSelect={loc => handleInputChange("businessAddress", loc.address)}
+                  placeholder="Search for your business location..."
+                                      />
+                                </div>
+                <div>
+                  <Label htmlFor="storeName">Store Name</Label>
+                  <Input id="storeName" value={settings.storeName} onChange={e => handleInputChange("storeName", e.target.value)} />
+                </div>
+                <div>
+                  <Label htmlFor="storeDescription">Store Description</Label>
+                  <Textarea id="storeDescription" value={settings.storeDescription} onChange={e => handleInputChange("storeDescription", e.target.value)} rows={2} />
+                </div>
+                <div>
+                  <Label htmlFor="minimumOrder">Minimum Order</Label>
+                  <Input id="minimumOrder" type="number" value={settings.minimumOrder} onChange={e => handleInputChange("minimumOrder", Number(e.target.value))} />
+                </div>
+              </CardContent>
+            </Card>
+            {/* Branding Section */}
+            <Card id="branding">
+              <CardHeader>
+                <CardTitle>Branding</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-8">
+                {/* Store Profile Card Image (large background/profile photo) */}
+                <div className="space-y-2">
+                  <Label>Profile Card Image (Large)</Label>
+                  {profileImage ? (
+                    <img
+                      src={profilePreview || profileImage}
+                      alt="Profile Card"
+                      className="w-full max-w-md h-40 object-cover rounded border"
+                    />
+                  ) : (
+                    <div className="w-full max-w-md h-40 flex items-center justify-center bg-muted rounded border text-muted-foreground">
+                      No profile card image set
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="profile-upload">Change Profile Card Image</Label>
+                  <Input
+                    id="profile-upload"
+                    type="file"
+                    accept="image/*"
+                    ref={profileInputRef}
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        console.log('Profile image file selected:', file);
+                        setNewProfileFile(file);
+                        const url = URL.createObjectURL(file);
+                        setProfilePreview(url);
+                        console.log('Profile preview URL set:', url);
+                      }
+                    }}
+                  />
+                  {profilePreview && (
+                    <div className="flex gap-2 mt-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => {
+                          setNewProfileFile(null);
+                          setProfilePreview("");
+                          if (profileInputRef.current) profileInputRef.current.value = "";
+                        }}
+                        size="sm"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                {profileUploading && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="animate-spin h-4 w-4" /> Uploading image...
+                  </div>
+                )}
+                {/* Store Background Image (for banner, etc) */}
+                <div className="space-y-2">
+                  <Label>Store Background Image</Label>
+                  {(backgroundPreview || backgroundImage) ? (
+                    <img
+                      src={backgroundPreview || backgroundImage}
+                      alt="Store Background"
+                      className="w-full max-w-md h-40 object-cover rounded border"
+                    />
+                  ) : (
+                    <div className="w-full max-w-md h-40 flex items-center justify-center bg-muted rounded border text-muted-foreground">
+                      No background image set
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="background-upload">Change Background Image</Label>
+                  <Input
+                    id="background-upload"
+                    type="file"
+                    accept="image/*"
+                    ref={fileInputRef}
+                    onChange={e => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        console.log('Background image file selected:', file);
+                        setNewBackgroundFile(file)
+                        const url = URL.createObjectURL(file);
+                        setBackgroundPreview(url)
+                        console.log('Background preview URL set:', url);
+                      }
+                    }}
+                  />
+                  {backgroundPreview && (
+                    <div className="flex gap-2 mt-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => {
+                          setNewBackgroundFile(null)
+                          setBackgroundPreview("")
+                          if (fileInputRef.current) fileInputRef.current.value = ""
+                        }}
+                        size="sm"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                {bgUploading && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="animate-spin h-4 w-4" /> Uploading image...
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            {/* Policies Section */}
+            <Card id="policies">
               <CardHeader>
                 <CardTitle>Store Policies</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
                   <Label htmlFor="returnPolicy">Return Policy</Label>
                   <Textarea
                     id="returnPolicy"
                     value={settings.returnPolicy}
-                    onChange={(e) => handleInputChange("returnPolicy", e.target.value)}
+                    onChange={e => handleInputChange("returnPolicy", e.target.value)}
                     placeholder="Describe your return policy..."
                     rows={3}
                   />
                 </div>
-
-                <div className="space-y-2">
+                <div>
                   <Label htmlFor="shippingPolicy">Shipping Policy</Label>
                   <Textarea
                     id="shippingPolicy"
                     value={settings.shippingPolicy}
-                    onChange={(e) => handleInputChange("shippingPolicy", e.target.value)}
+                    onChange={e => handleInputChange("shippingPolicy", e.target.value)}
                     placeholder="Describe your shipping policy..."
                     rows={3}
                   />
                 </div>
               </CardContent>
             </Card>
-
-            {/* Preferences */}
-            <Card>
+            {/* Preferences Section */}
+            <Card id="preferences">
               <CardHeader>
                 <CardTitle>Preferences</CardTitle>
               </CardHeader>
@@ -442,10 +452,9 @@ export default function VendorStoreSettingsPage() {
                   </div>
                   <Switch
                     checked={settings.acceptReturns}
-                    onCheckedChange={(checked) => handleInputChange("acceptReturns", checked)}
+                    onCheckedChange={checked => handleInputChange("acceptReturns", checked)}
                   />
                 </div>
-
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label>Accept Exchanges</Label>
@@ -453,10 +462,9 @@ export default function VendorStoreSettingsPage() {
                   </div>
                   <Switch
                     checked={settings.acceptExchanges}
-                    onCheckedChange={(checked) => handleInputChange("acceptExchanges", checked)}
+                    onCheckedChange={checked => handleInputChange("acceptExchanges", checked)}
                   />
                 </div>
-
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label>Auto Fulfill Orders</Label>
@@ -464,10 +472,9 @@ export default function VendorStoreSettingsPage() {
                   </div>
                   <Switch
                     checked={settings.autoFulfill}
-                    onCheckedChange={(checked) => handleInputChange("autoFulfill", checked)}
+                    onCheckedChange={checked => handleInputChange("autoFulfill", checked)}
                   />
                 </div>
-
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label>Email Notifications</Label>
@@ -475,223 +482,43 @@ export default function VendorStoreSettingsPage() {
                   </div>
                   <Switch
                     checked={settings.emailNotifications}
-                    onCheckedChange={(checked) => handleInputChange("emailNotifications", checked)}
+                    onCheckedChange={checked => handleInputChange("emailNotifications", checked)}
                   />
                 </div>
               </CardContent>
             </Card>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Store Logo */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Store Logo</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="w-32 h-32 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-                  {logoPreview || storeData?.storeImage ? (
-                    <img
-                      src={logoPreview || storeData?.storeImage}
-                      alt="Store logo"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <Store className="h-12 w-12 text-gray-400" />
-                  )}
-                </div>
-                <input
-                  type="file"
-                  id="logoUpload"
-                  accept="image/*"
-                  onChange={handleLogoChange}
-                  className="hidden"
-                />
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => document.getElementById('logoUpload')?.click()}
-                  disabled={uploading}
-                >
-                  {uploading ? (
+            {/* Save Button (Sticky) */}
+            <div className="sticky bottom-0 bg-background py-4 border-t flex justify-end z-10">
+              <Button type="submit" disabled={loading || bgUploading} className="px-8 text-base font-semibold">
+                {loading || bgUploading ? (
+                  <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Upload className="mr-2 h-4 w-4" />
-                  )}
-                  {uploading ? "Uploading..." : "Upload Logo"}
-                </Button>
-                {logoPreview && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => {
-                      setLogoFile(null)
-                      setLogoPreview(null)
-                    }}
-                    className="w-full"
-                  >
-                    <X className="mr-2 h-4 w-4" />
-                    Remove
-                  </Button>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Changes
+                  </>
                 )}
-                <p className="text-xs text-muted-foreground">
-                  Square image, max 5MB (JPG, PNG, GIF)
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Store Banner */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Store Banner</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="w-full h-32 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-                  {bannerPreview || storeData?.storeBanner ? (
-                    <img
-                      src={bannerPreview || storeData?.storeBanner}
-                      alt="Store banner"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="text-center">
-                      <Image className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                      <p className="text-xs text-gray-500">No banner</p>
-                    </div>
-                  )}
-                </div>
-                <input
-                  type="file"
-                  id="bannerUpload"
-                  accept="image/*"
-                  onChange={handleBannerChange}
-                  className="hidden"
-                />
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => document.getElementById('bannerUpload')?.click()}
-                  disabled={uploadingBanner}
-                >
-                  {uploadingBanner ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Upload className="mr-2 h-4 w-4" />
-                  )}
-                  {uploadingBanner ? "Uploading..." : "Upload Banner"}
-                </Button>
-                {bannerPreview && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => {
-                      setBannerFile(null)
-                      setBannerPreview(null)
-                    }}
-                    className="w-full"
-                  >
-                    <X className="mr-2 h-4 w-4" />
-                    Remove
-                  </Button>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  Recommended: 1200x400px, max 10MB
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Additional Banners */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Additional Banner Images</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Upload multiple banner images for a slideshow (changes every 6 seconds)
-                </p>
-                
-                {/* Existing banners from store */}
-                {storeData?.bannerImages && storeData.bannerImages.length > 0 && (
-                  <div className="space-y-2">
-                    <Label>Current Additional Banners</Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {storeData.bannerImages.map((url, index) => (
-                        <div key={index} className="relative h-24 bg-gray-100 rounded-lg overflow-hidden">
-                          <img src={url} alt={`Banner ${index + 1}`} className="w-full h-full object-cover" />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* New banner previews */}
-                {additionalBannerPreviews.length > 0 && (
-                  <div className="space-y-2">
-                    <Label>New Banners to Upload</Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {additionalBannerPreviews.map((preview, index) => (
-                        <div key={index} className="relative h-24 bg-gray-100 rounded-lg overflow-hidden group">
-                          <img src={preview} alt={`New banner ${index + 1}`} className="w-full h-full object-cover" />
-                          <Button
-                            variant="destructive"
-                            size="icon"
-                            className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => removeAdditionalBanner(index)}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <input
-                  type="file"
-                  id="additionalBannersUpload"
-                  accept="image/*"
-                  multiple
-                  onChange={handleAdditionalBannersChange}
-                  className="hidden"
-                />
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => document.getElementById('additionalBannersUpload')?.click()}
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  Add More Banners
-                </Button>
-                <p className="text-xs text-muted-foreground">
-                  Select multiple images. Recommended: 1200x400px, max 10MB each
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Actions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Button onClick={handleSave} disabled={loading || uploading || uploadingBanner} className="w-full">
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="mr-2 h-4 w-4" />
-                      Save Changes
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+              </Button>
+              {/* No virtual store warning needed */}
+            </div>
+          </form>
         </div>
       </div>
+    <NotificationBox
+      message={notification}
+      show={showNotification}
+      onClose={() => setShowNotification(false)}
+      type={notificationType}
+    />
+      <NotificationBox
+        message={notification}
+        show={showNotification}
+        onClose={() => setShowNotification(false)}
+        type={notificationType}
+      />
     </VendorLayout>
   )
 }

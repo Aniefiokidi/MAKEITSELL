@@ -6,373 +6,298 @@ import Header from "@/components/Header"
 import Footer from "@/components/Footer"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Star, Clock, Truck, MapPin, Search, Heart, ShoppingCart, ArrowLeft } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Separator } from "@/components/ui/separator"
+import { Clock, Truck, MapPin, Search, Heart, ShoppingCart, ArrowLeft, Shield, Users, Package, MessageCircle, Verified, Store as StoreIcon, TrendingUp, Calendar, Eye, Filter } from "lucide-react"
 import Link from "next/link"
-import { getStoreById, getStores, getVendorProducts, type Store } from "@/lib/firestore"
 import { useCart } from "@/contexts/CartContext"
+import { useAuth } from "@/contexts/AuthContext"
+import { useToast } from "@/hooks/use-toast"
+
+interface Product {
+  id: string
+  title: string
+  description: string
+  price: number
+  images: string[]
+  category: string
+  stock: number
+  vendorId: string
+  vendorName: string
+  featured: boolean
+  status: string
+  sales: number
+  hasColorOptions?: boolean
+  hasSizeOptions?: boolean
+  colors?: string[]
+  sizes?: string[]
+  colorImages?: { [key: string]: string[] }
+  createdAt: string
+  updatedAt: string
+}
+
+interface Store {
+  id: string
+  storeName: string
+  storeDescription: string
+  storeImage: string
+  category: string
+  vendorId: string
+  isOpen: boolean
+  deliveryTime?: string
+  address?: string
+  phone?: string
+  email?: string
+  // Optional computed fields that may not exist in database
+  totalProducts?: number
+  totalSales?: number
+  memberSince?: string
+  responseTime?: string
+  vendorName?: string
+  vendorEmail?: string
+  images?: string[]
+  shippingInfo?: {
+    freeShippingThreshold: number
+    estimatedDelivery: string
+    shippingCost: number
+  }
+}
 
 export default function StorePage() {
   const params = useParams()
   const storeId = params.id as string
   const [mounted, setMounted] = useState(false)
   const [store, setStore] = useState<Store | null>(null)
-  const [products, setProducts] = useState<any[]>([])
-  const [filteredProducts, setFilteredProducts] = useState<any[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState("featured")
+  const [categoryFilter, setCategoryFilter] = useState("all")
+  const [priceRange, setPriceRange] = useState("all")
+  const [activeTab, setActiveTab] = useState("products")
+  const [isFollowing, setIsFollowing] = useState(false)
+  const [followLoading, setFollowLoading] = useState(false)
   const { addToCart } = useCart()
-  const [currentBannerIndex, setCurrentBannerIndex] = useState(0)
+  const { user } = useAuth()
+  const { toast } = useToast()
 
-  // Get category-specific font styling
-  const getCategoryFont = (category: string) => {
-    const lowerCategory = category?.toLowerCase() || ''
-    
-    if (lowerCategory.includes('fashion') || lowerCategory.includes('clothing')) {
-      return {
-        fontFamily: '"Bebas Neue", "Arial Black", sans-serif',
-        letterSpacing: '3px',
-        textTransform: 'uppercase' as const,
-        fontWeight: '900',
-        fontStyle: 'italic' as const
+  useEffect(() => {
+    setMounted(true)
+    fetchStoreData()
+  }, [storeId])
+
+  const fetchStoreData = async () => {
+    setLoading(true)
+    try {
+      // Fetch store data using API
+      const storeResponse = await fetch(`/api/database/stores/${storeId}`)
+      const storeResult = await storeResponse.json()
+      
+      if (storeResult.success) {
+        setStore(storeResult.data)
+        
+        // Fetch products for this store using the vendor ID from the store data
+        const productsResponse = await fetch(`/api/database/products?vendorId=${storeResult.data.vendorId}`)
+        const productsResult = await productsResponse.json()
+        
+        if (productsResult.success) {
+          setProducts(productsResult.data)
+          setFilteredProducts(productsResult.data)
+        } else {
+          console.error("Failed to fetch products:", productsResult.error)
+        }
+
+        // Check if user is following this store
+        if (user) {
+          checkFollowStatus(storeId, user.uid)
+        }
+      } else {
+        console.error("Failed to fetch store:", storeResult.error)
       }
-    }
-    if (lowerCategory.includes('electronics') || lowerCategory.includes('tech')) {
-      return {
-        fontFamily: '"Courier New", monospace',
-        letterSpacing: '1px',
-        fontWeight: 'bold'
-      }
-    }
-    if (lowerCategory.includes('food') || lowerCategory.includes('restaurant')) {
-      return {
-        fontFamily: '"Brush Script MT", cursive',
-        fontWeight: 'normal'
-      }
-    }
-    if (lowerCategory.includes('beauty') || lowerCategory.includes('cosmetics')) {
-      return {
-        fontFamily: '"Garamond", serif',
-        letterSpacing: '3px',
-        fontWeight: '300'
-      }
-    }
-    if (lowerCategory.includes('sports') || lowerCategory.includes('fitness')) {
-      return {
-        fontFamily: '"Arial Black", sans-serif',
-        fontWeight: '900',
-        fontStyle: 'italic' as const
-      }
-    }
-    // Default
-    return {
-      fontFamily: 'inherit',
-      fontWeight: 'bold'
+    } catch (error) {
+      console.error("Error fetching store data:", error)
+    } finally {
+      setLoading(false)
     }
   }
 
-  // Handle hydration
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  // Banner slideshow effect
-  useEffect(() => {
-    if (!store) return
-    
-    const bannerImages = [
-      store.storeBanner,
-      store.storeImage,
-      ...(store.bannerImages || [])
-    ].filter(Boolean)
-    
-    if (bannerImages.length <= 1) return
-    
-    const interval = setInterval(() => {
-      setCurrentBannerIndex((prev) => (prev + 1) % bannerImages.length)
-    }, 6000) // Change every 6 seconds
-    
-    return () => clearInterval(interval)
-  }, [store])
-
-  useEffect(() => {
-    async function fetchStoreData() {
-      if (!storeId) return
+  // Check if user is following the store
+  const checkFollowStatus = async (storeId: string, customerId: string) => {
+    try {
+      const response = await fetch(`/api/store/follow?storeId=${storeId}&customerId=${customerId}`)
+      const result = await response.json()
       
-      setLoading(true)
-      try {
-        // First try to fetch from Firestore by ID
-        try {
-          const storeData = await getStoreById(storeId);
-          console.log("Found store by ID:", storeData);
-          setStore(storeData);
-          
-          const storeProducts = await getVendorProducts(storeData.vendorId);
-          setProducts(storeProducts.map((p: any) => ({
-            ...p,
-            name: p.title,
-            image: Array.isArray(p.images) ? p.images[0] : p.image || "/placeholder.svg",
-            vendor: p.vendorName || p.vendor || storeData.storeName,
-            inStock: typeof p.stock === "number" ? p.stock > 0 : true,
-            rating: p.rating || 5,
-            reviews: p.reviews || 0,
-            originalPrice: p.originalPrice || null,
-            maxStock: p.stock || 99,
-          })));
-          setLoading(false);
-          return; // Exit if we found the store in Firestore
-        } catch (firestoreError) {
-          console.log("Store not found by ID in Firestore, trying to find by name...");
-          
-          // Try to find store by name (since the URL might not match the actual document ID)
-          try {
-            const allStores = await getStores();
-            console.log("All stores:", allStores);
-            const storeData = allStores.find(store => 
-              store.storeName.toLowerCase() === "swagshack" || 
-              store.id === storeId ||
-              store.storeName.toLowerCase().replace(/\s+/g, '') === storeId.toLowerCase()
-            );
-            
-            if (storeData) {
-              console.log("Found store by search:", storeData);
-              setStore(storeData);
-              
-              const storeProducts = await getVendorProducts(storeData.vendorId);
-              setProducts(storeProducts.map((p: any) => ({
-                ...p,
-                name: p.title,
-                image: Array.isArray(p.images) ? p.images[0] : p.image || "/placeholder.svg",
-                vendor: p.vendorName || p.vendor || storeData.storeName,
-                inStock: typeof p.stock === "number" ? p.stock > 0 : true,
-                rating: p.rating || 5,
-                reviews: p.reviews || 0,
-                originalPrice: p.originalPrice || null,
-                maxStock: p.stock || 99,
-              })));
-              setLoading(false);
-              return;
-            }
-          } catch (searchError) {
-            console.log("Could not search stores:", searchError);
-          }
-        }
-
-        // Fallback to mock stores if not found in Firestore
-        const mockStores = [
-          {
-            id: "1",
-            vendorId: "vendor1",
-            storeName: "TechHub Electronics",
-            storeDescription: "Your one-stop shop for the latest electronics and gadgets. We offer cutting-edge technology at competitive prices with excellent customer service.",
-            storeImage: "/images/store-electronics.jpg",
-            storeBanner: "/images/banner-electronics.jpg",
-            category: "electronics",
-            rating: 4.8,
-            reviewCount: 245,
-            isOpen: true,
-            deliveryTime: "30-45 min",
-            deliveryFee: 500,
-            minimumOrder: 2000,
-            address: "Victoria Island, Lagos",
-            phone: "+234 812 345 6789",
-            email: "contact@techhub.com",
-            createdAt: null,
-            updatedAt: null
-          },
-          {
-            id: "2",
-            vendorId: "vendor2",
-            storeName: "Fashion Forward",
-            storeDescription: "Trendy fashion for the modern individual. Discover the latest styles and timeless classics from top designers around the world.",
-            storeImage: "/images/store-fashion.jpg",
-            storeBanner: "/images/banner-fashion.jpg",
-            category: "fashion",
-            rating: 4.6,
-            reviewCount: 189,
-            isOpen: true,
-            deliveryTime: "45-60 min",
-            deliveryFee: 800,
-            minimumOrder: 3000,
-            address: "Lekki Phase 1, Lagos",
-            phone: "+234 813 456 7890",
-            email: "hello@fashionforward.com",
-            createdAt: null,
-            updatedAt: null
-          },
-          {
-            id: "3",
-            vendorId: "vendor3",
-            storeName: "Home Essentials",
-            storeDescription: "Beautiful home decor and essential items to make your house a home. Quality furniture, decor, and lifestyle products.",
-            storeImage: "/images/store-home.jpg",
-            storeBanner: "/images/banner-home.jpg",
-            category: "home",
-            rating: 4.7,
-            reviewCount: 156,
-            isOpen: false,
-            deliveryTime: "60-90 min",
-            deliveryFee: 1000,
-            minimumOrder: 5000,
-            address: "Ikeja, Lagos",
-            phone: "+234 814 567 8901",
-            email: "info@homeessentials.com",
-            createdAt: null,
-            updatedAt: null
-          },
-          {
-            id: "YD3PD8mzl8KzTTpPcJS46",
-            vendorId: "vendor4",
-            storeName: "swagshack",
-            storeDescription: "streetwear clothing",
-            storeImage: "/placeholder.svg",
-            storeBanner: "/placeholder.svg",
-            category: "fashion",
-            rating: 5.0,
-            reviewCount: 0,
-            isOpen: true,
-            deliveryTime: "30-60 min",
-            deliveryFee: 500,
-            minimumOrder: 2000,
-            address: "16 Olu Akerete Street",
-            phone: "+234 815 678 9012",
-            email: "info@swagshack.com",
-            createdAt: null,
-            updatedAt: null
-          }
-        ];
-
-        const mockStore = mockStores.find(s => s.id === storeId);
-        if (mockStore) {
-          setStore(mockStore);
-          
-          // Mock products for this store
-          const mockProducts = [
-            {
-              id: `${storeId}-1`,
-              title: mockStore.category === "electronics" ? "Wireless Headphones" : 
-                    mockStore.category === "fashion" ? "Designer T-Shirt" : "Decorative Vase",
-              description: mockStore.category === "electronics" ? "High-quality wireless headphones with noise cancellation" : 
-                          mockStore.category === "fashion" ? "Premium cotton t-shirt with modern design" : "Beautiful ceramic vase for home decoration",
-              price: mockStore.category === "electronics" ? 15000 : 
-                     mockStore.category === "fashion" ? 8500 : 12000,
-              images: ["/placeholder.svg"],
-              category: mockStore.category,
-              stock: 10,
-              vendorId: mockStore.vendorId,
-              vendorName: mockStore.storeName,
-              rating: 4.5,
-              reviews: 23,
-              originalPrice: null,
-              maxStock: 10
-            },
-            {
-              id: `${storeId}-2`,
-              title: mockStore.category === "electronics" ? "Smartphone Case" : 
-                    mockStore.category === "fashion" ? "Skinny Jeans" : "Table Lamp",
-              description: mockStore.category === "electronics" ? "Protective case for your smartphone" : 
-                          mockStore.category === "fashion" ? "Comfortable skinny jeans in multiple colors" : "Modern LED table lamp",
-              price: mockStore.category === "electronics" ? 3500 : 
-                     mockStore.category === "fashion" ? 12000 : 8500,
-              images: ["/placeholder.svg"],
-              category: mockStore.category,
-              stock: 15,
-              vendorId: mockStore.vendorId,
-              vendorName: mockStore.storeName,
-              rating: 4.7,
-              reviews: 15,
-              originalPrice: null,
-              maxStock: 15
-            }
-          ];
-          
-          setProducts(mockProducts.map(p => ({
-            ...p,
-            name: p.title,
-            image: p.images[0],
-            vendor: p.vendorName,
-            inStock: p.stock > 0
-          })));
-        }
-      } catch (error) {
-        console.error("Error fetching store data:", error);
+      if (result.success) {
+        setIsFollowing(result.isFollowing)
       }
-      setLoading(false);
+    } catch (error) {
+      console.error('Error checking follow status:', error)
+    }
+  }
+
+  // Handle follow/unfollow action
+  const handleFollowToggle = async () => {
+    if (!user) {
+      toast({
+        title: "Login Required",
+        description: "Please log in to follow stores.",
+        variant: "destructive"
+      })
+      return
     }
 
-    fetchStoreData();
-  }, [storeId]);
+    if (!store) return
+
+    setFollowLoading(true)
+    try {
+      const response = await fetch('/api/store/follow', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          storeId: store.id,
+          vendorId: store.vendorId,
+          customerId: user.uid,
+          customerName: user.displayName || user.email?.split('@')[0] || 'Anonymous',
+          action: isFollowing ? 'unfollow' : 'follow'
+        })
+      })
+
+      const result = await response.json()
+      if (result.success) {
+        setIsFollowing(result.isFollowing)
+        toast({
+          title: result.isFollowing ? "Following Store!" : "Unfollowed Store",
+          description: result.isFollowing 
+            ? `You're now following ${store.storeName}. You'll get updates on new products and deals.`
+            : `You've unfollowed ${store.storeName}.`,
+          variant: "default"
+        })
+      } else {
+        toast({
+          title: "Action Failed",
+          description: result.error || "Something went wrong. Please try again.",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error('Error toggling follow:', error)
+      toast({
+        title: "Network Error",
+        description: "Please check your connection and try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setFollowLoading(false)
+    }
+  }
 
   useEffect(() => {
-    let filtered = products;
-
-    // Filter by search query
+    if (!products.length) return
+    
+    let filtered = [...products]
+    
+    // Search filter
     if (searchQuery) {
-      filtered = filtered.filter(
-        (product) =>
-          product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          product.description.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+      filtered = filtered.filter(product =>
+        product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.category.toLowerCase().includes(searchQuery.toLowerCase())
+      )
     }
-
+    
+    // Category filter
+    if (categoryFilter !== "all") {
+      filtered = filtered.filter(product => product.category === categoryFilter)
+    }
+    
+    // Price range filter
+    if (priceRange !== "all") {
+      const [min, max] = priceRange.split("-").map(Number)
+      if (max) {
+        filtered = filtered.filter(product => product.price >= min && product.price <= max)
+      } else {
+        filtered = filtered.filter(product => product.price >= min)
+      }
+    }
+    
     // Sort products
     switch (sortBy) {
       case "price-low":
-        filtered.sort((a, b) => a.price - b.price);
-        break;
+        filtered.sort((a, b) => a.price - b.price)
+        break
       case "price-high":
-        filtered.sort((a, b) => b.price - a.price);
-        break;
-      case "rating":
-        filtered.sort((a, b) => b.rating - a.rating);
-        break;
+        filtered.sort((a, b) => b.price - a.price)
+        break
       case "newest":
-        filtered.reverse();
-        break;
+        filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        break
+      case "popular":
+        filtered.sort((a, b) => b.sales - a.sales)
+        break
       default:
-        // Featured - keep original order
-        break;
+        // Keep original order for featured
+        break
     }
+    
+    setFilteredProducts(filtered)
+  }, [products, searchQuery, sortBy, categoryFilter, priceRange])
 
-    setFilteredProducts(filtered);
-  }, [searchQuery, sortBy, products]);
-
-  const handleAddToCart = (product: any) => {
+  const handleAddToCart = (product: Product) => {
+    // Safety check to ensure product has required fields
+    if (!product || !product.id || !product.title) {
+      console.error('Cannot add invalid product to cart:', product)
+      return
+    }
+    
     addToCart({
-      id: product.id,
       productId: product.id,
-      title: product.name,
-      vendorId: product.vendorId,
-      vendorName: product.vendor,
+      id: product.id,
+      title: product.title,
       price: product.price,
-      image: product.image,
+      image: product.images?.[0] || '',
       quantity: 1,
-      maxStock: product.maxStock,
-    });
-  };
+      maxStock: product.stock || 100,
+      vendorId: product.vendorId,
+      vendorName: product.vendorName || (product as any).vendor?.name || 'Unknown Vendor'
+    })
+  }
 
-  // Prevent hydration mismatch
-  if (!mounted) {
+  const formatCurrency = (price: number) => {
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN'
+    }).format(price)
+  }
+
+  const getUniqueCategories = () => {
+    const categories = [...new Set(products.map(p => p.category))]
+    return categories
+  }
+
+  if (!mounted || loading) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
-        <div className="container mx-auto px-4 py-8 flex-1">
-          <Skeleton className="h-8 w-32 mb-6" />
-          <Skeleton className="h-64 w-full mb-8" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Card key={i}>
-                <CardContent className="p-4">
-                  <Skeleton className="w-full h-48 mb-4" />
-                  <Skeleton className="h-6 w-3/4 mb-2" />
-                  <Skeleton className="h-4 w-1/2" />
-                </CardContent>
-              </Card>
-            ))}
+        <div className="flex-1 container mx-auto px-4 py-8">
+          <div className="animate-pulse space-y-6">
+            <div className="h-80 bg-gray-200 rounded-lg"></div>
+            <div className="grid grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-24 bg-gray-200 rounded-lg"></div>
+              ))}
+            </div>
+            <div className="h-12 bg-gray-200 rounded w-full"></div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="h-80 bg-gray-200 rounded-lg"></div>
+              ))}
+            </div>
           </div>
         </div>
         <Footer />
@@ -380,265 +305,472 @@ export default function StorePage() {
     )
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <Header />
-        <div className="container mx-auto px-4 py-8 flex-1">
-          <Skeleton className="h-8 w-32 mb-6" />
-          <Skeleton className="h-64 w-full mb-8" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Card key={i}>
-                <CardContent className="p-4">
-                  <Skeleton className="w-full h-48 mb-4" />
-                  <Skeleton className="h-6 w-3/4 mb-2" />
-                  <Skeleton className="h-4 w-1/2" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
-
   if (!store) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
-        <div className="container mx-auto px-4 py-8 flex-1 text-center">
-          <h1 className="text-2xl font-bold mb-4">Store Not Found</h1>
-          <p className="text-muted-foreground mb-4">The store you're looking for doesn't exist.</p>
-          <Link href="/shop">
-            <Button>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Stores
-            </Button>
-          </Link>
+        <div className="flex-1 container mx-auto px-4 py-8 text-center">
+          <div className="max-w-md mx-auto">
+            <StoreIcon className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+            <h1 className="text-2xl font-bold mb-4">Store Not Found</h1>
+            <p className="text-muted-foreground mb-6">The store you're looking for doesn't exist or has been removed.</p>
+            <Link href="/stores">
+              <Button className="hover:bg-accent/80 hover:scale-105 transition-all hover:shadow-lg">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Stores
+              </Button>
+            </Link>
+          </div>
         </div>
         <Footer />
       </div>
-    );
+    )
   }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
       
-      {/* Full Width Banner Section */}
-      <div className="relative w-full h-[500px] overflow-hidden">
-        {/* Banner images with fade transition */}
-        {[store.storeBanner, store.storeImage, ...(store.bannerImages || [])].filter(Boolean).map((image, index) => (
+      {/* Store Header with Modern Design */}
+      <div className="relative w-full h-96 overflow-hidden">
+        {/* Background/Profile Card Image with Gradient Overlay */}
+        <div className="absolute inset-0">
           <img
-            key={index}
-            src={image || "/placeholder.svg"}
+            src={
+              store.profileImage
+                || (products[0]?.images?.[0])
+                || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&h=600&fit=crop"
+            }
             alt={store.storeName}
-            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
-            style={{
-              opacity: currentBannerIndex === index ? 1 : 0,
-              zIndex: currentBannerIndex === index ? 1 : 0
-            }}
+            className="w-full h-full object-cover"
           />
-        ))}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20" />
+        </div>
         
-        {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" style={{ zIndex: 2 }} />
-        
-        {/* Bottom Fade to White */}
-        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent" style={{ zIndex: 3 }} />
-        
-        {/* Back Button - Top Left */}
+        {/* Navigation */}
         <div className="absolute top-6 left-6 z-10">
-          <Link href="/shop">
-            <Button variant="outline" className="bg-white/90 hover:bg-white border-2 backdrop-blur-sm">
+          <Link href="/stores">
+            <Button variant="outline" className="bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/20 hover:scale-105 transition-all">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Stores
             </Button>
           </Link>
         </div>
-
-        {/* Store Badge - Top Right */}
-        {!store.isOpen ? (
-          <Badge variant="secondary" className="absolute top-6 right-6 z-10 text-lg px-4 py-2">
-            Closed
-          </Badge>
-        ) : (
-          <Badge variant="default" className="absolute top-6 right-6 z-10 bg-green-600 text-lg px-4 py-2">
-            Open
-          </Badge>
-        )}
         
-        {/* Store Info - Bottom */}
-        <div className="absolute bottom-8 left-8 right-8 text-white z-10">
-          <h1 className="text-5xl font-bold mb-3 animate-fade-in" style={{
-            ...getCategoryFont(store.category),
-            WebkitTextStroke: '4px #8b2e0b',
-            paintOrder: 'stroke fill',
-            textShadow: '0 0 8px #8b2e0b'
-          }}>{store.storeName}</h1>
-          <p className="text-2xl animate-fade-in-delay mb-4" style={{
-            WebkitTextStroke: '3px #8b2e0b',
-            paintOrder: 'stroke fill',
-            textShadow: '0 0 6px #8b2e0b'
-          }}>{store.storeDescription}</p>
+        {/* Store Information */}
+        <div className="absolute bottom-0 left-0 right-0 p-8 text-white z-10">
+          <div className="container mx-auto">
+            <div className="flex flex-col lg:flex-row items-start lg:items-end gap-6">
+              {/* Store Avatar (Logo) */}
+              <Avatar className="w-24 h-24 border-4 border-white/20 backdrop-blur-sm">
+                <AvatarImage src={store.storeImage} alt={store.storeName} />
+                <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
+                  {store.storeName.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+              
+              {/* Store Details */}
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-3">
+                  <h1 className="text-4xl font-bold">{store.storeName}</h1>
+                  <Badge variant="secondary" className="bg-green-600/80 text-white border-0">
+                    <Verified className="w-3 h-3 mr-1" />
+                    Verified
+                  </Badge>
+                  {store.isOpen && (
+                    <Badge variant="secondary" className="bg-blue-600/80 text-white border-0">
+                      <Clock className="w-3 h-3 mr-1" />
+                      Open Now
+                    </Badge>
+                  )}
+                </div>
+                
+                <p className="text-xl text-gray-200 mb-4 max-w-2xl">{store.storeDescription}</p>
+                
+                {/* Store Stats */}
+                <div className="flex flex-wrap items-center gap-6 text-gray-300">
+                  <div className="flex items-center gap-2">
+                    <Package className="w-4 h-4" />
+                    <span>({store.totalProducts || products.length || 0} products)</span>
+                  </div>
+                  
+                  <Separator orientation="vertical" className="h-6 bg-white/20" />
+                  
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4" />
+                    <span>Lagos, Nigeria</span>
+                  </div>
+                  
+                  <Separator orientation="vertical" className="h-6 bg-white/20" />
+                  
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="w-4 h-4" />
+                    <span>Responds within {store.responseTime || '1 hour'}</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <Button variant="outline" className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20 hover:scale-105 transition-all">
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                  Contact Seller
+                </Button>
+                <Button 
+                  className={isFollowing ? "bg-green-600 hover:bg-green-700 hover:scale-105 transition-all" : "bg-primary hover:bg-primary/90 hover:scale-105 transition-all"}
+                  onClick={handleFollowToggle}
+                  disabled={!user || followLoading}
+                >
+                  <Heart className={`w-4 h-4 mr-2 ${isFollowing ? 'fill-current' : ''}`} />
+                  {followLoading ? 'Loading...' : (isFollowing ? 'Following' : 'Follow Store')}
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Store Content Section */}
+      {/* Store Content */}
       <div className="container mx-auto px-4 py-8 flex-1">
-        {/* Store Info */}
+        {/* Store Highlights Section */}
         <div className="mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center">
-                {[...Array(5)].map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`w-5 h-5 ${
-                      i < Math.floor(store.rating) ? "text-yellow-400 fill-current" : "text-gray-300"
-                    }`}
-                  />
-                ))}
-              </div>
-              <span className="font-medium">{store.rating}</span>
-              <span className="text-muted-foreground">({store.reviewCount} reviews)</span>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Products Available */}
+            <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+              <CardContent className="p-6 text-center">
+                <Package className="w-8 h-8 mx-auto mb-3 text-blue-600" />
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{(store.totalProducts || products.length || 0).toLocaleString('en-NG')}</div>
+                <div className="text-sm text-muted-foreground dark:text-white">Products Available</div>
+              </CardContent>
+            </Card>
             
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Clock className="w-5 h-5" />
-              <span>{store.deliveryTime}</span>
-            </div>
+            {/* Store Quality Assurance */}
+            <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+              <CardContent className="p-6 text-center">
+                <div className="flex items-center justify-center mb-3">
+                  <Shield className="w-8 h-8 text-green-600" />
+                </div>
+                <div className="text-lg font-bold text-gray-900 dark:text-white">Quality</div>
+                <div className="text-sm text-muted-foreground dark:text-white">Assured</div>
+                <div className="text-xs text-green-600 mt-1 font-medium">
+                  Verified Business
+                </div>
+              </CardContent>
+            </Card>
             
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Truck className="w-5 h-5" />
-              <span>₦{store.deliveryFee} delivery</span>
-            </div>
-            
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <MapPin className="w-5 h-5" />
-              <span>{store.address}</span>
-            </div>
-          </div>
-
-          <div className="bg-muted p-4 rounded-lg">
-            <p className="text-sm">
-              <strong>Minimum order:</strong> ₦{store.minimumOrder.toLocaleString()}
-            </p>
+            {/* Store Features */}
+            <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+              <CardContent className="p-6 text-center">
+                <Shield className="w-8 h-8 mx-auto mb-3 text-green-600" />
+                <div className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Trusted Seller</div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-center text-xs text-green-600">
+                    <Verified className="w-3 h-3 mr-1" />
+                    Verified Account
+                  </div>
+                  <div className="flex items-center justify-center text-xs text-blue-600">
+                    <Truck className="w-3 h-3 mr-1" />
+                    Fast Shipping
+                  </div>
+                  <div className="flex items-center justify-center text-xs text-purple-600">
+                    <MessageCircle className="w-3 h-3 mr-1" />
+                    Quick Response
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
 
-        {/* Search and Sort */}
-        <div className="mb-8 flex flex-col lg:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input
-              placeholder="Search products in this store..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-full lg:w-48">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="featured">Featured</SelectItem>
-              <SelectItem value="rating">Highest Rated</SelectItem>
-              <SelectItem value="price-low">Price: Low to High</SelectItem>
-              <SelectItem value="price-high">Price: High to Low</SelectItem>
-              <SelectItem value="newest">Newest</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Products Grid */}
-        {filteredProducts.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-muted-foreground mb-4">No products found in this store.</p>
-            {searchQuery && (
-              <Button onClick={() => setSearchQuery("")}>
-                Clear Search
-              </Button>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredProducts.map((product, index) => (
-              <Card key={product.id} className="group hover:shadow-lg transition-shadow animate-scale-in hover-lift" style={{ animationDelay: `${index * 0.1}s` }}>
-                <CardContent className="p-4">
-                  <div className="relative mb-4 overflow-hidden rounded-lg">
-                    <Link href={`/product/${product.id}`}>
-                      <img
-                        src={product.image || "/placeholder.svg"}
-                        alt={product.name}
-                        className="w-full h-48 object-cover rounded-lg cursor-pointer group-hover:scale-110 transition-transform duration-300"
-                      />
-                    </Link>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white"
-                    >
-                      <Heart className="w-4 h-4" />
-                    </Button>
-                    {!product.inStock && (
-                      <Badge variant="secondary" className="absolute bottom-2 left-2">
-                        Out of Stock
-                      </Badge>
-                    )}
+        {/* Store Navigation Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="products">Products ({products.length})</TabsTrigger>
+            <TabsTrigger value="about">About Store</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="products" className="space-y-6">
+            {/* Advanced Search and Filter */}
+            <Card className="border-0 shadow-sm">
+              <CardContent className="p-6">
+                <div className="flex flex-col lg:flex-row gap-4">
+                  {/* Search */}
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                    <Input
+                      placeholder={`Search products in ${store.storeName}...`}
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
                   </div>
                   
-                  <div className="space-y-2">
-                    <Link href={`/product/${product.id}`}>
-                      <h3 className="font-semibold hover:text-primary cursor-pointer line-clamp-2">
-                        {product.name}
-                      </h3>
-                    </Link>
-                    
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`w-4 h-4 ${
-                              i < Math.floor(product.rating) ? "text-yellow-400 fill-current" : "text-gray-300"
-                            }`}
-                          />
+                  {/* Filters */}
+                  <div className="flex gap-3">
+                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        {getUniqueCategories().map((category) => (
+                          <SelectItem key={category} value={category}>
+                            {category}
+                          </SelectItem>
                         ))}
-                      </div>
-                      <span className="text-sm text-muted-foreground">({product.reviews})</span>
-                    </div>
+                      </SelectContent>
+                    </Select>
                     
+                    <Select value={priceRange} onValueChange={setPriceRange}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Price Range" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Prices</SelectItem>
+                        <SelectItem value="0-5000">₦0 - ₦5,000</SelectItem>
+                        <SelectItem value="5000-20000">₦5,000 - ₦20,000</SelectItem>
+                        <SelectItem value="20000-50000">₦20,000 - ₦50,000</SelectItem>
+                        <SelectItem value="50000">₦50,000+</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    
+                    <Select value={sortBy} onValueChange={setSortBy}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Sort by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="featured">Featured</SelectItem>
+                        <SelectItem value="newest">Newest</SelectItem>
+                        <SelectItem value="popular">Most Popular</SelectItem>
+                        <SelectItem value="price-low">Price: Low to High</SelectItem>
+                        <SelectItem value="price-high">Price: High to Low</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                {/* Filter Summary */}
+                {(searchQuery || categoryFilter !== "all" || priceRange !== "all") && (
+                  <div className="mt-4 pt-4 border-t">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold">₦{product.price.toLocaleString()}</span>
-                        {product.originalPrice && (
-                          <span className="text-sm text-muted-foreground line-through">
-                            ₦{product.originalPrice.toLocaleString()}
-                          </span>
-                        )}
-                      </div>
-                      <Button 
-                        size="sm" 
-                        onClick={() => handleAddToCart(product)} 
-                        disabled={!product.inStock}
+                      <p className="text-sm text-muted-foreground">
+                        Showing {filteredProducts.length} of {products.length} products
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSearchQuery("")
+                          setCategoryFilter("all")
+                          setPriceRange("all")
+                        }}
+                        className="hover:bg-accent/10 hover:text-accent transition-all"
                       >
-                        <ShoppingCart className="w-4 h-4 mr-2" />
-                        Add
+                        Clear Filters
                       </Button>
                     </div>
                   </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Products Grid */}
+            {filteredProducts.length === 0 ? (
+              <Card className="border-0 shadow-sm">
+                <CardContent className="p-12 text-center">
+                  <ShoppingCart className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-xl font-semibold mb-2">No products found</h3>
+                  <p className="text-muted-foreground mb-6">
+                    {searchQuery || categoryFilter !== "all" || priceRange !== "all"
+                      ? "Try adjusting your search and filter criteria"
+                      : "This store hasn't added any products yet"
+                    }
+                  </p>
+                  {(searchQuery || categoryFilter !== "all" || priceRange !== "all") && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSearchQuery("")
+                        setCategoryFilter("all")
+                        setPriceRange("all")
+                      }}
+                      className="hover:bg-accent/10 hover:text-accent transition-all"
+                    >
+                      Clear All Filters
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
-            ))}
-          </div>
-        )}
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {filteredProducts.map((product) => (
+                  <Card key={product.id} className="group hover:shadow-xl transition-all duration-500 hover:-translate-y-2 border-0 shadow-md overflow-hidden">
+                    <div className="relative">
+                      <img
+                        src={product.images?.[0] || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"}
+                        alt={product.title}
+                        className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500"
+                      />
+                      
+                      {/* Product Badges */}
+                      <div className="absolute top-3 left-3 flex flex-col gap-2">
+                        {product.featured && (
+                          <Badge className="bg-yellow-500 text-black font-semibold">
+                            <svg className="inline w-4 h-4 text-yellow-400 fill-current animate-pulse mr-1" viewBox="0 0 24 24">
+                              <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
+                            </svg> 
+                            Featured
+                          </Badge>
+                        )}
+                        {product.stock < 10 && product.stock > 0 && (
+                          <Badge variant="destructive">
+                            Only {product.stock} left
+                          </Badge>
+                        )}
+                        {product.stock === 0 && (
+                          <Badge variant="secondary" className="bg-gray-600">
+                            Out of Stock
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      {/* Action Buttons */}
+                      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-110 transition-all"
+                          onClick={() => {/* Add to wishlist */}}
+                        >
+                          <Heart className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      
+                      {/* Quick View */}
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                        <Link href={`/product/${product.id}`}>
+                          <Button variant="outline" className="bg-white/90 backdrop-blur-sm text-black hover:bg-white hover:scale-105 transition-all">
+                            <Eye className="w-4 h-4 mr-2" />
+                            Quick View
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                    
+                    <CardContent className="p-4 space-y-3">
+                      <Link href={`/product/${product.id}`}>
+                        <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-primary transition-colors cursor-pointer">
+                          {product.title}
+                        </h3>
+                      </Link>
+                      
+                      <Badge variant="outline" className="text-xs">
+                        {product.category}
+                      </Badge>
+                      
+                      {/* Color/Size Indicators */}
+                      {(product.hasColorOptions || product.hasSizeOptions) && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          {product.hasColorOptions && (
+                            <span>{product.colors?.length} colors</span>
+                          )}
+                          {product.hasColorOptions && product.hasSizeOptions && <span>•</span>}
+                          {product.hasSizeOptions && (
+                            <span>{product.sizes?.length} sizes</span>
+                          )}
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center justify-between pt-2">
+                        <div className="space-y-1">
+                          <div className="font-bold text-lg text-green-600">
+                            {formatCurrency(product.price)}
+                          </div>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          onClick={() => handleAddToCart(product)}
+                          disabled={product.stock === 0}
+                          className="hover:scale-105 hover:bg-accent/80 transition-all hover:shadow-lg"
+                        >
+                          <ShoppingCart className="w-4 h-4 mr-1" />
+                          Add
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="about">
+            <Card className="border-0 shadow-sm">
+              <CardHeader>
+                <CardTitle>About {store.storeName}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div>
+                  <h4 className="font-semibold mb-2">Store Description</h4>
+                  <p className="text-muted-foreground leading-relaxed">{store.description}</p>
+                </div>
+                
+                <Separator />
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="font-semibold mb-3">Store Information</h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Category:</span>
+                        <Badge variant="outline">{store.category}</Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Location:</span>
+                        <span>{store.location || 'Nigeria'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Products:</span>
+                        <span>{(store.totalProducts || products.length || 0)} items</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Response Time:</span>
+                        <span>{store.responseTime || '1 hour'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Store Status:</span>
+                        <Badge variant={store.isOpen ? "default" : "secondary"}>
+                          {store.isOpen ? "Open" : "Closed"}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h4 className="font-semibold mb-3">Shipping Information</h4>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Truck className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm">Free shipping on orders over {formatCurrency(store.shippingInfo?.freeShippingThreshold || 5000)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm">Estimated delivery: {store.shippingInfo?.estimatedDelivery || store.deliveryTime || '1-3 days'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Package className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm">Shipping cost: {formatCurrency(store.shippingInfo?.shippingCost || 500)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
       
       <Footer />
     </div>
-  );
+  )
 }

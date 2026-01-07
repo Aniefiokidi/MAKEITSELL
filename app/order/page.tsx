@@ -1,191 +1,281 @@
 "use client"
-
+import React from "react"
 import { useEffect, useState } from "react"
+import Image from "next/image"
 import { useAuth } from "@/contexts/AuthContext"
-import { getOrders, getBookings, Booking } from "@/lib/firestore"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Loader2, ShoppingCart, Package, Truck, CheckCircle, XCircle, Calendar, Clock, DollarSign, MapPin } from "lucide-react"
-import { format } from "date-fns"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
-import ProtectedRoute from "@/components/auth/ProtectedRoute"
+interface Booking {
+  id: string
+  customerId: string
+  vendorId: string
+  serviceId: string
+  serviceName: string
+  date: string
+  time: string
+  status: string
+  totalAmount: number
+  customerName?: string
+  customerEmail?: string
+  customerPhone?: string
+  notes?: string
+  storeName?: string
+  location?: string
+  createdAt: Date
+}
 
 export default function CustomerOrdersPage() {
   const { user } = useAuth()
   const [orders, setOrders] = useState<any[]>([])
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedOrder, setSelectedOrder] = useState<any>(null)
+  const [showRatingModal, setShowRatingModal] = useState(false)
+  const [productDetails, setProductDetails] = useState<Record<string, any>>({})
+  const [storeDetails, setStoreDetails] = useState<Record<string, any>>({})
+  const [storeNames, setStoreNames] = useState<{ [vendorId: string]: string }>({})
+
+  // Format currency with commas
+  const formatCurrency = (amount: number) => {
+    return amount.toLocaleString('en-NG')
+  }
 
   useEffect(() => {
     const fetchData = async () => {
       if (user) {
         setLoading(true)
         try {
-          const [ordersResult, bookingsResult] = await Promise.all([
-            getOrders({ customerId: user.uid }),
-            getBookings({ customerId: user.uid })
+          const [ordersResponse, bookingsResponse] = await Promise.all([
+            fetch(`/api/orders?customerId=${user.uid}`),
+            fetch(`/api/bookings?customerId=${user.uid}`)
           ])
-          setOrders(ordersResult || [])
-          setBookings(bookingsResult || [])
+          const ordersResult = await ordersResponse.json()
+          const bookingsResult = await bookingsResponse.json()
+          setOrders(Array.isArray(ordersResult) ? ordersResult : [])
+          setBookings(Array.isArray(bookingsResult) ? bookingsResult : [])
+
+          // Fetch product and store details for each order
+          const productIds = new Set<string>()
+          const vendorIds = new Set<string>()
+          ;(Array.isArray(ordersResult) ? ordersResult : []).forEach(order => {
+            if (Array.isArray(order.vendors)) {
+              order.vendors.forEach((vendor: any) => {
+                if (vendor.vendorId) vendorIds.add(vendor.vendorId)
+                if (Array.isArray(vendor.items)) {
+                  vendor.items.forEach((prod: any) => {
+                    if (prod.productId) productIds.add(prod.productId)
+                  })
+                }
+              })
+            } else {
+              order.products?.forEach((prod: any) => {
+                if (prod.productId) productIds.add(prod.productId)
+              })
+              if (order.storeId) vendorIds.add(order.storeId)
+            }
+          })
+          // Fetch all product details
+          const productDetailsObj: Record<string, any> = {}
+          await Promise.all(Array.from(productIds).map(async (pid) => {
+            try {
+              const res = await fetch(`/api/database/products/${pid}`)
+              if (res.ok) {
+                const json = await res.json();
+                if (json.success && json.data) productDetailsObj[pid] = json.data;
+              }
+            } catch {}
+          }))
+          setProductDetails(productDetailsObj)
+          // Fetch all store names by vendorId
+          const storeNamesObj: { [vendorId: string]: string } = {}
+          await Promise.all(Array.from(vendorIds).map(async (vendorId) => {
+            try {
+              const res = await fetch(`/api/database/stores?vendorId=${vendorId}`)
+              const json = await res.json()
+              if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+                storeNamesObj[vendorId] = json.data[0].storeName || json.data[0].name || 'Store'
+              } else {
+                storeNamesObj[vendorId] = 'Store'
+              }
+            } catch {
+              storeNamesObj[vendorId] = 'Store'
+            }
+          }))
+          setStoreNames(storeNamesObj)
         } catch (error) {
-          console.error("Error fetching data:", error)
-          setOrders([])
-          setBookings([])
+          // handle error if needed
         } finally {
           setLoading(false)
         }
       }
     }
-    fetchData()
-  }, [user])
+    fetchData();
+  }, [user]);
 
-  const getBookingStatusBadge = (status: string) => {
-    const variants: any = {
-      pending: "outline",
-      confirmed: "default",
-      completed: "secondary",
-      cancelled: "destructive",
-      rescheduled: "outline",
+  // Debug: Log fetched data
+  useEffect(() => {
+    if (!loading) {
+      console.log('ORDERS:', orders);
+      console.log('PRODUCT DETAILS:', productDetails);
+      console.log('STORE DETAILS:', storeDetails);
     }
-    return <Badge variant={variants[status] || "outline"}>{status}</Badge>
-  }
+  }, [loading, orders, productDetails, storeDetails]);
+  // Flatten orders so each product is its own card, even if from the same vendor
+  const flattenedOrders = orders.flatMap(order => {
+    if (Array.isArray(order.vendors) && order.vendors.length > 0) {
+      return order.vendors.flatMap((vendor, vIdx) => (
+        Array.isArray(vendor.items) && vendor.items.length > 0
+          ? vendor.items.map((prod, pIdx) => ({
+              ...order,
+              _parentOrderId: order.orderId || order.id,
+              vendor,
+              product: prod,
+              storeId: vendor.vendorId,
+              storeName: vendor.vendorName,
+              status: vendor.status || order.status,
+            }))
+          : []
+      ))
+    } else if (Array.isArray(order.products) && order.products.length > 0) {
+      return order.products.map((prod, pIdx) => ({
+        ...order,
+        _parentOrderId: order.orderId || order.id,
+        product: prod,
+        storeId: order.storeId,
+        storeName: order.storeName,
+      }))
+    } else {
+      return [{ ...order, _parentOrderId: order.orderId || order.id }]
+    }
+  })
 
   return (
-    <ProtectedRoute>
-      <div className="min-h-screen flex flex-col">
+    <React.Fragment>
+      <main className="min-h-screen bg-linear-to-b from-background via-accent/10 to-background flex flex-col font-sans">
         <Header />
-        <div className="container mx-auto py-12 flex-1">
-          <h1 className="text-3xl font-bold mb-2">My Orders & Bookings</h1>
-          <p className="text-muted-foreground mb-8">Track your purchases and service appointments</p>
-
-          <Tabs defaultValue="products" className="w-full">
-            <TabsList className="grid w-full max-w-md grid-cols-2">
-              <TabsTrigger value="products">
-                Product Orders ({orders.length})
-              </TabsTrigger>
-              <TabsTrigger value="services">
-                Service Bookings ({bookings.length})
-              </TabsTrigger>
-            </TabsList>
-
-            {/* Product Orders Tab */}
-            <TabsContent value="products" className="mt-6">
-              {loading ? (
-                <div className="flex justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : orders.length === 0 ? (
-                <div className="text-center py-16">
-                  <ShoppingCart className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No orders yet</h3>
-                  <p className="text-muted-foreground mb-4">You haven't placed any orders yet.</p>
-                  <Button asChild>
-                    <a href="/shop">Start Shopping</a>
-                  </Button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {orders.map((order) => (
-                    <Card key={order.id} className="hover-lift">
-                      <CardHeader>
-                        <CardTitle className="text-lg">Order #{order.id?.substring(0, 8)}</CardTitle>
-                        <CardDescription>
-                          {order.createdAt?.toDate?.().toLocaleDateString?.() || "Unknown date"}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="flex flex-col gap-2">
-                          {order.products?.map((prod: any, idx: number) => (
-                            <div key={idx} className="flex items-center gap-2 text-sm">
-                              <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                              <span className="font-medium truncate flex-1">{prod.title || prod.productId}</span>
-                              <span className="text-muted-foreground whitespace-nowrap">x{prod.quantity}</span>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="flex items-center justify-between pt-2 border-t">
-                          <span className="font-semibold">Total:</span>
-                          <span className="text-lg font-bold text-accent">₦{order.totalAmount}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge 
-                            variant={
-                              order.status === "delivered" ? "default" : 
-                              order.status === "shipped" ? "secondary" : 
-                              order.status === "cancelled" ? "destructive" : "outline"
-                            }
-                          >
-                            {order.status}
-                          </Badge>
-                          {order.status === "delivered" && <CheckCircle className="h-4 w-4 text-green-500" />}
-                          {order.status === "shipped" && <Truck className="h-4 w-4 text-blue-500" />}
-                          {order.status === "cancelled" && <XCircle className="h-4 w-4 text-red-500" />}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-
-            {/* Service Bookings Tab */}
-            <TabsContent value="services" className="mt-6">
-              {loading ? (
-                <div className="flex justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : bookings.length === 0 ? (
-                <div className="text-center py-16">
-                  <Calendar className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No bookings yet</h3>
-                  <p className="text-muted-foreground mb-4">You haven't booked any services yet.</p>
-                  <Button asChild>
-                    <a href="/services">Browse Services</a>
-                  </Button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {bookings.map((booking) => (
-                    <Card key={booking.id} className="hover-lift">
-                      <CardHeader>
-                        <CardTitle className="text-lg line-clamp-1">{booking.serviceTitle}</CardTitle>
-                        <CardDescription>{booking.providerName}</CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="space-y-2 text-sm">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            <span>{format(booking.bookingDate.toDate(), "MMM d, yyyy")}</span>
+        <section className="flex-1 w-full max-w-7xl mx-auto mt-10 mb-16 px-2 md:px-0">
+          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-center mb-8">Package History</h1>
+          {loading ? (
+            <div className="flex justify-center items-center py-24">
+              <span className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent"></span>
+            </div>
+          ) : flattenedOrders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-24">
+              <span className="text-6xl mb-4">🛒</span>
+              <h2 className="text-3xl font-bold mb-2">No Orders Yet</h2>
+              <p className="text-muted-foreground mb-6">You haven't placed any product orders yet. Start shopping now!</p>
+              <Button asChild size="lg" className="bg-accent text-white font-bold px-8 py-4 rounded-full shadow-lg hover:bg-accent/80 transition-all">
+                <a href="/stores">Browse Stores</a>
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+              {flattenedOrders.map((order, idx) => {
+                const prod = order.product;
+                const prodDetail = prod?.productId ? productDetails[prod.productId] : null;
+                const productName = prodDetail?.title || prod?.title || prodDetail?.name || prod?.name || 'Product Name';
+                const productImage =
+                  prodDetail?.image ||
+                  prodDetail?.imageUrl ||
+                  prodDetail?.images?.[0] ||
+                  prodDetail?.thumbnail ||
+                  prod?.image ||
+                  prod?.imageUrl ||
+                  prod?.images?.[0] ||
+                  prod?.thumbnail ||
+                  '/images/placeholder-product.svg';
+                // Store name logic: use fetched storeNames by vendorId, fallback to vendorName, then order.storeName, then 'Store'
+                const vendorId = order.vendor?.vendorId || order.storeId;
+                const storeName = (vendorId && storeNames[vendorId])
+                  || order.vendor?.vendorName
+                  || order.storeName
+                  || 'Store';
+                return (
+                  <div key={order._parentOrderId + '-' + (order.storeId || idx) + '-' + (prod?.productId || idx)} className="bg-white rounded-xl shadow-lg border border-accent/20 p-6 flex flex-col">
+                    <div className="flex flex-row items-center gap-3 mb-6">
+                      <div className="relative h-12 w-12 rounded-md overflow-hidden bg-muted flex-shrink-0">
+                        <Image src={productImage} alt={productName} fill className="object-cover" onError={e => { (e.target as HTMLImageElement).src = '/images/placeholder-product.svg' }} />
+                      </div>
+                      <div className="flex flex-col justify-center">
+                        <div className="font-bold text-lg leading-tight">Order #{order._parentOrderId?.substring(0, 8).toUpperCase()}</div>
+                        <div className="text-base font-semibold leading-tight">{productName}</div>
+                        <div className="text-sm text-muted-foreground leading-tight">by {storeName}</div>
+                        <div className="text-muted-foreground text-xs mt-0.5">Placed: {order.createdAt ? (typeof order.createdAt === 'string' ? new Date(order.createdAt).toLocaleDateString() : order.createdAt?.toLocaleDateString?.()) : 'date unknown'}</div>
+                        {/* DEBUG: Show product and productDetails for troubleshooting image issues */}
+                        <details style={{fontSize: '10px', marginTop: 4, color: '#b91c1c'}}>
+                          <summary>Debug Product Data</summary>
+                          <div><b>prod:</b> <pre>{JSON.stringify(prod, null, 2)}</pre></div>
+                          <div><b>prodDetail:</b> <pre>{JSON.stringify(prodDetail, null, 2)}</pre></div>
+                        </details>
+                      </div>
+                    </div>
+                  {/* Stepper */}
+                  <div className="mb-6 relative">
+                    {/* Vertical line behind all steps */}
+                    <span className="absolute left-2.5 top-2 w-px h-[calc(100%-1.5rem)] bg-accent/20 z-0"></span>
+                    {[
+                      { label: 'ORDER PLACED', date: order.createdAt, desc: '', badge: 'ORDER PLACED' },
+                      { label: 'PENDING CONFIRMATION', date: order.createdAt, desc: 'We are in the process of confirming your order. You will receive an SMS / Call shortly.', badge: 'PENDING CONFIRMATION' },
+                      { label: 'SHIPPED', date: order.shippedAt, desc: '', badge: 'SHIPPED' },
+                      { label: 'OUT FOR DELIVERY', date: order.outForDeliveryAt, desc: '', badge: 'OUT FOR DELIVERY' },
+                      { label: 'DELIVERED', date: order.deliveredAt, desc: '', badge: 'DELIVERED' },
+                    ].map((step, sidx, arr) => {
+                      const isActive = (() => {
+                        if (step.label === 'ORDER PLACED') return true;
+                        if (step.label === 'PENDING CONFIRMATION') return ['pending', 'pending_payment', 'confirmed', 'processing', 'shipped', 'delivered'].includes(order.status);
+                        if (step.label === 'SHIPPED') return ['shipped', 'delivered'].includes(order.status);
+                        if (step.label === 'OUT FOR DELIVERY') return order.status === 'out_for_delivery' || order.status === 'delivered';
+                        if (step.label === 'DELIVERED') return order.status === 'delivered';
+                        return false;
+                      })();
+                      const isCurrent = (() => {
+                        if (step.label === 'ORDER PLACED') return order.status === 'pending' || order.status === 'pending_payment';
+                        if (step.label === 'PENDING CONFIRMATION') return order.status === 'confirmed' || order.status === 'processing';
+                        if (step.label === 'SHIPPED') return order.status === 'shipped';
+                        if (step.label === 'OUT FOR DELIVERY') return order.status === 'out_for_delivery';
+                        if (step.label === 'DELIVERED') return order.status === 'delivered';
+                        return false;
+                      })();
+                      return (
+                        <div key={step.label} className="mb-8 last:mb-0 flex items-start relative z-10">
+                          <div className="relative flex flex-col items-center mr-4" style={{ minWidth: 20 }}>
+                            <span className={`w-5 h-5 rounded-full flex items-center justify-center border-2 z-10 text-xs font-bold ${isActive ? 'bg-accent text-white border-accent shadow' : 'bg-white text-accent border-accent/40'} ${isCurrent ? 'ring-2 ring-accent/40' : ''}`}>{isActive ? <>&#10003;</> : ''}</span>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span>{booking.startTime} - {booking.endTime}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <DollarSign className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-semibold text-accent">${booking.totalPrice}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <MapPin className="h-4 w-4 text-muted-foreground" />
-                            <span className="capitalize">{booking.locationType}</span>
+                          <div className="flex flex-col gap-1">
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold tracking-wide mb-1 ${isActive ? 'bg-accent/90 text-white' : 'bg-muted text-muted-foreground border border-muted-foreground/20'}`}>{step.badge}</span>
+                            <div className="text-xs text-muted-foreground">{step.date ? (typeof step.date === 'string' ? new Date(step.date).toLocaleDateString() : step.date?.toLocaleDateString?.()) : ''}</div>
+                            {step.desc && <div className="text-xs text-muted-foreground max-w-xs">{step.desc}</div>}
+                            {step.label === 'DELIVERED' && order.deliveredAt && (
+                              <div className="text-xs text-accent mt-1">Delivered on {typeof order.deliveredAt === 'string' ? new Date(order.deliveredAt).toLocaleDateString() : order.deliveredAt?.toLocaleDateString?.()}</div>
+                            )}
                           </div>
                         </div>
-                        <div className="pt-2 border-t">
-                          {getBookingStatusBadge(booking.status)}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                      );
+                    })}
+                  </div>
+                  <div className="flex justify-between items-center mt-6">
+                    <div>
+                      <div className="font-semibold">Total:</div>
+                      <div className="text-lg font-bold text-accent">₦{formatCurrency(order.totalAmount)}</div>
+                    </div>
+                    <div>
+                      <Badge variant={order.status === "delivered" ? "default" : order.status === "shipped" ? "secondary" : order.status === "cancelled" ? "destructive" : "outline"}>
+                        {order.status}
+                      </Badge>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </div>
+              );
+              })}
+            </div>
+          )}
+        </section>
         <Footer />
-      </div>
-    </ProtectedRoute>
-  )
+      </main>
+    </React.Fragment>
+  );
 }

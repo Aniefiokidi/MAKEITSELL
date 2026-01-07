@@ -124,7 +124,7 @@ export default function CategoryPage() {
                 Home
               </Link>
               <span className="mx-2">/</span>
-              <Link href="/shop" className="hover:text-primary">
+              <Link href="/stores" className="hover:text-primary">
                 Shop
               </Link>
               <span className="mx-2">/</span>

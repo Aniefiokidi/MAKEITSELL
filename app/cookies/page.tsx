@@ -33,7 +33,7 @@ export default function CookiesPage() {
                 <div>
                   <h2 className="text-xl font-semibold mb-2">About Cookies</h2>
                   <p className="text-muted-foreground">
-                    This Cookie Policy explains how BRANDA Marketplace uses cookies and similar technologies to provide, 
+                    This Cookie Policy explains how Make It Sell Marketplace uses cookies and similar technologies to provide, 
                     improve, and protect our services. By using our platform, you consent to our use of cookies as described in this policy.
                   </p>
                 </div>

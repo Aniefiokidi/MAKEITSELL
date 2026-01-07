@@ -51,8 +51,8 @@ export default function CartPage() {
             <p className="text-muted-foreground mb-8">
               Looks like you haven't added any items to your cart yet. Start shopping to fill it up!
             </p>
-            <Button asChild size="lg">
-              <Link href="/shop">
+            <Button asChild size="lg" className="hover:bg-accent/90 hover:scale-105 transition-all">
+              <Link href="/stores">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Continue Shopping
               </Link>
@@ -70,8 +70,8 @@ export default function CartPage() {
       <main className="flex-1 container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center gap-4 mb-8">
-            <Button variant="ghost" size="icon" asChild>
-              <Link href="/shop">
+            <Button variant="ghost" size="icon" asChild className="hover:scale-110 hover:bg-accent/10 transition-all">
+              <Link href="/stores">
                 <ArrowLeft className="h-4 w-4" />
               </Link>
             </Button>
@@ -102,6 +102,7 @@ export default function CartPage() {
                             variant="outline"
                             size="icon"
                             onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                            className="hover:bg-accent/10 hover:text-accent transition-all"
                           >
                             <Minus className="h-4 w-4" />
                           </Button>
@@ -118,6 +119,7 @@ export default function CartPage() {
                             size="icon"
                             onClick={() => updateQuantity(item.productId, item.quantity + 1)}
                             disabled={item.quantity >= item.maxStock}
+                            className="hover:bg-accent/10 hover:text-accent transition-all"
                           >
                             <Plus className="h-4 w-4" />
                           </Button>
@@ -125,7 +127,7 @@ export default function CartPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-destructive hover-text-white"
+                          className="text-destructive hover:bg-destructive hover:text-white transition-all"
                           onClick={() => removeItem(item.productId)}
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
@@ -164,11 +166,11 @@ export default function CartPage() {
                     <span>Total</span>
                     <span>₦{(totalPrice * 1.08).toFixed(2)}</span>
                   </div>
-                  <Button asChild className="w-full" size="lg">
+                  <Button asChild className="w-full hover:bg-accent/80 hover:scale-105 transition-all hover:shadow-lg" size="lg">
                     <Link href="/checkout">Proceed to Checkout</Link>
                   </Button>
-                  <Button variant="outline" asChild className="w-full bg-transparent">
-                    <Link href="/shop">Continue Shopping</Link>
+                  <Button variant="outline" asChild className="w-full bg-transparent hover:bg-accent/10 hover:text-accent transition-all">
+                    <Link href="/stores">Continue Shopping</Link>
                   </Button>
                 </CardContent>
               </Card>

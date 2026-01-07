@@ -31,7 +31,7 @@ export default function PrivacyPage() {
                 <div>
                   <h2 className="text-xl font-semibold mb-2">Your Privacy Matters</h2>
                   <p className="text-muted-foreground">
-                    At BRANDA Marketplace, we are committed to protecting your privacy and ensuring the security of your personal information. 
+                    At Make It Sell Marketplace, we are committed to protecting your privacy and ensuring the security of your personal information. 
                     This policy explains how we collect, use, and safeguard your data when you use our platform.
                   </p>
                 </div>
@@ -298,7 +298,7 @@ export default function PrivacyPage() {
                 please contact us:
               </p>
               <div className="space-y-2 text-sm">
-                <p><strong>Email:</strong> privacy@BRANDA.com</p>
+                <p><strong>Email:</strong> privacy@makeitsell.com</p>
                 <p><strong>Address:</strong> 123 Allen Avenue, Privacy Department, Lagos, Nigeria</p>
                 <p><strong>Phone:</strong> +234 812 9380 869</p>
               </div>

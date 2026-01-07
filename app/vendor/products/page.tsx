@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import VendorLayout from "@/components/vendor/VendorLayout"
 import { useAuth } from "@/contexts/AuthContext"
-import { getProducts, Product, deleteProduct } from "@/lib/firestore"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,6 +13,21 @@ import { Plus, Search, MoreHorizontal, Edit, Trash2, Eye, Package } from "lucide
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
+
+// Define Product interface
+interface Product {
+  id: string
+  title: string
+  description: string
+  price: number
+  category: string
+  images: string[]
+  stock: number
+  vendorId: string
+  createdAt: Date
+  updatedAt: Date
+}
+
 const VendorProductsPage = () => {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
@@ -31,14 +45,23 @@ const VendorProductsPage = () => {
         if (!showAll && user?.uid) {
           // Only fetch this vendor's products
           console.log('Fetching products for vendorId:', user.uid)
-          result = await getProducts({ vendorId: user.uid })
+          const response = await fetch(`/api/database/products?vendorId=${user.uid}`)
+          const data = await response.json()
+          result = data.data || []
         } else {
           // Fetch all products
           console.log('Fetching all products')
-          result = await getProducts()
+          const response = await fetch('/api/database/products')
+          const data = await response.json()
+          result = data.data || []
         }
         console.log('Fetched products:', result)
-        setProducts(result || [])
+        const processedProducts = (result || []).map((product: any) => ({
+          ...product,
+          id: product.id || product._id || `product-${Date.now()}-${Math.random()}`,
+          sales: product.sales || 0
+        }))
+        setProducts(processedProducts)
       } catch (error) {
         setProducts([])
         console.error('Error fetching products:', error)
@@ -88,6 +111,7 @@ const VendorProductsPage = () => {
               variant={showAll ? "default" : "outline"}
               onClick={() => setShowAll(false)}
               disabled={!showAll}
+              className="hover:bg-accent/10 hover:text-accent transition-all"
             >
               My Products
             </Button>
@@ -95,10 +119,11 @@ const VendorProductsPage = () => {
               variant={showAll ? "outline" : "default"}
               onClick={() => setShowAll(true)}
               disabled={showAll}
+              className="hover:bg-accent/10 hover:text-accent transition-all"
             >
               All Products
             </Button>
-            <Button asChild>
+            <Button asChild className="hover:bg-accent/80 hover:scale-105 transition-all hover:shadow-lg">
               <Link href="/vendor/products/new">
                 <Plus className="mr-2 h-4 w-4" />
                 Add Product
@@ -137,8 +162,8 @@ const VendorProductsPage = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredProducts.map((product: any) => (
-                    <TableRow key={product.id}>
+                  {filteredProducts.map((product: any, index: number) => (
+                    <TableRow key={product.id || product._id || index}>
                       <TableCell>
                         <div className="flex items-center space-x-3">
                           <div className="relative h-12 w-12 rounded-md overflow-hidden bg-muted">
@@ -159,11 +184,11 @@ const VendorProductsPage = () => {
                       <TableCell className="font-medium">₦{product.price}</TableCell>
                       <TableCell>{product.stock}</TableCell>
                       <TableCell>{getStatusBadge(product.status, product.stock)}</TableCell>
-                      <TableCell>{product.sales} sold</TableCell>
+                      <TableCell>{product.sales || 0} sold</TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
+                            <Button variant="ghost" size="icon" className="hover:scale-110 hover:bg-accent/10 transition-all">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -184,8 +209,25 @@ const VendorProductsPage = () => {
                               className="text-destructive cursor-pointer"
                               onClick={async () => {
                                 if (window.confirm("Are you sure you want to delete this product?")) {
-                                  await deleteProduct(product.id)
-                                  router.refresh()
+                                  try {
+                                    const response = await fetch(`/api/vendor/products?productId=${product.id}`, {
+                                      method: 'DELETE'
+                                    })
+                                    if (response.ok) {
+                                      // Refresh products list
+                                      const fetchProducts = async () => {
+                                        const response = await fetch(`/api/vendor/products?vendorId=${user?.uid}`)
+                                        const data = await response.json()
+                                        setProducts(data.products || [])
+                                      }
+                                      await fetchProducts()
+                                    } else {
+                                      alert('Failed to delete product')
+                                    }
+                                  } catch (error) {
+                                    console.error('Delete error:', error)
+                                    alert('Failed to delete product')
+                                  }
                                 }
                               }}
                             >
@@ -211,7 +253,7 @@ const VendorProductsPage = () => {
                   {searchQuery ? "Try adjusting your search terms" : "Get started by adding your first product"}
                 </p>
                 {!searchQuery && (
-                  <Button asChild className="mt-4">
+                  <Button asChild className="mt-4 hover:bg-accent/80 hover:scale-105 transition-all hover:shadow-lg">
                     <Link href="/vendor/products/new">
                       <Plus className="mr-2 h-4 w-4" />
                       Add Product

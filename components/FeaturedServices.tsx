@@ -5,12 +5,17 @@ import Link from "next/link"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { getServices, Service } from "@/lib/firestore"
-import { Clock, DollarSign, Star, MapPin } from "lucide-react"
+import { getServices, Service } from "@/lib/database-client"
+import { Clock, Banknote, Star, MapPin } from "lucide-react"
 
 export default function FeaturedServices() {
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Format rating to 1 decimal place
+  const formatRating = (rating: number) => {
+    return rating.toFixed(1)
+  }
 
   useEffect(() => {
     fetchFeaturedServices()
@@ -34,7 +39,7 @@ export default function FeaturedServices() {
       "per-session": "/session",
       custom: "",
     }
-    return `$${service.price}${priceTypeMap[service.pricingType]}`
+    return `₦${service.price}${priceTypeMap[service.pricingType]}`
   }
 
   if (loading) {
@@ -102,7 +107,10 @@ export default function FeaturedServices() {
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-6xl">
-                      🛠️
+                      <svg className="w-8 h-8 text-accent animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
                     </div>
                   )}
                   <Badge className="absolute top-2 right-2 bg-accent text-accent-foreground">
@@ -123,7 +131,7 @@ export default function FeaturedServices() {
                     <span className="flex items-center gap-1 ml-2">
                       <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
                       <span className="text-xs">
-                        {service.rating.toFixed(1)} ({service.reviewCount})
+                        {formatRating(service.rating)} ({service.reviewCount})
                       </span>
                     </span>
                   )}
@@ -138,7 +146,7 @@ export default function FeaturedServices() {
                 <div className="space-y-2 text-sm">
                   {/* Price */}
                   <div className="flex items-center gap-2 text-accent font-semibold">
-                    <DollarSign className="h-4 w-4" />
+                    <Banknote className="h-4 w-4" />
                     <span>{getPriceDisplay(service)}</span>
                   </div>
 

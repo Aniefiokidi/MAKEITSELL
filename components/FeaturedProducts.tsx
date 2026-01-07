@@ -206,7 +206,7 @@ export default function FeaturedProducts() {
 
         <div className="text-center mt-12">
           <Button variant="outline" size="lg" asChild>
-            <Link href="/shop">View All Products</Link>
+            <Link href="/stores">View All Products</Link>
           </Button>
         </div>
       </div>

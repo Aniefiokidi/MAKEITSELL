@@ -51,13 +51,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setMounted(true)
   }, [])
 
-  const { getUserCart, setUserCart } = require("@/lib/firestore")
+  const { getUserCart, setUserCart } = require("@/lib/database-client")
 
-  // Load cart from localStorage or Firestore
+  // Load cart from localStorage or MongoDB
   useEffect(() => {
     const loadCart = async () => {
       if (user) {
-        // User logged in: load from Firestore, merge with localStorage if exists
+        // User logged in: load from MongoDB, merge with localStorage if exists
         try {
           const cart = await getUserCart(user.uid)
           let firestoreItems: CartItem[] = []
@@ -76,7 +76,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
 
-          // Merge: prefer Firestore, but add any unique items from local
+          // Merge: prefer MongoDB data, but add any unique items from local
           const mergedItems = [...firestoreItems]
           localItems.forEach(localItem => {
             const existing = mergedItems.find(item => item.productId === localItem.productId)
@@ -87,13 +87,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           setItems(mergedItems)
 
-          // Save merged cart to Firestore and clear localStorage
+          // Save merged cart to MongoDB and clear localStorage
           if (mergedItems.length > 0) {
             await setUserCart(user.uid, mergedItems)
           }
           localStorage.removeItem('anonymous_cart')
         } catch (error) {
-          console.error("Error loading cart from Firestore:", error)
+          console.error("Error loading cart from MongoDB:", error)
           setItems([])
         }
       } else {
@@ -119,16 +119,33 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const saveCart = async () => {
       if (user) {
-        // Save to Firestore
+        // Save to Firestore - sanitize data to remove undefined values
         try {
-          await setUserCart(user.uid, items)
+          const sanitizedItems = items.map(item => {
+            // Remove any undefined values
+            const sanitized: CartItem = {
+              id: item.id || item.productId,
+              productId: item.productId,
+              title: item.title || '',
+              price: typeof item.price === 'number' ? item.price : 0,
+              quantity: typeof item.quantity === 'number' ? item.quantity : 1,
+              image: item.image || '',
+              vendorId: item.vendorId || '',
+              vendorName: item.vendorName || '',
+              maxStock: typeof item.maxStock === 'number' ? item.maxStock : 100
+            }
+            return sanitized
+          }).filter(item => item.productId) // Remove items without productId
+          
+          await setUserCart(user.uid, sanitizedItems)
         } catch (error) {
-          console.error("Error saving cart to Firestore:", error)
+          console.error("Error saving cart to MongoDB:", error)
         }
       } else {
         // Save to localStorage
         try {
-          localStorage.setItem('anonymous_cart', JSON.stringify(items))
+          const sanitizedItems = items.filter(item => item.productId) // Remove invalid items
+          localStorage.setItem('anonymous_cart', JSON.stringify(sanitizedItems))
         } catch (error) {
           console.error("Error saving cart to localStorage:", error)
         }
@@ -138,19 +155,37 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [items, user])
 
   const addItem = (newItem: Omit<CartItem, "quantity">) => {
+    // Sanitize the new item
+    const sanitizedItem = {
+      id: newItem.id || newItem.productId,
+      productId: newItem.productId,
+      title: newItem.title || '',
+      price: typeof newItem.price === 'number' ? newItem.price : 0,
+      image: newItem.image || '',
+      vendorId: newItem.vendorId || '',
+      vendorName: newItem.vendorName || '',
+      maxStock: typeof newItem.maxStock === 'number' ? newItem.maxStock : 100
+    }
+    
+    // Don't add if essential fields are missing
+    if (!sanitizedItem.productId || !sanitizedItem.title) {
+      console.error("Invalid cart item - missing required fields:", newItem)
+      return
+    }
+    
     setItems((prevItems) => {
-      const existingItem = prevItems.find((item) => item.productId === newItem.productId)
+      const existingItem = prevItems.find((item) => item.productId === sanitizedItem.productId)
 
       if (existingItem) {
         // Update quantity if item already exists
         return prevItems.map((item) =>
-          item.productId === newItem.productId
+          item.productId === sanitizedItem.productId
             ? { ...item, quantity: Math.min(item.quantity + 1, item.maxStock) }
             : item,
         )
       } else {
         // Add new item
-        return [...prevItems, { ...newItem, quantity: 1 }]
+        return [...prevItems, { ...sanitizedItem, quantity: 1 }]
       }
     })
   }
@@ -175,7 +210,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const clearCart = () => {
     setItems([])
     if (user) {
-      setUserCart(user.uid, [])
+      // Ensure we pass an empty array, not undefined
+      setUserCart(user.uid, []).catch(error => {
+        console.error("Error clearing cart in MongoDB:", error)
+      })
     }
   }
 
@@ -184,16 +222,41 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Implement addToCart function
   const addToCart = (item: CartItem) => {
+    // Check if item is valid object
+    if (!item || typeof item !== 'object' || Object.keys(item).length === 0) {
+      console.error("Invalid cart item - empty or null object:", item)
+      return
+    }
+    
+    // Sanitize item before adding to cart
+    const sanitizedItem: CartItem = {
+      id: item.id || item.productId,
+      productId: item.productId,
+      title: item.title || '',
+      price: typeof item.price === 'number' ? item.price : 0,
+      quantity: typeof item.quantity === 'number' && item.quantity > 0 ? item.quantity : 1,
+      image: item.image || '',
+      vendorId: item.vendorId || '',
+      vendorName: item.vendorName || '',
+      maxStock: typeof item.maxStock === 'number' ? item.maxStock : 100
+    }
+    
+    // Don't add if essential fields are missing
+    if (!sanitizedItem.productId || !sanitizedItem.title) {
+      console.error("Invalid cart item - missing required fields. Original item:", item, "Sanitized item:", sanitizedItem)
+      return
+    }
+    
     setItems((prevItems) => {
-      const existingItem = prevItems.find((i) => i.productId === item.productId)
+      const existingItem = prevItems.find((i) => i.productId === sanitizedItem.productId)
       if (existingItem) {
         return prevItems.map((i) =>
-          i.productId === item.productId
-            ? { ...i, quantity: Math.min(i.quantity + item.quantity, i.maxStock) }
+          i.productId === sanitizedItem.productId
+            ? { ...i, quantity: Math.min(i.quantity + sanitizedItem.quantity, i.maxStock) }
             : i,
         )
       } else {
-        return [...prevItems, { ...item, quantity: Math.min(item.quantity, item.maxStock) }]
+        return [...prevItems, { ...sanitizedItem, quantity: Math.min(sanitizedItem.quantity, sanitizedItem.maxStock) }]
       }
     })
   }

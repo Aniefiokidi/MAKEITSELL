@@ -46,7 +46,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       <AdminSidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="flex h-16 items-center justify-between border-b bg-card px-6">
-          <h1 className="text-lg font-semibold">BRANDA Admin Dashboard</h1>
+          <h1 className="text-lg font-semibold">Make It Sell Admin Dashboard</h1>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="flex items-center gap-2">

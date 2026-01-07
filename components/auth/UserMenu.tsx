@@ -14,18 +14,17 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useAuth } from "@/contexts/AuthContext"
-import { logOut } from "@/lib/auth"
 import { User, Settings, ShoppingBag, Store, LifeBuoy, LogOut, BarChart3, MessageCircle } from "lucide-react"
 
 export default function UserMenu() {
-  const { user, userProfile } = useAuth()
+  const { user, userProfile, logout } = useAuth()
   const router = useRouter()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   const handleLogout = async () => {
     setIsLoggingOut(true)
     try {
-      await logOut()
+      await logout()
       router.push("/")
     } catch (error) {
       console.error("Logout error:", error)
@@ -77,7 +76,7 @@ export default function UserMenu() {
 
         {userProfile.role === "customer" && (
           <DropdownMenuItem asChild>
-            <Link href="/order" className="cursor-pointer text-xs sm:text-sm">
+            <Link href="/user/profile" className="cursor-pointer text-xs sm:text-sm">
               <User className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
               Profile
             </Link>
@@ -86,7 +85,7 @@ export default function UserMenu() {
 
         {userProfile.role === "vendor" && (
           <DropdownMenuItem asChild>
-            <Link href="/vendor/settings" className="cursor-pointer text-xs sm:text-sm">
+            <Link href="/vendor/store-settings" className="cursor-pointer text-xs sm:text-sm">
               <User className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
               Profile
             </Link>
@@ -155,7 +154,7 @@ export default function UserMenu() {
         )}
 
         <DropdownMenuItem asChild>
-          <Link href={userProfile.role === "vendor" ? "/vendor/settings" : "/order"} className="cursor-pointer text-xs sm:text-sm">
+          <Link href={userProfile.role === "vendor" ? "/vendor/settings" : "/user/settings"} className="cursor-pointer text-xs sm:text-sm">
             <Settings className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
             Settings
           </Link>

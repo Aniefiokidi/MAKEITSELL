@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MongoDB Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        button { padding: 10px 20px; margin: 10px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; background: #f8f9fa; }
+        .success { border-color: #28a745; background: #d4edda; }
+        .error { border-color: #dc3545; background: #f8d7da; }
+    </style>
+</head>
+<body>
+    <h1>🗄️ MongoDB Database Test</h1>
+    <p>Test your MongoDB connection and create sample data for the marketplace.</p>
+    
+    <button onclick="testConnection()">Test MongoDB Connection</button>
+    <button onclick="createSampleData()">Create Sample Data</button>
+    <button onclick="checkData()">Check Current Data</button>
+    
+    <div id="result" class="result" style="display: none;"></div>
+
+    <script>
+        async function testConnection() {
+            showLoading('Testing MongoDB connection...');
+            try {
+                const response = await fetch('/api/test-db');
+                const data = await response.json();
+                if (data.success) {
+                    showResult('✅ ' + data.message + '\\n\\nCurrent data counts: ' + JSON.stringify(data.data, null, 2), 'success');
+                } else {
+                    showResult('❌ Connection failed: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showResult('❌ Network error: ' + error.message, 'error');
+            }
+        }
+
+        async function createSampleData() {
+            showLoading('Creating sample data...');
+            try {
+                const response = await fetch('/api/test-db', { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    showResult('✅ ' + data.message + '\\n\\nCreated: ' + JSON.stringify(data.data, null, 2), 'success');
+                } else {
+                    showResult('❌ Failed to create data: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showResult('❌ Network error: ' + error.message, 'error');
+            }
+        }
+
+        async function checkData() {
+            showLoading('Checking database...');
+            try {
+                const response = await fetch('/api/test-db');
+                const data = await response.json();
+                if (data.success) {
+                    const counts = data.data;
+                    let message = '📊 Database Status:\\n\\n';
+                    message += `Stores: ${counts.stores}\\n`;
+                    message += `Services: ${counts.services}\\n`;
+                    message += `Products: ${counts.products}\\n\\n`;
+                    
+                    if (counts.stores > 0 || counts.services > 0 || counts.products > 0) {
+                        message += '🎉 Great! You have data in your MongoDB database.\\n';
+                        message += 'Visit /shop or /services to see it in action!';
+                    } else {
+                        message += '💡 Your database is empty. Click "Create Sample Data" to add test data.';
+                    }
+                    
+                    showResult(message, 'success');
+                } else {
+                    showResult('❌ Failed to check data: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showResult('❌ Network error: ' + error.message, 'error');
+            }
+        }
+
+        function showLoading(message) {
+            const result = document.getElementById('result');
+            result.style.display = 'block';
+            result.className = 'result';
+            result.innerHTML = '⏳ ' + message;
+        }
+
+        function showResult(message, type) {
+            const result = document.getElementById('result');
+            result.style.display = 'block';
+            result.className = 'result ' + type;
+            result.innerHTML = '<pre>' + message + '</pre>';
+        }
+
+        // Auto-test connection on page load
+        window.onload = testConnection;
+    </script>
+</body>
+</html>
