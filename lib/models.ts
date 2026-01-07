@@ -1,43 +1,11 @@
-// All exports in this file are stubbed to prevent client-side usage.
-// Do not import this file in client components. Use API routes only.
-
-const notServerError = () => {
-  throw new Error('Mongoose models cannot be used in client components. Use API routes instead.')
-}
-
+// STUB: All model exports throw if used. No schema/type/function code remains.
+export const notServerError = () => { throw new Error('This model is not available in this environment.'); };
+export const User = notServerError;
 export const Product = notServerError;
 export const Order = notServerError;
-export const Store = notServerError;
-export const Service = notServerError;
-export const Booking = notServerError;
-export const SupportTicket = notServerError;
-export const Notification = notServerError;
+export const Vendor = notServerError;
 export const UserCart = notServerError;
-  sizes: [{ type: String }],
-  colorImages: { type: Map, of: [String] },
-  status: { 
-    type: String, 
-    enum: ["active", "inactive", "out_of_stock"], 
-    default: "active" 
-  }
-}, {
-  timestamps: true,
-  collection: 'products'
-})
-
-// Create indexes for better query performance
-ProductSchema.index({ vendorId: 1, createdAt: -1 })
-ProductSchema.index({ category: 1, createdAt: -1 })
-ProductSchema.index({ featured: 1, createdAt: -1 })
-
-// Order Schema
-export interface IOrder extends Document {
-  orderId: string
-  customerId: string
-  vendorId?: string // For backward compatibility
-  vendors: {
-    vendorId: string
-    vendorName: string
+export const Message = notServerError;
     vendorEmail?: string
     items: any[]
     total: number
