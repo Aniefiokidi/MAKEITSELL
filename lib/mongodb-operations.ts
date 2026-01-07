@@ -1,12 +1,35 @@
 export { createChatMessage, getChatMessages } from './conversations-operations'
-import connectToDatabase, { withMongoDBRetry } from './mongodb'
+// STUB: This file should not be imported in client components!
+// All database logic must be accessed via API routes or server components only.
+const notServerError = () => {
+  throw new Error('Database functions cannot be used in client components. Use API routes instead.')
+}
+
+
+// Export types for backward compatibility
+
+import connectToDatabase from './mongodb';
 import {
-  Product, Order, Store, Service, Booking, SupportTicket,
-  Notification, UserCart,
-  IProduct, IOrder, IStore, IService, IBooking, ISupportTicket,
-  INotification, IUserCart,
-} from './models'
-import { User } from './mongodb-auth'
+  Product,
+  Order,
+  Store,
+  Service,
+  Booking,
+  SupportTicket,
+  Notification,
+  UserCart
+} from './models';
+import { User } from './mongodb-auth';
+import type {
+  IProduct,
+  IOrder,
+  IStore,
+  IService,
+  IBooking,
+  ISupportTicket,
+  INotification,
+  IUserCart
+} from './models';
 
 // Product operations
 export const getProducts = async (filters?: {
@@ -268,11 +291,23 @@ export const getServices = async (filters?: {
   const services = await serviceQuery.lean().exec()
   
   // Map _id to id for consistency
-  return services.map(service => ({
+  interface LeanService {
+    [key: string]: any;
+    _id: any;
+  }
+
+  interface ServiceWithId extends LeanService {
+    id: string;
+    _id: string;
+  }
+
+  const typedServices: LeanService[] = services;
+
+  return typedServices.map<ServiceWithId>((service: LeanService) => ({
     ...service,
     id: service._id.toString(),
     _id: service._id.toString()
-  }))
+  }));
 }
 
 export const createService = async (serviceData: Omit<IService, 'id' | 'createdAt' | 'updatedAt'>) => {
