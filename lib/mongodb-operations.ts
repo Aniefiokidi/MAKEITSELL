@@ -1,4 +1,31 @@
-export const getServices = () => { throw new Error("Server-only: getServices is not available on client."); };
+// Mock implementation for getServices (replace with real MongoDB logic)
+export const getServices = async (filters) => {
+	// Example mock data
+	return [
+		{
+			id: 'service1',
+			name: 'Web Design',
+			category: 'Design',
+			providerId: 'vendor1',
+			featured: true,
+			locationType: 'remote',
+			price: 50000,
+			rating: 4.8,
+			reviews: 120
+		},
+		{
+			id: 'service2',
+			name: 'Logo Creation',
+			category: 'Design',
+			providerId: 'vendor2',
+			featured: false,
+			locationType: 'local',
+			price: 20000,
+			rating: 4.5,
+			reviews: 80
+		}
+	];
+};
 
 // FINAL STUB EXPORTS ONLY
 export const getProducts = () => { throw new Error("Server-only: getProducts is not available on client."); };
