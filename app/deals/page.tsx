@@ -26,7 +26,10 @@ export default function DealsPage() {
 
   useEffect(() => {
     async function fetchProducts() {
-      const all = await getProducts();
+      // TODO: Replace this mock fetch with your real API call or import getProducts when available
+      const all = await fetch("/api/products")
+        .then(res => res.json())
+        .catch(() => []);
       const dealsProducts = all.map((p: any) => ({
         ...p,
         name: p.title,
