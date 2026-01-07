@@ -1,6 +1,4 @@
-import { getAuthInstance, getDbInstance } from "./firebase"
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile } from "firebase/auth"
-import { doc, setDoc, getDoc } from "firebase/firestore"
+
 
 export interface UserProfile {
   uid: string
@@ -12,68 +10,26 @@ export interface UserProfile {
   updatedAt: Date
 }
 
-export const auth = getAuthInstance()
 
-// Sign up new user
-export const signUp = async (
-  email: string,
-  password: string,
-  displayName: string,
-  role: "customer" | "vendor" | "admin" = "customer",
-  vendorType?: "goods" | "services" | "both"
-) => {
-  const authInstance = getAuthInstance()
-  const db = getDbInstance()
 
-  if (!authInstance) {
-    throw new Error("Auth not available in server environment")
-  }
 
-  console.log("Starting signup for:", email)
-
-  try {
-    console.log("Creating user with email and password...")
-    const userCredential = await createUserWithEmailAndPassword(authInstance, email, password)
-    const user = userCredential.user
-    console.log("User created successfully:", user.uid)
-
-    // Update user profile
-    console.log("Updating user profile...")
-    await updateProfile(user, { displayName })
-
-    // Create user document in Firestore
-    const userProfile: UserProfile = {
-      uid: user.uid,
-      email: user.email!,
-      displayName,
-      role,
-      vendorType: role === "vendor" ? (vendorType || "both") : undefined,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }
-
-    console.log("Creating user document in Firestore...")
-    await setDoc(doc(db, "users", user.uid), userProfile)
-    console.log("User document created successfully")
-
-    return { user, userProfile }
-  } catch (error: any) {
-    console.error("Sign up error:", error)
-    
-    // Provide user-friendly error messages
-    if (error.code === "auth/email-already-in-use") {
-      throw new Error("This email is already registered. Please use a different email or try logging in.")
-    } else if (error.code === "auth/invalid-email") {
-      throw new Error("Invalid email address. Please enter a valid email.")
-    } else if (error.code === "auth/weak-password") {
-      throw new Error("Password is too weak. Please use a stronger password.")
-    } else if (error.code === "auth/network-request-failed") {
-      throw new Error("Network error. Please check your internet connection and try again.")
-    } else {
-      throw new Error(error.message || "Failed to create account. Please try again.")
-    }
-  }
-}
+// Sign up new user (MongoDB only)
+export const signUp = async (userData: {
+  email: string;
+  password: string;
+  displayName: string;
+  role?: "customer" | "vendor" | "admin";
+  vendorType?: "goods" | "services" | "both";
+}) => {
+  const mongoAuth = await import('./mongodb-auth');
+  return mongoAuth.signUp({
+    email: userData.email,
+    password: userData.password,
+    name: userData.displayName,
+    role: userData.role === 'admin' ? 'customer' : userData.role,
+    vendorInfo: userData.vendorType ? { vendorType: userData.vendorType } : undefined
+  });
+};
 
 // Sign in user
 export const signIn = async (email: string, password: string) => {

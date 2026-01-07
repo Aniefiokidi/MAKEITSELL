@@ -43,7 +43,9 @@ async function connectToDatabase() {
   return cached.conn
 }
 
-export default connectToDatabase
+
+export default connectToDatabase;
+export { connectToDatabase };
 
 // Utility function to check if MongoDB is available
 export const isMongoDBAvailable = async (): Promise<boolean> => {
