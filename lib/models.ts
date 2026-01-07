@@ -508,9 +508,9 @@ ChatMessageSchema.index({ conversationId: 1, createdAt: 1 })
 
 // STUB: All model exports throw if used. No schema/type/function code remains.
 export const notServerError = () => { throw new Error('This model is not available in this environment.'); };
-export const User = notServerError;
-export const Product = notServerError;
-export const Order = notServerError;
-export const Vendor = notServerError;
-export const UserCart = notServerError;
-export const Message = notServerError;
+export const User = () => { throw new Error("Server-only: User model is not available on client."); };
+export const Product = () => { throw new Error("Server-only: Product model is not available on client."); };
+export const Order = () => { throw new Error("Server-only: Order model is not available on client."); };
+export const Vendor = () => { throw new Error("Server-only: Vendor model is not available on client."); };
+export const UserCart = () => { throw new Error("Server-only: UserCart model is not available on client."); };
+export const Message = () => { throw new Error("Server-only: Message model is not available on client."); };
