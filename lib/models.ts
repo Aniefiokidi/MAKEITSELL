@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document, Model } from 'mongoose'
+// import mongoose, { Schema, Document, Model } from 'mongoose'
 
 // Product Schema
 export interface IProduct extends Document {
@@ -562,13 +562,16 @@ const ChatMessageSchema = new Schema<IChatMessage>({
 ChatMessageSchema.index({ conversationId: 1, createdAt: 1 })
 
 // Export models
-export const Product: Model<IProduct> = mongoose.models.Product || mongoose.model<IProduct>('Product', ProductSchema)
-export const Order: Model<IOrder> = mongoose.models.Order || mongoose.model<IOrder>('Order', OrderSchema)
-export const Store: Model<IStore> = mongoose.models.Store || mongoose.model<IStore>('Store', StoreSchema)
-export const Service: Model<IService> = mongoose.models.Service || mongoose.model<IService>('Service', ServiceSchema)
-export const Booking: Model<IBooking> = mongoose.models.Booking || mongoose.model<IBooking>('Booking', BookingSchema)
-export const SupportTicket: Model<ISupportTicket> = mongoose.models.SupportTicket || mongoose.model<ISupportTicket>('SupportTicket', SupportTicketSchema)
-export const Notification: Model<INotification> = mongoose.models.Notification || mongoose.model<INotification>('Notification', NotificationSchema)
-export const UserCart: Model<IUserCart> = mongoose.models.UserCart || mongoose.model<IUserCart>('UserCart', UserCartSchema)
-export const Conversation: Model<IConversation> = mongoose.models.Conversation || mongoose.model<IConversation>('Conversation', ConversationSchema)
-export const ChatMessage: Model<IChatMessage> = mongoose.models.ChatMessage || mongoose.model<IChatMessage>('ChatMessage', ChatMessageSchema)
+
+// STUB: Prevent client-side usage of mongoose models
+const notServerError = () => { throw new Error('Mongoose models cannot be used in client components. Use API routes or server components only.') }
+export const Product = notServerError as any
+export const Order = notServerError as any
+export const Store = notServerError as any
+export const Service = notServerError as any
+export const Booking = notServerError as any
+export const SupportTicket = notServerError as any
+export const Notification = notServerError as any
+export const UserCart = notServerError as any
+export const Conversation = notServerError as any
+export const ChatMessage = notServerError as any
