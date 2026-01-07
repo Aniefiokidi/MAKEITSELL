@@ -38,18 +38,18 @@ export default function CategoryPage() {
       // TODO: Replace with API call to fetch products from MongoDB
       // Example stub:
       // const all = await fetch(`/api/products?category=${categorySlug}`).then(res => res.json())
+      // Example mapping logic for MongoDB products:
       // setProducts(all.map((p: any) => ({
-      //   ...p,
-        name: p.title,
-        image: Array.isArray(p.images) ? p.images[0] : p.image || "/placeholder.svg",
-        vendor: p.vendorName || p.vendor || "Vendor",
-        inStock: typeof p.stock === "number" ? p.stock > 0 : true,
-        rating: p.rating || 5,
-        reviews: p.reviews || 0,
-        originalPrice: p.originalPrice || null,
-        maxStock: p.stock || 99,
-        vendorCategory: p.vendorCategory || p.category || ""
-      })));
+      //   name: p.title,
+      //   image: Array.isArray(p.images) ? p.images[0] : p.image || "/placeholder.svg",
+      //   vendor: p.vendorName || p.vendor || "Vendor",
+      //   inStock: typeof p.stock === "number" ? p.stock > 0 : true,
+      //   rating: p.rating || 5,
+      //   reviews: p.reviews || 0,
+      //   originalPrice: p.originalPrice || null,
+      //   maxStock: p.stock || 99,
+      //   vendorCategory: p.vendorCategory || p.category || ""
+      // })));
     }
     fetchProducts();
   }, [categorySlug]);

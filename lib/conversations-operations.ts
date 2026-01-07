@@ -27,7 +27,7 @@ export const getChatMessages = async (conversationId: string, limitCount?: numbe
   const messages = await query.lean().exec()
   return messages.map((msg: any) => ({ id: msg._id, ...msg }))
 }
-import connectToDatabase from './mongodb'
+// import connectToDatabase from './mongodb'
 import { Conversation } from './models'
 
 // Get all conversations for a user by role (customer or provider)
