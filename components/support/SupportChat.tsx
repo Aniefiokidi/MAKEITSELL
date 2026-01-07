@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+
 import { useAuth } from "@/contexts/AuthContext"
 import { analyzeQueryWithGemini } from "@/lib/gemini-ai"
 import { Send, Bot, User, Loader2, MessageCircle } from "lucide-react"
@@ -29,7 +30,7 @@ interface SupportChatProps {
 
 export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) {
   const { user, userProfile } = useAuth()
-  const { getUserCart, setUserCart, createDocument, getDocument } = require("@/lib/firestore")
+  // All Firestore/database logic must go through API routes, not direct imports
   const [messages, setMessages] = useState<Message[]>([])
   const [initialized, setInitialized] = useState(false)
   const [inputMessage, setInputMessage] = useState("")
@@ -58,14 +59,16 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
     return () => clearTimeout(timer)
   }, [messages])
 
-  // Fetch messages from Firestore if ticketId is provided
+  // Fetch messages from API if ticketId is provided
   useEffect(() => {
     const fetchMessages = async () => {
       if (ticketId) {
         try {
-          const ticket = await getDocument("supportTickets", ticketId)
+          // Replace with your real API call
+          const res = await fetch(`/api/support/ticket/${ticketId}`)
+          const ticket = await res.json()
           if (ticket && Array.isArray(ticket.messages) && ticket.messages.length > 0) {
-            setMessages(ticket.messages.map((msg: any) => ({ ...msg, timestamp: msg.timestamp?.toDate?.() || new Date() })))
+            setMessages(ticket.messages.map((msg: any) => ({ ...msg, timestamp: new Date(msg.timestamp) })))
           } else {
             setMessages([])
           }
@@ -99,12 +102,14 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
     }
     setMessages((prev) => [...prev, newMessage])
     
-    // Save to Firestore if ticketId exists
+    // Save to database via API if ticketId exists
     if (ticketId) {
       try {
-        const ticket = await getDocument("supportTickets", ticketId)
-        const updatedMessages = ticket && Array.isArray(ticket.messages) ? [...ticket.messages, newMessage] : [newMessage]
-        await createDocument("supportTickets", { ...ticket, messages: updatedMessages })
+        await fetch(`/api/support/ticket/${ticketId}/message`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newMessage),
+        })
       } catch (error) {
         // handle error
       }
@@ -184,8 +189,11 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
             })
             setIsEscalated(true)
             if (user) {
-              (async () => {
-                const ticketData = {
+              // Create support ticket via API
+              await fetch(`/api/support/ticket`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
                   customerId: user.uid,
                   subject: aiResponse.escalationReason || "Complex issue requiring specialist",
                   description: userMessage,
@@ -201,9 +209,8 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
                   ],
                   createdAt: new Date(),
                   updatedAt: new Date(),
-                }
-                await createDocument("supportTickets", ticketData)
-              })()
+                }),
+              })
             }
             onEscalate?.(aiResponse.escalationReason || "Complex issue requiring specialist")
           }, 8000) // Give more time before escalating
@@ -229,9 +236,11 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
           
           // Create support ticket for technical error
           if (user) {
-            (async () => {
-              try {
-                const ticketData = {
+            try {
+              await fetch(`/api/support/ticket`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
                   customerId: user.uid,
                   subject: "Technical error in AI system",
                   description: userMessage,
@@ -247,13 +256,12 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
                   ],
                   createdAt: new Date(),
                   updatedAt: new Date(),
-                }
-                await createDocument("supportTickets", ticketData)
-                onEscalate?.("Technical error in AI system")
-              } catch (ticketError) {
-                console.error("Failed to create support ticket:", ticketError)
-              }
-            })()
+                }),
+              })
+              onEscalate?.("Technical error in AI system")
+            } catch (ticketError) {
+              console.error("Failed to create support ticket:", ticketError)
+            }
           }
         }, 3000)
       } finally {

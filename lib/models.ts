@@ -1,43 +1,18 @@
-import { Schema, Document } from 'mongoose'
+// All exports in this file are stubbed to prevent client-side usage.
+// Do not import this file in client components. Use API routes only.
 
-// Product Schema
-export interface IProduct extends Document {
-  title: string
-  description: string
-  price: number
-  category: string
-  images: string[]
-  vendorId: string
-  vendorName: string
-  stock: number
-  sku?: string
-  featured: boolean
-  status: "active" | "inactive" | "out_of_stock"
-  sales: number
-  hasColorOptions?: boolean
-  hasSizeOptions?: boolean
-  colors?: string[]
-  sizes?: string[]
-  colorImages?: { [key: string]: string[] }
-  createdAt: Date
-  updatedAt: Date
+const notServerError = () => {
+  throw new Error('Mongoose models cannot be used in client components. Use API routes instead.')
 }
 
-const ProductSchema = new Schema<IProduct>({
-  title: { type: String, required: true },
-  description: { type: String, required: true },
-  price: { type: Number, required: true },
-  category: { type: String, required: true },
-  images: [{ type: String }],
-  vendorId: { type: String, required: true, index: true },
-  vendorName: { type: String, required: true },
-  stock: { type: Number, required: true, default: 0 },
-  sku: { type: String },
-  featured: { type: Boolean, default: false },
-  sales: { type: Number, default: 0 },
-  hasColorOptions: { type: Boolean, default: false },
-  hasSizeOptions: { type: Boolean, default: false },
-  colors: [{ type: String }],
+export const Product = notServerError;
+export const Order = notServerError;
+export const Store = notServerError;
+export const Service = notServerError;
+export const Booking = notServerError;
+export const SupportTicket = notServerError;
+export const Notification = notServerError;
+export const UserCart = notServerError;
   sizes: [{ type: String }],
   colorImages: { type: Map, of: [String] },
   status: { 

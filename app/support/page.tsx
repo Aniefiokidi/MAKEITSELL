@@ -55,8 +55,9 @@ export default function SupportPage() {
       if (user && activeTab === "tickets") {
         setLoadingTickets(true)
         try {
-          const { getSupportTickets } = await import("@/lib/firestore")
-          const tickets = await getSupportTickets({ customerId: user.uid })
+          // Replace with your real API call
+          const res = await fetch(`/api/support/tickets?customerId=${user.uid}`)
+          const tickets = await res.json()
           setUserTickets(tickets)
         } catch (error) {
           console.error("Error loading tickets:", error)
@@ -73,37 +74,32 @@ export default function SupportPage() {
     setIsSubmitting(true)
 
     try {
-      const { createSupportTicket, createNotification } = await import("@/lib/firestore")
-      const { Timestamp } = await import("firebase/firestore")
-
+      // Replace with your real API call
       const ticketData = {
         customerId: user?.uid!,
         subject: ticketForm.subject,
         description: ticketForm.description,
-        status: "open" as const,
-        priority: ticketForm.priority as "low" | "medium" | "high" | "urgent",
+        status: "open",
+        priority: ticketForm.priority,
         messages: [
           {
             senderId: user?.uid!,
-            senderRole: "customer" as const,
+            senderRole: "customer",
             message: ticketForm.description,
-            timestamp: Timestamp.now(),
+            timestamp: new Date().toISOString(),
           },
         ],
       }
 
-      const ticketId = await createSupportTicket(ticketData)
-      console.log("Ticket created with ID:", ticketId)
-
-      // Notify admin/CSA
-      await createNotification({
-        userId: "admin", // Assuming admin user ID, or broadcast to all admins
-        type: "ticket",
-        title: "New Support Ticket",
-        message: `New ticket: ${ticketForm.subject}`,
-        read: false,
-        relatedId: ticketId,
+      const res = await fetch('/api/support/ticket', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ticketData),
       })
+      const ticket = await res.json()
+      console.log("Ticket created:", ticket)
+
+      // Optionally notify admin/CSA via another API route
 
       setSubmitSuccess(true)
       setTicketForm({

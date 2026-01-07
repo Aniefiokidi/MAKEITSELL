@@ -1,43 +1,15 @@
-export { createChatMessage, getChatMessages } from './conversations-operations'
-// STUB: This file should not be imported in client components!
-// All database logic must be accessed via API routes or server components only.
+// All exports in this file are stubbed to prevent client-side usage.
+// Do not import this file in client components. Use API routes only.
+
 const notServerError = () => {
   throw new Error('Database functions cannot be used in client components. Use API routes instead.')
 }
 
-
-// Export types for backward compatibility
-
-import connectToDatabase from './mongodb';
-import {
-  Product,
-  Order,
-  Store,
-  Service,
-  Booking,
-  SupportTicket,
-  Notification,
-  UserCart
-} from './models';
-import { User } from './mongodb-auth';
-import type {
-  IProduct,
-  IOrder,
-  IStore,
-  IService,
-  IBooking,
-  ISupportTicket,
-  INotification,
-  IUserCart
-} from './models';
-
-// Product operations
-export const getProducts = async (filters?: {
-  category?: string
-  vendorId?: string
-  featured?: boolean
-  limitCount?: number
-}) => {
+export const getProducts = notServerError;
+export const createChatMessage = notServerError;
+export const getChatMessages = notServerError;
+export const getConversations = notServerError;
+export const createConversation = notServerError;
   await connectToDatabase()
   
   const query: any = {}
