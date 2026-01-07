@@ -182,37 +182,39 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
           
           // If still can't help after follow-up, then escalate
           setTimeout(() => {
-            addMessage({
-              senderId: "ai",
-              senderRole: "ai",
-              message: "I want to make sure you get the best help possible. Let me connect you with one of our customer service specialists who can provide personalized support for your specific situation.",
-            })
-            setIsEscalated(true)
-            if (user) {
-              // Create support ticket via API
-              await fetch(`/api/support/ticket`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  customerId: user.uid,
-                  subject: aiResponse.escalationReason || "Complex issue requiring specialist",
-                  description: userMessage,
-                  status: "open",
-                  priority: aiResponse.priority || "medium",
-                  messages: [
-                    {
-                      senderId: user.uid,
-                      senderRole: "customer",
-                      message: userMessage,
-                      timestamp: new Date(),
-                    },
-                  ],
-                  createdAt: new Date(),
-                  updatedAt: new Date(),
-                }),
+            (async () => {
+              addMessage({
+                senderId: "ai",
+                senderRole: "ai",
+                message: "I want to make sure you get the best help possible. Let me connect you with one of our customer service specialists who can provide personalized support for your specific situation.",
               })
-            }
-            onEscalate?.(aiResponse.escalationReason || "Complex issue requiring specialist")
+              setIsEscalated(true)
+              if (user) {
+                // Create support ticket via API
+                await fetch(`/api/support/ticket`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    customerId: user.uid,
+                    subject: aiResponse.escalationReason || "Complex issue requiring specialist",
+                    description: userMessage,
+                    status: "open",
+                    priority: aiResponse.priority || "medium",
+                    messages: [
+                      {
+                        senderId: user.uid,
+                        senderRole: "customer",
+                        message: userMessage,
+                        timestamp: new Date(),
+                      },
+                    ],
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                  }),
+                })
+              }
+              onEscalate?.(aiResponse.escalationReason || "Complex issue requiring specialist")
+            })()
           }, 8000) // Give more time before escalating
         }
       } catch (error) {
@@ -228,41 +230,42 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
         
         // Only escalate after trying to help
         setTimeout(() => {
-          addMessage({
-            senderId: "ai",
-            senderRole: "ai",
-            message: "If the issue persists, I can connect you with one of our customer service representatives for immediate assistance.",
-          })
-          
-          // Create support ticket for technical error
-          if (user) {
-            try {
-              await fetch(`/api/support/ticket`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  customerId: user.uid,
-                  subject: "Technical error in AI system",
-                  description: userMessage,
-                  status: "open",
-                  priority: "medium",
-                  messages: [
-                    {
-                      senderId: user.uid,
-                      senderRole: "customer",
-                      message: userMessage,
-                      timestamp: new Date(),
-                    },
-                  ],
-                  createdAt: new Date(),
-                  updatedAt: new Date(),
-                }),
-              })
-              onEscalate?.("Technical error in AI system")
-            } catch (ticketError) {
-              console.error("Failed to create support ticket:", ticketError)
+          (async () => {
+            addMessage({
+              senderId: "ai",
+              senderRole: "ai",
+              message: "If the issue persists, I can connect you with one of our customer service representatives for immediate assistance.",
+            })
+            // Create support ticket for technical error
+            if (user) {
+              try {
+                await fetch(`/api/support/ticket`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    customerId: user.uid,
+                    subject: "Technical error in AI system",
+                    description: userMessage,
+                    status: "open",
+                    priority: "medium",
+                    messages: [
+                      {
+                        senderId: user.uid,
+                        senderRole: "customer",
+                        message: userMessage,
+                        timestamp: new Date(),
+                      },
+                    ],
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                  }),
+                })
+                onEscalate?.("Technical error in AI system")
+              } catch (ticketError) {
+                console.error("Failed to create support ticket:", ticketError)
+              }
             }
-          }
+          })()
         }, 3000)
       } finally {
         setIsLoading(false)
