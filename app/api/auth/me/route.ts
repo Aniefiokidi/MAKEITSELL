@@ -5,7 +5,7 @@ import { getCurrentUser } from '@/lib/mongodb-auth'
 import { getUserProfile } from '@/lib/auth-client'
 
 export async function GET() {
-  const cookieStore = await cookies();
+  const cookieStore = cookies();
   const sessionToken = cookieStore.get('sessionToken')?.value
   if (!sessionToken) {
     return NextResponse.json({ user: null }, { status: 401 })
