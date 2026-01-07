@@ -1,3 +1,4 @@
+export const getServices = () => { throw new Error("Server-only: getServices is not available on client."); };
 
 // FINAL STUB EXPORTS ONLY
 export const getProducts = () => { throw new Error("Server-only: getProducts is not available on client."); };
