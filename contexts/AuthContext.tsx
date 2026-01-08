@@ -94,9 +94,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Check for existing session using HTTP-only cookie
     const checkAuth = async () => {
       try {
+        console.log('[AuthContext] Checking session on mount');
         const res = await fetch('/api/auth/me', { credentials: 'include' })
+        console.log('[AuthContext] /api/auth/me response status:', res.status);
         const data = await res.json()
+        console.log('[AuthContext] /api/auth/me data:', data);
         if (data.user) {
+          console.log('[AuthContext] User found, setting to:', data.user.email);
           setUser({
             uid: data.user.id,
             email: data.user.email,
@@ -105,10 +109,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           })
           setUserProfile(data.userProfile)
         } else {
+          console.log('[AuthContext] No user found, logging out');
           setUser(null)
           setUserProfile(null)
         }
       } catch (error) {
+        console.log('[AuthContext] Error checking session:', error);
         setUser(null)
         setUserProfile(null)
       } finally {

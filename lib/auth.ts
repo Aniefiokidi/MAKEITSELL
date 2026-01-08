@@ -41,17 +41,22 @@ export async function signUp({ email, password, name, role, vendorInfo }: { emai
 export async function signIn({ email, password }: { email: string, password: string }) {
   await connectToDatabase();
   const user = await User.findOne({ email });
+  console.log('[auth.signIn] User found:', user ? 'YES' : 'NO');
   if (!user) throw new Error('Invalid credentials');
   if (user.passwordHash !== hashPassword(password)) throw new Error('Invalid credentials');
   // Generate new session token
   user.sessionToken = crypto.randomBytes(32).toString('hex');
+  console.log('[auth.signIn] Generated sessionToken:', user.sessionToken);
   await user.save();
+  console.log('[auth.signIn] User saved with new sessionToken');
   return { success: true, user: { id: user._id, email: user.email, name: user.name, role: user.role }, sessionToken: user.sessionToken };
 }
 
 export async function getUserBySessionToken(sessionToken: string) {
   await connectToDatabase();
+  console.log('[auth.getUserBySessionToken] Looking for user with token:', sessionToken.substring(0, 8) + '...');
   const user = await User.findOne({ sessionToken });
+  console.log('[auth.getUserBySessionToken] User found:', user ? 'YES' : 'NO');
   if (!user) return null;
   return { id: user._id, email: user.email, name: user.name, role: user.role };
 }
