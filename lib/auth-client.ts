@@ -33,15 +33,7 @@ export const signUp = async (
     });
     const result = await response.json();
     if (result.success && result.user && result.sessionToken) {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('sessionToken', result.sessionToken);
-        localStorage.setItem('currentUser', JSON.stringify({
-          id: result.user.id,
-          email: result.user.email,
-          name: result.user.name,
-          role: result.user.role
-        }));
-      }
+      // Session is managed by HTTP-only cookie only
       return {
         user: {
           uid: result.user.id,
@@ -77,15 +69,7 @@ export const signIn = async (email: string, password: string) => {
     });
     const result = await response.json();
     if (result.success && result.user && result.sessionToken) {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('sessionToken', result.sessionToken);
-        localStorage.setItem('currentUser', JSON.stringify({
-          id: result.user.id,
-          email: result.user.email,
-          name: result.user.name,
-          role: result.user.role
-        }));
-      }
+      // Session is managed by HTTP-only cookie only
       return {
         user: {
           uid: result.user.id,
