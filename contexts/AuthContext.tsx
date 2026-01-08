@@ -119,20 +119,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkAuth()
   }, [])
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<{ user: User; userProfile: UserProfile | null }> => {
     try {
       setLoading(true)
       const result = await signIn(email, password)
-      console.log('Login result in AuthContext:', result)
-      console.log('Setting user in AuthContext:', result.user)
-      console.log('Setting userProfile in AuthContext:', result.userProfile)
       setUser(result.user)
-      setUserProfile(result.userProfile)
-      // No need to store session in localStorage; session is managed by HTTP-only cookie
-      return result
+      // Fix vendorType type
+      const allowedVendorTypes = ["goods", "services", "both"];
+      const safeVendorType = allowedVendorTypes.includes(result.userProfile.vendorType as any)
+        ? (result.userProfile.vendorType as "goods" | "services" | "both")
+        : undefined;
+      setUserProfile({
+        ...result.userProfile,
+        vendorType: safeVendorType,
+      });
+      return { user: result.user, userProfile: { ...result.userProfile, vendorType: safeVendorType } };
     } catch (error) {
-      console.error('Login error in AuthContext:', error)
-      throw error
+      throw error;
     } finally {
       setLoading(false)
     }
@@ -143,20 +146,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     password: string,
     displayName: string,
     role: "customer" | "vendor" = "customer",
-  ) => {
+  ): Promise<{ user: User; userProfile: UserProfile }> => {
     try {
       setLoading(true)
       const result = await signUp(email, password, displayName, role)
-      console.log('Register result in AuthContext:', result)
-      console.log('Setting user in AuthContext:', result.user)
-      console.log('Setting userProfile in AuthContext:', result.userProfile)
       setUser(result.user)
-      setUserProfile(result.userProfile)
-      // No need to store session in localStorage; session is managed by HTTP-only cookie
-      return result
+      // Fix vendorType type
+      const allowedVendorTypes = ["goods", "services", "both"];
+      const safeVendorType = allowedVendorTypes.includes(result.userProfile.vendorType as any)
+        ? (result.userProfile.vendorType as "goods" | "services" | "both")
+        : undefined;
+      setUserProfile({
+        ...result.userProfile,
+        vendorType: safeVendorType,
+      });
+      return { user: result.user, userProfile: { ...result.userProfile, vendorType: safeVendorType } };
     } catch (error) {
-      console.error('Register error in AuthContext:', error)
-      throw error
+      throw error;
     } finally {
       setLoading(false)
     }

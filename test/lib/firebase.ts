@@ -82,5 +82,5 @@ export const auth = getAuthInstance()
 export const db = getDbInstance()
 export const storage = getStorageInstance()
 export const analytics = getAnalyticsInstance()
-
+  // Deprecated: Firebase test logic removed. File retained for legacy reference only.
 export default getFirebaseApp()

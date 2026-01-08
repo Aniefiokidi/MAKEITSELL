@@ -1,7 +1,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { serialize } from 'cookie'
-import { signUp as mongoSignUp } from '@/lib/mongodb-auth'
+import { signUp } from '@/lib/auth'
+
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,7 +13,7 @@ export async function POST(request: NextRequest) {
       businessType: vendorType || "both"
     } : undefined
 
-    const result = await mongoSignUp({
+    const result = await signUp({
       email,
       password,
       name,

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
-// import { getDocument } from "@/lib/firestore"
+// ...existing code...
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -79,9 +79,9 @@ export default function SupportTicketDetailPage() {
     if (!reply.trim()) return
 
     setSubmitting(true)
-    // TODO: Implement reply functionality with Firestore
+    // TODO: Implement reply functionality with MongoDB
     await new Promise(resolve => setTimeout(resolve, 1000))
-    alert("Reply functionality will be implemented with Firestore subcollection for ticket messages")
+    alert("Reply functionality will be implemented with MongoDB for ticket messages")
     setReply("")
     setSubmitting(false)
   }

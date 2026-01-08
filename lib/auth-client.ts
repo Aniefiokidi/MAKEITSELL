@@ -11,7 +11,7 @@ export interface UserProfile {
   updatedAt: Date
 }
 
-// Sign up new user
+// Sign up new user (calls API route)
 export const signUp = async (
   email: string,
   password: string,
@@ -19,14 +19,10 @@ export const signUp = async (
   role: "customer" | "vendor" | "admin" = "customer",
   vendorType?: "goods" | "services" | "both"
 ) => {
-  console.log("Starting API signup for:", email)
-
   try {
     const response = await fetch('/api/auth/signup', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email,
         password,
@@ -34,105 +30,86 @@ export const signUp = async (
         role: role === "admin" ? "customer" : role,
         vendorType
       }),
-    })
-
-    const result = await response.json()
-
-    if (result.success) {
-      const userProfile: UserProfile = {
-        uid: result.user.id,
-        email: result.user.email,
-        displayName: result.user.name,
-        role: result.user.role as any,
-        vendorType: role === "vendor" ? (vendorType || "both") : undefined,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
-
-      // Store session token for future requests
+    });
+    const result = await response.json();
+    if (result.success && result.user && result.sessionToken) {
       if (typeof window !== 'undefined') {
-        localStorage.setItem('sessionToken', result.sessionToken)
+        localStorage.setItem('sessionToken', result.sessionToken);
         localStorage.setItem('currentUser', JSON.stringify({
           id: result.user.id,
           email: result.user.email,
           name: result.user.name,
-          role: result.user.role // Fixed: was 'type', should be 'role'
-        }))
-      }
-
-      console.log("API signup successful for:", email)
-      return { 
-        user: {
-          uid: result.user.id,
-          email: result.user.email,
-          displayName: result.user.name,
           role: result.user.role
-        }, 
-        userProfile 
+        }));
       }
-    } else {
-      throw new Error(result.error || "Failed to create account")
-    }
-  } catch (error: any) {
-    console.error("API Sign up error:", error)
-    throw new Error(error.message || "Failed to create account. Please try again.")
-  }
-}
-
-// Sign in user
-export const signIn = async (email: string, password: string) => {
-  console.log("Starting API signin for:", email)
-
-  try {
-    const response = await fetch('/api/auth/signin', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password }),
-    })
-
-    const result = await response.json()
-
-    if (result.success) {
-      const userProfile: UserProfile = {
-        uid: result.user.id,
-        email: result.user.email,
-        displayName: result.user.name,
-        role: result.user.role as any,
-        vendorType: result.user.role === 'vendor' ? 'both' : undefined,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-
-      // Store session data
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('sessionToken', result.sessionToken)
-        localStorage.setItem('currentUser', JSON.stringify({
-          id: result.user.id,
-          email: result.user.email,
-          name: result.user.name,
-          role: result.user.role // Fixed: was 'type', should be 'role'
-        }))
-      }
-
       return {
         user: {
           uid: result.user.id,
           email: result.user.email,
           displayName: result.user.name,
-          role: result.user.role,
+          role: result.user.role
         },
-        userProfile,
-      }
+        userProfile: {
+          uid: result.user.id,
+          email: result.user.email,
+          displayName: result.user.name,
+          role: result.user.role,
+          vendorType: result.user.role === 'vendor' ? (vendorType || 'both') : undefined,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      };
     } else {
-      throw new Error(result.error || "Authentication failed")
+      throw new Error(result.error || 'Failed to create account');
     }
   } catch (error: any) {
-    console.error("API authentication error:", error)
-    throw new Error("Sign in failed. Please check your credentials and try again.")
+    throw new Error(error.message || 'Failed to create account. Please try again.');
   }
-}
+};
+
+// Sign in user (calls API route)
+export const signIn = async (email: string, password: string) => {
+  try {
+    const response = await fetch('/api/auth/signin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const result = await response.json();
+    if (result.success && result.user && result.sessionToken) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('sessionToken', result.sessionToken);
+        localStorage.setItem('currentUser', JSON.stringify({
+          id: result.user.id,
+          email: result.user.email,
+          name: result.user.name,
+          role: result.user.role
+        }));
+      }
+      return {
+        user: {
+          uid: result.user.id,
+          email: result.user.email,
+          displayName: result.user.name,
+          role: result.user.role
+        },
+        userProfile: {
+          uid: result.user.id,
+          email: result.user.email,
+          displayName: result.user.name,
+          role: result.user.role,
+          vendorType: result.user.role === 'vendor' ? 'both' : undefined,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      };
+    } else {
+      throw new Error(result.error || 'Authentication failed');
+    }
+  } catch (error: any) {
+    throw new Error('Sign in failed. Please check your credentials and try again.');
+  }
+};
 
 // Sign out user
 export const logOut = async () => {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-// TODO: Replace Firestore logic with MongoDB
+// TODO: Implement follow store logic with MongoDB
 
 // POST - Follow or unfollow a store
 export async function POST(request: Request) {

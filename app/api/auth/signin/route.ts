@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { serialize } from 'cookie'
-import { signIn as mongoSignIn } from '@/lib/mongodb-auth'
+import { signIn } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json()
     // Try MongoDB authentication
     try {
-      const result = await mongoSignIn(email, password)
+      const result = await signIn({ email, password })
       if (result.success && result.sessionToken) {
         // Set HTTP-only cookie
         const cookie = serialize('sessionToken', result.sessionToken, {

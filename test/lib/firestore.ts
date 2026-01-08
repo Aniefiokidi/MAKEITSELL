@@ -1,3 +1,4 @@
+// Deprecated: Firestore test logic removed. File retained for legacy reference only.
 // Create product in Firestore
 // Get orders with filters
 export const getOrders = async (filters?: {

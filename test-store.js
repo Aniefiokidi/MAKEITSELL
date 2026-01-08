@@ -1,3 +1,4 @@
+// Deprecated: Firestore test logic removed. File retained for legacy reference only.
 // Simple test to add a store to Firestore
 const { initializeApp } = require('firebase/app');
 const { getFirestore, doc, setDoc, collection, getDocs } = require('firebase/firestore');

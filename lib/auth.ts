@@ -1,120 +1,57 @@
 
+import { connectToDatabase } from './mongodb';
+import mongoose from 'mongoose';
+import crypto from 'crypto';
 
-export interface UserProfile {
-  uid: string
-  email: string
-  displayName: string
-  role: "customer" | "vendor" | "admin" | "csa"
-  vendorType?: "goods" | "services" | "both" // For vendors: what they offer
-  createdAt: Date
-  updatedAt: Date
+// User schema (minimal)
+const userSchema = new mongoose.Schema({
+  email: { type: String, unique: true },
+  passwordHash: String,
+  name: String,
+  role: { type: String, default: 'customer' },
+  vendorInfo: Object,
+  sessionToken: String,
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
+});
+
+const User = mongoose.models.User || mongoose.model('User', userSchema);
+
+function hashPassword(password: string) {
+  return crypto.createHash('sha256').update(password).digest('hex');
 }
 
-
-
-
-// Sign up new user (MongoDB only)
-export const signUp = async (userData: {
-  email: string;
-  password: string;
-  displayName: string;
-  role?: "customer" | "vendor" | "admin";
-  vendorType?: "goods" | "services" | "both";
-}) => {
-  const mongoAuth = await import('./mongodb-auth');
-  return mongoAuth.signUp({
-    email: userData.email,
-    password: userData.password,
-    name: userData.displayName,
-    role: userData.role === 'admin' ? 'customer' : userData.role,
-    vendorInfo: userData.vendorType ? { vendorType: userData.vendorType } : undefined
+export async function signUp({ email, password, name, role, vendorInfo }: { email: string, password: string, name: string, role?: string, vendorInfo?: any }) {
+  await connectToDatabase();
+  const existing = await User.findOne({ email });
+  if (existing) throw new Error('Email already in use');
+  const passwordHash = hashPassword(password);
+  const sessionToken = crypto.randomBytes(32).toString('hex');
+  const user = await User.create({
+    email,
+    passwordHash,
+    name,
+    role: role || 'customer',
+    vendorInfo,
+    sessionToken,
   });
-};
-
-// Sign in user
-export const signIn = async (email: string, password: string) => {
-  try {
-    // Use MongoDB authentication
-    console.log("Using MongoDB authentication for user:", email)
-    
-    // Use the MongoDB auth system
-    const mongoAuth = await import('./mongodb-auth')
-    const result = await mongoAuth.signIn(email, password)
-    
-    if (result && result.user && result.sessionToken) {
-      // Store user session in localStorage for persistence
-      localStorage.setItem('currentUser', JSON.stringify(result.user))
-      localStorage.setItem('sessionToken', result.sessionToken)
-      
-      return {
-        user: {
-          uid: result.user.id,
-          email: result.user.email,
-          displayName: result.user.name,
-          role: result.user.role,
-        },
-        userProfile: {
-          uid: result.user.id,
-          email: result.user.email,
-          displayName: result.user.name,
-          role: result.user.role,
-          vendorType: result.user.role === 'vendor' ? 'both' : undefined,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        },
-      }
-    }
-    
-    throw new Error("Authentication failed")
-  } catch (mongoError: any) {
-    console.log("MongoDB authentication failed:", mongoError.message)
-    throw mongoError
-  }
+  return { success: true, user: { id: user._id, email: user.email, name: user.name, role: user.role }, sessionToken };
 }
 
-// Sign out user
-export const logOut = async () => {
-  try {
-    // Clear localStorage session
-    localStorage.removeItem('currentUser')
-    localStorage.removeItem('sessionToken')
-    localStorage.removeItem('authToken')
-    console.log("User signed out successfully")
-  } catch (error: any) {
-    console.error("Sign out error:", error)
-    throw new Error(error.message || "Failed to sign out. Please try again.")
-  }
+export async function signIn({ email, password }: { email: string, password: string }) {
+  await connectToDatabase();
+  const user = await User.findOne({ email });
+  if (!user) throw new Error('Invalid credentials');
+  if (user.passwordHash !== hashPassword(password)) throw new Error('Invalid credentials');
+  // Generate new session token
+  user.sessionToken = crypto.randomBytes(32).toString('hex');
+  await user.save();
+  return { success: true, user: { id: user._id, email: user.email, name: user.name, role: user.role }, sessionToken: user.sessionToken };
 }
 
-// Get current user from localStorage 
-export const getCurrentUser = () => {
-  try {
-    const userStr = localStorage.getItem('currentUser')
-    return userStr ? JSON.parse(userStr) : null
-  } catch {
-    return null
-  }
-}
-
-export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
-  try {
-    // Use MongoDB to get user profile
-    const mongoAuth = await import('./mongodb-auth')
-    const user = await mongoAuth.getUserById(uid)
-    if (user) {
-      return {
-        uid: user._id.toString(),
-        email: user.email,
-        displayName: user.name,
-        role: user.role,
-        vendorType: user.role === 'vendor' ? 'both' : undefined,
-        createdAt: user.createdAt || new Date(),
-        updatedAt: user.updatedAt || new Date()
-      }
-    }
-    return null
-  } catch (error: any) {
-    console.warn("Error getting user profile:", error)
-    return null
-  }
+export async function getUserBySessionToken(sessionToken: string) {
+  await connectToDatabase();
+  const user = await User.findOne({ sessionToken });
+  if (!user) return null;
+  return { id: user._id, email: user.email, name: user.name, role: user.role };
 }

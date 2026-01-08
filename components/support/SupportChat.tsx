@@ -167,7 +167,7 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
             addMessage({
               senderId: "ai",
               senderRole: "ai",
-              message: `Here are some specific steps you can try:\n${aiResponse.suggestedActions.map((action: string) => `• ${action}`).join("\n")}\n\nTry these steps and let me know if you need more help!`,
+              message: `Here are some specific steps you can try:\n${Array.isArray(aiResponse.suggestedActions) ? aiResponse.suggestedActions.map((action: string) => `• ${action}`).join("\n") : ""}\n\nTry these steps and let me know if you need more help!`,
             })
           }, 1500)
         } else if (!aiResponse.canResolve) {
@@ -325,7 +325,7 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
 
   return (
     <Card className="h-[600px] w-full flex flex-col">
-      <CardHeader className="pb-3 flex-shrink-0">
+      <CardHeader className="pb-3 shrink-0">
         <CardTitle className="flex items-center gap-2">
           <MessageCircle className="h-5 w-5" />
           Customer Support
@@ -344,7 +344,7 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
                   key={`${message.id}-${index}`}
                   className={`flex gap-3 ${message.senderRole === "customer" ? "flex-row-reverse" : "flex-row"}`}
                 >
-                  <Avatar className="h-8 w-8 flex-shrink-0">
+                  <Avatar className="h-8 w-8 shrink-0">
                     <AvatarFallback className="text-xs">{getMessageIcon(message.senderRole)}</AvatarFallback>
                   </Avatar>
 
@@ -353,7 +353,7 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
                       message.senderRole === "customer" ? "items-end" : "items-start"
                     }`}
                   >
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
                       {getMessageBadge(message.senderRole)}
                       <span className="text-xs text-muted-foreground">
                         {message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -361,7 +361,7 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
                     </div>
 
                     <div
-                      className={`rounded-lg px-3 py-2 text-sm break-words ${
+                      className={`rounded-lg px-3 py-2 text-sm wrap-break-word ${
                         message.senderRole === "customer" ? "bg-accent text-accent-foreground" : "bg-muted"
                       } ${message.isTyping ? "animate-pulse" : ""}`}
                     >
@@ -371,7 +371,7 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
                           <span>Typing...</span>
                         </div>
                       ) : (
-                        <div className="whitespace-pre-wrap break-words">{message.message}</div>
+                        <div className="whitespace-pre-wrap wrap-break-word">{message.message}</div>
                       )}
                     </div>
                   </div>
@@ -381,7 +381,7 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
           </div>
         </ScrollArea>
 
-        <div className="border-t p-4 flex-shrink-0">
+        <div className="border-t p-4 shrink-0">
           <div className="flex gap-2">
             <Input
               placeholder={isEscalated ? "Type your message to the support agent..." : "Type your message..."}
@@ -391,7 +391,7 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
               disabled={isLoading}
               className="flex-1"
             />
-            <Button onClick={handleSendMessage} disabled={!inputMessage.trim() || isLoading} size="icon" className="flex-shrink-0">
+            <Button onClick={handleSendMessage} disabled={!inputMessage.trim() || isLoading} size="icon" className="shrink-0">
               {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
           </div>

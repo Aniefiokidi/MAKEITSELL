@@ -16,7 +16,8 @@ export default function DealsPage() {
   const [products, setProducts] = useState<any[]>([])
   const [filteredProducts, setFilteredProducts] = useState<any[]>([])
   const [sortBy, setSortBy] = useState("discount")
-  const { addToCart } = useCart()
+  const cartContext = useCart();
+  const addToCart = cartContext?.addToCart;
 
   // Format currency with commas
   const formatCurrency = (amount: number) => {
@@ -76,6 +77,7 @@ export default function DealsPage() {
   }, [sortBy, products]);
 
   const handleAddToCart = (product: any) => {
+    if (!addToCart) return;
     addToCart({
       productId: product.id,
       id: product.id,
