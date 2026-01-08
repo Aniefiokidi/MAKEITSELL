@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { paystackService } from '@/lib/payment'
 import { emailService } from '@/lib/email'
-import { updateOrder, getOrderById, getUserById } from '@/lib/database'
-import { getStores } from '@/lib/mongodb-operations'
+import { updateOrder, getOrderById, getUserById, getStores } from '@/lib/mongodb-operations'
 
 export async function GET(request: NextRequest) {
   try {

@@ -1,8 +1,57 @@
+import { Order as OrderModel } from './models/Order';
+export const createOrder = async (orderData: any): Promise<string> => {
+  await connectToDatabase();
+  const order: any = await OrderModel.create(orderData as any);
+  return order?._id?.toString?.() || '';
+};
+
+export const getOrderById = async (orderId: string) => {
+  await connectToDatabase();
+  const order = await OrderModel.findById(orderId).lean();
+  if (!order) return null;
+  const { _id, ...rest } = order as any;
+  return { ...rest, id: _id.toString() };
+};
+
+export const updateOrder = async (orderId: string, data: any) => {
+  await connectToDatabase();
+  const order = await OrderModel.findByIdAndUpdate(orderId, data, { new: true }).lean();
+  if (!order) return null;
+  const { _id, ...rest } = order as any;
+  return { ...rest, id: _id.toString() };
+};
 
 import connectToDatabase from './mongodb';
+// @ts-ignore
 import { Product as ProductModel } from './models/Product';
+// @ts-ignore
 import { Store as StoreModel } from './models/Store';
-import type { Document } from 'mongoose';
+// @ts-ignore
+import { User as UserModel } from './models/User';
+
+// --- Store by ID ---
+export const getStoreById = async (id: string) => {
+  await connectToDatabase();
+  return StoreModel.findById(id).lean();
+};
+
+// --- User by ID ---
+export const getUserById = async (id: string) => {
+  await connectToDatabase();
+  return UserModel.findById(id).lean();
+};
+
+// --- Update Store ---
+export const updateStore = async (id: string, data: any) => {
+  await connectToDatabase();
+  return StoreModel.findByIdAndUpdate(id, data, { new: true }).lean();
+};
+
+export const createProduct = async (productData: any): Promise<string> => {
+  await connectToDatabase();
+  const product: any = await ProductModel.create(productData as any);
+  return product?._id?.toString?.() || '';
+};
 
 export const getVendorProducts = async (vendorId: string) => {
   await connectToDatabase();
@@ -20,8 +69,8 @@ export const getVendorProducts = async (vendorId: string) => {
 // --- Store Creation (Real) ---
 export const createStore = async (storeData: any): Promise<string> => {
   await connectToDatabase();
-  const store = await StoreModel.create(storeData) as Document & { _id: any };
-  return store._id.toString();
+  const store: any = await StoreModel.create(storeData as any);
+  return store?._id?.toString?.() || '';
 };
 // --- Store Operations ---
 // --- Store Operations (Real) ---
@@ -62,31 +111,8 @@ export interface ServiceFilters {
 }
 
 export const getServices = async (filters: ServiceFilters): Promise<Service[]> => {
-  // Example mock data
-  return [
-    {
-      id: 'service1',
-      name: 'Web Design',
-      category: 'Design',
-      providerId: 'vendor1',
-      featured: true,
-      locationType: 'remote',
-      price: 50000,
-      rating: 4.8,
-      reviews: 120
-    },
-    {
-      id: 'service2',
-      name: 'Logo Creation',
-      category: 'Design',
-      providerId: 'vendor2',
-      featured: false,
-      locationType: 'local',
-      price: 20000,
-      rating: 4.5,
-      reviews: 80
-    }
-  ];
+  // TODO: Replace with real MongoDB query for services
+  return [];
 };
 
 // FINAL STUB EXPORTS ONLY
@@ -97,27 +123,49 @@ export interface Product {
 }
 
 export const getProducts = async (filters?: any): Promise<Product[]> => {
-  // Mock implementation: return a fake product array
-  return [
-    {
-      id: 'product1',
-      vendorId: filters?.vendorId || 'vendor1',
-      images: ['/images/demo-product1.png']
-    },
-    {
-      id: 'product2',
-      vendorId: filters?.vendorId || 'vendor1',
-      images: ['/images/demo-product2.png']
-    }
-  ];
+  await connectToDatabase();
+  const query: any = {};
+  if (filters?.category) query.category = filters.category;
+  if (filters?.vendorId) query.vendorId = filters.vendorId;
+  if (filters?.featured !== undefined) query.featured = filters.featured;
+  if (filters?.status) query.status = filters.status;
+  const mapProduct = (p: any) => ({
+    ...p,
+    id: p._id?.toString() || p.id,
+    name: p.name || p.title || '',
+  });
+  if (filters?.limitCount) {
+    const products = await ProductModel.find(query).limit(Number(filters.limitCount)).lean();
+    return products.map(mapProduct);
+  } else {
+    const products = await ProductModel.find(query).lean();
+    return products.map(mapProduct);
+  }
 };
-export const createProduct = () => { throw new Error("Server-only: createProduct is not available on client."); };
 export const updateProduct = () => { throw new Error("Server-only: updateProduct is not available on client."); };
 export const deleteProduct = () => { throw new Error("Server-only: deleteProduct is not available on client."); };
 export const getVendors = () => { throw new Error("Server-only: getVendors is not available on client."); };
 export const getOrders = () => { throw new Error("Server-only: getOrders is not available on client."); };
 
-export const getUserCart = () => { throw new Error("Server-only: getUserCart is not available on client."); };
+// --- User Cart Operations ---
+// @ts-ignore
+import { Cart as CartModel } from './models/Cart';
+
+export const getUserCart = async (userId: string) => {
+  await connectToDatabase();
+  const cart: any = await CartModel.findOne({ userId }).lean();
+  return cart || { userId, items: [] };
+};
+
+export const setUserCart = async (userId: string, items: any[]) => {
+  await connectToDatabase();
+  await CartModel.findOneAndUpdate(
+    { userId },
+    { $set: { items } },
+    { upsert: true, new: true }
+  );
+  return true;
+};
 export const updateUserProfileInDb = () => { throw new Error("Server-only: updateUserProfileInDb is not available on client."); };
 export const deleteStore = () => { throw new Error("Server-only: deleteStore is not available on client."); };
 export const deleteProductsByVendor = () => { throw new Error("Server-only: deleteProductsByVendor is not available on client."); };
