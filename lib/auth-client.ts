@@ -22,6 +22,7 @@ export const signUp = async (
   try {
     const response = await fetch('/api/auth/signup', {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email,
@@ -64,6 +65,7 @@ export const signIn = async (email: string, password: string) => {
   try {
     const response = await fetch('/api/auth/signin', {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
