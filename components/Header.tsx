@@ -87,9 +87,7 @@ export default function Header() {
             </Button>
 
             {/* Cart */}
-            <div className="hidden sm:block">
-              <CartSidebar />
-            </div>
+            <CartSidebar />
 
             {/* Authentication (desktop) */}
             <div className="hidden sm:flex items-center gap-3">

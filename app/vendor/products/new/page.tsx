@@ -183,7 +183,7 @@ export default function NewProduct() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          title: formData.title,
+          name: formData.title, // PATCH: send 'name' for Product model
           description: formData.description,
           price: Number(formData.price),
           category: formData.category,

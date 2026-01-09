@@ -25,6 +25,7 @@ interface CartContextType {
   updateQuantity: (productId: string, quantity: number) => void
   clearCart: () => void
   isOpen: boolean
+  setIsOpen: (open: boolean) => void
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
@@ -51,7 +52,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const loadCart = async () => {
-      if (user) {
+      if (user && user.uid) {
         try {
           const cart = await getUserCart(user.uid)
           let dbItems: CartItem[] = []
@@ -75,7 +76,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
             }
           })
           setItems(mergedItems)
-          if (mergedItems.length > 0) {
+          if (mergedItems.length > 0 && user && user.uid) {
             await setUserCart(user.uid, mergedItems)
           }
           localStorage.removeItem('anonymous_cart')
@@ -101,7 +102,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const saveCart = async () => {
-      if (user) {
+      if (user && user.uid) {
         try {
           const sanitizedItems = items.map(item => ({
             id: item.id || item.productId,
@@ -177,6 +178,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0)
   const totalPrice = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
+
   return (
     <CartContext.Provider
       value={{
@@ -188,11 +190,12 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         updateQuantity: mounted ? updateQuantity : () => {},
         clearCart: mounted ? clearCart : () => {},
         isOpen: mounted ? isOpen : false,
+        setIsOpen: mounted ? setIsOpen : () => {},
       }}
     >
       {children}
     </CartContext.Provider>
-    )
-  }
+  )
+}
 
 export default CartProvider;

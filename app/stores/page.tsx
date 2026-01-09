@@ -75,9 +75,9 @@ export default function ShopPage() {
 
   const filteredStores = stores.filter((store) => {
     const matchesSearch = searchQuery === "" || 
-      store.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      store.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      store.category?.toLowerCase().includes(searchQuery.toLowerCase())
+      (store.name || store.storeName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (store.description || store.storeDescription || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (store.category || "").toLowerCase().includes(searchQuery.toLowerCase())
     
     return matchesSearch
   })

@@ -107,7 +107,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             displayName: data.user.name,
             role: data.user.role
           })
-          setUserProfile(data.userProfile)
+          // Fallback: if API does not return userProfile, derive a minimal one
+          const derivedProfile = data.userProfile || {
+            uid: data.user.id,
+            email: data.user.email,
+            displayName: data.user.name,
+            role: data.user.role,
+            vendorType: data.user.role === 'vendor' ? 'both' : undefined,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+          setUserProfile(derivedProfile)
         } else {
           console.log('[AuthContext] No user found, logging out');
           setUser(null)

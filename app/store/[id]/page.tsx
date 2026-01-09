@@ -82,7 +82,7 @@ export default function StorePage() {
   const [activeTab, setActiveTab] = useState("products")
   const [isFollowing, setIsFollowing] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
-  const { addToCart } = useCart()
+  const { addItem } = useCart()
   const { user } = useAuth()
   const { toast } = useToast()
 
@@ -249,19 +249,18 @@ export default function StorePage() {
   }, [products, searchQuery, sortBy, categoryFilter, priceRange])
 
   const handleAddToCart = (product: Product) => {
-    // Safety check to ensure product has required fields
-    if (!product || !product.id || !product.title) {
+    // Safety check to ensure product has required fields (id and title or name)
+    if (!product || !product.id || !(product.title || product.name)) {
       console.error('Cannot add invalid product to cart:', product)
       return
     }
-    
-    addToCart({
+
+    addItem({
       productId: product.id,
       id: product.id,
-      title: product.title,
+      title: product.title || product.name,
       price: product.price,
       image: product.images?.[0] || '',
-      quantity: 1,
       maxStock: product.stock || 100,
       vendorId: product.vendorId,
       vendorName: product.vendorName || (product as any).vendor?.name || 'Unknown Vendor'
@@ -603,7 +602,7 @@ export default function StorePage() {
               </Card>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {filteredProducts.map((product) => (
+                {filteredProducts.filter(product => product && product.id && (product.title || product.name)).map((product) => (
                   <Card key={product.id} className="group hover:shadow-xl transition-all duration-500 hover:-translate-y-2 border-0 shadow-md overflow-hidden">
                     <div className="relative">
                       <img
@@ -660,7 +659,7 @@ export default function StorePage() {
                     <CardContent className="p-4 space-y-3">
                       <Link href={`/product/${product.id}`}>
                         <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-primary transition-colors cursor-pointer">
-                          {product.title}
+                          {product.title || product.name}
                         </h3>
                       </Link>
                       

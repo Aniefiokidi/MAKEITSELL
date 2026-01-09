@@ -74,8 +74,8 @@ const VendorProductsPage = () => {
 
   const filteredProducts = products.filter(
     (product: any) =>
-      product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (product.sku || '').toLowerCase().includes(searchQuery.toLowerCase()),
+      ((product.title || product.name || '').toLowerCase().includes(searchQuery.toLowerCase())) ||
+      ((product.sku || '').toLowerCase().includes(searchQuery.toLowerCase())),
   )
 
   const getStatusBadge = (status: string, stock: number) => {
@@ -175,7 +175,7 @@ const VendorProductsPage = () => {
                             />
                           </div>
                           <div>
-                            <p className="font-medium text-sm">{product.title}</p>
+                            <p className="font-medium text-sm">{product.title || product.name}</p>
                             <p className="text-xs text-muted-foreground">{product.category}</p>
                           </div>
                         </div>

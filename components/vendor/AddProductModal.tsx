@@ -1,3 +1,4 @@
+// import { createProduct } from "@/lib/database-client" // REMOVE direct import
 "use client"
 
 import { useState } from "react"
@@ -84,7 +85,16 @@ export default function AddProductModal({ children }: AddProductModalProps) {
         status: (parseInt(formData.stock) > 0 ? "active" : "out_of_stock") as "active" | "inactive" | "out_of_stock",
       }
 
-      await createProduct(productData)
+      // Use API route for product creation
+      const response = await fetch('/api/database/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(productData),
+      })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create product')
+      }
 
       // Clean up object URLs to prevent memory leaks
       images.forEach(image => {

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getUserCart, setUserCart } from '@/lib/database'
+import { getUserCart, setUserCart } from '@/lib/mongodb-operations'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { userId: string } }
 ) {
   try {
-    const { userId } = params
+    const { userId } = await params
 
     if (!userId) {
       return NextResponse.json(
@@ -35,7 +35,7 @@ export async function PUT(
   { params }: { params: { userId: string } }
 ) {
   try {
-    const { userId } = params
+    const { userId } = await params
     const body = await request.json()
     const { items } = body
 

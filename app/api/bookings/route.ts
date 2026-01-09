@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getBookings } from '@/lib/database'
+import { getBookings } from '@/lib/mongodb-operations'
 
 export async function GET(request: NextRequest) {
   try {

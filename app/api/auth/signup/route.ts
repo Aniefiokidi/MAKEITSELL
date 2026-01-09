@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
         path: '/',
         maxAge: 60 * 60 * 24 * 7, // 1 week
         sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
+        secure: false, // Always false in dev, true in prod
       })
       return new NextResponse(JSON.stringify(result), {
         status: 200,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { paystackService } from '@/lib/payment'
-import { createOrder } from '@/lib/database'
+import { createOrder } from '@/lib/mongodb-operations'
 import { v4 as uuidv4 } from 'uuid'
 
 export async function POST(request: NextRequest) {
@@ -17,10 +17,16 @@ export async function POST(request: NextRequest) {
     } = body
 
     // Validate required fields
-    if (!items || !shippingInfo || !customerId || !totalAmount) {
-      console.error('Missing fields:', { items: !!items, shippingInfo: !!shippingInfo, customerId: !!customerId, totalAmount: !!totalAmount })
+    if (!items || !shippingInfo || !customerId || !totalAmount || !shippingInfo.email) {
+      console.error('Missing fields:', {
+        items,
+        shippingInfo,
+        customerId,
+        totalAmount,
+        email: shippingInfo?.email
+      })
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required fields (items, shippingInfo, customerId, totalAmount, email)' },
         { status: 400 }
       )
     }
@@ -108,6 +114,9 @@ export async function POST(request: NextRequest) {
       })
 
       console.log('Paystack result:', paymentResult)
+      if (!paymentResult.success) {
+        console.error('Full Paystack error response:', paymentResult)
+      }
 
       if (paymentResult.success) {
         const response = {
@@ -121,7 +130,7 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json(
-        { error: paymentResult.message || 'Payment initialization failed' },
+        { error: paymentResult.message || 'Payment initialization failed', paystack: paymentResult },
         { status: 400 }
       )
     }
