@@ -20,14 +20,22 @@ class PaystackService {
   private publicKey: string
 
   constructor() {
-    this.secretKey = process.env.PAYSTACK_SECRET_KEY || ''
-    this.publicKey = process.env.PAYSTACK_PUBLIC_KEY || ''
+    // Trim to avoid whitespace/newline issues from envs
+    this.secretKey = (process.env.PAYSTACK_SECRET_KEY || '').trim()
+    this.publicKey = (process.env.PAYSTACK_PUBLIC_KEY || '').trim()
   }
 
   async initializePayment(paymentData: PaymentData): Promise<PaymentResponse> {
     try {
       console.log('PaystackService: Initializing payment with data:', paymentData)
       console.log('PaystackService: Secret key exists:', !!this.secretKey)
+      if (!this.secretKey || !this.secretKey.startsWith('sk_')) {
+        console.error('PaystackService: Missing or invalid PAYSTACK_SECRET_KEY at runtime')
+        return {
+          success: false,
+          message: 'PAYSTACK_SECRET_KEY missing or invalid on server. Redeploy after setting env.'
+        }
+      }
       
       const url = 'https://api.paystack.co/transaction/initialize'
       
@@ -97,6 +105,14 @@ class PaystackService {
     try {
       const url = `https://api.paystack.co/transaction/verify/${reference}`
       
+      if (!this.secretKey || !this.secretKey.startsWith('sk_')) {
+        console.error('PaystackService: Missing or invalid PAYSTACK_SECRET_KEY for verification')
+        return {
+          success: false,
+          message: 'PAYSTACK_SECRET_KEY missing or invalid on server. Redeploy after setting env.'
+        }
+      }
+
       const response = await fetch(url, {
         method: 'GET',
         headers: {
