@@ -112,7 +112,7 @@ export default function BookingModal({ service, isOpen, onClose }: BookingModalP
       })
 
       onClose()
-      router.push("/order") // Redirect to bookings page
+      router.push("/appointments") // Redirect to appointments page
     } catch (error) {
       console.error("Error creating booking:", error)
       toast({

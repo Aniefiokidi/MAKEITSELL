@@ -311,7 +311,28 @@ export const getBookings = async (providerId?: string) => {
     return []
   }
 }
-export const createBooking = async () => 'temp-id'
+export const createBooking = async (bookingData: any) => {
+  try {
+    const response = await fetch('/api/database/bookings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(bookingData),
+    })
+    
+    const result = await response.json()
+    
+    if (result.success) {
+      return result.id
+    } else {
+      throw new Error(result.error || 'Failed to create booking')
+    }
+  } catch (error) {
+    console.error('Create booking error:', error)
+    throw error
+  }
+}
 export const updateBooking = async () => {}
 export const getVendorProducts = async (vendorId: string) => {
   try {

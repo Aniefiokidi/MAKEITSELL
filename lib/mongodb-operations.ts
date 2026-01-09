@@ -247,6 +247,8 @@ export const getOrders = async (filters: any) => {
 // --- User Cart Operations ---
 // @ts-ignore
 import { Cart as CartModel } from './models/Cart';
+// @ts-ignore
+import { Booking as BookingModel } from './models/Booking';
 
 export const getUserCart = async (userId: string) => {
   await connectToDatabase();
@@ -270,8 +272,54 @@ export const deleteServicesByVendor = () => { throw new Error("Server-only: dele
 export const deleteOrdersByVendor = () => { throw new Error("Server-only: deleteOrdersByVendor is not available on client."); };
 
 export const getBookings = async (filters: any) => {
-  // TODO: Implement bookings from MongoDB when Booking model is created
-  return [];
+  await connectToDatabase();
+  const query: any = {};
+  if (filters?.customerId) query.customerId = filters.customerId;
+  if (filters?.providerId) query.providerId = filters.providerId;
+  if (filters?.status) query.status = filters.status;
+  
+  const bookings = await BookingModel.find(query).sort({ bookingDate: -1 }).lean();
+  return bookings.map((b: any) => {
+    const { _id, ...rest } = b;
+    return { ...rest, id: _id.toString() };
+  });
+};
+
+export const getBookingsByCustomer = async (customerId: string) => {
+  await connectToDatabase();
+  const bookings = await BookingModel.find({ customerId }).sort({ bookingDate: -1 }).lean();
+  return bookings.map((b: any) => {
+    const { _id, ...rest } = b;
+    return { ...rest, id: _id.toString() };
+  });
+};
+
+export const getBookingsByProvider = async (providerId: string) => {
+  await connectToDatabase();
+  const bookings = await BookingModel.find({ providerId }).sort({ bookingDate: -1 }).lean();
+  return bookings.map((b: any) => {
+    const { _id, ...rest } = b;
+    return { ...rest, id: _id.toString() };
+  });
+};
+
+export const getAllBookings = async () => {
+  await connectToDatabase();
+  const bookings = await BookingModel.find({}).sort({ bookingDate: -1 }).lean();
+  return bookings.map((b: any) => {
+    const { _id, ...rest } = b;
+    return { ...rest, id: _id.toString() };
+  });
+};
+
+export const createBooking = async (bookingData: any) => {
+  await connectToDatabase();
+  const booking: any = await BookingModel.create(bookingData as any);
+  if (!booking) return null;
+  const { _id, ...rest } = booking.toObject ? booking.toObject() : (booking as any);
+  const result = { ...rest, id: _id?.toString?.() };
+  console.log(`[createBooking] Created booking with id: ${result.id}`);
+  return result;
 };
 
 export const getConversations = async (userId: string, role: 'customer' | 'provider') => {
