@@ -6,6 +6,7 @@ interface PaymentData {
   orderId: string
   customerId: string
   items: any[]
+  callbackUrl?: string
 }
 
 interface PaymentResponse {
@@ -43,12 +44,14 @@ class PaystackService {
       const isSubscription = paymentData.items.some(item => item.productId === 'vendor-subscription')
       const isSignupSubscription = paymentData.items.some(item => item.productId === 'vendor-subscription-signup')
       
-      let callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/verify`
+      let callbackUrl = paymentData.callbackUrl || `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/verify`
       
-      if (isSignupSubscription) {
-        callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/vendor-subscription-signup/callback`
-      } else if (isSubscription) {
-        callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/vendor-subscription/callback`
+      if (!paymentData.callbackUrl) {
+        if (isSignupSubscription) {
+          callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/vendor-subscription-signup/callback`
+        } else if (isSubscription) {
+          callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/vendor-subscription/callback`
+        }
       }
       
       const payload = {

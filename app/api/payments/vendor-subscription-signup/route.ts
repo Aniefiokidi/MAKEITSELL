@@ -45,11 +45,13 @@ export async function POST(request: NextRequest) {
     })
 
     // Initialize Paystack payment
+    const origin = (process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin).trim()
     const paymentResult = await paystackService.initializePayment({
       email: email,
       amount: 2500, // ₦2,500
       orderId: signupId,
       customerId: signupId, // Use signup ID as customer ID since no user exists yet
+      callbackUrl: `${origin}/api/payments/vendor-subscription-signup/callback`,
       items: [{
         productId: 'vendor-subscription-signup',
         title: 'Vendor Account Setup + Monthly Subscription',
