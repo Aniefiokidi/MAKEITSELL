@@ -1,23 +1,41 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useState } from "react"
 import VendorLayout from "@/components/vendor/VendorLayout"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-// TODO: Replace with API call to fetch bookings from MongoDB
 import { useAuth } from "@/contexts/AuthContext"
 import { useToast } from "@/hooks/use-toast"
-import { Calendar, Clock, DollarSign, MapPin, User, CheckCircle, XCircle, AlertCircle } from "lucide-react"
+import { Calendar, Clock, MapPin, Phone, CheckCircle2, XCircle, Clock3 } from "lucide-react"
 import { format } from "date-fns"
+
+interface Booking {
+  id: string
+  serviceId: string
+  customerId: string
+  customerName?: string
+  customerEmail?: string
+  customerPhone?: string
+  serviceName: string
+  bookingDate: string | Date
+  startTime: string
+  endTime: string
+  duration: number
+  totalPrice: number
+  status: "pending" | "confirmed" | "completed" | "cancelled"
+  locationType: string
+  location: string
+  notes: string
+}
 
 export default function VendorBookingsPage() {
   const { user } = useAuth()
   const { toast } = useToast()
-  const [bookings, setBookings] = useState<any[]>([])
+  const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState("all")
+  const [activeTab, setActiveTab] = useState("pending")
 
   useEffect(() => {
     if (user) {
@@ -28,221 +46,264 @@ export default function VendorBookingsPage() {
   const fetchBookings = async () => {
     try {
       setLoading(true)
-      // TODO: Replace with API call to fetch bookings
-      // Example:
-      // const response = await fetch("/api/bookings?providerId=" + user?.uid)
-      // const data = await response.json()
-      // setBookings(data)
-      setBookings([]) // Stub: empty array
+      const res = await fetch(`/api/database/bookings?providerId=${user?.uid}`)
+      const json = await res.json()
+      const list = Array.isArray(json) ? json : json.data
+      setBookings(list || [])
     } catch (error) {
       console.error("Error fetching bookings:", error)
+      setBookings([])
     } finally {
       setLoading(false)
     }
   }
 
-  const handleStatusUpdate = async (bookingId: string, status: string) => {
-    // TODO: Implement booking status update via API
-    toast({
-      title: "Booking Updated",
-      description: `Booking has been ${status}`,
-    })
-    fetchBookings()
+  const handleApprove = async (bookingId: string) => {
+    try {
+      const res = await fetch(`/api/database/bookings/${bookingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "confirmed" }),
+      })
+      if (res.ok) {
+        setBookings(bookings.map((b) => (b.id === bookingId ? { ...b, status: "confirmed" } : b)))
+        toast({ title: "Booking Approved", description: "The booking has been confirmed." })
+      }
+    } catch (error) {
+      console.error("Error approving booking:", error)
+      toast({ title: "Error", description: "Failed to approve booking.", variant: "destructive" })
+    }
   }
 
-  const getStatusBadge = (status: string) => {
-    // TODO: Replace with real status badge logic
-    return <Badge>{status}</Badge>
+  const handleReject = async (bookingId: string) => {
+    try {
+      const res = await fetch(`/api/database/bookings/${bookingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "cancelled" }),
+      })
+      if (res.ok) {
+        setBookings(bookings.map((b) => (b.id === bookingId ? { ...b, status: "cancelled" } : b)))
+        toast({ title: "Booking Rejected", description: "The booking has been cancelled." })
+      }
+    } catch (error) {
+      console.error("Error rejecting booking:", error)
+      toast({ title: "Error", description: "Failed to reject booking.", variant: "destructive" })
+    }
   }
 
-  const filteredBookings = activeTab === "all" 
-    ? bookings 
-    : bookings.filter(b => b.status === activeTab)
+  const pendingBookings = bookings.filter((b) => b.status === "pending")
+  const confirmedBookings = bookings.filter((b) => b.status === "confirmed")
+  const completedBookings = bookings.filter((b) => b.status === "completed")
+  const cancelledBookings = bookings.filter((b) => b.status === "cancelled")
 
-  const stats = {
-    total: bookings.length,
-    pending: bookings.filter(b => b.status === "pending").length,
-    confirmed: bookings.filter(b => b.status === "confirmed").length,
-    completed: bookings.filter(b => b.status === "completed").length,
-    revenue: bookings.filter(b => b.status === "completed").reduce((sum, b) => sum + b.totalPrice, 0),
+  const BookingCard = ({ booking }: { booking: Booking }) => (
+    <Card className="hover:shadow-md transition-shadow">
+      <CardContent className="p-6">
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h3 className="font-semibold text-lg">{booking.serviceName}</h3>
+            <p className="text-sm text-muted-foreground">{booking.customerName || "Customer"}</p>
+          </div>
+          <Badge
+            variant={
+              booking.status === "confirmed"
+                ? "default"
+                : booking.status === "pending"
+                ? "outline"
+                : booking.status === "completed"
+                ? "secondary"
+                : "destructive"
+            }
+          >
+            {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+          </Badge>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm">{format(new Date(booking.bookingDate), "MMM dd, yyyy")}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm">{booking.startTime} - {booking.endTime}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm">{booking.location}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Phone className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm">{booking.customerPhone || "Not provided"}</span>
+          </div>
+        </div>
+
+        {booking.notes && (
+          <div className="mb-4 p-3 bg-muted rounded-lg">
+            <p className="text-sm font-medium mb-1">Customer Notes:</p>
+            <p className="text-sm text-muted-foreground">{booking.notes}</p>
+          </div>
+        )}
+
+        <div className="flex justify-between items-center">
+          <p className="font-semibold text-lg">{booking.totalPrice.toLocaleString('en-NG')}</p>
+          <div className="flex gap-2">
+            {booking.status === "pending" && (
+              <>
+                <Button size="sm" variant="default" onClick={() => handleApprove(booking.id)} className="gap-1">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Approve
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => handleReject(booking.id)} className="gap-1">
+                  <XCircle className="h-4 w-4" />
+                  Reject
+                </Button>
+              </>
+            )}
+            {booking.status === "confirmed" && (
+              <Button size="sm" variant="outline" disabled className="gap-1">
+                <CheckCircle2 className="h-4 w-4" />
+                Approved
+              </Button>
+            )}
+            {booking.status === "cancelled" && (
+              <Button size="sm" variant="outline" disabled className="gap-1">
+                <XCircle className="h-4 w-4" />
+                Rejected
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+
+  if (loading) {
+    return (
+      <VendorLayout>
+        <div className="flex justify-center py-12">
+          <div className="animate-spin">Loading...</div>
+        </div>
+      </VendorLayout>
+    )
   }
 
   return (
     <VendorLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Bookings</h1>
-          <p className="text-muted-foreground">Manage your service bookings</p>
+          <h1 className="text-3xl font-bold">Service Bookings</h1>
+          <p className="text-muted-foreground mt-2">Manage and approve customer service appointments</p>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-4 gap-4">
           <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>Total Bookings</CardDescription>
-              <CardTitle className="text-3xl">{stats.total}</CardTitle>
-            </CardHeader>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Pending</p>
+                  <p className="text-2xl font-bold">{pendingBookings.length}</p>
+                </div>
+                <Clock3 className="h-8 w-8 text-yellow-500 opacity-50" />
+              </div>
+            </CardContent>
           </Card>
+
           <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>Pending</CardDescription>
-              <CardTitle className="text-3xl text-yellow-600">{stats.pending}</CardTitle>
-            </CardHeader>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Confirmed</p>
+                  <p className="text-2xl font-bold">{confirmedBookings.length}</p>
+                </div>
+                <CheckCircle2 className="h-8 w-8 text-green-500 opacity-50" />
+              </div>
+            </CardContent>
           </Card>
+
           <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>Confirmed</CardDescription>
-              <CardTitle className="text-3xl text-green-600">{stats.confirmed}</CardTitle>
-            </CardHeader>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Completed</p>
+                  <p className="text-2xl font-bold">{completedBookings.length}</p>
+                </div>
+                <CheckCircle2 className="h-8 w-8 text-blue-500 opacity-50" />
+              </div>
+            </CardContent>
           </Card>
+
           <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>Completed</CardDescription>
-              <CardTitle className="text-3xl text-blue-600">{stats.completed}</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>Revenue</CardDescription>
-              <CardTitle className="text-3xl text-accent">${stats.revenue.toFixed(2)}</CardTitle>
-            </CardHeader>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Rejected</p>
+                  <p className="text-2xl font-bold">{cancelledBookings.length}</p>
+                </div>
+                <XCircle className="h-8 w-8 text-red-500 opacity-50" />
+              </div>
+            </CardContent>
           </Card>
         </div>
 
-        {/* Bookings Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList>
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="pending">Pending</TabsTrigger>
-            <TabsTrigger value="confirmed">Confirmed</TabsTrigger>
-            <TabsTrigger value="completed">Completed</TabsTrigger>
-            <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
+            <TabsTrigger value="pending">Pending ({pendingBookings.length})</TabsTrigger>
+            <TabsTrigger value="confirmed">Confirmed ({confirmedBookings.length})</TabsTrigger>
+            <TabsTrigger value="completed">Completed ({completedBookings.length})</TabsTrigger>
+            <TabsTrigger value="cancelled">Rejected ({cancelledBookings.length})</TabsTrigger>
           </TabsList>
 
-          <TabsContent value={activeTab} className="space-y-4 mt-6">
-            {loading ? (
-              <div className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <Card key={i} className="animate-pulse">
-                    <CardHeader>
-                      <div className="h-6 bg-muted rounded w-1/2" />
-                      <div className="h-4 bg-muted rounded w-1/3 mt-2" />
-                    </CardHeader>
-                  </Card>
-                ))}
-              </div>
-            ) : filteredBookings.length === 0 ? (
+          <TabsContent value="pending" className="space-y-4">
+            {pendingBookings.length === 0 ? (
               <Card>
-                <CardContent className="flex flex-col items-center justify-center py-16">
-                  <Calendar className="h-16 w-16 text-muted-foreground mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">No bookings found</h3>
-                  <p className="text-muted-foreground">
-                    {activeTab === "all" ? "You don't have any bookings yet" : `No ${activeTab} bookings`}
-                  </p>
+                <CardContent className="p-12 text-center">
+                  <Clock3 className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
+                  <p className="text-muted-foreground">No pending bookings</p>
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-4">
-                {filteredBookings.map((booking) => (
-                  <Card key={booking.id} className="hover-lift">
-                    <CardHeader>
-                      <div className="flex justify-between items-start">
-                        <div className="space-y-1">
-                          <CardTitle className="text-xl">{booking.serviceTitle}</CardTitle>
-                          <CardDescription className="flex items-center gap-2">
-                            <User className="h-4 w-4" />
-                            {booking.customerName}
-                          </CardDescription>
-                        </div>
-                        {getStatusBadge(booking.status)}
-                      </div>
-                    </CardHeader>
+              pendingBookings.map((booking) => <BookingCard key={booking.id} booking={booking} />)
+            )}
+          </TabsContent>
 
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <p className="text-muted-foreground">Date</p>
-                            <p className="font-medium">
-                              {format(booking.bookingDate.toDate(), "MMM d, yyyy")}
-                            </p>
-                          </div>
-                        </div>
+          <TabsContent value="confirmed" className="space-y-4">
+            {confirmedBookings.length === 0 ? (
+              <Card>
+                <CardContent className="p-12 text-center">
+                  <CheckCircle2 className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
+                  <p className="text-muted-foreground">No confirmed bookings</p>
+                </CardContent>
+              </Card>
+            ) : (
+              confirmedBookings.map((booking) => <BookingCard key={booking.id} booking={booking} />)
+            )}
+          </TabsContent>
 
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <p className="text-muted-foreground">Time</p>
-                            <p className="font-medium">
-                              {booking.startTime} - {booking.endTime}
-                            </p>
-                          </div>
-                        </div>
+          <TabsContent value="completed" className="space-y-4">
+            {completedBookings.length === 0 ? (
+              <Card>
+                <CardContent className="p-12 text-center">
+                  <CheckCircle2 className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
+                  <p className="text-muted-foreground">No completed bookings</p>
+                </CardContent>
+              </Card>
+            ) : (
+              completedBookings.map((booking) => <BookingCard key={booking.id} booking={booking} />)
+            )}
+          </TabsContent>
 
-                        <div className="flex items-center gap-2">
-                          <DollarSign className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <p className="text-muted-foreground">Price</p>
-                            <p className="font-medium text-accent">${booking.totalPrice}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <p className="text-muted-foreground">Location</p>
-                            <p className="font-medium capitalize">{booking.locationType}</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {booking.notes && (
-                        <div className="bg-muted p-3 rounded-lg">
-                          <p className="text-sm font-semibold mb-1">Customer Notes:</p>
-                          <p className="text-sm text-muted-foreground">{booking.notes}</p>
-                        </div>
-                      )}
-
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span>Contact:</span>
-                        <span>{booking.customerEmail}</span>
-                        {booking.customerPhone && <span>• {booking.customerPhone}</span>}
-                      </div>
-
-                      {/* Action Buttons */}
-                      {booking.status === "pending" && (
-                        <div className="flex gap-2 pt-2">
-                          <Button
-                            onClick={() => handleStatusUpdate(booking.id!, "confirmed")}
-                            className="flex-1"
-                          >
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Confirm
-                          </Button>
-                          <Button
-                            variant="outline"
-                            onClick={() => handleStatusUpdate(booking.id!, "cancelled")}
-                            className="flex-1 text-destructive"
-                          >
-                            <XCircle className="h-4 w-4 mr-2" />
-                            Decline
-                          </Button>
-                        </div>
-                      )}
-
-                      {booking.status === "confirmed" && (
-                        <Button
-                          onClick={() => handleStatusUpdate(booking.id!, "completed")}
-                          className="w-full"
-                        >
-                          Mark as Completed
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+          <TabsContent value="cancelled" className="space-y-4">
+            {cancelledBookings.length === 0 ? (
+              <Card>
+                <CardContent className="p-12 text-center">
+                  <XCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
+                  <p className="text-muted-foreground">No rejected bookings</p>
+                </CardContent>
+              </Card>
+            ) : (
+              cancelledBookings.map((booking) => <BookingCard key={booking.id} booking={booking} />)
             )}
           </TabsContent>
         </Tabs>

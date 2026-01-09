@@ -12,7 +12,6 @@ import { Service, createBooking } from "@/lib/database-client"
 import { useAuth } from "@/contexts/AuthContext"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
-import { Timestamp } from "firebase/firestore"
 import { format } from "date-fns"
 
 interface BookingModalProps {
@@ -93,7 +92,7 @@ export default function BookingModal({ service, isOpen, onClose }: BookingModalP
         providerId: service.providerId,
         providerName: service.providerName,
         serviceTitle: service.title,
-        bookingDate: Timestamp.fromDate(selectedDate),
+        bookingDate: selectedDate, // MongoDB expects a Date object, not Firestore Timestamp
         startTime: selectedTime,
         endTime: endTime,
         duration: duration,

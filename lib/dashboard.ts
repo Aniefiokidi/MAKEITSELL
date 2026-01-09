@@ -1,9 +1,10 @@
-import { getOrdersByVendor, getVendorProducts, getServices } from "./mongodb-operations";
+import { getOrdersByVendor, getVendorProducts, getServices, getBookingsByProvider } from "./mongodb-operations";
 
 export async function getVendorDashboard(vendorId: string) {
   const orders = await getOrdersByVendor(vendorId);
   const products = await getVendorProducts(vendorId);
   const services = await getServices({ providerId: vendorId });
+  const bookings = await getBookingsByProvider(vendorId);
 
   // Dates for analytics
   const now = new Date();
@@ -77,5 +78,8 @@ export async function getVendorDashboard(vendorId: string) {
     conversionRateChange,
     totalServices: services.length,
     activeServices: services.filter((s: any) => s.status === 'active').length,
+    totalBookings: bookings.length,
+    pendingBookings: bookings.filter((b: any) => b.status === 'pending').length,
+    recentBookings: bookings.slice(0, 5),
   };
 }
