@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getOrdersByVendor, getAllOrders } from "@/lib/mongodb-operations"
+import { getOrdersByVendor, getOrders } from "@/lib/mongodb-operations"
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     if (vendorId) {
       orders = await getOrdersByVendor(vendorId)
     } else {
-      orders = await getAllOrders()
+      orders = await getOrders({})
     }
 
     return NextResponse.json({

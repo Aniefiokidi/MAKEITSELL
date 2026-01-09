@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getChatMessages } from '@/lib/mongodb-operations';
+import { getChatMessages } from '@/lib/database-client';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);

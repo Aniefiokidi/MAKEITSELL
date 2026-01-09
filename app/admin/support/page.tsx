@@ -25,28 +25,14 @@ export default function AdminSupportPage() {
     const loadTickets = async () => {
       try {
         const { getSupportTickets } = await import("@/lib/firestore")
-        const { getUserProfile } = await import("@/lib/auth")
         const allTickets = await getSupportTickets()
 
         // Enrich tickets with user names
         const enrichedTickets = await Promise.all(
           allTickets.map(async (ticket) => {
             const typedTicket = ticket as SupportTicket
-            let customerName = "Unknown Customer"
-            let vendorName = "Unknown Vendor"
-
-            try {
-              if (typedTicket.customerId) {
-                const customerProfile = await getUserProfile(typedTicket.customerId)
-                customerName = customerProfile?.displayName || "Unknown Customer"
-              }
-              if (typedTicket.vendorId) {
-                const vendorProfile = await getUserProfile(typedTicket.vendorId)
-                vendorName = vendorProfile?.displayName || "Unknown Vendor"
-              }
-            } catch (error) {
-              console.error("Error fetching user profile:", error)
-            }
+            const customerName = typedTicket.customerName || "Unknown Customer"
+            const vendorName = typedTicket.vendorName || "Unknown Vendor"
 
             return {
               ...typedTicket,

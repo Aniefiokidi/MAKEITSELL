@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createChatMessage } from '@/lib/mongodb-operations';
+import { createChatMessage } from '@/lib/database-client';
 
 export async function POST(req: Request) {
   try {
