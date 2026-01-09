@@ -106,7 +106,8 @@ export async function POST(request: NextRequest) {
         itemCount: items.length
       })
       
-      const origin = (process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin).trim()
+      // Always use the current request origin for callback URL
+      const origin = new URL(request.url).origin
       const paymentResult = await paystackService.initializePayment({
         email: shippingInfo.email,
         amount: totalAmount,

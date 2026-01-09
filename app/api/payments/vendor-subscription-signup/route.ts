@@ -45,7 +45,8 @@ export async function POST(request: NextRequest) {
     })
 
     // Initialize Paystack payment
-    const origin = (process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin).trim()
+    // Always use the current request origin to avoid stale/typo'd env URLs
+    const origin = new URL(request.url).origin
     const paymentResult = await paystackService.initializePayment({
       email: email,
       amount: 2500, // ₦2,500
