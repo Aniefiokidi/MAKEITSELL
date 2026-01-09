@@ -68,6 +68,13 @@ export const getVendorProducts = async (vendorId: string) => {
   });
 };
 
+export const getProductById = async (id: string) => {
+  await connectToDatabase();
+  const product = await ProductModel.findById(id).lean();
+  if (!product) return null;
+  const { _id, ...rest } = product as any;
+  return { ...rest, id: _id.toString() };
+};
 // --- Store Creation (Real) ---
 export const createStore = async (storeData: any): Promise<string> => {
   await connectToDatabase();
