@@ -88,10 +88,29 @@ class PaystackService {
       }
 
       console.error('PaystackService: Paystack API error:', result)
-      return {
-        success: false,
-        message: result.message || 'Payment initialization failed'
+
+      // Fallback: try official Paystack SDK (may handle headers better on some runtimes)
+      try {
+        const sdkModule: any = await import('paystack')
+        const Paystack = (sdkModule as any).default || sdkModule
+        const paystack = Paystack(this.secretKey)
+        const sdkRes = await paystack.transaction.initialize({
+          email: payload.email,
+          amount: payload.amount,
+          currency: payload.currency,
+          reference: payload.reference,
+          callback_url: payload.callback_url,
+          metadata: payload.metadata,
+        })
+        if (sdkRes?.status && sdkRes?.data?.authorization_url) {
+          return { success: true, data: sdkRes.data, authUrl: sdkRes.data.authorization_url }
+        }
+        console.error('PaystackService: SDK initialization failed:', sdkRes)
+      } catch (sdkErr) {
+        console.error('PaystackService: SDK fallback error:', sdkErr)
       }
+
+      return { success: false, message: result.message || 'Payment initialization failed' }
     } catch (error) {
       console.error('Paystack initialization error:', error)
       return {
@@ -129,10 +148,21 @@ class PaystackService {
         }
       }
 
-      return {
-        success: false,
-        message: result.message || 'Payment verification failed'
+      // Fallback: SDK verify
+      try {
+        const sdkModule: any = await import('paystack')
+        const Paystack = (sdkModule as any).default || sdkModule
+        const paystack = Paystack(this.secretKey)
+        const sdkRes = await paystack.transaction.verify(reference)
+        if (sdkRes?.status && sdkRes?.data?.status === 'success') {
+          return { success: true, data: sdkRes.data }
+        }
+        console.error('PaystackService: SDK verify failed:', sdkRes)
+      } catch (sdkErr) {
+        console.error('PaystackService: SDK verify fallback error:', sdkErr)
       }
+
+      return { success: false, message: result.message || 'Payment verification failed' }
     } catch (error) {
       console.error('Paystack verification error:', error)
       return {
