@@ -82,20 +82,25 @@ export default function ServicesPage() {
       const now = Date.now()
       
       // Use cache if it's less than 5 minutes old
-      if (cachedServices && cacheTimestamp && (now - parseInt(cacheTimestamp)) < 300000) {
+      if (cachedServices && cacheTimestamp) {
         const parsedServices = JSON.parse(cachedServices)
-        setServices(parsedServices)
-        console.log(`Loaded ${parsedServices.length} services from cache`)
-        setLoading(false)
-        return
+        const cacheIsFresh = (now - parseInt(cacheTimestamp)) < 300000
+        if (cacheIsFresh && Array.isArray(parsedServices) && parsedServices.length > 0) {
+          setServices(parsedServices)
+          console.log(`Loaded ${parsedServices.length} services from cache`)
+          setLoading(false)
+          return
+        }
       }
       
       // Fetch real services from Firestore only
       const firestoreServices = await getServices()
       
       // Cache the results
-      sessionStorage.setItem('marketplace-services', JSON.stringify(firestoreServices))
-      sessionStorage.setItem('marketplace-services-timestamp', now.toString())
+      if (firestoreServices.length > 0) {
+        sessionStorage.setItem('marketplace-services', JSON.stringify(firestoreServices))
+        sessionStorage.setItem('marketplace-services-timestamp', now.toString())
+      }
       
       setServices(firestoreServices)
       console.log(`Loaded ${firestoreServices.length} real services from registered providers`)
@@ -118,9 +123,11 @@ export default function ServicesPage() {
       // Fetch fresh data
       const firestoreServices = await getServices()
       
-      // Update cache with fresh data
-      sessionStorage.setItem('marketplace-services', JSON.stringify(firestoreServices))
-      sessionStorage.setItem('marketplace-services-timestamp', Date.now().toString())
+      // Update cache with fresh data if we actually have services
+      if (firestoreServices.length > 0) {
+        sessionStorage.setItem('marketplace-services', JSON.stringify(firestoreServices))
+        sessionStorage.setItem('marketplace-services-timestamp', Date.now().toString())
+      }
       
       setServices(firestoreServices)
       console.log(`Refreshed: ${firestoreServices.length} real services from registered providers`)
