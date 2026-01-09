@@ -35,7 +35,7 @@ export default function Header() {
             <img
               src="/images/logo (2).png"
               alt="Make It Sell"
-              className="h-8 lg:h-8 w-auto object-contain transition-all duration-300 hover:scale-105"
+              className="h-4 lg:h-8 w-auto object-contain transition-all duration-300 hover:scale-105"
               onError={(e) => {
                 // Fallback to text logo if image fails
                 e.currentTarget.style.display = 'none'
