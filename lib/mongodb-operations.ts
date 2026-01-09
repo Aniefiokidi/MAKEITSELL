@@ -24,12 +24,34 @@ export const updateOrder = async (orderId: string, data: any) => {
 };
 
 import connectToDatabase from './mongodb';
+import mongoose from 'mongoose';
 // @ts-ignore
 import { Product as ProductModel } from './models/Product';
 // @ts-ignore
 import { Store as StoreModel } from './models/Store';
 // @ts-ignore
 import { User as UserModel } from './models/User';
+
+// Service model definition (no separate file yet)
+const ServiceSchema = new mongoose.Schema({
+  providerId: { type: String, required: true },
+  providerName: { type: String, required: true },
+  providerImage: { type: String },
+  title: { type: String, required: true },
+  description: { type: String, required: true },
+  category: { type: String, required: true },
+  price: { type: Number, required: true },
+  pricingType: { type: String, required: true },
+  location: { type: String, required: true },
+  locationType: { type: String, required: true },
+  images: { type: [String], default: [] },
+  availability: { type: mongoose.Schema.Types.Mixed, default: {} },
+  featured: { type: Boolean, default: false },
+  status: { type: String, default: 'active' },
+  tags: { type: [String], default: [] },
+}, { timestamps: true });
+
+const ServiceModel = (mongoose.models.Service as any) || mongoose.model('Service', ServiceSchema);
 
 // --- Store by ID ---
 export const getStoreById = async (id: string) => {
@@ -73,6 +95,22 @@ export const getProductById = async (id: string) => {
   const product = await ProductModel.findById(id).lean();
   if (!product) return null;
   const { _id, ...rest } = product as any;
+  return { ...rest, id: _id.toString() };
+};
+
+export const createService = async (serviceData: any): Promise<any> => {
+  await connectToDatabase();
+  const service: any = await ServiceModel.create(serviceData as any);
+  if (!service) return null;
+  const { _id, ...rest } = service.toObject ? service.toObject() : (service as any);
+  return { ...rest, id: _id?.toString?.() };
+};
+
+export const getServiceById = async (id: string) => {
+  await connectToDatabase();
+  const service = await ServiceModel.findById(id).lean();
+  if (!service) return null;
+  const { _id, ...rest } = service as any;
   return { ...rest, id: _id.toString() };
 };
 // --- Store Creation (Real) ---
@@ -127,8 +165,21 @@ export interface ServiceFilters {
 }
 
 export const getServices = async (filters: ServiceFilters): Promise<Service[]> => {
-  // TODO: Replace with real MongoDB query for services
-  return [];
+  await connectToDatabase();
+  const query: any = {};
+  if (filters?.category) query.category = filters.category;
+  if (filters?.providerId) query.providerId = filters.providerId;
+  if (filters?.featured !== undefined) query.featured = filters.featured;
+  if (filters?.locationType) query.locationType = filters.locationType;
+
+  let q = ServiceModel.find(query).sort({ createdAt: -1 });
+  if (filters?.limitCount) q = q.limit(Number(filters.limitCount));
+
+  const services = await q.lean();
+  return services.map((s: any) => {
+    const { _id, ...rest } = s;
+    return { ...rest, id: _id.toString() } as Service;
+  });
 };
 
 // FINAL STUB EXPORTS ONLY
