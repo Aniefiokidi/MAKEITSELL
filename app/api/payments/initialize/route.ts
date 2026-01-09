@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-export const runtime = 'nodejs'
 import { paystackService } from '@/lib/payment'
 import { createOrder } from '@/lib/mongodb-operations'
 import { v4 as uuidv4 } from 'uuid'
@@ -106,14 +105,11 @@ export async function POST(request: NextRequest) {
         itemCount: items.length
       })
       
-      // Always use the current request origin for callback URL
-      const origin = new URL(request.url).origin
       const paymentResult = await paystackService.initializePayment({
         email: shippingInfo.email,
         amount: totalAmount,
         orderId,
         customerId,
-        callbackUrl: `${origin}/api/payments/verify`,
         items
       })
 

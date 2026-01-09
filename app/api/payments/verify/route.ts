@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-export const runtime = 'nodejs'
 import { paystackService } from '@/lib/payment'
 import { emailService } from '@/lib/email'
 import { updateOrder, getOrderById, getUserById, getStores } from '@/lib/mongodb-operations'
