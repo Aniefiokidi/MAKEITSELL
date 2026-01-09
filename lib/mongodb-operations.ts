@@ -7,7 +7,8 @@ export const createOrder = async (orderData: any): Promise<string> => {
 
 export const getOrderById = async (orderId: string) => {
   await connectToDatabase();
-  const order = await OrderModel.findById(orderId).lean();
+  // orderId is a UUID string, not MongoDB's _id (ObjectId)
+  const order = await OrderModel.findOne({ orderId }).lean();
   if (!order) return null;
   const { _id, ...rest } = order as any;
   return { ...rest, id: _id.toString() };
@@ -15,7 +16,8 @@ export const getOrderById = async (orderId: string) => {
 
 export const updateOrder = async (orderId: string, data: any) => {
   await connectToDatabase();
-  const order = await OrderModel.findByIdAndUpdate(orderId, data, { new: true }).lean();
+  // orderId is a UUID string, not MongoDB's _id (ObjectId)
+  const order = await OrderModel.findOneAndUpdate({ orderId }, data, { new: true }).lean();
   if (!order) return null;
   const { _id, ...rest } = order as any;
   return { ...rest, id: _id.toString() };
