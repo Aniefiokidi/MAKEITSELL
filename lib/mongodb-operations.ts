@@ -97,8 +97,15 @@ export const getStores = async (filters: any) => {
 };
 // --- Vendor Dashboard Operations ---
 export const getOrdersByVendor = async (vendorId: string) => {
-	// TODO: Replace with real MongoDB logic
-	return [];
+  await connectToDatabase();
+  // Query orders where the vendor is in the vendors array
+  const orders = await OrderModel.find({
+    'vendors.vendorId': vendorId
+  }).lean();
+  return orders.map((o: any) => {
+    const { _id, ...rest } = o;
+    return { ...rest, id: _id.toString() };
+  });
 };
 
 
