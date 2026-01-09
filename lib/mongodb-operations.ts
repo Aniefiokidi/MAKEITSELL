@@ -204,6 +204,11 @@ export const getBookings = async (filters: any) => {
   return [];
 };
 
+export const getConversations = async (userId: string, role: 'customer' | 'provider') => {
+  // TODO: Implement conversations from MongoDB when Conversation model is created
+  return [];
+};
+
 export const deleteBookingsByVendor = () => { throw new Error("Server-only: deleteBookingsByVendor is not available on client."); };
 export const deleteUserCartItemsByVendor = () => { throw new Error("Server-only: deleteUserCartItemsByVendor is not available on client."); };
 export const deleteConversationsByVendor = () => { throw new Error("Server-only: deleteConversationsByVendor is not available on client."); };
