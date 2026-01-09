@@ -3,10 +3,11 @@ import { getProductById, updateProduct, deleteProduct } from '@/lib/database'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const product = await getProductById(params.id)
+    const { id } = await params
+    const product = await getProductById(id)
     
     if (!product) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
@@ -21,11 +22,12 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const productData = await request.json()
-    const updatedProduct = await updateProduct(params.id, productData)
+    const updatedProduct = await updateProduct(id, productData)
 
     return NextResponse.json({ product: updatedProduct })
   } catch (error) {
@@ -36,10 +38,11 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await deleteProduct(params.id)
+    const { id } = await params
+    await deleteProduct(id)
 
     return NextResponse.json({ success: true })
   } catch (error) {

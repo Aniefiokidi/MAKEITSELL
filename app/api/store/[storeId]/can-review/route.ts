@@ -3,12 +3,12 @@ import { NextResponse } from "next/server"
 
 export async function GET(
   request: Request,
-  { params }: { params: { storeId: string } }
+  { params }: { params: Promise<{ storeId: string }> }
 ) {
   try {
+    const { storeId } = await params
     const { searchParams } = new URL(request.url)
     const customerId = searchParams.get('customerId')
-    const storeId = params.storeId
 
     if (!storeId || !customerId) {
       return NextResponse.json({ 

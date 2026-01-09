@@ -103,15 +103,34 @@ export const createService = async (serviceData: any): Promise<any> => {
   const service: any = await ServiceModel.create(serviceData as any);
   if (!service) return null;
   const { _id, ...rest } = service.toObject ? service.toObject() : (service as any);
-  return { ...rest, id: _id?.toString?.() };
+  const result = { ...rest, id: _id?.toString?.() };
+  console.log(`[createService] Created service with id: ${result.id}`, result);
+  return result;
 };
 
 export const getServiceById = async (id: string) => {
   await connectToDatabase();
-  const service = await ServiceModel.findById(id).lean();
-  if (!service) return null;
-  const { _id, ...rest } = service as any;
-  return { ...rest, id: _id.toString() };
+  try {
+    // Validate that id looks like a MongoDB ObjectId
+    const service = await ServiceModel.findById(id).lean();
+    if (!service) {
+      console.log(`[getServiceById] Service not found for id: ${id}`);
+      return null;
+    }
+    const { _id, ...rest } = service as any;
+    const result = { ...rest, id: _id.toString() };
+    console.log(`[getServiceById] Found service:`, result);
+    return result;
+  } catch (error: any) {
+    console.error(`[getServiceById] Error fetching service ${id}:`, error.message);
+    return null;
+  }
+};
+
+export const deleteService = async (id: string) => {
+  await connectToDatabase();
+  await ServiceModel.findByIdAndDelete(id);
+  return true;
 };
 // --- Store Creation (Real) ---
 export const createStore = async (storeData: any): Promise<string> => {

@@ -1,8 +1,9 @@
-import { getOrdersByVendor, getVendorProducts } from "./mongodb-operations";
+import { getOrdersByVendor, getVendorProducts, getServices } from "./mongodb-operations";
 
 export async function getVendorDashboard(vendorId: string) {
   const orders = await getOrdersByVendor(vendorId);
   const products = await getVendorProducts(vendorId);
+  const services = await getServices({ providerId: vendorId });
 
   // Dates for analytics
   const now = new Date();
@@ -74,5 +75,7 @@ export async function getVendorDashboard(vendorId: string) {
     newProductsThisWeek,
     conversionRate,
     conversionRateChange,
+    totalServices: services.length,
+    activeServices: services.filter((s: any) => s.status === 'active').length,
   };
 }
