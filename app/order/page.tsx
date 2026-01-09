@@ -205,12 +205,6 @@ export default function CustomerOrdersPage() {
                         <div className="text-base font-semibold leading-tight">{productName}</div>
                         <div className="text-sm text-muted-foreground leading-tight">by {storeName}</div>
                         <div className="text-muted-foreground text-xs mt-0.5">Placed: {order.createdAt ? (typeof order.createdAt === 'string' ? new Date(order.createdAt).toLocaleDateString() : order.createdAt?.toLocaleDateString?.()) : 'date unknown'}</div>
-                        {/* DEBUG: Show product and productDetails for troubleshooting image issues */}
-                        <details style={{fontSize: '10px', marginTop: 4, color: '#b91c1c'}}>
-                          <summary>Debug Product Data</summary>
-                          <div><b>prod:</b> <pre>{JSON.stringify(prod, null, 2)}</pre></div>
-                          <div><b>prodDetail:</b> <pre>{JSON.stringify(prodDetail, null, 2)}</pre></div>
-                        </details>
                       </div>
                     </div>
                   {/* Stepper */}

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServices, deleteService } from '@/lib/database'
+import { getServices, deleteService } from '@/lib/mongodb-operations'
 
 export async function GET(request: NextRequest) {
   try {
