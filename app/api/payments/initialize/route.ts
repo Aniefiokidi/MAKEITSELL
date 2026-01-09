@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+export const runtime = 'nodejs'
 import { paystackService } from '@/lib/payment'
 import { createOrder } from '@/lib/mongodb-operations'
 import { v4 as uuidv4 } from 'uuid'
