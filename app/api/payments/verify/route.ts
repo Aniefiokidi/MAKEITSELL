@@ -77,8 +77,8 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Redirect to success page with absolute URL
-    const redirectUrl = new URL('/order-confirmation', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')
+    // Redirect to orders page with absolute URL
+    const redirectUrl = new URL('/order', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')
     redirectUrl.searchParams.set('orderId', orderId)
     console.log('=== PAYMENT VERIFICATION SUCCESS ===')
     console.log('Order ID:', orderId)
