@@ -89,8 +89,8 @@ export default function Header() {
             {/* Cart */}
             <CartSidebar />
 
-            {/* Authentication (desktop only) */}
-            <div className="hidden xl:flex items-center gap-3 !hidden lg:!hidden md:!hidden sm:!hidden">
+            {/* Authentication (desktop only - xl and above) */}
+            <div className="hidden xl:flex items-center gap-3">
               {loading ? (
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-muted animate-pulse"></div>
@@ -99,7 +99,7 @@ export default function Header() {
                 <UserMenu />
               ) : (
                 <>
-                  <Link href="/login">
+                  <Link href="/login" className="hidden xl:block">
                     <Button
                       variant="outline"
                       size="sm"
@@ -108,7 +108,7 @@ export default function Header() {
                       Sign In
                     </Button>
                   </Link>
-                  <Link href="/signup">
+                  <Link href="/signup" className="hidden xl:block">
                     <Button
                       size="sm"
                       className="bg-white dark:bg-background text-[oklch(0.21_0.194_29.234)] dark:text-accent border-2 border-[oklch(0.21_0.194_29.234)] dark:border-accent hover:bg-[oklch(0.21_0.194_29.234)] dark:hover:bg-accent hover:text-white dark:hover:text-background font-semibold transition-all duration-300 shadow-md hover:shadow-lg"
@@ -121,7 +121,7 @@ export default function Header() {
             </div>
 
             {/* UserMenu for mobile (always visible) */}
-            <div className="flex sm:hidden items-center">
+            <div className="flex xl:hidden items-center">
               <UserMenu />
             </div>
 
