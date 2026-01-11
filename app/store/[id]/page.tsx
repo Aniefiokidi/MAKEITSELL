@@ -332,7 +332,7 @@ export default function StorePage() {
       <Header />
       
       {/* Store Header with Modern Design */}
-      <div className="relative w-full h-96 overflow-hidden">
+      <div className="relative w-full h-[28rem] md:h-96 overflow-hidden">
         {/* Background/Profile Card Image with Gradient Overlay */}
         <div className="absolute inset-0">
           <img
