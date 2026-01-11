@@ -1,0 +1,16 @@
+@media (max-width: 768px) {
+  .store-header-mobile-fix {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 1rem !important;
+  }
+  .store-header-mobile-fix .store-logo-mobile {
+    margin-bottom: 0.5rem !important;
+    margin-left: 0 !important;
+  }
+  .store-header-mobile-fix .store-back-btn-mobile {
+    margin-bottom: 0.5rem !important;
+    margin-left: 0 !important;
+    z-index: 20 !important;
+  }
+}

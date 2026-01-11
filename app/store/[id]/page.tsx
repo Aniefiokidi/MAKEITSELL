@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
+import "./store-mobile-fix.css"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -347,7 +348,7 @@ export default function StorePage() {
         </div>
         
         {/* Navigation */}
-        <div className="absolute top-6 left-6 z-10">
+        <div className="absolute top-6 left-6 z-10 store-back-btn-mobile">
           <Link href="/stores">
             <Button variant="outline" className="bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/20 hover:scale-105 transition-all">
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -355,13 +356,12 @@ export default function StorePage() {
             </Button>
           </Link>
         </div>
-        
         {/* Store Information */}
         <div className="absolute bottom-0 left-0 right-0 p-8 text-white z-10">
           <div className="container mx-auto">
-            <div className="flex flex-col lg:flex-row items-start lg:items-end gap-6">
+            <div className="flex flex-col lg:flex-row items-start lg:items-end gap-6 store-header-mobile-fix">
               {/* Store Avatar (Logo) */}
-              <Avatar className="w-24 h-24 border-4 border-white/20 backdrop-blur-sm">
+              <Avatar className="w-24 h-24 border-4 border-white/20 backdrop-blur-sm store-logo-mobile">
                 <AvatarImage src={store.storeImage} alt={store.storeName} />
                 <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
                   {store.storeName.charAt(0)}
