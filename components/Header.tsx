@@ -90,7 +90,7 @@ export default function Header() {
             <CartSidebar />
 
             {/* Authentication (desktop only) */}
-            <div className="hidden xl:flex items-center gap-3">
+            <div className="hidden xl:flex items-center gap-3 xl:flex">
               {loading ? (
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-muted animate-pulse"></div>
