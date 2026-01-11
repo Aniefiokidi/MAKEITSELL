@@ -43,7 +43,13 @@ export async function signIn({ email, password }: { email: string, password: str
   const user = await User.findOne({ email });
   console.log('[auth.signIn] User found:', user ? 'YES' : 'NO');
   if (!user) throw new Error('Invalid credentials');
-  if (user.passwordHash !== hashPassword(password)) throw new Error('Invalid credentials');
+  
+  const inputPasswordHash = hashPassword(password);
+  console.log('[auth.signIn] Stored hash:', user.passwordHash);
+  console.log('[auth.signIn] Input hash:', inputPasswordHash);
+  console.log('[auth.signIn] Hashes match:', user.passwordHash === inputPasswordHash);
+  
+  if (user.passwordHash !== inputPasswordHash) throw new Error('Invalid credentials');
   // Generate new session token
   user.sessionToken = crypto.randomBytes(32).toString('hex');
   console.log('[auth.signIn] Generated sessionToken:', user.sessionToken);
