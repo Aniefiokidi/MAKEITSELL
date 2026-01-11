@@ -124,11 +124,6 @@ export default function Header() {
               </div>
             )}
 
-            {/* UserMenu for mobile (always visible) */}
-            <div className="flex xl:hidden items-center">
-              <UserMenu />
-            </div>
-
             {/* Mobile Menu Toggle */}
             <Button
               variant="ghost"
