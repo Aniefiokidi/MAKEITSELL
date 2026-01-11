@@ -89,9 +89,9 @@ export default function Header() {
             {/* Cart */}
             <CartSidebar />
 
-            {/* Authentication (desktop only - xl and above) - Hidden on mobile/tablet */}
+            {/* Authentication */}
             {(user && userProfile) ? (
-              <div className="hidden xl:flex items-center gap-3">
+              <div className="flex items-center gap-3">
                 <UserMenu />
               </div>
             ) : (
@@ -248,12 +248,12 @@ export default function Header() {
                   </div>
                 </Link>
 
-                {/* Auth Buttons */}
+                {/* Auth Buttons or User Profile */}
                 {loading ? (
                   <div className="flex items-center justify-center py-4">
                     <div className="w-8 h-8 rounded-full bg-gray-300 animate-pulse"></div>
                   </div>
-                ) : !(user && userProfile) && (
+                ) : !(user && userProfile) ? (
                   <>
                     <Link
                       href="/login"
@@ -274,7 +274,7 @@ export default function Header() {
                       </div>
                     </Link>
                   </>
-                )}
+                ) : null}
               </div>
 
               {/* Footer Section */}
