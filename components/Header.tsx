@@ -89,8 +89,8 @@ export default function Header() {
             {/* Cart */}
             <CartSidebar />
 
-            {/* Authentication (desktop) */}
-            <div className="hidden sm:flex items-center gap-3">
+            {/* Authentication (desktop only) */}
+            <div className="hidden xl:flex items-center gap-3">
               {loading ? (
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-muted animate-pulse"></div>
