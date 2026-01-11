@@ -186,68 +186,112 @@ export default function Header() {
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: "100%", opacity: 0 }}
               transition={{ type: "spring", stiffness: 120, damping: 15 }}
-              className="fixed top-16 right-0 w-72 h-[calc(100vh-4rem)] bg-white shadow-lg border-l border-gray-200 z-50 flex flex-col"
+              className="fixed top-0 right-0 w-80 h-full bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 shadow-2xl z-50 flex flex-col"
             >
-              {/* Navigation Links */}
-              <div className="px-4 pt-4 space-y-2 flex-1 overflow-y-auto">
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                <img
+                  src="/images/logo (2).png"
+                  alt="Make It Sell"
+                  className="h-6 w-auto object-contain"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full"
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+
+              {/* Navigation Links - Oval Buttons */}
+              <div className="px-6 pt-8 pb-6 space-y-4 flex-1 overflow-y-auto">
                 <Link
                   href="/stores"
                   onClick={() => setIsMenuOpen(false)}
-                  className="block px-3 py-2 text-gray-700 hover:text-[oklch(0.21_0.194_29.234)] hover:bg-gray-50 rounded-md transition-colors"
+                  className="block w-full"
                 >
-                  Stores
+                  <div className="bg-[oklch(0.21_0.194_29.234)] dark:bg-[oklch(0.25_0.194_29.234)] text-white px-8 py-4 rounded-full text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
+                    Stores
+                  </div>
                 </Link>
                 <Link
                   href="/services"
                   onClick={() => setIsMenuOpen(false)}
-                  className="block px-3 py-2 text-gray-700 hover:text-[oklch(0.21_0.194_29.234)] hover:bg-gray-50 rounded-md transition-colors"
+                  className="block w-full"
                 >
-                  Services
+                  <div className="bg-[oklch(0.21_0.194_29.234)] dark:bg-[oklch(0.25_0.194_29.234)] text-white px-8 py-4 rounded-full text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
+                    Services
+                  </div>
                 </Link>
                 <Link
-                  href="/categories"
+                  href="/about"
                   onClick={() => setIsMenuOpen(false)}
-                  className="block px-3 py-2 text-gray-700 hover:text-[oklch(0.21_0.194_29.234)] hover:bg-gray-50 rounded-md transition-colors"
+                  className="block w-full"
                 >
-                  Categories
+                  <div className="bg-[oklch(0.21_0.194_29.234)] dark:bg-[oklch(0.25_0.194_29.234)] text-white px-8 py-4 rounded-full text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
+                    About Us
+                  </div>
                 </Link>
                 <Link
-                  href="/cart"
+                  href="/support"
                   onClick={() => setIsMenuOpen(false)}
-                  className="block px-3 py-2 text-gray-700 hover:text-[oklch(0.21_0.194_29.234)] hover:bg-gray-50 rounded-md transition-colors"
+                  className="block w-full"
                 >
-                  Cart
+                  <div className="bg-[oklch(0.21_0.194_29.234)] dark:bg-[oklch(0.25_0.194_29.234)] text-white px-8 py-4 rounded-full text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
+                    FAQS
+                  </div>
                 </Link>
+                <Link
+                  href="/contact"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="block w-full"
+                >
+                  <div className="bg-[oklch(0.21_0.194_29.234)] dark:bg-[oklch(0.25_0.194_29.234)] text-white px-8 py-4 rounded-full text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
+                    Contact Us
+                  </div>
+                </Link>
+
+                {/* Auth Buttons */}
+                {loading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="w-8 h-8 rounded-full bg-gray-300 animate-pulse"></div>
+                  </div>
+                ) : !(user && userProfile) && (
+                  <>
+                    <Link
+                      href="/login"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="block w-full"
+                    >
+                      <div className="bg-[oklch(0.21_0.194_29.234)] dark:bg-[oklch(0.25_0.194_29.234)] text-white px-8 py-4 rounded-full text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
+                        Sign in
+                      </div>
+                    </Link>
+                    <Link
+                      href="/signup"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="block w-full"
+                    >
+                      <div className="bg-white dark:bg-gray-800 text-[oklch(0.21_0.194_29.234)] dark:text-white border-2 border-[oklch(0.21_0.194_29.234)] dark:border-gray-600 px-8 py-4 rounded-full text-center font-medium hover:bg-[oklch(0.21_0.194_29.234)] hover:text-white dark:hover:bg-[oklch(0.25_0.194_29.234)] transition-all shadow-md hover:shadow-lg">
+                        Join Us
+                      </div>
+                    </Link>
+                  </>
+                )}
               </div>
 
-              {/* Footer */}
-              {loading ? (
-                <div className="px-6 py-6 border-t border-gray-200">
-                  <div className="flex items-center justify-center">
-                    <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse"></div>
-                  </div>
-                </div>
-              ) : !(user && userProfile) && (
-                <div className="px-6 py-6 border-t border-gray-200">
-                  <p className="text-sm text-gray-600 mb-4">
-                    Become a Make It Sell member to buy smarter, sell faster, and grow with the community.{" "}
-                    <span className="font-medium text-[oklch(0.21_0.194_29.234)] cursor-pointer hover:underline">Learn more</span>
+              {/* Footer Section */}
+              {!(user && userProfile) && (
+                <div className="px-6 py-6 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Get early access</h3>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+                    Become a Make It Sell member to buy smarter, sell faster, and grow with the community.
                   </p>
-                  <div className="flex space-x-3">
-                    <Link href="/signup" onClick={() => setIsMenuOpen(false)}>
-                      <Button className="bg-white text-[oklch(0.21_0.194_29.234)] border-2 border-[oklch(0.21_0.194_29.234)] px-4 py-2 rounded-full text-sm font-semibold hover:bg-[oklch(0.21_0.194_29.234)] hover:text-white transition-all duration-300 shadow-md hover:shadow-lg">
-                        Join Us
-                      </Button>
-                    </Link>
-                    <Link href="/login" onClick={() => setIsMenuOpen(false)}>
-                      <Button
-                        variant="outline"
-                        className="border-2 border-[oklch(0.21_0.194_29.234)] text-[oklch(0.21_0.194_29.234)] px-4 py-2 rounded-full text-sm font-semibold hover:bg-[oklch(0.21_0.194_29.234)] hover:text-white transition-all duration-300 shadow-sm hover:shadow-md"
-                      >
-                        Sign In
-                      </Button>
-                    </Link>
-                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-500">
+                    © 2026 Make It Sell. All rights reserved.
+                  </p>
                 </div>
               )}
             </motion.div>
