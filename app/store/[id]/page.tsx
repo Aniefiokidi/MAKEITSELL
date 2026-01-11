@@ -360,29 +360,32 @@ export default function StorePage() {
         <div className="absolute bottom-0 left-0 right-0 p-8 text-white z-10">
           <div className="container mx-auto">
             <div className="flex flex-col lg:flex-row items-start lg:items-end gap-6 store-header-mobile-fix">
-              {/* Store Avatar (Logo) */}
-              <Avatar className="w-24 h-24 border-4 border-white/20 backdrop-blur-sm store-logo-mobile">
-                <AvatarImage src={store.storeImage} alt={store.storeName} />
-                <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
-                  {store.storeName.charAt(0)}
-                </AvatarFallback>
-              </Avatar>
-              
+              {/* Store Avatar (Logo) and Store Name beside each other on mobile */}
+              <div className="flex flex-row items-center gap-3 lg:flex-col lg:items-start">
+                <Avatar className="w-16 h-16 border-4 border-white/20 backdrop-blur-sm store-logo-mobile">
+                  <AvatarImage src={store.storeImage} alt={store.storeName} />
+                  <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
+                    {store.storeName.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-3 mb-1">
+                    <h1 className="text-2xl font-bold">{store.storeName}</h1>
+                    <Badge variant="secondary" className="bg-green-600/80 text-white border-0">
+                      <Verified className="w-3 h-3 mr-1" />
+                      Verified
+                    </Badge>
+                    {store.isOpen && (
+                      <Badge variant="secondary" className="bg-blue-600/80 text-white border-0">
+                        <Clock className="w-3 h-3 mr-1" />
+                        Open Now
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
               {/* Store Details */}
               <div className="flex-1">
-                <div className="flex items-center gap-3 mb-3">
-                  <h1 className="text-4xl font-bold">{store.storeName}</h1>
-                  <Badge variant="secondary" className="bg-green-600/80 text-white border-0">
-                    <Verified className="w-3 h-3 mr-1" />
-                    Verified
-                  </Badge>
-                  {store.isOpen && (
-                    <Badge variant="secondary" className="bg-blue-600/80 text-white border-0">
-                      <Clock className="w-3 h-3 mr-1" />
-                      Open Now
-                    </Badge>
-                  )}
-                </div>
                 
                 <p className="text-xl text-gray-200 mb-4 max-w-2xl">{store.storeDescription}</p>
                 
