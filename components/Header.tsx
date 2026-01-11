@@ -89,36 +89,40 @@ export default function Header() {
             {/* Cart */}
             <CartSidebar />
 
-            {/* Authentication (desktop only - xl and above) */}
-            <div className="hidden xl:flex items-center gap-3">
-              {loading ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-muted animate-pulse"></div>
-                </div>
-              ) : (user && userProfile) ? (
+            {/* Authentication (desktop only - xl and above) - Hidden on mobile/tablet */}
+            {(user && userProfile) ? (
+              <div className="hidden xl:flex items-center gap-3">
                 <UserMenu />
-              ) : (
-                <>
-                  <Link href="/login" className="hidden xl:block">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-2 border-[oklch(0.21_0.194_29.234)] text-[oklch(0.21_0.194_29.234)] dark:border-accent dark:text-accent hover:bg-[oklch(0.21_0.194_29.234)] dark:hover:bg-accent hover:text-white dark:hover:text-background font-semibold transition-all duration-300 shadow-sm hover:shadow-md"
-                    >
-                      Sign In
-                    </Button>
-                  </Link>
-                  <Link href="/signup" className="hidden xl:block">
-                    <Button
-                      size="sm"
-                      className="bg-white dark:bg-background text-[oklch(0.21_0.194_29.234)] dark:text-accent border-2 border-[oklch(0.21_0.194_29.234)] dark:border-accent hover:bg-[oklch(0.21_0.194_29.234)] dark:hover:bg-accent hover:text-white dark:hover:text-background font-semibold transition-all duration-300 shadow-md hover:shadow-lg"
-                    >
-                      Join Us
-                    </Button>
-                  </Link>
-                </>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="hidden xl:flex items-center gap-3">
+                {loading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-muted animate-pulse"></div>
+                  </div>
+                ) : (
+                  <>
+                    <Link href="/login">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-2 border-[oklch(0.21_0.194_29.234)] text-[oklch(0.21_0.194_29.234)] dark:border-accent dark:text-accent hover:bg-[oklch(0.21_0.194_29.234)] dark:hover:bg-accent hover:text-white dark:hover:text-background font-semibold transition-all duration-300 shadow-sm hover:shadow-md"
+                      >
+                        Sign In
+                      </Button>
+                    </Link>
+                    <Link href="/signup">
+                      <Button
+                        size="sm"
+                        className="bg-white dark:bg-background text-[oklch(0.21_0.194_29.234)] dark:text-accent border-2 border-[oklch(0.21_0.194_29.234)] dark:border-accent hover:bg-[oklch(0.21_0.194_29.234)] dark:hover:bg-accent hover:text-white dark:hover:text-background font-semibold transition-all duration-300 shadow-md hover:shadow-lg"
+                      >
+                        Join Us
+                      </Button>
+                    </Link>
+                  </>
+                )}
+              </div>
+            )}
 
             {/* UserMenu for mobile (always visible) */}
             <div className="flex xl:hidden items-center">
