@@ -61,20 +61,6 @@ export default function HeroSection() {
                 <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform duration-200" />
               </Link>
             </Button>
-            
-            {userProfile?.role !== "vendor" && (
-              <Button
-                asChild
-                variant="outline"
-                size="lg"
-                className="group border-2 border-white text-white hover:bg-white hover:text-black px-4 sm:px-6 md:px-8 py-3 sm:py-4 md:py-5 lg:py-6 text-sm sm:text-base md:text-lg font-semibold rounded-full backdrop-blur-sm bg-white/10 transition-all duration-300 transform hover:scale-105 w-full sm:w-auto max-w-xs sm:max-w-none hover-lift"
-              >
-                <Link href="/become-seller" className="flex items-center justify-center">
-                  Become a Seller
-                  <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform duration-200" />
-                </Link>
-              </Button>
-            )}
           </div>
 
           {/* Additional features showcase */}
