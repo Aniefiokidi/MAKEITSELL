@@ -641,7 +641,7 @@ export default function StorePage() {
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6">
                   {filteredProducts.filter(product => product && product.id).map((product) => (
-                    <Card key={product.id} className="border-0 shadow-md overflow-hidden relative h-[350px] sm:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2">
+                    <Card key={product.id} className="border-0 shadow-md overflow-hidden relative h-[350px] sm:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-3xl">
                       {/* Image Container with Group Hover */}
                       <div className="group absolute inset-0 overflow-hidden">
                         {/* Full Card Image Background */}
