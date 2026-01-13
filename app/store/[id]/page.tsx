@@ -731,7 +731,7 @@ export default function StorePage() {
                           className="w-full h-7 text-xs bg-white/90 hover:bg-white text-black backdrop-blur-sm hover:scale-105 transition-all hover:shadow-lg flex items-center justify-center gap-0"
                         >
                           <img src="/images/logo3.png" alt="Add" className="w-8 h-8 -mt-2" />
-                          <span className="leading-none">Add</span>
+                          <span className="leading-none text-accent">Add</span>
                         </Button>
                       </div>
                     </Card>
