@@ -715,7 +715,7 @@ export default function StorePage() {
                         </h3>
                         
                         <div className="flex items-center justify-between gap-2">
-                          <Badge variant="outline" className="text-[10px] bg-white/80 backdrop-blur-sm border-white/50 px-1.5 py-0">
+                          <Badge variant="outline" className="text-[10px] bg-accent/80 backdrop-blur-sm border-white/50 px-1.5 py-0">
                             {product.category}
                           </Badge>
                           
