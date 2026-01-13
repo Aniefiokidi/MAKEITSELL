@@ -436,45 +436,46 @@ export default function StorePage() {
       <div className="container mx-auto px-4 py-8 flex-1">
         {/* Store Highlights Section */}
         <div className="mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Make 3-up even on mobile, tighten spacing on small screens */}
+          <div className="grid grid-cols-3 gap-2 sm:gap-6">
             {/* Products Available */}
-            <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-6 text-center">
-                <Package className="w-8 h-8 mx-auto mb-3 text-blue-600" />
-                <div className="text-2xl font-bold text-gray-900 dark:text-white">{(store.totalProducts || products.length || 0).toLocaleString('en-NG')}</div>
-                <div className="text-sm text-muted-foreground dark:text-white">Products Available</div>
+            <Card className="border-0 shadow-md hover:shadow-lg transition-shadow min-h-[88px] sm:min-h-0">
+              <CardContent className="p-3 sm:p-6 text-center">
+                <Package className="w-5 h-5 sm:w-8 sm:h-8 mx-auto mb-2 sm:mb-3 text-blue-600" />
+                <div className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">{(store.totalProducts || products.length || 0).toLocaleString('en-NG')}</div>
+                <div className="text-[10px] sm:text-sm text-muted-foreground dark:text-white">Products Available</div>
               </CardContent>
             </Card>
             
             {/* Store Quality Assurance */}
-            <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-6 text-center">
-                <div className="flex items-center justify-center mb-3">
-                  <Shield className="w-8 h-8 text-green-600" />
+            <Card className="border-0 shadow-md hover:shadow-lg transition-shadow min-h-[88px] sm:min-h-0">
+              <CardContent className="p-3 sm:p-6 text-center">
+                <div className="flex items-center justify-center mb-2 sm:mb-3">
+                  <Shield className="w-5 h-5 sm:w-8 sm:h-8 text-green-600" />
                 </div>
-                <div className="text-lg font-bold text-gray-900 dark:text-white">Quality</div>
-                <div className="text-sm text-muted-foreground dark:text-white">Assured</div>
-                <div className="text-xs text-green-600 mt-1 font-medium">
+                <div className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white">Quality</div>
+                <div className="text-[10px] sm:text-sm text-muted-foreground dark:text-white">Assured</div>
+                <div className="text-[10px] sm:text-xs text-green-600 mt-1 font-medium">
                   Verified Business
                 </div>
               </CardContent>
             </Card>
             
             {/* Store Features */}
-            <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-6 text-center">
-                <Shield className="w-8 h-8 mx-auto mb-3 text-green-600" />
-                <div className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Trusted Seller</div>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-center text-xs text-green-600">
+            <Card className="border-0 shadow-md hover:shadow-lg transition-shadow min-h-[88px] sm:min-h-0">
+              <CardContent className="p-3 sm:p-6 text-center">
+                <Shield className="w-5 h-5 sm:w-8 sm:h-8 mx-auto mb-2 sm:mb-3 text-green-600" />
+                <div className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white mb-1 sm:mb-2">Trusted Seller</div>
+                <div className="space-y-0.5 sm:space-y-1">
+                  <div className="flex items-center justify-center text-[10px] sm:text-xs text-green-600">
                     <Verified className="w-3 h-3 mr-1" />
                     Verified Account
                   </div>
-                  <div className="flex items-center justify-center text-xs text-blue-600">
+                  <div className="flex items-center justify-center text-[10px] sm:text-xs text-blue-600">
                     <Truck className="w-3 h-3 mr-1" />
                     Fast Shipping
                   </div>
-                  <div className="flex items-center justify-center text-xs text-purple-600">
+                  <div className="flex items-center justify-center text-[10px] sm:text-xs text-purple-600">
                     <MessageCircle className="w-3 h-3 mr-1" />
                     Quick Response
                   </div>
@@ -604,105 +605,107 @@ export default function StorePage() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {filteredProducts.filter(product => product && product.id && (product.title || product.name)).map((product) => (
-                  <Card key={product.id} className="group hover:shadow-xl transition-all duration-500 hover:-translate-y-2 border-0 shadow-md overflow-hidden">
-                    <div className="relative">
-                      <img
-                        src={product.images?.[0] || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"}
-                        alt={product.title}
-                        className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500"
-                      />
-                      
-                      {/* Product Badges */}
-                      <div className="absolute top-3 left-3 flex flex-col gap-2">
-                        {product.featured && (
-                          <Badge className="bg-yellow-500 text-black font-semibold">
-                            <svg className="inline w-4 h-4 text-yellow-400 fill-current animate-pulse mr-1" viewBox="0 0 24 24">
-                              <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
-                            </svg> 
-                            Featured
-                          </Badge>
-                        )}
-                        {product.stock < 10 && product.stock > 0 && (
-                          <Badge variant="destructive">
-                            Only {product.stock} left
-                          </Badge>
-                        )}
-                        {product.stock === 0 && (
-                          <Badge variant="secondary" className="bg-gray-600">
-                            Out of Stock
-                          </Badge>
-                        )}
-                      </div>
-                      
-                      {/* Action Buttons */}
-                      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-110 transition-all"
-                          onClick={() => {/* Add to wishlist */}}
-                        >
-                          <Heart className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      
-                      {/* Quick View */}
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                        <Link href={`/product/${product.id}`}>
-                          <Button variant="outline" className="bg-white/90 backdrop-blur-sm text-black hover:bg-white hover:scale-105 transition-all">
-                            <Eye className="w-4 h-4 mr-2" />
-                            Quick View
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+                  {filteredProducts.filter(product => product && product.id).map((product) => (
+                    <Card key={product.id} className="group hover:shadow-xl transition-all duration-500 hover:-translate-y-2 border-0 shadow-md overflow-hidden">
+                      <div className="relative">
+                        <img
+                          src={product.images?.[0] || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"}
+                          alt={(product.title || (product as any).name || 'Product') as string}
+                          className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500"
+                        />
+                        
+                        {/* Product Badges */}
+                        <div className="absolute top-3 left-3 flex flex-col gap-2">
+                          {product.featured && (
+                            <Badge className="bg-yellow-500 text-black font-semibold">
+                              <svg className="inline w-4 h-4 text-yellow-400 fill-current animate-pulse mr-1" viewBox="0 0 24 24">
+                                <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
+                              </svg> 
+                              Featured
+                            </Badge>
+                          )}
+                          {product.stock < 10 && product.stock > 0 && (
+                            <Badge variant="destructive">
+                              Only {product.stock} left
+                            </Badge>
+                          )}
+                          {product.stock === 0 && (
+                            <Badge variant="secondary" className="bg-gray-600">
+                              Out of Stock
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        {/* Action Buttons */}
+                        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-110 transition-all"
+                            onClick={() => {/* Add to wishlist */}}
+                          >
+                            <Heart className="w-4 h-4" />
                           </Button>
+                        </div>
+                        
+                        {/* Quick View */}
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                          <Link href={`/product/${product.id}`}>
+                            <Button variant="outline" className="bg-white/90 backdrop-blur-sm text-black hover:bg-white hover:scale-105 transition-all">
+                              <Eye className="w-4 h-4 mr-2" />
+                              Quick View
+                            </Button>
+                          </Link>
+                        </div>
+                      </div>
+                      
+                      <CardContent className="p-4 space-y-3">
+                        <Link href={`/product/${product.id}`}>
+                          <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-primary transition-colors cursor-pointer">
+                            {product.title || (product as any).name}
+                          </h3>
                         </Link>
-                      </div>
-                    </div>
-                    
-                    <CardContent className="p-4 space-y-3">
-                      <Link href={`/product/${product.id}`}>
-                        <h3 className="font-semibold text-sm line-clamp-2 group-hover:text-primary transition-colors cursor-pointer">
-                          {product.title || product.name}
-                        </h3>
-                      </Link>
-                      
-                      <Badge variant="outline" className="text-xs">
-                        {product.category}
-                      </Badge>
-                      
-                      {/* Color/Size Indicators */}
-                      {(product.hasColorOptions || product.hasSizeOptions) && (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          {product.hasColorOptions && (
-                            <span>{product.colors?.length} colors</span>
-                          )}
-                          {product.hasColorOptions && product.hasSizeOptions && <span>•</span>}
-                          {product.hasSizeOptions && (
-                            <span>{product.sizes?.length} sizes</span>
-                          )}
-                        </div>
-                      )}
-                      
-                      <div className="flex items-center justify-between pt-2">
-                        <div className="space-y-1">
-                          <div className="font-bold text-lg text-green-600">
-                            {formatCurrency(product.price)}
+                        
+                        <Badge variant="outline" className="text-xs">
+                          {product.category}
+                        </Badge>
+                        
+                        {/* Color/Size Indicators */}
+                        {(product.hasColorOptions || product.hasSizeOptions) && (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            {product.hasColorOptions && (
+                              <span>{product.colors?.length} colors</span>
+                            )}
+                            {product.hasColorOptions && product.hasSizeOptions && <span>•</span>}
+                            {product.hasSizeOptions && (
+                              <span>{product.sizes?.length} sizes</span>
+                            )}
                           </div>
+                        )}
+                        
+                        <div className="flex items-center justify-between pt-2">
+                          <div className="space-y-1">
+                            <div className="font-bold text-lg text-green-600">
+                              {formatCurrency(product.price)}
+                            </div>
+                          </div>
+                          <Button 
+                            size="sm" 
+                            onClick={() => handleAddToCart(product)}
+                            disabled={product.stock === 0}
+                            className="hover:scale-105 hover:bg-accent/80 transition-all hover:shadow-lg"
+                          >
+                            <ShoppingCart className="w-4 h-4 mr-1" />
+                            Add
+                          </Button>
                         </div>
-                        <Button 
-                          size="sm" 
-                          onClick={() => handleAddToCart(product)}
-                          disabled={product.stock === 0}
-                          className="hover:scale-105 hover:bg-accent/80 transition-all hover:shadow-lg"
-                        >
-                          <ShoppingCart className="w-4 h-4 mr-1" />
-                          Add
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </>
             )}
           </TabsContent>
           
@@ -714,7 +717,7 @@ export default function StorePage() {
               <CardContent className="space-y-6">
                 <div>
                   <h4 className="font-semibold mb-2">Store Description</h4>
-                  <p className="text-muted-foreground leading-relaxed">{store.description}</p>
+                  <p className="text-muted-foreground leading-relaxed">{store.storeDescription}</p>
                 </div>
                 
                 <Separator />
@@ -729,7 +732,7 @@ export default function StorePage() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Location:</span>
-                        <span>{store.location || 'Nigeria'}</span>
+                        <span>{store.address || 'Nigeria'}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Products:</span>
