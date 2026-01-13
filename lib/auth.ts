@@ -44,6 +44,12 @@ export async function signIn({ email, password }: { email: string, password: str
   console.log('[auth.signIn] User found:', user ? 'YES' : 'NO');
   if (!user) throw new Error('Invalid credentials');
   
+  // Check if password hash exists
+  if (!user.passwordHash) {
+    console.log('[auth.signIn] User exists but has no password hash set');
+    throw new Error('Your account was created without a password. Please use "Forgot Password" to set one, or contact support.');
+  }
+  
   const inputPasswordHash = hashPassword(password);
   console.log('[auth.signIn] Stored hash:', user.passwordHash);
   console.log('[auth.signIn] Input hash:', inputPasswordHash);

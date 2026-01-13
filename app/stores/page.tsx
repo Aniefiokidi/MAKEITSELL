@@ -12,6 +12,7 @@ import Header from "@/components/Header"
 import Footer from "@/components/Footer"
 import { Skeleton } from "@/components/ui/skeleton"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 
 const categories = [
   { id: "all", name: "All Categories" },
@@ -27,6 +28,7 @@ const categories = [
 ]
 
 export default function ShopPage() {
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [stores, setStores] = useState<any[]>([])
   const [searchQuery, setSearchQuery] = useState("")
@@ -34,6 +36,7 @@ export default function ShopPage() {
   const [sortBy, setSortBy] = useState("name")
   const [refreshing, setRefreshing] = useState(false)
   const [showFilters, setShowFilters] = useState(true)
+  const [isTransitioning, setIsTransitioning] = useState(false)
 
   useEffect(() => {
     fetchStores()
@@ -81,6 +84,13 @@ export default function ShopPage() {
     
     return matchesSearch
   })
+
+  const handleStoreClick = (storeId: string) => {
+    setIsTransitioning(true)
+    setTimeout(() => {
+      router.push(`/store/${storeId}`)
+    }, 600) // Duration matches the CSS animation
+  }
 
   const sortedStores = [...filteredStores].sort((a, b) => {
     switch (sortBy) {
@@ -135,14 +145,14 @@ export default function ShopPage() {
         </div>
 
         {/* Content Overlay at Bottom */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
-          <div className="backdrop-blur-md bg-black/20 rounded-2xl p-4 border border-white/10">
-            <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="absolute bottom-0 left-0 right-0 p-2.5 sm:p-3 z-10">
+          <div className="backdrop-blur-md bg-black/20 rounded-2xl p-2.5 sm:p-3 border border-white/10">
+            <div className="flex items-start justify-between gap-2 mb-1.5">
               <div className="flex-1 min-w-0">
-                <h3 className="text-xl font-bold tracking-tight mb-1 text-white drop-shadow-lg truncate">
+                <h3 className="text-base sm:text-lg font-bold tracking-tight mb-0.5 text-white drop-shadow-lg truncate">
                   {store.name || "Unnamed Store"}
                 </h3>
-                <div className="flex items-center text-xs font-medium text-white/90 tracking-wide mb-2">
+                <div className="flex items-center text-[10px] sm:text-xs font-medium text-white/90 tracking-wide mb-1.5">
                   <MapPin className="h-3 w-3 mr-1 shrink-0" />
                   <span className="truncate">{store.location || store.city || "Location not specified"}</span>
                 </div>
@@ -155,9 +165,12 @@ export default function ShopPage() {
               </div>
 
               {/* Arrow Button */}
-              <Link href={`/store/${store._id || store.id}`}>
-                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-xl hover:scale-110 hover:bg-accent hover:text-white transition-all cursor-pointer group/arrow">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent group-hover/arrow:text-white">
+              <Link href={`/store/${store._id || store.id}`} onClick={(e) => {
+                e.preventDefault()
+                handleStoreClick(store._id || store.id)
+              }}>
+                <div className="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 hover:bg-accent hover:text-white transition-all duration-200 cursor-pointer group/arrow">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent group-hover/arrow:text-white transition-colors group-hover/arrow:translate-x-0.5">
                     <path d="M5 12h14"/>
                     <path d="m12 5 7 7-7 7"/>
                   </svg>
@@ -166,12 +179,12 @@ export default function ShopPage() {
             </div>
 
             {/* Stats */}
-            <div className="flex items-center gap-3 text-[11px] font-medium text-white/80 tracking-wide">
-              <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-[11px] font-medium text-white/80 tracking-wide">
+              <div className="flex items-center gap-0.5 sm:gap-1">
                 <Users className="h-3 w-3" />
                 <span>{store.productCount || 0} products</span>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5 sm:gap-1">
                 <Clock className="h-3 w-3" />
                 <span>Est. {new Date(store.createdAt || Date.now()).getFullYear()}</span>
               </div>
@@ -184,6 +197,24 @@ export default function ShopPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <style jsx global>{`
+        @keyframes slideOutLeft {
+          from {
+            transform: translateX(0);
+            opacity: 1;
+          }
+          to {
+            transform: translateX(-100%);
+            opacity: 0;
+          }
+        }
+        
+        .page-slide-transition {
+          animation: slideOutLeft 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+      `}</style>
+      
+      <div className={isTransitioning ? 'page-slide-transition' : ''}>
       <Header />
       
       <main className="flex-1 container mx-auto px-4 py-8">
@@ -267,7 +298,7 @@ export default function ShopPage() {
 
         {/* Stores Grid */}
         {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
             {[...Array(8)].map((_, i) => (
               <Card key={i} className="h-full">
                 <Skeleton className="aspect-video rounded-t-lg" />
@@ -288,7 +319,7 @@ export default function ShopPage() {
             ))}
           </div>
         ) : sortedStores.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 animate-in fade-in duration-500">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 animate-in fade-in duration-500">
             {sortedStores.map((store) => (
               <StoreCard key={store._id || store.id} store={store} />
             ))}
@@ -311,6 +342,7 @@ export default function ShopPage() {
       </main>
 
       <Footer />
+      </div>
     </div>
   )
 }

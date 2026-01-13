@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
 import "./store-mobile-fix.css"
@@ -18,15 +18,17 @@ import Link from "next/link"
 import { useCart } from "@/contexts/CartContext"
 import { useAuth } from "@/contexts/AuthContext"
 import { useToast } from "@/hooks/use-toast"
+import { ProductQuickView } from "@/components/ui/product-quick-view"
 
 interface Product {
   id: string
-  title: string
+  name?: string
+  title?: string
   description: string
   price: number
   images: string[]
   category: string
-  stock: number
+  stock?: number
   vendorId: string
   vendorName: string
   featured: boolean
@@ -70,6 +72,7 @@ interface Store {
 
 export default function StorePage() {
   const params = useParams()
+  const router = useRouter()
   const storeId = params.id as string
   const [mounted, setMounted] = useState(false)
   const [store, setStore] = useState<Store | null>(null)
@@ -83,6 +86,9 @@ export default function StorePage() {
   const [activeTab, setActiveTab] = useState("products")
   const [isFollowing, setIsFollowing] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
+  const [isTransitioning, setIsTransitioning] = useState(false)
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [quickViewOpen, setQuickViewOpen] = useState(false)
   const { addItem } = useCart()
   const { user } = useAuth()
   const { toast } = useToast()
@@ -207,7 +213,7 @@ export default function StorePage() {
     // Search filter
     if (searchQuery) {
       filtered = filtered.filter(product =>
-        product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (product.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.category.toLowerCase().includes(searchQuery.toLowerCase())
       )
     }
@@ -259,7 +265,7 @@ export default function StorePage() {
     addItem({
       productId: product.id,
       id: product.id,
-      title: product.title || product.name,
+      title: product.title || product.name || '',
       price: product.price,
       image: product.images?.[0] || '',
       maxStock: product.stock || 100,
@@ -278,6 +284,13 @@ export default function StorePage() {
   const getUniqueCategories = () => {
     const categories = [...new Set(products.map(p => p.category))]
     return categories
+  }
+
+  const handleBackToStores = () => {
+    setIsTransitioning(true)
+    setTimeout(() => {
+      router.push('/stores')
+    }, 600) // Duration matches the CSS animation
   }
 
   if (!mounted || loading) {
@@ -329,32 +342,52 @@ export default function StorePage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <style jsx global>{`
+        @keyframes slideOutRight {
+          from {
+            transform: translateX(0);
+            opacity: 1;
+          }
+          to {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+        }
+        
+        .page-slide-transition {
+          animation: slideOutRight 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+      `}</style>
+      
+      <div className={isTransitioning ? 'page-slide-transition' : ''}>
       <Header />
       
       {/* Store Header with Modern Design */}
-      <div className="relative w-full h-[28rem] md:h-96 overflow-hidden">
+      <div className="relative w-full h-112 md:h-96 overflow-hidden">
         {/* Background/Profile Card Image with Gradient Overlay */}
         <div className="absolute inset-0">
           <img
             src={
-              store.profileImage
+              (store as any).profileImage
                 || (products[0]?.images?.[0])
                 || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&h=600&fit=crop"
             }
             alt={store.storeName}
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20" />
+          <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/40 to-black/20" />
         </div>
         
         {/* Navigation */}
         <div className="absolute top-6 left-6 z-10 store-back-btn-mobile">
-          <Link href="/stores">
-            <Button variant="outline" className="bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/20 hover:scale-105 transition-all">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Stores
-            </Button>
-          </Link>
+          <Button 
+            variant="outline" 
+            className="bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/20 hover:scale-105 transition-all"
+            onClick={handleBackToStores}
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Stores
+          </Button>
         </div>
         {/* Store Information */}
         <div className="absolute bottom-0 left-0 right-0 p-8 text-white z-10">
@@ -606,67 +639,80 @@ export default function StorePage() {
               </Card>
             ) : (
               <>
-                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6">
                   {filteredProducts.filter(product => product && product.id).map((product) => (
-                    <Card key={product.id} className="group hover:shadow-xl transition-all duration-500 hover:-translate-y-2 border-0 shadow-md overflow-hidden relative h-[350px]">
-                      {/* Full Card Image Background */}
-                      <img
-                        src={product.images?.[0] || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"}
-                        alt={(product.title || (product as any).name || 'Product') as string}
-                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                      />
-                      
-                      {/* Product Badges */}
-                      <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
-                        {product.featured && (
-                          <Badge className="bg-yellow-500 text-black font-semibold">
-                            <svg className="inline w-4 h-4 text-yellow-400 fill-current animate-pulse mr-1" viewBox="0 0 24 24">
-                              <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
-                            </svg> 
-                            Featured
-                          </Badge>
-                        )}
-                        {product.stock < 10 && product.stock > 0 && (
-                          <Badge variant="destructive">
-                            Only {product.stock} left
-                          </Badge>
-                        )}
-                        {product.stock === 0 && (
-                          <Badge variant="secondary" className="bg-gray-600">
-                            Out of Stock
-                          </Badge>
-                        )}
-                      </div>
-                      
-                      {/* Action Buttons */}
-                      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-110 transition-all"
-                          onClick={() => {/* Add to wishlist */}}
-                        >
-                          <Heart className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      
-                      {/* Quick View */}
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-20">
-                        <Link href={`/product/${product.id}`}>
-                          <Button variant="outline" className="bg-white/90 backdrop-blur-sm text-black hover:bg-white hover:scale-105 transition-all">
+                    <Card key={product.id} className="border-0 shadow-md overflow-hidden relative h-[350px] sm:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2">
+                      {/* Image Container with Group Hover */}
+                      <div className="group absolute inset-0 overflow-hidden">
+                        {/* Full Card Image Background */}
+                        <img
+                          src={product.images?.[0] || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"}
+                          alt={(product.title || (product as any).name || 'Product') as string}
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        />
+                        
+                        {/* Product Badges */}
+                        <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
+                          {product.featured && (
+                            <Badge className="bg-yellow-500 text-black font-semibold">
+                              <svg className="inline w-4 h-4 text-yellow-400 fill-current animate-pulse mr-1" viewBox="0 0 24 24">
+                                <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
+                              </svg> 
+                              Featured
+                            </Badge>
+                          )}
+                          {(product.stock ?? 0) < 10 && (product.stock ?? 0) > 0 && (
+                            <Badge variant="destructive">
+                              Only {product.stock} left
+                            </Badge>
+                          )}
+                          {product.stock === 0 && (
+                            <Badge variant="secondary" className="bg-gray-600">
+                              Out of Stock
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        {/* Action Buttons */}
+                        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-110 transition-all"
+                            onClick={() => {/* Add to wishlist */}}
+                          >
+                            <Heart className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        
+                        {/* Quick View */}
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-20">
+                          <Button 
+                            variant="outline" 
+                            className="bg-white/90 backdrop-blur-sm text-black hover:bg-white hover:scale-105 transition-all"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              setSelectedProduct(product)
+                              setQuickViewOpen(true)
+                            }}
+                          >
                             <Eye className="w-4 h-4 mr-2" />
                             Quick View
                           </Button>
-                        </Link>
+                        </div>
                       </div>
                       
                       {/* Frosted Glass Bubble Content */}
-                      <div className="absolute bottom-0 left-0 right-0 p-2.5 sm:p-3 backdrop-blur-xl bg-white/20 dark:bg-black/20 border-t border-white/30 rounded-t-3xl z-10 space-y-1.5">
-                        <Link href={`/product/${product.id}`}>
-                          <h3 className="font-semibold text-xs sm:text-sm line-clamp-1 text-white drop-shadow-lg cursor-pointer">
-                            {product.title || (product as any).name}
-                          </h3>
-                        </Link>
+                      <div className="absolute bottom-0 left-0 right-0 p-2.5 sm:p-3 backdrop-blur-xl bg-white/20 dark:bg-black/20 border-t border-white/30 rounded-t-3xl z-30 space-y-1.5">
+                        <h3 
+                          className="font-semibold text-xs sm:text-sm line-clamp-1 text-white drop-shadow-lg cursor-pointer hover:text-blue-200 transition-colors"
+                          onClick={() => {
+                            setSelectedProduct(product)
+                            setQuickViewOpen(true)
+                          }}
+                        >
+                          {product.title || (product as any).name}
+                        </h3>
                         
                         <div className="flex items-center justify-between gap-2">
                           <Badge variant="outline" className="text-[10px] bg-white/80 backdrop-blur-sm border-white/50 px-1.5 py-0">
@@ -682,10 +728,10 @@ export default function StorePage() {
                           size="sm"
                           onClick={() => handleAddToCart(product)}
                           disabled={product.stock === 0}
-                          className="w-full h-7 text-xs bg-white/90 hover:bg-white text-black backdrop-blur-sm hover:scale-105 transition-all hover:shadow-lg"
+                          className="w-full h-7 text-xs bg-white/90 hover:bg-white text-black backdrop-blur-sm hover:scale-105 transition-all hover:shadow-lg flex items-center justify-center gap-0"
                         >
-                          <ShoppingCart className="w-3 h-3 mr-1" />
-                          Add
+                          <img src="/images/logo3.png" alt="Add" className="w-8 h-8 -mt-2" />
+                          <span className="leading-none">Add</span>
                         </Button>
                       </div>
                     </Card>
@@ -762,6 +808,19 @@ export default function StorePage() {
       </div>
       
       <Footer />
+      
+      {/* Quick View Modal */}
+      <ProductQuickView
+        product={selectedProduct}
+        open={quickViewOpen}
+        onClose={() => {
+          setQuickViewOpen(false)
+          setSelectedProduct(null)
+        }}
+        onAddToCart={handleAddToCart}
+        storeName={store?.storeName}
+      />
+      </div>
     </div>
   )
 }

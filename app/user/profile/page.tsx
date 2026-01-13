@@ -12,8 +12,9 @@ import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { User, Mail, Calendar, ShoppingBag, MapPin, Phone, Edit2, Save, X } from "lucide-react"
+import { User, Mail, Calendar, ShoppingBag, MapPin, Phone, Edit2, Save, X, Heart } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { FollowedStoresModal } from "@/components/ui/followed-stores-modal"
 
 export default function ProfilePage() {
   const { user, userProfile } = useAuth()
@@ -21,6 +22,7 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+  const [followedStoresModalOpen, setFollowedStoresModalOpen] = useState(false)
   
   const [formData, setFormData] = useState({
     displayName: '',
@@ -283,7 +285,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Quick Links */}
-        <div className="grid gap-4 md:grid-cols-3 mt-6">
+        <div className="grid gap-4 md:grid-cols-4 mt-6">
           <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => router.push('/order')}>
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
@@ -293,6 +295,20 @@ export default function ProfilePage() {
                 <div>
                   <h3 className="font-semibold">My Orders</h3>
                   <p className="text-sm text-muted-foreground">View order history</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setFollowedStoresModalOpen(true)}>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-accent/10 rounded-lg">
+                  <Heart className="h-6 w-6 text-accent fill-accent" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Following</h3>
+                  <p className="text-sm text-muted-foreground">Followed stores</p>
                 </div>
               </div>
             </CardContent>
@@ -326,6 +342,13 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Followed Stores Modal */}
+        <FollowedStoresModal 
+          open={followedStoresModalOpen} 
+          onClose={() => setFollowedStoresModalOpen(false)} 
+          userId={user?.uid || ''}
+        />
       </main>
 
       <Footer />
