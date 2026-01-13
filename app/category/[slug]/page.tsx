@@ -35,67 +35,88 @@ export default function CategoryPage() {
 
   useEffect(() => {
     async function fetchProducts() {
-      // TODO: Replace with API call to fetch products from MongoDB
-      // Example stub:
-      // const all = await fetch(`/api/products?category=${categorySlug}`).then(res => res.json())
-      // Example mapping logic for MongoDB products:
-      // setProducts(all.map((p: any) => ({
-      //   name: p.title,
-      //   image: Array.isArray(p.images) ? p.images[0] : p.image || "/placeholder.svg",
-      //   vendor: p.vendorName || p.vendor || "Vendor",
-      //   inStock: typeof p.stock === "number" ? p.stock > 0 : true,
-      //   rating: p.rating || 5,
-      //   reviews: p.reviews || 0,
-      //   originalPrice: p.originalPrice || null,
-      //   maxStock: p.stock || 99,
-      //   vendorCategory: p.vendorCategory || p.category || ""
-      // })));
+      try {
+        const response = await fetch(`/api/database/products?category=${categorySlug}`)
+        const result = await response.json()
+        
+        if (result.success && result.data) {
+          // Get unique vendor IDs
+          const vendorIds = [...new Set(result.data.map((p: any) => p.vendorId))]
+          
+          // Fetch store names for all vendors
+          const storeNamesMap: { [key: string]: string } = {}
+          for (const vendorId of vendorIds) {
+            try {
+              const storeRes = await fetch(`/api/database/stores?vendorId=${vendorId}`)
+              const storeData = await storeRes.json()
+              if (storeData.success && storeData.data && storeData.data.length > 0) {
+                storeNamesMap[vendorId] = storeData.data[0].storeName || "Store"
+              }
+            } catch (err) {
+              console.error('Error fetching store:', err)
+            }
+          }
+          
+          const mappedProducts = result.data.map((p: any) => {
+            const storeName = storeNamesMap[p.vendorId] || "Store"
+            return {
+              id: p.id || p._id,
+              name: p.name || p.title,
+              price: p.price,
+              image: Array.isArray(p.images) ? p.images[0] : p.image || "/placeholder.svg",
+              storeName: storeName,
+              inStock: typeof p.stock === "number" ? p.stock > 0 : true,
+              rating: p.rating || 5,
+              reviews: p.reviews || 0,
+              originalPrice: p.originalPrice || null,
+              maxStock: p.stock || 99,
+              vendorCategory: p.category || "",
+              category: p.category || "",
+              description: p.description || ""
+            }
+          })
+          setProducts(mappedProducts)
+        } else {
+          console.log('No products found or API error')
+        }
+      } catch (error) {
+        console.error('Error fetching products:', error)
+      }
     }
-    fetchProducts();
-  }, [categorySlug]);
+    fetchProducts()
+  }, [categorySlug])
 
   useEffect(() => {
-    // More flexible category matching - check multiple possible category formats
-    let filtered = products.filter((product) => {
-      const productCategory = (product.vendorCategory || product.category || "").toLowerCase()
-      const categoryDisplayName = categoryNames[categorySlug]?.toLowerCase()
-      
-      return productCategory === categorySlug ||
-             productCategory === categoryDisplayName ||
-             productCategory.includes(categorySlug) ||
-             (categoryDisplayName && productCategory.includes(categoryDisplayName))
-    })
+    // Products are already filtered by category from the API, just apply search and sort
+    let filtered = [...products]
     
-    // If no products in this category, show fallback and suggestions
-    if (filtered.length === 0) {
-      setFilteredProducts([])
-    } else {
-      if (searchQuery) {
-        filtered = filtered.filter(
-          (product) =>
-            product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (product.description?.toLowerCase() || "").includes(searchQuery.toLowerCase()),
-        )
-      }
-      switch (sortBy) {
-        case "price-low":
-          filtered.sort((a, b) => a.price - b.price)
-          break
-        case "price-high":
-          filtered.sort((a, b) => b.price - a.price)
-          break
-        case "rating":
-          filtered.sort((a, b) => b.rating - a.rating)
-          break
-        case "newest":
-          filtered.reverse()
-          break
-        default:
-          break
-      }
-      setFilteredProducts(filtered)
+    if (searchQuery) {
+      filtered = filtered.filter(
+        (product) =>
+          product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (product.description?.toLowerCase() || "").includes(searchQuery.toLowerCase()),
+      )
     }
-  }, [categorySlug, searchQuery, sortBy, products])
+    
+    switch (sortBy) {
+      case "price-low":
+        filtered.sort((a, b) => a.price - b.price)
+        break
+      case "price-high":
+        filtered.sort((a, b) => b.price - a.price)
+        break
+      case "rating":
+        filtered.sort((a, b) => b.rating - a.rating)
+        break
+      case "newest":
+        filtered.reverse()
+        break
+      default:
+        break
+    }
+    
+    setFilteredProducts(filtered)
+  }, [searchQuery, sortBy, products])
 
   const handleAddToCart = (product: any) => {
     addToCart({
@@ -104,8 +125,8 @@ export default function CategoryPage() {
       price: product.price,
       image: product.image,
       quantity: 1,
-      vendorId: product.vendor || "", 
-      vendorName: product.vendor,
+      vendorId: product.storeName || "", 
+      vendorName: product.storeName,
       maxStock: product.inStock ? 999 : 0,
       id: product
     })
@@ -187,141 +208,143 @@ export default function CategoryPage() {
               <Button onClick={() => setSearchQuery("")}>Clear Search</Button>
             </div>
             {/* Show all products as suggestions */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-8">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6 mt-8">
               {products.map((product) => (
-                <Card key={product.id} className="group hover:shadow-lg transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="relative mb-4">
-                      <Link href={`/product/${product.id}`}>
-                        <img
-                          src={product.image || "/placeholder.svg"}
-                          alt={product.name}
-                          className="w-full h-48 object-cover rounded-lg cursor-pointer"
-                        />
-                      </Link>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-transparent"
-                      >
-                        <Heart className="w-4 h-4" />
-                      </Button>
+                <Card key={product.id} className="border-0 shadow-md overflow-hidden relative h-[350px] sm:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-3xl">
+                  {/* Image Container with Group Hover */}
+                  <div className="group absolute inset-0 overflow-hidden">
+                    {/* Full Card Image Background */}
+                    <img
+                      src={product.image || "/placeholder.svg"}
+                      alt={product.name}
+                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    />
+                    
+                    {/* Product Badges */}
+                    <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
                       {!product.inStock && (
-                        <Badge variant="secondary" className="absolute bottom-2 left-2">
+                        <Badge variant="secondary" className="bg-gray-600">
                           Out of Stock
                         </Badge>
                       )}
                       {product.category !== categorySlug && (
-                        <Badge variant="outline" className="absolute bottom-2 right-2">
+                        <Badge className="bg-blue-500 text-white font-semibold">
                           Suggested
                         </Badge>
                       )}
                     </div>
-                    <div className="space-y-2">
-                      <Link href={`/product/${product.id}`}>
-                        <h3 className="font-semibold hover:text-primary cursor-pointer line-clamp-2">{product.name}</h3>
-                      </Link>
-                      <p className="text-sm text-muted-foreground">by {product.vendor}</p>
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center">
-                          {[...Array(5)].map((_, i) => (
-                            <svg
-                              key={i}
-                              className={`w-4 h-4 ${
-                                i < Math.floor(product.rating) ? "text-yellow-400 fill-current" : "text-gray-300"
-                              }`}
-                              viewBox="0 0 20 20"
-                            >
-                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                            </svg>
-                          ))}
-                        </div>
-                        <span className="text-sm text-muted-foreground">({product.reviews})</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg font-bold">₦{product.price}</span>
-                          {product.originalPrice && (
-                            <span className="text-sm text-muted-foreground line-through">₦{product.originalPrice}</span>
-                          )}
-                        </div>
-                        <Button size="sm" onClick={() => handleAddToCart(product)} disabled={!product.inStock}>
-                          <ShoppingCart className="w-4 h-4 mr-2" />
-                          Add
-                        </Button>
+                    
+                    {/* Action Buttons */}
+                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-110 transition-all"
+                      >
+                        <Heart className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* Frosted Glass Bubble Content */}
+                  <div className="absolute bottom-0 left-0 right-0 p-2.5 sm:p-3 backdrop-blur-xl bg-white/20 dark:bg-black/20 border-t border-white/30 rounded-t-3xl z-30 space-y-1.5">
+                    <Link href={`/product/${product.id}`}>
+                      <h3 className="font-semibold text-xs sm:text-sm line-clamp-1 text-white drop-shadow-lg cursor-pointer hover:text-blue-200 transition-colors">
+                        {product.name}
+                      </h3>
+                    </Link>
+                    
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-white text-[11px] sm:text-xs font-medium px-2 py-1 bg-accent/80 backdrop-blur-sm rounded-full border border-white/50">
+                        {product.storeName}
+                      </span>
+                      
+                      <div className="font-bold text-sm text-white drop-shadow-lg">
+                        ₦{product.price}
                       </div>
                     </div>
-                  </CardContent>
+                    
+                    <Button 
+                      size="sm"
+                      onClick={() => handleAddToCart(product)}
+                      disabled={!product.inStock}
+                      className="w-full h-7 text-xs bg-white/90 hover:bg-white text-black backdrop-blur-sm hover:scale-105 transition-all hover:shadow-lg flex items-center justify-center gap-0"
+                    >
+                      <img src="/images/logo3.png" alt="Add" className="w-8 h-8 -mt-2" />
+                      <span className="leading-none text-accent">Add</span>
+                    </Button>
+                  </div>
                 </Card>
               ))}
             </div>
           </>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6">
             {filteredProducts.map((product) => (
-              <Card key={product.id} className="group hover:shadow-lg transition-shadow">
-                <CardContent className="p-4">
-                  <div className="relative mb-4">
-                    <Link href={`/product/${product.id}`}>
-                      <img
-                        src={product.image || "/placeholder.svg"}
-                        alt={product.name}
-                        className="w-full h-48 object-cover rounded-lg cursor-pointer"
-                      />
-                    </Link>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-transparent"
-                    >
-                      <Heart className="w-4 h-4" />
-                    </Button>
+              <Card key={product.id} className="border-0 shadow-md overflow-hidden relative h-[350px] sm:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-3xl">
+                {/* Image Container with Group Hover */}
+                <div className="group absolute inset-0 overflow-hidden">
+                  {/* Full Card Image Background */}
+                  <img
+                    src={product.image || "/placeholder.svg"}
+                    alt={product.name}
+                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                  />
+                  
+                  {/* Product Badges */}
+                  <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
                     {!product.inStock && (
-                      <Badge variant="secondary" className="absolute bottom-2 left-2">
+                      <Badge variant="secondary" className="bg-gray-600">
                         Out of Stock
                       </Badge>
                     )}
                     {product.category !== categorySlug && (
-                      <Badge variant="outline" className="absolute bottom-2 right-2">
+                      <Badge className="bg-blue-500 text-white font-semibold">
                         Suggested
                       </Badge>
                     )}
                   </div>
-                  <div className="space-y-2">
-                    <Link href={`/product/${product.id}`}>
-                      <h3 className="font-semibold hover:text-primary cursor-pointer line-clamp-2">{product.name}</h3>
-                    </Link>
-                    <p className="text-sm text-muted-foreground">by {product.vendor}</p>
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center">
-                        {[...Array(5)].map((_, i) => (
-                          <svg
-                            key={i}
-                            className={`w-4 h-4 ${
-                              i < Math.floor(product.rating) ? "text-yellow-400 fill-current" : "text-gray-300"
-                            }`}
-                            viewBox="0 0 20 20"
-                          >
-                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                          </svg>
-                        ))}
-                      </div>
-                      <span className="text-sm text-muted-foreground">({product.reviews})</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold">₦{product.price}</span>
-                        {product.originalPrice && (
-                          <span className="text-sm text-muted-foreground line-through">₦{product.originalPrice}</span>
-                        )}
-                      </div>
-                      <Button size="sm" onClick={() => handleAddToCart(product)} disabled={!product.inStock}>
-                        <ShoppingCart className="w-4 h-4 mr-2" />
-                        Add
-                      </Button>
+                  
+                  {/* Action Buttons */}
+                  <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-110 transition-all"
+                    >
+                      <Heart className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* Frosted Glass Bubble Content */}
+                <div className="absolute bottom-0 left-0 right-0 p-2.5 sm:p-3 backdrop-blur-xl bg-white/20 dark:bg-black/20 border-t border-white/30 rounded-t-3xl z-30 space-y-1.5">
+                  <Link href={`/product/${product.id}`}>
+                    <h3 className="font-semibold text-xs sm:text-sm line-clamp-1 text-white drop-shadow-lg cursor-pointer hover:text-blue-200 transition-colors">
+                      {product.name}
+                    </h3>
+                  </Link>
+                  
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-white text-[11px] sm:text-xs font-medium px-2 py-1 bg-accent/80 backdrop-blur-sm rounded-full border border-white/50">
+                      {product.storeName}
+                    </span>
+                    
+                    <div className="font-bold text-sm text-white drop-shadow-lg">
+                      ₦{product.price}
                     </div>
                   </div>
-                </CardContent>
+                  
+                  <Button 
+                    size="sm"
+                    onClick={() => handleAddToCart(product)}
+                    disabled={!product.inStock}
+                    className="w-full h-7 text-xs bg-white/90 hover:bg-white text-black backdrop-blur-sm hover:scale-105 transition-all hover:shadow-lg flex items-center justify-center gap-0"
+                  >
+                    <img src="/images/logo3.png" alt="Add" className="w-8 h-8 -mt-2" />
+                    <span className="leading-none text-accent">Add</span>
+                  </Button>
+                </div>
               </Card>
             ))}
           </div>

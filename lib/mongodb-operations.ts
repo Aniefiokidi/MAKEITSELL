@@ -211,7 +211,7 @@ export interface Product {
 export const getProducts = async (filters?: any): Promise<Product[]> => {
   await connectToDatabase();
   const query: any = {};
-  if (filters?.category) query.category = filters.category;
+  if (filters?.category) query.category = new RegExp(`^${filters.category}$`, 'i');
   if (filters?.vendorId) query.vendorId = filters.vendorId;
   if (filters?.featured !== undefined) query.featured = filters.featured;
   if (filters?.status) query.status = filters.status;

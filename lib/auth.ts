@@ -1,21 +1,7 @@
 
 import { connectToDatabase } from './mongodb';
-import mongoose from 'mongoose';
 import crypto from 'crypto';
-
-// User schema (minimal)
-const userSchema = new mongoose.Schema({
-  email: { type: String, unique: true },
-  passwordHash: String,
-  name: String,
-  role: { type: String, default: 'customer' },
-  vendorInfo: Object,
-  sessionToken: String,
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
-});
-
-const User = mongoose.models.User || mongoose.model('User', userSchema);
+import { User } from './models/User';
 
 function hashPassword(password: string) {
   return crypto.createHash('sha256').update(password).digest('hex');
@@ -44,18 +30,28 @@ export async function signIn({ email, password }: { email: string, password: str
   console.log('[auth.signIn] User found:', user ? 'YES' : 'NO');
   if (!user) throw new Error('Invalid credentials');
   
-  // Check if password hash exists
-  if (!user.passwordHash) {
-    console.log('[auth.signIn] User exists but has no password hash set');
-    throw new Error('Your account was created without a password. Please use "Forgot Password" to set one, or contact support.');
-  }
-  
   const inputPasswordHash = hashPassword(password);
-  console.log('[auth.signIn] Stored hash:', user.passwordHash);
-  console.log('[auth.signIn] Input hash:', inputPasswordHash);
-  console.log('[auth.signIn] Hashes match:', user.passwordHash === inputPasswordHash);
-  
-  if (user.passwordHash !== inputPasswordHash) throw new Error('Invalid credentials');
+
+  // Primary path: use passwordHash
+  if (user.passwordHash) {
+    console.log('[auth.signIn] Stored hash:', user.passwordHash);
+    console.log('[auth.signIn] Input hash:', inputPasswordHash);
+    console.log('[auth.signIn] Hashes match:', user.passwordHash === inputPasswordHash);
+    if (user.passwordHash !== inputPasswordHash) throw new Error('Invalid credentials');
+  } else {
+    // Backward compatibility: some legacy users only have `password` field
+    console.log('[auth.signIn] No passwordHash; attempting legacy password check');
+    const legacyPassword: string | undefined = (user as any).password;
+
+    // If legacy password matches plaintext input OR hashed input, accept and upgrade
+    const legacyMatches = legacyPassword === password || legacyPassword === inputPasswordHash;
+    if (!legacyPassword || !legacyMatches) {
+      throw new Error('Your account is missing a password hash. Please reset your password or contact support.');
+    }
+
+    console.log('[auth.signIn] Legacy password accepted; upgrading to passwordHash');
+    user.passwordHash = inputPasswordHash;
+  }
   // Generate new session token
   user.sessionToken = crypto.randomBytes(32).toString('hex');
   console.log('[auth.signIn] Generated sessionToken:', user.sessionToken);
