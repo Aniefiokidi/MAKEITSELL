@@ -30,14 +30,14 @@ export default function HomePage() {
     const timer = setTimeout(() => {
       setFadeOutIntro(true)
       setTimeout(() => setShowIntro(false), 700)
-    }, 6000)
+    }, 5000)
     return () => clearTimeout(timer)
   }, [showIntro])
 
   const startFadeOutIntro = () => {
     if (fadeOutIntro) return
     setFadeOutIntro(true)
-    setTimeout(() => setShowIntro(false), 900)
+    setTimeout(() => setShowIntro(false), 700)
   }
 
   const handleIntroEnd = () => startFadeOutIntro()
@@ -50,8 +50,8 @@ export default function HomePage() {
           className={`fixed inset-0 bg-black flex items-center justify-center overflow-hidden transition-opacity duration-700 z-50 ${fadeOutIntro ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
         >
           <video
-            className="absolute inset-0 w-full h-full object-cover"
-            src="/images/VID.MOV"
+            className="absolute inset-0 w-full h-full object-contain"
+            src="/images/MIS AD 1.mp4"
             autoPlay
             muted
             playsInline

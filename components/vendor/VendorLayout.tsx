@@ -57,17 +57,9 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
         </div>
 
 
-        <div className="p-4">
-          <AddProductModal>
-            <Button className="w-full">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Product
-            </Button>
-          </AddProductModal>
-        </div>
-
         {/* Navigation */}
         <nav className="flex-1 space-y-1 p-4">
+          
           {navigation.map((item) => {
             const isActive = pathname === item.href
             return (
@@ -107,13 +99,16 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
             </Button>
           </div>
           <div className="flex-1" />
+          
           <div className="flex items-center space-x-4">
-            <AddProductModal>
-              <Button>
+            
+  
+            <Button asChild variant="outline" className="hover:bg-accent hover:scale-105 transition-all hover:shadow-lg">
+              <Link href="/vendor/products/new">
                 <Plus className="mr-2 h-4 w-4" />
                 Add Product
-              </Button>
-            </AddProductModal>
+              </Link>
+            </Button>
             <Button variant="outline" onClick={() => routes.push('/stores')}>
               <Store className="mr-2 h-4 w-4" />
               Back To home

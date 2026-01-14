@@ -14,8 +14,22 @@ interface PaymentResponse {
   data?: any
   message?: string
   authUrl?: string
+    subscriptionCode?: string
 }
 
+  interface SubscriptionPlan {
+    name: string
+    amount: number
+    interval: 'monthly' | 'annually'
+    description?: string
+  }
+
+  interface SubscriptionData {
+    customer: string // email or customer code
+    plan: string // plan code
+    authorization?: string // authorization code if customer has paid before
+    start_date?: string
+  }
 class PaystackService {
   private secretKey: string
   private publicKey: string
@@ -26,6 +40,250 @@ class PaystackService {
     this.publicKey = (process.env.PAYSTACK_PUBLIC_KEY || '').trim()
   }
 
+    // Create a subscription plan on Paystack
+    async createSubscriptionPlan(planData: SubscriptionPlan): Promise<PaymentResponse> {
+      try {
+        if (!this.secretKey || !this.secretKey.startsWith('sk_')) {
+          return {
+            success: false,
+            message: 'PAYSTACK_SECRET_KEY missing or invalid'
+          }
+        }
+
+        const url = 'https://api.paystack.co/plan'
+        const payload = {
+          name: planData.name,
+          amount: Math.round(planData.amount * 100), // in kobo
+          interval: planData.interval,
+          description: planData.description || '',
+          currency: 'NGN'
+        }
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${this.secretKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        })
+
+        const result = await response.json()
+        console.log('PaystackService: Create plan response:', result)
+
+        if (result.status) {
+          return {
+            success: true,
+            data: result.data
+          }
+        }
+
+        return { success: false, message: result.message || 'Plan creation failed' }
+      } catch (error) {
+        console.error('Create subscription plan error:', error)
+        return {
+          success: false,
+          message: 'Failed to create subscription plan'
+        }
+      }
+    }
+
+    // Subscribe a customer to a plan
+    async createSubscription(subscriptionData: SubscriptionData): Promise<PaymentResponse> {
+      try {
+        if (!this.secretKey || !this.secretKey.startsWith('sk_')) {
+          return {
+            success: false,
+            message: 'PAYSTACK_SECRET_KEY missing or invalid'
+          }
+        }
+
+        const url = 'https://api.paystack.co/subscription'
+        const payload = {
+          customer: subscriptionData.customer,
+          plan: subscriptionData.plan,
+          authorization: subscriptionData.authorization,
+          start_date: subscriptionData.start_date
+        }
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${this.secretKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        })
+
+        const result = await response.json()
+        console.log('PaystackService: Create subscription response:', result)
+
+        if (result.status) {
+          return {
+            success: true,
+            data: result.data,
+            subscriptionCode: result.data.subscription_code,
+            authUrl: result.data.authorization_url || result.data.email_token
+          }
+        }
+
+        return { success: false, message: result.message || 'Subscription creation failed' }
+      } catch (error) {
+        console.error('Create subscription error:', error)
+        return {
+          success: false,
+          message: 'Failed to create subscription'
+        }
+      }
+    }
+
+    // Initialize subscription payment (for new customers without authorization code)
+    async initializeSubscriptionPayment(paymentData: PaymentData & { planCode: string }): Promise<PaymentResponse> {
+      try {
+        console.log('PaystackService: Initializing subscription payment:', paymentData)
+        if (!this.secretKey || !this.secretKey.startsWith('sk_')) {
+          return {
+            success: false,
+            message: 'PAYSTACK_SECRET_KEY missing or invalid'
+          }
+        }
+
+        const url = 'https://api.paystack.co/transaction/initialize'
+      
+        const isSignupSubscription = paymentData.items.some(item => item.productId === 'vendor-subscription-signup')
+        const callbackUrl = isSignupSubscription 
+          ? `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/vendor-subscription-signup/callback`
+          : `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/vendor-subscription/callback`
+      
+        const payload = {
+          email: paymentData.email,
+          amount: Math.round(paymentData.amount * 100), // in kobo
+          currency: 'NGN',
+          reference: `${paymentData.orderId}-${Date.now()}`,
+          callback_url: callbackUrl,
+          plan: paymentData.planCode, // This links the transaction to the subscription plan
+          metadata: {
+            orderId: paymentData.orderId,
+            customerId: paymentData.customerId,
+            items: JSON.stringify(paymentData.items),
+            type: isSignupSubscription ? 'vendor_signup_subscription' : 'vendor_subscription',
+            planCode: paymentData.planCode
+          }
+        }
+
+        console.log('PaystackService: Sending subscription payload to Paystack:', payload)
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${this.secretKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        })
+
+        const result = await response.json()
+        console.log('PaystackService: Subscription payment response:', result)
+
+        if (result.status) {
+          return {
+            success: true,
+            data: result.data,
+            authUrl: result.data.authorization_url
+          }
+        }
+
+        return { success: false, message: result.message || 'Subscription payment initialization failed' }
+      } catch (error) {
+        console.error('Initialize subscription payment error:', error)
+        return {
+          success: false,
+          message: 'Failed to initialize subscription payment'
+        }
+      }
+    }
+
+    // Cancel a subscription
+    async cancelSubscription(subscriptionCode: string, emailToken: string): Promise<PaymentResponse> {
+      try {
+        if (!this.secretKey || !this.secretKey.startsWith('sk_')) {
+          return {
+            success: false,
+            message: 'PAYSTACK_SECRET_KEY missing or invalid'
+          }
+        }
+
+        const url = 'https://api.paystack.co/subscription/disable'
+        const payload = {
+          code: subscriptionCode,
+          token: emailToken
+        }
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${this.secretKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        })
+
+        const result = await response.json()
+
+        if (result.status) {
+          return {
+            success: true,
+            message: 'Subscription cancelled successfully'
+          }
+        }
+
+        return { success: false, message: result.message || 'Failed to cancel subscription' }
+      } catch (error) {
+        console.error('Cancel subscription error:', error)
+        return {
+          success: false,
+          message: 'Failed to cancel subscription'
+        }
+      }
+    }
+
+    // Get subscription details
+    async getSubscription(subscriptionCode: string): Promise<PaymentResponse> {
+      try {
+        if (!this.secretKey || !this.secretKey.startsWith('sk_')) {
+          return {
+            success: false,
+            message: 'PAYSTACK_SECRET_KEY missing or invalid'
+          }
+        }
+
+        const url = `https://api.paystack.co/subscription/${subscriptionCode}`
+
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${this.secretKey}`,
+          },
+        })
+
+        const result = await response.json()
+
+        if (result.status) {
+          return {
+            success: true,
+            data: result.data
+          }
+        }
+
+        return { success: false, message: result.message || 'Failed to fetch subscription' }
+      } catch (error) {
+        console.error('Get subscription error:', error)
+        return {
+          success: false,
+          message: 'Failed to fetch subscription'
+        }
+      }
+    }
   async initializePayment(paymentData: PaymentData): Promise<PaymentResponse> {
     try {
       console.log('PaystackService: Initializing payment with data:', paymentData)

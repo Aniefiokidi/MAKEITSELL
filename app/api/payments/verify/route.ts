@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { paystackService } from '@/lib/payment'
 import { emailService } from '@/lib/email'
 import { updateOrder, getOrderById, getUserById, getStores } from '@/lib/mongodb-operations'
+import connectToDatabase from '@/lib/mongodb'
+import mongoose from 'mongoose'
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,6 +32,9 @@ export async function GET(request: NextRequest) {
     const paymentData = verificationResult.data
     const orderId = paymentData.metadata.orderId
 
+    // Get order details before updating
+    const order = await getOrderById(orderId)
+
     // Update order status
     await updateOrder(orderId, {
       status: 'confirmed',
@@ -39,8 +44,58 @@ export async function GET(request: NextRequest) {
       paidAt: new Date()
     })
 
-    // Get order details for email
-    const order = await getOrderById(orderId)
+    // Update product stock and sales (supports both top-level items and vendor items)
+    if (order && (order.items || order.vendors)) {
+      try {
+        await connectToDatabase()
+        const db = mongoose.connection.db
+
+        if (db) {
+          // Combine items from top-level and vendor-scoped arrays
+          const items: any[] = [
+            ...(Array.isArray(order.items) ? order.items : []),
+            ...(Array.isArray(order.vendors)
+              ? order.vendors.flatMap((v: any) => Array.isArray(v.items) ? v.items : [])
+              : [])
+          ]
+
+          for (const item of items) {
+            const qty = item.quantity || 1
+
+            // Build filters to handle ObjectId and string identifiers
+            const filters: any[] = []
+            if (item.productId) {
+              if (mongoose.Types.ObjectId.isValid(item.productId)) {
+                filters.push({ _id: new mongoose.Types.ObjectId(item.productId) })
+              }
+              filters.push({ productId: item.productId })
+              filters.push({ id: item.productId })
+            }
+
+            if (filters.length === 0) {
+              console.warn('Skipping stock update; no valid productId on item', item)
+              continue
+            }
+
+            const result = await db.collection('products').updateOne(
+              { $or: filters },
+              {
+                $inc: {
+                  stock: -qty,
+                  sales: qty
+                }
+              }
+            )
+
+            console.log(`Updated product ${item.productId}: deducted ${qty} stock, added ${qty} sales; matched ${result?.matchedCount}`)
+          }
+          console.log('Product stock and sales updated successfully')
+        }
+      } catch (stockError) {
+        console.error('Error updating product stock/sales:', stockError)
+        // Continue anyway - order is confirmed even if stock update fails
+      }
+    }
     if (order) {
       // Get customer details
       const customer = await getUserById(order.customerId)
@@ -112,6 +167,9 @@ export async function POST(request: NextRequest) {
       const paymentData = verificationResult.data
       const orderId = paymentData.metadata.orderId
 
+      // Get order details before updating
+      const order = await getOrderById(orderId)
+
       // Update order status
       await updateOrder(orderId, {
         status: 'confirmed',
@@ -121,8 +179,58 @@ export async function POST(request: NextRequest) {
         paidAt: new Date()
       })
 
-      // Get order details for email
-      const order = await getOrderById(orderId)
+      // Update product stock and sales (supports both top-level items and vendor items)
+      if (order && (order.items || order.vendors)) {
+        try {
+          await connectToDatabase()
+          const db = mongoose.connection.db
+          
+          if (db) {
+            // Combine items from top-level and vendor-scoped arrays
+            const items: any[] = [
+              ...(Array.isArray(order.items) ? order.items : []),
+              ...(Array.isArray(order.vendors)
+                ? order.vendors.flatMap((v: any) => Array.isArray(v.items) ? v.items : [])
+                : [])
+            ]
+
+            for (const item of items) {
+              const qty = item.quantity || 1
+
+              // Build filters to handle ObjectId and string identifiers
+              const filters: any[] = []
+              if (item.productId) {
+                if (mongoose.Types.ObjectId.isValid(item.productId)) {
+                  filters.push({ _id: new mongoose.Types.ObjectId(item.productId) })
+                }
+                filters.push({ productId: item.productId })
+                filters.push({ id: item.productId })
+              }
+
+              if (filters.length === 0) {
+                console.warn('Skipping stock update; no valid productId on item', item)
+                continue
+              }
+
+              const result = await db.collection('products').updateOne(
+                { $or: filters },
+                {
+                  $inc: {
+                    stock: -qty,
+                    sales: qty
+                  }
+                }
+              )
+
+              console.log(`Updated product ${item.productId}: deducted ${qty} stock, added ${qty} sales; matched ${result?.matchedCount}`)
+            }
+            console.log('Product stock and sales updated successfully')
+          }
+        } catch (stockError) {
+          console.error('Error updating product stock/sales:', stockError)
+          // Continue anyway - order is confirmed even if stock update fails
+        }
+      }
       if (order) {
         // Get vendor details from store
         let vendorEmail = 'vendor@example.com'

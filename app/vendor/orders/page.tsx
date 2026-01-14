@@ -56,7 +56,7 @@ export default function VendorOrdersPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {orders.map((order) => (
-                <Card key={order.orderId || order.id} className="shadow-md">
+                <Card key={order.orderId || order.id} className="bg-accent/10 backdrop-blur-md border-white/20 shadow-lg">
                   <CardHeader>
                     <CardTitle>Order #{(order.orderId || order.id || "").toString().substring(0, 8).toUpperCase()}</CardTitle>
                     <CardDescription>
@@ -66,7 +66,7 @@ export default function VendorOrdersPage() {
                   <CardContent className="space-y-4">
                     <div className="flex flex-col gap-3">
                       {order.products?.map((prod: any, idx: number) => (
-                        <div key={idx} className="flex items-center gap-3 p-2 border rounded-md">
+                        <div key={idx} className="flex items-center gap-3 p-2 border border-white/10 rounded-md bg-white/5 backdrop-blur-sm">
                           {prod.image && (
                             <img
                               src={prod.image}

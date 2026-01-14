@@ -47,11 +47,24 @@ export async function POST(request: NextRequest) {
     // Initialize Paystack payment
     // Always use the current request origin to avoid stale/typo'd env URLs
     const origin = new URL(request.url).origin
-    const paymentResult = await paystackService.initializePayment({
+    
+      // Get the subscription plan code from environment
+      const planCode = process.env.PAYSTACK_VENDOR_PLAN_CODE
+    
+      if (!planCode) {
+        return NextResponse.json(
+          { error: 'Subscription plan not configured. Please contact support.' },
+          { status: 500 }
+        )
+      }
+    
+      // Initialize subscription payment - this will automatically create a subscription after successful payment
+      const paymentResult = await paystackService.initializeSubscriptionPayment({
       email: email,
       amount: 2500, // ₦2,500
       orderId: signupId,
-      customerId: signupId, // Use signup ID as customer ID since no user exists yet
+        customerId: signupId,
+        planCode: planCode, // Link to subscription plan
       callbackUrl: `${origin}/api/payments/vendor-subscription-signup/callback`,
       items: [{
         productId: 'vendor-subscription-signup',
@@ -63,7 +76,7 @@ export async function POST(request: NextRequest) {
       }]
     })
 
-    console.log('Paystack result for signup payment:', paymentResult)
+      console.log('Paystack subscription result for signup payment:', paymentResult)
 
     if (paymentResult.success) {
       // Update pending signup with payment reference

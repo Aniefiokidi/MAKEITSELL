@@ -379,11 +379,11 @@ export default function VendorDashboardPage() {
                 <div className="text-center py-8">
                   <ShoppingCart className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                   <p className="text-gray-600 mb-4">No orders yet</p>
-                  <Button asChild variant="outline">
-                    <Link href="/vendor/products/new">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Your First Product
-                    </Link>
+                   <Button asChild variant="outline" className="hover:bg-accent hover:scale-105 transition-all hover:shadow-lg">
+                                <Link href="/vendor/products/new">
+                                  <Plus className="mr-2 h-4 w-4" />
+                                  Add Product
+                                </Link>
                   </Button>
                 </div>
               ) : (

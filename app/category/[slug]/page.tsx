@@ -50,7 +50,7 @@ export default function CategoryPage() {
               const storeRes = await fetch(`/api/database/stores?vendorId=${vendorId}`)
               const storeData = await storeRes.json()
               if (storeData.success && storeData.data && storeData.data.length > 0) {
-                storeNamesMap[vendorId] = storeData.data[0].storeName || "Store"
+                storeNamesMap[vendorId as string] = storeData.data[0].storeName || "Store"
               }
             } catch (err) {
               console.error('Error fetching store:', err)

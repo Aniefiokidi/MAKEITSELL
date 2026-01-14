@@ -66,6 +66,12 @@ export async function getVendorDashboard(vendorId: string) {
   const conversionRateLastMonth = ordersLastMonth.length === 0 ? 0 : (ordersLastMonth.length / (totalProducts || 1)) * 100;
   const conversionRateChange = conversionRateLastMonth === 0 ? null : ((conversionRate - conversionRateLastMonth) / conversionRateLastMonth) * 100;
 
+  // Low stock products (less than 10 items)
+  const lowStockProducts = products.filter(p => (p.stock || 0) < 10);
+
+  // Recent orders (last 5)
+  const recentOrders = orders.slice(0, 5);
+
   return {
     totalRevenue,
     totalOrders,
@@ -76,6 +82,8 @@ export async function getVendorDashboard(vendorId: string) {
     newProductsThisWeek,
     conversionRate,
     conversionRateChange,
+    lowStockProducts,
+    recentOrders,
     totalServices: services.length,
     activeServices: services.filter((s: any) => s.status === 'active').length,
     totalBookings: bookings.length,

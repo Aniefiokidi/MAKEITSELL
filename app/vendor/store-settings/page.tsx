@@ -29,7 +29,32 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAuth } from "@/contexts/AuthContext"
-import type { IStore as StoreType } from "@/lib/models"
+// Replace with the correct type export from "@/lib/models" or define inline if missing
+// import type { StoreType } from "@/lib/models"
+// If no type exists, define it here:
+type StoreType = {
+  _id?: string;
+  vendorId: string;
+  storeName: string;
+  storeDescription?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  category?: string;
+  deliveryTime?: string;
+  deliveryFee?: number;
+  minimumOrder?: number;
+  returnPolicy?: string;
+  shippingPolicy?: string;
+  acceptReturns?: boolean;
+  acceptExchanges?: boolean;
+  autoFulfill?: boolean;
+  emailNotifications?: boolean;
+  backgroundImage?: string;
+  profileImage?: string;
+  isOpen?: boolean;
+  storeImage?: string;
+};
 import { uploadToCloudinary } from "@/lib/cloudinary"
 import { updateUserProfile } from "@/lib/update-user-profile"
 import { Save, Loader2 } from "lucide-react"
