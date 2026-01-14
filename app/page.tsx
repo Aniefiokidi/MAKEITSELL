@@ -47,7 +47,7 @@ export default function HomePage() {
     <div className="min-h-screen flex flex-col relative">
       {showIntro && (
         <div
-          className={`fixed inset-0 bg-black flex items-center justify-center overflow-hidden transition-opacity duration-700 ${fadeOutIntro ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+          className={`fixed inset-0 bg-black flex items-center justify-center overflow-hidden transition-opacity duration-700 z-50 ${fadeOutIntro ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
         >
           <video
             className="absolute inset-0 w-full h-full object-cover"
@@ -58,10 +58,10 @@ export default function HomePage() {
             onEnded={handleIntroEnd}
           />
           <div className="absolute inset-0 bg-black/30" />
-          <div className="absolute bottom-8 inset-x-0 flex justify-center">
+          <div className="absolute bottom-8 inset-x-0 flex justify-center z-10">
             <button
               onClick={handleSkip}
-              className="px-4 py-2 text-sm font-semibold text-white bg-black/60 border border-white/30 rounded-full backdrop-blur-md hover:bg-white/10 transition"
+              className="px-4 py-2 text-sm font-semibold text-white bg-black/60 border border-white/30 rounded-full backdrop-blur-md hover:bg-white/10 transition cursor-pointer"
             >
               Skip intro
             </button>

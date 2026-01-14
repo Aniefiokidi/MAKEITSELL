@@ -89,9 +89,98 @@ export default function StorePage() {
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [quickViewOpen, setQuickViewOpen] = useState(false)
+  const [imageBrightness, setImageBrightness] = useState<{ [key: string]: 'light' | 'dark' }>({})
   const { addItem } = useCart()
   const { user } = useAuth()
   const { toast } = useToast()
+
+  // Function to detect image brightness - focuses on bottom portion where frosted glass is
+  const detectImageBrightness = (imageUrl: string, productId: string) => {
+    const img = new Image()
+    img.crossOrigin = "Anonymous"
+    img.src = imageUrl
+    
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      
+      canvas.width = img.width
+      canvas.height = img.height
+      ctx.drawImage(img, 0, 0)
+      
+      try {
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        const data = imageData.data
+        const width = canvas.width
+        const height = canvas.height
+        
+        // Sample only the bottom 25% of the image where frosted glass sits
+        const bottomStartRow = Math.floor(height * 0.75)
+        const startPixelIndex = (bottomStartRow * width) * 4
+        const endPixelIndex = imageData.data.length
+        
+        let brightPixels = 0
+        let mediumBrightPixels = 0
+        let totalPixels = 0
+        let r = 0, g = 0, b = 0
+        
+        // Sample every 2nd pixel for better accuracy
+        for (let i = startPixelIndex; i < endPixelIndex; i += 8) {
+          r += data[i]
+          g += data[i + 1]
+          b += data[i + 2]
+          totalPixels++
+          
+          const pixelBrightness = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114)
+          
+          // Count very bright pixels (white/very light) - threshold 180
+          if (pixelBrightness > 180) {
+            brightPixels++
+          }
+          // Count medium-bright pixels (light colors) - threshold 140
+          if (pixelBrightness > 140) {
+            mediumBrightPixels++
+          }
+        }
+        
+        const avgR = r / totalPixels
+        const avgG = g / totalPixels
+        const avgB = b / totalPixels
+        
+        // Calculate average brightness
+        const avgBrightness = (avgR * 0.299 + avgG * 0.587 + avgB * 0.114)
+        
+        // Calculate percentages
+        const brightPixelPercentage = (brightPixels / totalPixels) * 100
+        const mediumBrightPercentage = (mediumBrightPixels / totalPixels) * 100
+        
+        // Consider it "light" if any of these conditions are true:
+        // 1. Average brightness is over 145
+        // 2. 15%+ of pixels are very bright (white)
+        // 3. 35%+ of pixels are medium-bright (light colors)
+        const isLight = avgBrightness > 145 || brightPixelPercentage > 15 || mediumBrightPercentage > 35
+        
+        setImageBrightness(prev => ({
+          ...prev,
+          [productId]: isLight ? 'light' : 'dark'
+        }))
+      } catch (e) {
+        // If CORS error or other issue, default to dark
+        setImageBrightness(prev => ({
+          ...prev,
+          [productId]: 'dark'
+        }))
+      }
+    }
+    
+    img.onerror = () => {
+      setImageBrightness(prev => ({
+        ...prev,
+        [productId]: 'dark'
+      }))
+    }
+  }
 
   useEffect(() => {
     setMounted(true)
@@ -115,6 +204,13 @@ export default function StorePage() {
         if (productsResult.success) {
           setProducts(productsResult.data)
           setFilteredProducts(productsResult.data)
+          
+          // Detect brightness for each product image
+          productsResult.data.forEach((product: Product) => {
+            if (product.images?.[0]) {
+              detectImageBrightness(product.images[0], product.id)
+            }
+          })
         } else {
           console.error("Failed to fetch products:", productsResult.error)
         }
@@ -648,7 +744,7 @@ export default function StorePage() {
                         <img
                           src={product.images?.[0] || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"}
                           alt={(product.title || (product as any).name || 'Product') as string}
-                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                          className={`absolute inset-0 w-full h-full ${store?.category?.toLowerCase() === 'electronics' ? 'object-contain bg-white' : 'object-cover'} group-hover:scale-110 transition-transform duration-500`}
                         />
                         
                         {/* Product Badges */}
@@ -674,7 +770,7 @@ export default function StorePage() {
                         </div>
                         
                         {/* Action Buttons */}
-                        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+                        <div className="absolute top-3 right-3  opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
                           <Button
                             size="sm"
                             variant="outline"
@@ -703,9 +799,11 @@ export default function StorePage() {
                       </div>
                       
                       {/* Frosted Glass Bubble Content */}
-                      <div className="absolute bottom-0 left-0 right-0 p-2.5 sm:p-3 backdrop-blur-xl bg-white/20 dark:bg-black/20 border-t border-white/30 rounded-t-3xl z-30 space-y-1.5">
+                      <div className="absolute bottom-0 left-0 right-0 p-2.5 sm:p-3 backdrop-blur-xl bg-accent/10 border-t border-white/30 rounded-t-3xl z-30 space-y-1.5">
                         <h3 
-                          className="font-semibold text-xs sm:text-sm line-clamp-1 text-white drop-shadow-lg cursor-pointer hover:text-blue-200 transition-colors"
+                          className={`font-semibold text-xs sm:text-sm line-clamp-1 drop-shadow-lg cursor-pointer hover:opacity-80 transition-colors ${
+                            imageBrightness[product.id] === 'light' ? 'text-accent' : 'text-white'
+                          }`}
                           onClick={() => {
                             setSelectedProduct(product)
                             setQuickViewOpen(true)
@@ -715,11 +813,15 @@ export default function StorePage() {
                         </h3>
                         
                         <div className="flex items-center justify-between gap-2">
-                          <Badge variant="outline" className="text-white text-[10px] bg-accent/80 backdrop-blur-sm border-white/50 px-1.5 py-0">
+                          <Badge variant="outline" className={`text-[10px] backdrop-blur-sm border-white/50 px-1.5 py-0 ${
+                            imageBrightness[product.id] === 'light' ? 'text-accent bg-accent/20' : 'text-white bg-accent/80'
+                          }`}>
                             {product.category}
                           </Badge>
                           
-                          <div className="font-bold text-sm text-white drop-shadow-lg">
+                          <div className={`font-bold text-sm drop-shadow-lg ${
+                            imageBrightness[product.id] === 'light' ? 'text-accent' : 'text-white'
+                          }`}>
                             {formatCurrency(product.price)}
                           </div>
                         </div>
@@ -728,10 +830,14 @@ export default function StorePage() {
                           size="sm"
                           onClick={() => handleAddToCart(product)}
                           disabled={product.stock === 0}
-                          className="w-full h-7 text-xs bg-white/90 hover:bg-white text-black backdrop-blur-sm hover:scale-105 transition-all hover:shadow-lg flex items-center justify-center gap-0"
+                          className={`w-full h-7 text-xs backdrop-blur-sm hover:scale-105 transition-all hover:shadow-lg flex items-center justify-center gap-0 ${
+                            imageBrightness[product.id] === 'light' 
+                              ? 'bg-accent/20 hover:bg-accent/30 text-accent' 
+                              : 'bg-white/50 hover:bg-white text-black'
+                          }`}
                         >
                           <img src="/images/logo3.png" alt="Add" className="w-8 h-8 -mt-2" />
-                          <span className="leading-none text-accent">Add</span>
+                          <span className="leading-none">Add</span>
                         </Button>
                       </div>
                     </Card>

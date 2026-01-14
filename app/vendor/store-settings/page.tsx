@@ -284,6 +284,28 @@ export default function VendorStoreSettingsPage() {
                   <Input id="storeName" value={settings.storeName} onChange={e => handleInputChange("storeName", e.target.value)} />
                 </div>
                 <div>
+                  <Label htmlFor="storeCategory">Store Category</Label>
+                  <Select value={settings.storeCategory} onValueChange={val => handleInputChange("storeCategory", val)}>
+                    <SelectTrigger id="storeCategory">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="electronics">Electronics</SelectItem>
+                      <SelectItem value="fashion">Fashion</SelectItem>
+                      <SelectItem value="food">Food & Beverages</SelectItem>
+                      <SelectItem value="beauty">Beauty & Personal Care</SelectItem>
+                      <SelectItem value="home">Home & Living</SelectItem>
+                      <SelectItem value="sports">Sports & Fitness</SelectItem>
+                      <SelectItem value="books">Books & Media</SelectItem>
+                      <SelectItem value="toys">Toys & Games</SelectItem>
+                      <SelectItem value="automotive">Automotive</SelectItem>
+                      <SelectItem value="health">Health & Wellness</SelectItem>
+                      <SelectItem value="services">Services</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
                   <Label htmlFor="storeDescription">Store Description</Label>
                   <Textarea id="storeDescription" value={settings.storeDescription} onChange={e => handleInputChange("storeDescription", e.target.value)} rows={2} />
                 </div>

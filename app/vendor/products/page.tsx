@@ -169,7 +169,7 @@ const VendorProductsPage = () => {
                           <div className="relative h-12 w-12 rounded-md overflow-hidden bg-muted">
                             <Image
                               src={product.images?.[0] || "/placeholder.svg"}
-                              alt={product.title}
+                              alt={product.title || product.name || "Product image"}
                               fill
                               className="object-cover"
                             />

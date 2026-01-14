@@ -101,24 +101,36 @@ import { updateStore } from '@/lib/mongodb-operations';
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     if (!id) {
       return NextResponse.json({ success: false, error: 'Store ID is required' }, { status: 400 });
     }
     const body = await request.json();
     // DEBUG: Log received body
     console.log('PATCH /stores/[id] received body:', JSON.stringify(body, null, 2));
+    
+    // Remove undefined fields to prevent MongoDB validation errors
+    const updateData = Object.fromEntries(
+      Object.entries(body).filter(([_, value]) => value !== undefined)
+    );
+    
     // Map profileImage if present
-    const updateData = {
-      ...body,
-      profileImage: body.profileImage || '',
-    };
+    if (body.profileImage) {
+      updateData.profileImage = body.profileImage;
+    }
+    
     // DEBUG: Log updateData
     console.log('PATCH /stores/[id] updateData:', JSON.stringify(updateData, null, 2));
-    await updateStore(id, updateData);
-    return NextResponse.json({ success: true });
+    
+    const result = await updateStore(id, updateData);
+    
+    if (!result) {
+      return NextResponse.json({ success: false, error: 'Store not found' }, { status: 404 });
+    }
+    
+    return NextResponse.json({ success: true, data: result });
   } catch (error: any) {
     console.error('Update store error:', error);
-    return NextResponse.json({ success: false, error: error.message || 'Failed to update store' }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message || 'Failed to update store' }, { status: 400 });
   }
 }
