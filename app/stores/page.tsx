@@ -144,50 +144,48 @@ export default function ShopPage() {
           </div>
         </div>
 
-        {/* Content Overlay at Bottom */}
-        <div className="absolute bottom-0 left-0 right-0 p-2.5 sm:p-3 z-10">
-          <div className="backdrop-blur-md bg-black/20 rounded-2xl p-2.5 sm:p-3 border border-white/10">
-            <div className="flex items-start justify-between gap-2 mb-1.5">
-              <div className="flex-1 min-w-0">
-                <h3 className="text-base sm:text-lg font-bold tracking-tight mb-0.5 text-white drop-shadow-lg truncate">
-                  {store.name || "Unnamed Store"}
-                </h3>
-                <div className="flex items-center text-[10px] sm:text-xs font-medium text-white/90 tracking-wide mb-1.5">
-                  <MapPin className="h-3 w-3 mr-1 shrink-0" />
-                  <span className="truncate">{store.location || store.city || "Location not specified"}</span>
-                </div>
-                
-                {store.category && (
-                  <Badge variant="outline" className="w-fit text-[10px] font-semibold py-0.5 px-2 h-5 tracking-wide border-2 border-white/40 bg-white/10 text-white backdrop-blur-sm">
-                    {categories.find(c => c.id === store.category)?.name || store.category}
-                  </Badge>
-                )}
+        {/* Content Overlay at Bottom - Full Width */}
+        <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-b-[2.5rem] border-t border-white/10 p-3 sm:p-4">
+          <div className="flex items-start justify-between w-full gap-2 mb-1.5">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base sm:text-lg font-bold tracking-tight mb-0.5 text-white drop-shadow-lg truncate">
+                {store.name || "Unnamed Store"}
+              </h3>
+              <div className="flex items-center text-[10px] sm:text-xs font-medium text-white/90 tracking-wide mb-1.5">
+                <MapPin className="h-3 w-3 mr-1 shrink-0" />
+                <span className="truncate">{store.location || store.city || "Location not specified"}</span>
               </div>
-
-              {/* Arrow Button */}
-              <Link href={`/store/${store._id || store.id}`} onClick={(e) => {
-                e.preventDefault()
-                handleStoreClick(store._id || store.id)
-              }}>
-                <div className="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 hover:bg-accent hover:text-white transition-all duration-200 cursor-pointer group/arrow">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent group-hover/arrow:text-white transition-colors group-hover/arrow:translate-x-0.5">
-                    <path d="M5 12h14"/>
-                    <path d="m12 5 7 7-7 7"/>
-                  </svg>
-                </div>
-              </Link>
+              
+              {store.category && (
+                <Badge variant="outline" className="w-fit text-[10px] font-semibold py-0.5 px-2 h-5 tracking-wide border-2 border-white/40 bg-white/10 text-white backdrop-blur-sm">
+                  {categories.find(c => c.id === store.category)?.name || store.category}
+                </Badge>
+              )}
             </div>
 
-            {/* Stats */}
-            <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-[11px] font-medium text-white/80 tracking-wide">
-              <div className="flex items-center gap-0.5 sm:gap-1">
-                <Users className="h-3 w-3" />
-                <span>{store.productCount || 0} products</span>
+            {/* Arrow Button */}
+            <Link href={`/store/${store._id || store.id}`} onClick={(e) => {
+              e.preventDefault()
+              handleStoreClick(store._id || store.id)
+            }}>
+              <div className="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 hover:bg-accent hover:text-white transition-all duration-200 cursor-pointer group/arrow">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent group-hover/arrow:text-white transition-colors group-hover/arrow:translate-x-0.5">
+                  <path d="M5 12h14"/>
+                  <path d="m12 5 7 7-7 7"/>
+                </svg>
               </div>
-              <div className="flex items-center gap-0.5 sm:gap-1">
-                <Clock className="h-3 w-3" />
-                <span>Est. {new Date(store.createdAt || Date.now()).getFullYear()}</span>
-              </div>
+            </Link>
+          </div>
+
+          {/* Stats */}
+          <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-[11px] font-medium text-white/80 tracking-wide">
+            <div className="flex items-center gap-0.5 sm:gap-1">
+              <Users className="h-3 w-3" />
+              <span>{store.productCount || 0} products</span>
+            </div>
+            <div className="flex items-center gap-0.5 sm:gap-1">
+              <Clock className="h-3 w-3" />
+              <span>Est. {new Date(store.createdAt || Date.now()).getFullYear()}</span>
             </div>
           </div>
         </div>
