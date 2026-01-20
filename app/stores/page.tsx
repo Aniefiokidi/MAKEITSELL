@@ -37,6 +37,7 @@ export default function ShopPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [showFilters, setShowFilters] = useState(true)
   const [isTransitioning, setIsTransitioning] = useState(false)
+  const [showMobileSearch, setShowMobileSearch] = useState(false)
 
   useEffect(() => {
     fetchStores()
@@ -215,92 +216,120 @@ export default function ShopPage() {
       <div className={isTransitioning ? 'page-slide-transition' : ''}>
       <Header />
       
-      <main className="flex-1 container mx-auto px-4 py-8">
-        {/* Header with Title and Filters */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-5xl md:text-7xl font-black tracking-wider uppercase mb-4" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif' }}>
-              <span className="drop-shadow-[0_2px_2px_oklch(0.35_0.15_15/0.5)]" style={{WebkitTextFillColor: 'white', WebkitTextStroke: '1px oklch(0.35 0.15 15)', color: 'white'}}>ALL STORES</span>
-            </h1>
-            <Link href="/products">
+      <main className="flex-1 container mx-auto px-4 py-4">
+        {/* Unified Header Bar */}
+        <div className="space-y-3 mb-6">
+          {/* First Row - Products Button (Mobile: Own Line, Desktop: Inline with everything) */}
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 lg:gap-4">
+            {/* View All Products Button */}
+            <Link href="/products" className="inline-block lg:shrink-0">
               <Button 
-                className="bg-gradient-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-black text-base px-6 py-3 rounded-full shadow-lg shadow-accent/30 hover:scale-105 hover:shadow-xl hover:shadow-accent/40 transition-all duration-300 uppercase tracking-wider"
+                className="w-full lg:w-auto bg-white/10 hover:bg-white/20 backdrop-blur-xl border border-accent/30 text-accent font-bold text-sm px-6 py-3 rounded-full shadow-lg shadow-white/10 hover:shadow-xl hover:shadow-white/20 transition-all duration-200 active:scale-95 hover:border-white/40 flex items-center justify-center gap-2"
                 style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}
               >
-                <Package className="h-4 w-4 mr-2" />
-                View All Products
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="ml-2">
+                <Package className="h-4 w-4" />
+                <span>View All Products</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M5 12h14"/>
                   <path d="m12 5 7 7-7 7"/>
                 </svg>
               </Button>
             </Link>
+
+            {/* Second Row on Mobile - Controls */}
+            <div className="flex items-center gap-2 w-full lg:flex-1">
+              {/* Mobile Search Icon */}
+              <Button
+                variant="outline"
+                size="icon"
+                className="lg:hidden h-10 w-10 shrink-0 border-accent/20 hover:border-accent/40 transition-all"
+                onClick={() => setShowMobileSearch(!showMobileSearch)}
+              >
+                <Search className="h-4 w-4 " />
+              </Button>
+
+              {/* Desktop Search Bar */}
+              <div className="hidden lg:flex flex-1 relative group">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5 group-focus-within:text-primary transition-colors" />
+                <Input
+                  type="text"
+                  placeholder="Search stores by name, category, or description..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 h-12 border-2 focus:border-primary transition-colors w-full"
+                />
+              </div>
+
+              {/* Category Filter */}
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="w-[100px] sm:w-[130px] lg:w-[160px] border-2 border-accent/20 hover:border-accent/40 transition-colors h-10 lg:h-12 text-xs sm:text-sm">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Sort */}
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-[85px] sm:w-[110px] lg:w-[140px] h-10 lg:h-12 text-xs sm:text-sm border-2 border-accent/20 hover:border-accent/40 transition-colors">
+                  <SelectValue placeholder="Sort" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">Name A-Z</SelectItem>
+                  <SelectItem value="newest">Newest</SelectItem>
+                  <SelectItem value="products">Most Products</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Refresh */}
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="hover:scale-110 hover:bg-accent/10 transition-all h-10 w-10 lg:h-12 lg:w-12 shrink-0 border-accent/20 hover:border-accent/40"
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
           </div>
-          
-          {/* Filter Section */}
-          <div className="flex items-center gap-3 p-4 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/50">
-            <span className="text-sm font-black uppercase tracking-wider text-muted-foreground" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif' }}>Category:</span>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-[180px] border-2 border-accent/20 hover:border-accent/40 transition-colors">
-                <SelectValue placeholder="All Categories" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((category) => (
-                  <SelectItem key={category.id} value={category.id}>
-                    {category.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {selectedCategory !== "all" && (
+
+          {/* Clear Button Row (only when category filter is active) */}
+          {selectedCategory !== "all" && (
+            <div className="flex justify-end">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setSelectedCategory("all")}
-                className="text-xs hover:text-accent hover:bg-accent/10 transition-all"
+                className="text-xs hover:text-accent hover:bg-accent/10 transition-all h-8"
               >
-                Clear
+                Clear Filter
               </Button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* Search and Sort */}
-        <div className="flex flex-col lg:flex-row gap-4 mb-8">
-          <div className="flex-1 relative group">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5 group-focus-within:text-primary transition-colors" />
-            <Input
-              type="text"
-              placeholder="Search stores by name, category, or description..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-12 border-2 focus:border-primary transition-colors"
-            />
+        {/* Mobile Search Slide Out */}
+        {showMobileSearch && (
+          <div className="lg:hidden mb-4 overflow-hidden animate-in slide-in-from-top-2 duration-300">
+            <div className="relative group">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5 group-focus-within:text-primary transition-colors" />
+              <Input
+                type="text"
+                placeholder="Search stores..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-12 border-2 focus:border-primary transition-colors w-full"
+                autoFocus
+              />
+            </div>
           </div>
-          
-          <div className="flex flex-wrap gap-2">
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="name">Name A-Z</SelectItem>
-                <SelectItem value="newest">Newest</SelectItem>
-                <SelectItem value="products">Most Products</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="hover:scale-110 hover:bg-accent/10 transition-all"
-            >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-            </Button>
-          </div>
-        </div>
+        )}
 
         {/* Results Count */}
         <div className="mb-6">
@@ -311,7 +340,7 @@ export default function ShopPage() {
 
         {/* Stores Grid */}
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-6">
             {[...Array(8)].map((_, i) => (
               <Card key={i} className="h-full">
                 <Skeleton className="aspect-video rounded-t-lg" />
@@ -332,7 +361,7 @@ export default function ShopPage() {
             ))}
           </div>
         ) : sortedStores.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6 animate-in fade-in duration-500">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-6 animate-in fade-in duration-500">
             {sortedStores.map((store) => (
               <StoreCard key={store._id || store.id} store={store} />
             ))}

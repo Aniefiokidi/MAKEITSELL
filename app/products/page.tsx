@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Search, RefreshCw, ShoppingCart, Heart, Package, TrendingUp } from "lucide-react"
+import { Search, RefreshCw, ShoppingCart, Heart, Package, TrendingUp, Eye } from "lucide-react"
 import Link from "next/link"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
@@ -152,6 +152,7 @@ export default function AllProductsPage() {
 
   const ProductCard = ({ product }: { product: Product }) => {
     const [imageBrightness, setImageBrightness] = useState<'light' | 'dark'>('dark')
+    const isElectronics = product.category === 'electronics'
 
     useEffect(() => {
       if (product.images?.[0]) {
@@ -200,94 +201,109 @@ export default function AllProductsPage() {
     }
 
     return (
-      <Card className="group h-full overflow-hidden border-none rounded-[2rem] hover:shadow-2xl hover:shadow-accent/30 transition-all duration-300 hover:scale-[1.02]">
-        <Link href={`/store/${product.storeId || product.vendorId}`}>
-          <div className="aspect-[3/4] relative overflow-hidden rounded-t-[2rem]">
-            {product.images?.[0] ? (
-              <Image
-                src={product.images[0]}
-                alt={product.title || product.name || "Product"}
-                fill
-                className="object-cover group-hover:scale-110 transition-transform duration-500"
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full bg-gradient-to-br from-accent/90 via-orange-500/90 to-red-600/90">
-                <Package className="h-20 w-20 text-white drop-shadow-lg animate-pulse" />
-              </div>
-            )}
-            
-            {/* Gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent via-50% to-black/90" />
-            
-            {/* Featured badge */}
+      <Card className="border-0 shadow-md overflow-hidden relative h-[350px] sm:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-3xl group">
+        {/* Image Container with Group Hover */}
+        <div className="absolute inset-0 overflow-hidden">
+          {/* Full Card Image Background */}
+          <img
+            src={product.images?.[0] || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"}
+            alt={product.title || product.name || 'Product'}
+            className={`absolute inset-0 w-full h-full ${
+              isElectronics ? 'object-contain bg-white' : 'object-cover'
+            } group-hover:${isElectronics ? 'scale-105' : 'scale-110'} transition-transform duration-500`}
+          />
+          
+          {/* Gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent via-50% to-black/90" />
+          
+          {/* Product Badges */}
+          <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
             {product.featured && (
-              <div className="absolute top-3 right-3 z-20">
-                <Badge className="bg-accent text-white border-none shadow-lg">
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                  Featured
-                </Badge>
-              </div>
+              <Badge className="bg-yellow-500 text-black font-semibold">
+                <TrendingUp className="h-3 w-3 mr-1" />
+                Featured
+              </Badge>
             )}
-
-            {/* Frosted glass overlay at bottom */}
-            <div className={`absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md ${
-              imageBrightness === 'light' 
-                ? 'bg-white/30 border-white/40' 
-                : 'bg-black/30 border-white/20'
-            } rounded-b-[2rem] border-t p-3`}>
-              <h3 className={`text-base font-bold mb-1 truncate ${
-                imageBrightness === 'light' ? 'text-gray-900' : 'text-white'
-              } drop-shadow-lg`}>
-                {product.title || product.name || "Unnamed Product"}
-              </h3>
-              
-              <div className="flex items-center justify-between mb-2">
-                <span className={`text-xl font-black ${
-                  imageBrightness === 'light' ? 'text-gray-900' : 'text-white'
-                } drop-shadow-lg`}>
-                  ₦{product.price.toLocaleString()}
-                </span>
-                {product.vendorName && (
-                  <span className={`text-xs ${
-                    imageBrightness === 'light' ? 'text-gray-700' : 'text-white/90'
-                  } truncate max-w-[120px]`}>
-                    by {product.vendorName}
-                  </span>
-                )}
-              </div>
-
-              {product.category && (
-                <Badge variant="outline" className={`text-[10px] font-semibold ${
-                  imageBrightness === 'light'
-                    ? 'border-gray-600/40 bg-white/20 text-gray-900'
-                    : 'border-white/40 bg-white/10 text-white'
-                } backdrop-blur-sm`}>
-                  {categories.find(c => c.id === product.category)?.name || product.category}
-                </Badge>
-              )}
-            </div>
+            {(product.stock ?? 0) < 10 && (product.stock ?? 0) > 0 && (
+              <Badge variant="destructive">
+                Only {product.stock} left
+              </Badge>
+            )}
+            {product.stock === 0 && (
+              <Badge variant="secondary" className="bg-gray-600">
+                Out of Stock
+              </Badge>
+            )}
           </div>
-        </Link>
-        
-        <CardContent className="p-3">
-          <div className="flex gap-2">
+          
+          {/* Action Buttons */}
+          <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
             <Button
-              onClick={() => handleAddToCart(product)}
-              className="flex-1 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl"
-              disabled={product.status !== 'active' || (product.stock || 0) === 0}
-            >
-              <ShoppingCart className="h-4 w-4 mr-2" />
-              Add to Cart
-            </Button>
-            <Button
+              size="sm"
               variant="outline"
-              size="icon"
-              className="rounded-xl hover:bg-accent/10 hover:text-accent hover:border-accent transition-all"
+              className="bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-110 transition-all"
+              onClick={() => {/* Add to wishlist */}}
             >
               <Heart className="h-4 w-4" />
             </Button>
           </div>
-        </CardContent>
+          
+          {/* Quick View */}
+          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-20">
+            <Link href={`/store/${product.storeId || product.vendorId}`}>
+              <Button 
+                variant="outline" 
+                className="bg-white/90 backdrop-blur-sm text-black hover:bg-white hover:scale-105 transition-all"
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                View
+              </Button>
+            </Link>
+          </div>
+        </div>
+        
+        {/* Frosted Glass Bubble Content */}
+        <div className={`absolute bottom-0 left-0 right-0 p-2.5 sm:p-3 backdrop-blur-xl ${
+          imageBrightness === 'light' 
+            ? 'bg-white/30 border-white/40' 
+            : 'bg-accent/10 border-white/30'
+        } border-t rounded-t-3xl z-30 space-y-1.5`}>
+          <h3 
+            className={`font-semibold text-xs sm:text-sm line-clamp-1 drop-shadow-lg cursor-pointer hover:opacity-80 transition-colors ${
+              imageBrightness === 'light' ? 'text-gray-900' : 'text-white'
+            }`}
+          >
+            {product.title || product.name}
+          </h3>
+          
+          <div className="flex items-center justify-between gap-2">
+            <Badge variant="outline" className={`text-[10px] backdrop-blur-sm border-white/50 px-1.5 py-0 ${
+              imageBrightness === 'light' ? 'text-gray-900 bg-white/30' : 'text-white bg-accent/80'
+            }`}>
+              {product.category}
+            </Badge>
+            
+            <div className={`font-bold text-sm drop-shadow-lg ${
+              imageBrightness === 'light' ? 'text-gray-900' : 'text-white'
+            }`}>
+              ₦{product.price.toLocaleString()}
+            </div>
+          </div>
+          
+          <Button 
+            size="sm"
+            onClick={() => handleAddToCart(product)}
+            disabled={product.status !== 'active' || (product.stock || 0) === 0}
+            className={`w-full h-7 text-xs backdrop-blur-sm hover:scale-105 transition-all hover:shadow-lg flex items-center justify-center gap-0 ${
+              imageBrightness === 'light' 
+                ? 'bg-accent/20 hover:bg-accent/30 text-accent' 
+                : 'bg-white/50 hover:bg-white text-black'
+            }`}
+          >
+            <ShoppingCart className="w-4 h-4" />
+            <span className="leading-none ml-1">Add</span>
+          </Button>
+        </div>
       </Card>
     )
   }
@@ -297,8 +313,8 @@ export default function AllProductsPage() {
       <Header />
       
       <main className="flex-1 container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
+        {/* Header with Liquid Glass Effect */}
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8 p-6 md:p-8 bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 shadow-xl shadow-accent/5 hover:shadow-2xl hover:shadow-accent/10 transition-all duration-300">
           <div>
             <h1 className="text-5xl md:text-7xl font-black tracking-wider uppercase mb-2" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif' }}>
               <span className="drop-shadow-[0_2px_2px_oklch(0.35_0.15_15/0.5)]" style={{WebkitTextFillColor: 'white', WebkitTextStroke: '1px oklch(0.35 0.15 15)', color: 'white'}}>ALL PRODUCTS</span>
@@ -307,7 +323,7 @@ export default function AllProductsPage() {
           </div>
           
           {/* Category Filter */}
-          <div className="flex items-center gap-3 p-4 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/50">
+          <div className="flex items-center gap-3 p-4 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-lg shadow-white/5 hover:shadow-xl hover:shadow-white/10 transition-all duration-300">
             <span className="text-sm font-black uppercase tracking-wider text-muted-foreground" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif' }}>Category:</span>
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
               <SelectTrigger className="w-[180px] border-2 border-accent/20 hover:border-accent/40 transition-colors">
@@ -383,16 +399,10 @@ export default function AllProductsPage() {
 
         {/* Products Display */}
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6">
             {[...Array(10)].map((_, i) => (
-              <Card key={i} className="h-full">
-                <Skeleton className="aspect-[3/4] rounded-t-[2rem]" />
-                <CardContent className="p-3">
-                  <Skeleton className="h-4 w-3/4 mb-2" />
-                  <Skeleton className="h-6 w-1/2 mb-2" />
-                  <Skeleton className="h-5 w-20 mb-3" />
-                  <Skeleton className="h-10 w-full" />
-                </CardContent>
+              <Card key={i} className="border-0 shadow-md overflow-hidden relative h-[350px] sm:h-[450px] rounded-3xl">
+                <Skeleton className="w-full h-full rounded-3xl" />
               </Card>
             ))}
           </div>
@@ -407,7 +417,7 @@ export default function AllProductsPage() {
                   </span>
                   <span className="text-muted-foreground ml-3">({categoryProducts.length})</span>
                 </h2>
-                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6">
                   {categoryProducts.map((product) => (
                     <ProductCard key={product.id} product={product} />
                   ))}
@@ -417,7 +427,7 @@ export default function AllProductsPage() {
           </div>
         ) : sortedProducts.length > 0 ? (
           // Display filtered results
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6 animate-in fade-in duration-500">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6 animate-in fade-in duration-500">
             {sortedProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}

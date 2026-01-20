@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { Search, Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -12,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext"
 
 export default function Header() {
   const { user, userProfile, loading } = useAuth()
+  const pathname = usePathname()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
 
@@ -27,7 +29,7 @@ export default function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white/95 dark:bg-background dark:border-muted dark:text-foreground backdrop-blur-md shadow-sm">
+    <header className="sticky top-0 z-50 w-full bg-white/95 dark:bg-background dark:text-foreground backdrop-blur-md shadow-sm">
       <div className="w-full px-4 sm:px-6 lg:px-10">
         <div className="flex h-16 lg:h-20 items-center justify-between">
           {/* Logo */}
@@ -51,41 +53,54 @@ export default function Header() {
             </span>
           </Link>
 
-          {/* Desktop Search */}
-          <div className="hidden lg:flex flex-1 max-w-md xl:max-w-lg mx-8">
-            <SmartSearch 
-              onSearch={handleSearch}
-              placeholder="Search products, brands, categories..."
-              className="w-full"
-            />
-          </div>
-
           {/* Desktop Nav */}
-          <nav className="hidden xl:flex items-center space-x-8">
-            {["Stores", "Services", "About", "Contact", "Support"].map((link) => (
-              <Link
-                key={link}
-                href={`/${link.toLowerCase()}`}
-                className="relative text-sm font-medium text-gray-700 dark:text-foreground hover:text-[oklch(0.21_0.194_29.234)] dark:hover:text-accent transition-all group"
-              >
-                {link}
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[oklch(0.21_0.194_29.234)] dark:bg-accent transition-all duration-300 group-hover:w-full"></span>
-              </Link>
-            ))}
+          <div className="flex-1"></div>
+          <nav className="hidden xl:flex items-center space-x-2">
+            {["Stores", "Services", "About", "Contact", "Support"].map((link) => {
+              const isActive = pathname === `/${link.toLowerCase()}` || 
+                (link === "Stores" && pathname === "/stores")
+              
+              return (
+                <Link
+                  key={link}
+                  href={`/${link.toLowerCase()}`}
+                  className={`relative px-4 py-2 rounded-full font-medium transition-all duration-300 ${
+                    isActive
+                      ? "bg-white/20 backdrop-blur-md border border-white/30 text-[oklch(0.21_0.194_29.234)] dark:text-accent shadow-lg shadow-accent/10 dark:shadow-accent/20"
+                      : "text-gray-700 dark:text-foreground hover:text-[oklch(0.21_0.194_29.234)] dark:hover:text-accent group"
+                  }`}
+                >
+                  {isActive && (
+                    <>
+                      <motion.div
+                        layoutId="activeNav"
+                        className="absolute inset-0 bg-gradient-to-r from-accent/10 to-transparent rounded-full -z-10"
+                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                      />
+                      {/* Connecting tail */}
+                      <motion.div
+                        initial={{ opacity: 0, scaleY: 0 }}
+                        animate={{ opacity: 1, scaleY: 1 }}
+                        exit={{ opacity: 0, scaleY: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="absolute left-1/2 -translate-x-1/2 top-full w-12 h-6 bg-gradient-to-b from-white/20 to-transparent backdrop-blur-sm border-x border-white/20 rounded-b-2xl"
+                        style={{
+                          clipPath: "polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%)"
+                        }}
+                      />
+                    </>
+                  )}
+                  <span className="relative z-10">{link}</span>
+                  {!isActive && (
+                    <span className="absolute bottom-1 left-0 w-0 h-0.5 bg-[oklch(0.21_0.194_29.234)] dark:bg-accent transition-all duration-300 group-hover:w-full"></span>
+                  )}
+                </Link>
+              )
+            })}
           </nav>
 
           {/* Right Icons */}
           <div className="flex items-center gap-2">
-            {/* Mobile Search */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="lg:hidden hover:bg-accent/10 dark:hover:bg-accent/20"
-              onClick={() => setIsSearchOpen((v) => !v)}
-            >
-              <Search className="h-5 w-5" />
-            </Button>
-
             {/* Cart */}
             <CartSidebar />
 
@@ -135,30 +150,6 @@ export default function Header() {
             </Button>
           </div>
         </div>
-
-        {/* Mobile Search Dropdown */}
-        <AnimatePresence>
-          {isSearchOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.25 }}
-              className="lg:hidden px-0 pb-4 overflow-hidden"
-            >
-              <div className="pt-4">
-                <SmartSearch 
-                  onSearch={(query) => {
-                    handleSearch(query)
-                    setIsSearchOpen(false)
-                  }}
-                  placeholder="Search products, brands, categories..."
-                  className="w-full"
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
       {/* Mobile Drawer */}

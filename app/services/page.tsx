@@ -63,6 +63,7 @@ export default function ServicesPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [selectedLocation, setSelectedLocation] = useState("all")
+  const [showMobileSearch, setShowMobileSearch] = useState(false)
 
   useEffect(() => {
     fetchServices()
@@ -172,18 +173,35 @@ export default function ServicesPage() {
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
       
-      <main className="flex-1 container mx-auto px-4 py-8">
-        {/* Header with Title and Filters */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
-          <h1 className="text-5xl md:text-7xl font-black tracking-wider uppercase" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif' }}>
-            <span className="drop-shadow-[0_2px_2px_oklch(0.35_0.15_15/0.5)]" style={{WebkitTextFillColor: 'white', WebkitTextStroke: '1px oklch(0.35 0.15 15)', color: 'white'}}>ALL SERVICES</span>
-          </h1>
-          
-          {/* Filter Section */}
-          <div className="flex items-center gap-3 p-4 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/50">
-            <span className="text-sm font-black uppercase tracking-wider text-muted-foreground" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif' }}>Category:</span>
+      <main className="flex-1 container mx-auto px-4 py-4">
+        {/* Unified Header Bar - Mobile Optimized */}
+        <div className="flex flex-col lg:flex-row items-start lg:items-center gap-3 mb-6">
+          {/* Desktop Search Bar - Hidden on mobile */}
+          <div className="hidden lg:flex flex-1 relative group">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5 group-focus-within:text-primary transition-colors" />
+            <Input
+              type="search"
+              placeholder="Search services..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 h-12 border-2 focus:border-primary transition-colors w-full"
+            />
+          </div>
+
+          {/* Controls Container - Compact on mobile */}
+          <div className="flex items-center gap-2 w-full lg:w-auto">
+            {/* Mobile Search Icon */}
+            <Button
+              variant="outline"
+              size="icon"
+              className="lg:hidden h-10 w-10 shrink-0 border-accent/20 hover:border-accent/40 transition-all"
+              onClick={() => setShowMobileSearch(!showMobileSearch)}
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+            {/* Category Filter */}
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-[180px] border-2 border-accent/20 hover:border-accent/40 transition-colors">
+              <SelectTrigger className="w-[130px] sm:w-[150px] lg:w-[180px] border-2 border-accent/20 hover:border-accent/40 transition-colors h-10 lg:h-12">
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
               <SelectContent>
@@ -194,35 +212,10 @@ export default function ServicesPage() {
                 ))}
               </SelectContent>
             </Select>
-            {selectedCategory !== "all" && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedCategory("all")}
-                className="text-xs hover:text-accent hover:bg-accent/10 transition-all"
-              >
-                Clear
-              </Button>
-            )}
-          </div>
-        </div>
 
-        {/* Search and Sort */}
-        <div className="flex flex-col lg:flex-row gap-4 mb-8">
-          <div className="flex-1 relative group">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5 group-focus-within:text-primary transition-colors" />
-            <Input
-              type="search"
-              placeholder="Search services..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-12 border-2 focus:border-primary transition-colors"
-            />
-          </div>
-          
-          <div className="flex flex-wrap gap-2">
+            {/* Location Filter */}
             <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-[100px] sm:w-[120px] lg:w-[160px] h-10 lg:h-12 border-accent/20 ">
                 <SelectValue placeholder="All Locations" />
               </SelectTrigger>
               <SelectContent>
@@ -233,17 +226,35 @@ export default function ServicesPage() {
               </SelectContent>
             </Select>
 
+            {/* Refresh Button */}
             <Button
               variant="outline"
               size="icon"
               onClick={refreshServices}
               disabled={refreshing}
-              className="hover:scale-110 hover:bg-accent/10 transition-all"
+              className="hover:scale-110 hover:bg-accent/10 transition-all h-10 w-10 lg:h-12 lg:w-12 shrink-0 border-accent/20 hover:border-accent/40"
             >
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             </Button>
           </div>
         </div>
+
+        {/* Mobile Search Slide Out */}
+        {showMobileSearch && (
+          <div className="lg:hidden mb-4 overflow-hidden animate-in slide-in-from-top-2 duration-300">
+            <div className="relative group">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5 group-focus-within:text-primary transition-colors" />
+              <Input
+                type="search"
+                placeholder="Search services..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-10 border-2 focus:border-primary transition-colors w-full"
+                autoFocus
+              />
+            </div>
+          </div>
+        )}
 
         {/* Results Count */}
         <div className="mb-6">
@@ -316,11 +327,11 @@ export default function ServicesPage() {
               return (
                 <Card 
                   key={service.id} 
-                  className="h-full hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02] transition-all duration-300 group overflow-hidden border-none rounded-[2.5rem] relative" 
+                  className="h-full hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02] transition-all duration-300 group overflow-hidden border-none rounded-b-3xl relative" 
                   style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}
                 >
                   {/* Full Image Background */}
-                  <div className="aspect-[9/16] relative overflow-hidden rounded-[2.5rem]">
+                  <div className="aspect-9/16 relative overflow-hidden rounded-b-3xl">
                     {service.images && service.images.length > 0 ? (
                       <Image
                         src={service.images[0]}
@@ -338,7 +349,7 @@ export default function ServicesPage() {
                     )}
                     
                     {/* Dark overlay gradient at bottom for text readability */}
-                    <div className="absolute inset-0 bg-linear-to-b from-black/20 via-transparent via-50% to-black/90" />
+                    <div className="absolute inset-0 bg-linear-to-b rounded-b-3xl from-black/20 via-transparent via-50% to-black/90" />
                     
                     {/* Provider Icon in Center Top */}
                     <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
@@ -350,10 +361,10 @@ export default function ServicesPage() {
                     </div>
 
                     {/* Content Overlay at Bottom */}
-                    <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
-                      <div className="backdrop-blur-md bg-black/20 rounded-2xl p-4 border border-white/10">
+                    <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-b-3xl border-t border-white/10 p-3 sm:p-4">
+                      <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-b-3xl border-t border-white/10 p-3 sm:p-4 ">
                         <div className="flex items-start justify-between gap-3 mb-2">
-                          <div className="flex-1 min-w-0">
+                          <div className="flex-1 min-w-0 ">
                             <h3 className="text-xl font-bold tracking-tight mb-1 text-white drop-shadow-lg truncate">
                               {serviceName}
                             </h3>
