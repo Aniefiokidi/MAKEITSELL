@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Search, Store, RefreshCw, Filter, MapPin, Clock, Users } from "lucide-react"
+import { Search, Store, RefreshCw, Filter, MapPin, Clock, Users, Package } from "lucide-react"
 import Link from "next/link"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
@@ -218,9 +218,24 @@ export default function ShopPage() {
       <main className="flex-1 container mx-auto px-4 py-8">
         {/* Header with Title and Filters */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
-          <h1 className="text-5xl md:text-7xl font-black tracking-wider uppercase" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif' }}>
-            <span className="drop-shadow-[0_2px_2px_oklch(0.35_0.15_15/0.5)]" style={{WebkitTextFillColor: 'white', WebkitTextStroke: '1px oklch(0.35 0.15 15)', color: 'white'}}>ALL STORES</span>
-          </h1>
+          <div>
+            <h1 className="text-5xl md:text-7xl font-black tracking-wider uppercase mb-4" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif' }}>
+              <span className="drop-shadow-[0_2px_2px_oklch(0.35_0.15_15/0.5)]" style={{WebkitTextFillColor: 'white', WebkitTextStroke: '1px oklch(0.35 0.15 15)', color: 'white'}}>ALL STORES</span>
+            </h1>
+            <Link href="/products">
+              <Button 
+                className="bg-gradient-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-black text-base px-6 py-3 rounded-full shadow-lg shadow-accent/30 hover:scale-105 hover:shadow-xl hover:shadow-accent/40 transition-all duration-300 uppercase tracking-wider"
+                style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}
+              >
+                <Package className="h-4 w-4 mr-2" />
+                View All Products
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="ml-2">
+                  <path d="M5 12h14"/>
+                  <path d="m12 5 7 7-7 7"/>
+                </svg>
+              </Button>
+            </Link>
+          </div>
           
           {/* Filter Section */}
           <div className="flex items-center gap-3 p-4 bg-card/50 backdrop-blur-sm rounded-2xl border border-border/50">
