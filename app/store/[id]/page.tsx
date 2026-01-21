@@ -913,7 +913,7 @@ export default function StorePage() {
         </Tabs>
       </div>
       
-      <Footer />
+      
       
       {/* Quick View Modal */}
       <ProductQuickView

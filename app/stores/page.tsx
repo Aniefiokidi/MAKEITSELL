@@ -383,7 +383,7 @@ export default function ShopPage() {
         )}
       </main>
 
-      <Footer />
+      
       </div>
     </div>
   )

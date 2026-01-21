@@ -6,6 +6,7 @@ import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/contexts/AuthContext"
 import { CartProvider } from "@/contexts/CartContext"
 import { Suspense } from "react"
+import FooterReveal from "@/components/FooterReveal"
 import "./globals.css"
 
 export const metadata: Metadata = {
@@ -36,11 +37,19 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
       </head>
-      <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning={true}>
+      <body
+        className={`font-sans ${GeistSans.variable} ${GeistMono.variable} min-h-screen bg-background text-foreground`}
+        suppressHydrationWarning={true}
+      >
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <Suspense fallback={null}>
             <AuthProvider>
-              <CartProvider>{children}</CartProvider>
+              <CartProvider>
+                <div className="min-h-screen flex flex-col">
+                  <main className="flex-1 flex flex-col">{children}</main>
+                  <FooterReveal />
+                </div>
+              </CartProvider>
             </AuthProvider>
           </Suspense>
           <Analytics />
