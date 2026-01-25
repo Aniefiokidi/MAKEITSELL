@@ -97,7 +97,16 @@ export default function VendorStoreSettingsPage() {
     acceptExchanges: true,
     autoFulfill: false,
     emailNotifications: true,
+    bankCode: "",
+    bankName: "",
+    accountNumber: "",
+    accountName: "",
+    accountVerified: false,
   })
+  const [banks, setBanks] = useState<{ name: string; code: string }[]>([])
+  const [banksLoading, setBanksLoading] = useState(false)
+  const [verifyLoading, setVerifyLoading] = useState(false)
+  const [accountError, setAccountError] = useState<string | null>(null)
   const [backgroundImage, setBackgroundImage] = useState<string>("")
   const [newBackgroundFile, setNewBackgroundFile] = useState<File | null>(null)
   const [backgroundPreview, setBackgroundPreview] = useState<string>("")
@@ -134,6 +143,11 @@ export default function VendorStoreSettingsPage() {
             deliveryTime: userStore.deliveryTime || "30-60 min",
             deliveryFee: userStore.deliveryFee || 500,
             minimumOrder: userStore.minimumOrder || 2000,
+            bankCode: userStore.bankCode || "",
+            bankName: userStore.bankName || "",
+            accountNumber: userStore.accountNumber || "",
+            accountName: userStore.accountName || "",
+            accountVerified: Boolean(userStore.accountVerified),
           }));
           setBackgroundImage(userStore.backgroundImage || userStore.storeImage || userStore.logoImage || "");
           setBackgroundPreview("");
@@ -156,9 +170,97 @@ export default function VendorStoreSettingsPage() {
     loadStoreData();
   }, [user, userProfile]);
 
+  useEffect(() => {
+    const fetchBanks = async () => {
+      setBanksLoading(true);
+      try {
+        const res = await fetch("/api/vendor/banks");
+        const data = await res.json();
+        if (data.success && Array.isArray(data.banks)) {
+          const byCode = new Map<string, { name: string; code: string }>();
+          data.banks.forEach((raw: any) => {
+            const code = String(raw.code ?? raw.id ?? "").trim();
+            const name = String(raw.name ?? "").trim();
+            if (code && name && !byCode.has(code)) {
+              byCode.set(code, { name, code });
+            }
+          });
+          setBanks(Array.from(byCode.values()));
+        }
+      } catch (error) {
+        console.error("Error loading banks", error);
+      } finally {
+        setBanksLoading(false);
+      }
+    };
+    fetchBanks();
+  }, []);
+
   const handleInputChange = (field: string, value: any) => {
     setSettings(prev => ({ ...prev, [field]: value }))
   }
+
+  const handleBankChange = (code: string) => {
+    const selected = banks.find(b => b.code === code);
+    setSettings(prev => ({
+      ...prev,
+      bankCode: code,
+      bankName: selected?.name || "",
+      accountName: "",
+      accountVerified: false,
+    }));
+    setAccountError(null);
+  };
+
+  const handleAccountNumberChange = (value: string) => {
+    const clean = value.replace(/[^0-9]/g, '').slice(0, 10);
+    setSettings(prev => ({ ...prev, accountNumber: clean, accountVerified: false, accountName: "" }));
+    setAccountError(null);
+    if (settings.bankCode && clean.length === 10) {
+      handleVerifyAccount(clean);
+    }
+  };
+
+  const handleVerifyAccount = async (accountNumberOverride?: string) => {
+    const accountNumber = accountNumberOverride || settings.accountNumber;
+    if (!settings.bankCode || !accountNumber || accountNumber.length !== 10) {
+      setAccountError("Select a bank and enter a valid 10-digit account number.");
+      return;
+    }
+    setVerifyLoading(true);
+    setAccountError(null);
+    try {
+      const res = await fetch("/api/vendor/resolve-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bankCode: settings.bankCode,
+          accountNumber,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.accountName) {
+        setSettings(prev => ({ ...prev, accountName: data.accountName, accountVerified: true }));
+        showNotificationBox("Account verified", "success");
+      } else {
+        setSettings(prev => ({ ...prev, accountVerified: false }));
+        setAccountError(data.error || "Unable to verify account.");
+      }
+    } catch (error) {
+      console.error("Error verifying account", error);
+      setSettings(prev => ({ ...prev, accountVerified: false }));
+      setAccountError("Unable to verify account.");
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
+
+  const payoutIncomplete =
+    !settings.bankCode ||
+    !settings.accountNumber ||
+    !settings.accountVerified ||
+    !settings.accountName;
+  const saveDisabled = loading || bgUploading || payoutIncomplete || !!accountError || verifyLoading;
 
   const handleSave = async () => {
     if (!user || loading || bgUploading) return;
@@ -184,10 +286,15 @@ export default function VendorStoreSettingsPage() {
         setProfileImage(uploadedUrl);
         setProfileUploading(false);
       }
-      // Update user profile if fullName or email changed
+      // Update user profile if fullName or email changed (only if authenticated)
+      let canUpdateProfile = true;
+      if (typeof window !== 'undefined') {
+        canUpdateProfile = !!localStorage.getItem('sessionToken');
+      }
       if (
-        (settings.fullName && settings.fullName !== userProfile?.displayName) ||
-        (settings.email && settings.email !== userProfile?.email)
+        canUpdateProfile &&
+        ((settings.fullName && settings.fullName !== userProfile?.displayName) ||
+        (settings.email && settings.email !== userProfile?.email))
       ) {
         await updateUserProfile(user.uid, {
           displayName: settings.fullName,
@@ -220,6 +327,11 @@ export default function VendorStoreSettingsPage() {
         profileImage: profileUrl,
         isOpen: storeData?.isOpen ?? true,
         storeImage,
+        bankCode: settings.bankCode,
+        bankName: settings.bankName,
+        accountNumber: settings.accountNumber,
+        accountName: settings.accountName,
+        accountVerified: settings.accountVerified,
       };
       let saveSuccess = false;
       if (storeData) {
@@ -280,11 +392,11 @@ export default function VendorStoreSettingsPage() {
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <Label htmlFor="fullName">Full Name</Label>
-                  <Input id="fullName" value={settings.fullName} onChange={e => handleInputChange("fullName", e.target.value)} />
+                  <Input id="fullName" className="mt-2" value={settings.fullName} onChange={e => handleInputChange("fullName", e.target.value)} />
                 </div>
                 <div>
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" value={settings.email} onChange={e => handleInputChange("email", e.target.value)} />
+                  <Input id="email" className="mt-2" type="email" value={settings.email} onChange={e => handleInputChange("email", e.target.value)} />
                 </div>
               </CardContent>
             </Card>
@@ -294,9 +406,9 @@ export default function VendorStoreSettingsPage() {
                 <CardTitle>Store Information</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="md:col-span-2">
+                                <div className="md:col-span-2 pt-1">
                                   <Label htmlFor="businessAddress">Business Address</Label>
-                                  <LocationPicker
+                                  <LocationPicker 
                                         
                   value={settings.businessAddress}
                   onChange={val => handleInputChange("businessAddress", val)}
@@ -338,6 +450,63 @@ export default function VendorStoreSettingsPage() {
                   <Label htmlFor="minimumOrder">Minimum Order</Label>
                   <Input id="minimumOrder" type="number" value={settings.minimumOrder} onChange={e => handleInputChange("minimumOrder", Number(e.target.value))} />
                 </div>
+              </CardContent>
+            </Card>
+            {/* Payout Details */}
+            <Card id="payout-details">
+              <CardHeader>
+                <CardTitle>Payout Details</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Label htmlFor="bank">Bank</Label>
+                  <Select
+                    value={settings.bankCode}
+                    onValueChange={handleBankChange}
+                    disabled={banksLoading || settings.accountVerified}
+                  >
+                    <SelectTrigger id="bank" className="mt-2">
+                      <SelectValue placeholder={banksLoading ? "Loading banks..." : "Select bank"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {banks.map((bank, idx) => {
+                        const key = `${bank.code}-${bank.name}` || String(idx);
+                        return (
+                          <SelectItem key={key} value={bank.code}>
+                            {bank.name}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="accountNumber">Account Number</Label>
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      id="accountNumber"
+                      value={settings.accountNumber}
+                      onChange={e => handleAccountNumberChange(e.target.value)}
+                      placeholder="Enter 10-digit account number"
+                      maxLength={10}
+                      inputMode="numeric"
+                      disabled={settings.accountVerified}
+                      style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}
+                    />
+                    {verifyLoading && <Loader2 className="h-4 w-4 animate-spin mt-2" />}
+                  </div>
+                </div>
+                <div className="md:col-span-2 space-y-2">
+                  <Label>Account Name</Label>
+                  <div className="rounded border px-3 py-2 text-sm flex items-center justify-between bg-muted/40" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{settings.accountName || "Not verified yet"}</span>
+                    {settings.accountVerified ? (
+                      <span className="text-green-600 text-xs font-semibold">Verified</span>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">Not verified</span>
+                    )}
+                    </div> 
+                    </div>
               </CardContent>
             </Card>
             {/* Branding Section */}
@@ -535,8 +704,11 @@ export default function VendorStoreSettingsPage() {
               </CardContent>
             </Card>
             {/* Save Button (Sticky) */}
-            <div className="sticky bottom-0 bg-background py-4 border-t flex justify-end z-10">
-              <Button type="submit" disabled={loading || bgUploading} className="px-8 text-base font-semibold">
+            <div className="sticky bottom-0 bg-background py-4 border-t flex flex-col md:flex-row md:items-center md:justify-end gap-2 z-10">
+              {saveDisabled && (
+                <p className="text-sm text-muted-foreground">Verify payout details before saving.</p>
+              )}
+              <Button type="submit" disabled={saveDisabled} className="px-8 text-base font-semibold">
                 {loading || bgUploading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -560,12 +732,8 @@ export default function VendorStoreSettingsPage() {
       onClose={() => setShowNotification(false)}
       type={notificationType}
     />
-      <NotificationBox
-        message={notification}
-        show={showNotification}
-        onClose={() => setShowNotification(false)}
-        type={notificationType}
-      />
+     
     </VendorLayout>
   )
 }
+

@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { ThemeProvider } from "@/components/theme-provider"
 
 import { useAuth } from "@/contexts/AuthContext"
 import { useRouter } from "next/navigation"
@@ -62,7 +63,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <div className="flex min-h-screen bg-background flex-col lg:flex-row">
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <div className="flex min-h-screen bg-background flex-col lg:flex-row">
       {/* Desktop Sidebar */}
       <div className="hidden lg:flex">
         <AdminSidebar />
@@ -101,6 +103,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </header>
         <main className="flex-1 p-4 lg:p-6 overflow-y-auto">{children}</main>
       </div>
-    </div>
+      </div>
+    </ThemeProvider>
   )
 }

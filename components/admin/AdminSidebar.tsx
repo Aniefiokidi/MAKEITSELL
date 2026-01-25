@@ -34,6 +34,11 @@ const adminNavItems = [
     icon: Store,
   },
   {
+    title: "Vendors Bank Details",
+    href: "/admin/vendors-bank-details",
+    icon: FileText,
+  },
+  {
     title: "Products",
     href: "/admin/products",
     icon: Package,
