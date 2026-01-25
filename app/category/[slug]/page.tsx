@@ -24,6 +24,22 @@ const categoryNames: { [key: string]: string } = {
   sports: "Sports & Fitness",
 }
 
+const fashionSubcategories = [
+  "All Fashion",
+  "Shoes",
+  "Jewelry",
+  "Shirts",
+  "Sweaters",
+  "Swimwear",
+  "Pants & Jeans",
+  "Dresses",
+  "Jackets & Coats",
+  "Accessories",
+  "Bags",
+  "Hats & Caps",
+  "Socks & Underwear",
+]
+
 export default function CategoryPage() {
   const params = useParams()
   const categorySlug = params.slug as string
@@ -31,6 +47,7 @@ export default function CategoryPage() {
   const [filteredProducts, setFilteredProducts] = useState<any[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState("featured")
+  const [fashionSubcategory, setFashionSubcategory] = useState("All Fashion")
   const { addToCart } = useCart()
 
   useEffect(() => {
@@ -72,7 +89,8 @@ export default function CategoryPage() {
               maxStock: p.stock || 99,
               vendorCategory: p.category || "",
               category: p.category || "",
-              description: p.description || ""
+              description: p.description || "",
+              subcategory: p.subcategory || ""
             }
           })
           setProducts(mappedProducts)
@@ -89,6 +107,13 @@ export default function CategoryPage() {
   useEffect(() => {
     // Products are already filtered by category from the API, just apply search and sort
     let filtered = [...products]
+    
+    // Apply fashion subcategory filter
+    if (categorySlug === "fashion" && fashionSubcategory !== "All Fashion") {
+      filtered = filtered.filter(
+        (product) => product.subcategory?.toLowerCase() === fashionSubcategory.toLowerCase()
+      )
+    }
     
     if (searchQuery) {
       filtered = filtered.filter(
@@ -116,7 +141,7 @@ export default function CategoryPage() {
     }
     
     setFilteredProducts(filtered)
-  }, [searchQuery, sortBy, products])
+  }, [searchQuery, sortBy, products, fashionSubcategory, categorySlug])
 
   const handleAddToCart = (product: any) => {
     addToCart({
@@ -179,6 +204,20 @@ export default function CategoryPage() {
               className="pl-10"
             />
           </div>
+          {categorySlug === "fashion" && (
+            <Select value={fashionSubcategory} onValueChange={setFashionSubcategory}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="Subcategory" />
+              </SelectTrigger>
+              <SelectContent>
+                {fashionSubcategories.map((sub) => (
+                  <SelectItem key={sub} value={sub}>
+                    {sub}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="w-full sm:w-48">
               <SelectValue placeholder="Sort by" />

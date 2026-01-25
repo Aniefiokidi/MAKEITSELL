@@ -10,32 +10,41 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Loader2, ShoppingCart, Package, Truck, CheckCircle, XCircle } from "lucide-react"
 import OrderDetailsSlider from "@/components/vendor/OrderDetailsSlider"
+import { useNotification } from "@/contexts/NotificationContext"
 
 export default function VendorOrdersPage() {
   const { user } = useAuth()
+  const { success } = useNotification()
   const router = useRouter()
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedOrder, setSelectedOrder] = useState<any>(null)
   const [showSlider, setShowSlider] = useState(false)
 
-  useEffect(() => {
-    const fetchOrders = async () => {
-      if (user) {
-        setLoading(true)
-        try {
-          const res = await fetch(`/api/vendor/orders?vendorId=${user.uid}`);
-          const data = await res.json();
-          setOrders(data.orders || []);
-        } catch (error) {
-          setOrders([]);
-        } finally {
-          setLoading(false);
-        }
+  const fetchOrders = async () => {
+    if (user) {
+      setLoading(true)
+      try {
+        const res = await fetch(`/api/vendor/orders?vendorId=${user.uid}`);
+        const data = await res.json();
+        setOrders(data.orders || []);
+      } catch (error) {
+        setOrders([]);
+      } finally {
+        setLoading(false);
       }
-    };
+    }
+  };
+
+  useEffect(() => {
     fetchOrders();
   }, [user])
+
+  const handleStatusUpdated = async () => {
+    success('Order status updated')
+    await fetchOrders()
+    setShowSlider(false)
+  }
 
   return (
     <VendorLayout>
@@ -111,7 +120,7 @@ export default function VendorOrdersPage() {
             </div>
           )}
         </div>
-        <OrderDetailsSlider open={showSlider} onOpenChange={setShowSlider} order={selectedOrder} />
+        <OrderDetailsSlider open={showSlider} onOpenChange={setShowSlider} order={selectedOrder} onStatusUpdated={handleStatusUpdated} />
       </>
     </VendorLayout>
   )

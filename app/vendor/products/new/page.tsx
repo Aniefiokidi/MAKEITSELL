@@ -4,6 +4,7 @@ import type React from "react"
 
 import { useState } from "react"
 import { useAuth } from "@/contexts/AuthContext"
+import { useNotification } from "@/contexts/NotificationContext"
 import { uploadImageToStorage } from "@/lib/firebase"
 import { uploadToCloudinary } from "@/lib/cloudinary"
 import { useRouter } from "next/navigation"
@@ -31,9 +32,25 @@ const categories = [
   "Food & Beverages",
 ]
 
+const fashionSubcategories = [
+  "Shoes",
+  "Jewelry",
+  "Shirts",
+  "Sweaters",
+  "Swimwear",
+  "Pants & Jeans",
+  "Dresses",
+  "Jackets & Coats",
+  "Accessories",
+  "Bags",
+  "Hats & Caps",
+  "Socks & Underwear",
+]
+
 export default function NewProduct() {
   const router = useRouter()
   const { user, userProfile } = useAuth()
+  const { success, error: showError, warning, info } = useNotification()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [formData, setFormData] = useState({
@@ -41,6 +58,7 @@ export default function NewProduct() {
     description: "",
     price: "",
     category: "",
+    subcategory: "",
     stock: "",
     sku: "",
     featured: false,
@@ -187,6 +205,7 @@ export default function NewProduct() {
           description: formData.description,
           price: Number(formData.price),
           category: formData.category,
+          subcategory: formData.subcategory || null,
           images: imageUrls,
           vendorId: user.uid,
           vendorName: userProfile?.displayName || user.email || "Vendor",
@@ -208,9 +227,12 @@ export default function NewProduct() {
         throw new Error(errorData.error || 'Failed to create product')
       }
 
+      success('Product created successfully!', 'Your product is now live')
       router.push("/vendor/products")
     } catch (error: any) {
-      setError(error.message || "Failed to create product")
+      const errorMessage = error.message || "Failed to create product"
+      setError(errorMessage)
+      showError(errorMessage, 'Product Creation Failed')
     } finally {
       setLoading(false)
     }
@@ -282,7 +304,13 @@ export default function NewProduct() {
 
                 <div className="space-y-2">
                   <Label htmlFor="category">Category *</Label>
-                  <Select value={formData.category} onValueChange={(value) => handleInputChange("category", value)}>
+                  <Select value={formData.category} onValueChange={(value) => {
+                    handleInputChange("category", value)
+                    // Reset subcategory when category changes
+                    if (value !== "Fashion") {
+                      handleInputChange("subcategory", "")
+                    }
+                  }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
@@ -296,6 +324,25 @@ export default function NewProduct() {
                   </Select>
                 </div>
               </div>
+
+              {/* Fashion Subcategory */}
+              {formData.category === "Fashion" && (
+                <div className="space-y-2">
+                  <Label htmlFor="subcategory">Fashion Subcategory</Label>
+                  <Select value={formData.subcategory} onValueChange={(value) => handleInputChange("subcategory", value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select fashion subcategory" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {fashionSubcategories.map((subcategory) => (
+                        <SelectItem key={subcategory} value={subcategory}>
+                          {subcategory}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import VendorLayout from "@/components/vendor/VendorLayout"
 import { useAuth } from "@/contexts/AuthContext"
+import { useNotification } from "@/contexts/NotificationContext"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,6 +31,7 @@ interface Product {
 
 const VendorProductsPage = () => {
   const router = useRouter()
+  const { success, error, warning } = useNotification()
   const [searchQuery, setSearchQuery] = useState("")
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
@@ -214,6 +216,7 @@ const VendorProductsPage = () => {
                                       method: 'DELETE'
                                     })
                                     if (response.ok) {
+                                      success(`Product "${product.title || product.name}" deleted successfully`)
                                       // Refresh products list
                                       const fetchProducts = async () => {
                                         const response = await fetch(`/api/vendor/products?vendorId=${user?.uid}`)
@@ -222,11 +225,11 @@ const VendorProductsPage = () => {
                                       }
                                       await fetchProducts()
                                     } else {
-                                      alert('Failed to delete product')
+                                      error('Failed to delete product', 'Please try again')
                                     }
-                                  } catch (error) {
-                                    console.error('Delete error:', error)
-                                    alert('Failed to delete product')
+                                  } catch (err) {
+                                    console.error('Delete error:', err)
+                                    error('Failed to delete product', 'An error occurred')
                                   }
                                 }
                               }}

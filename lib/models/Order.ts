@@ -13,6 +13,13 @@ export interface IOrder extends Document {
   vendors: any[];
   storeIds: string[];
   createdAt: Date;
+  // Status timestamps
+  confirmedAt?: Date;
+  shippedAt?: Date;
+  outForDeliveryAt?: Date;
+  deliveredAt?: Date;
+  receivedAt?: Date;
+  cancelledAt?: Date;
 }
 
 const OrderSchema = new Schema<IOrder>({
@@ -28,6 +35,12 @@ const OrderSchema = new Schema<IOrder>({
   vendors: { type: Array, default: [] },
   storeIds: { type: Array, default: [] },
   createdAt: { type: Date, default: Date.now },
+  confirmedAt: { type: Date },
+  shippedAt: { type: Date },
+  outForDeliveryAt: { type: Date },
+  deliveredAt: { type: Date },
+  receivedAt: { type: Date },
+  cancelledAt: { type: Date },
 });
 
 export const Order = models.Order || mongoose.model<IOrder>('Order', OrderSchema);

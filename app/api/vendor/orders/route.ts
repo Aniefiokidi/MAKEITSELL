@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getOrdersByVendor } from "@/lib/mongodb-operations";
+import { getOrdersByVendor, updateOrder } from "@/lib/mongodb-operations";
 import connectToDatabase from "@/lib/mongodb";
 import mongoose from "mongoose";
 
@@ -52,6 +52,39 @@ export async function GET(req: NextRequest) {
     
     return new Response(JSON.stringify({ success: true, orders }), { status: 200 });
   } catch (error) {
+    return new Response(JSON.stringify({ success: false, error: error?.message || "Unknown error" }), { status: 500 });
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { orderId, status } = body || {};
+    if (!orderId || !status) {
+      return new Response(JSON.stringify({ success: false, error: "Missing orderId or status" }), { status: 400 });
+    }
+
+    // Map status to timestamp fields
+    const now = new Date();
+    const timestampUpdates: any = {};
+    if (status === "confirmed" || status === "processing") {
+      timestampUpdates.confirmedAt = now;
+    } else if (status === "shipped" || status === "shipped_interstate") {
+      timestampUpdates.shippedAt = now;
+    } else if (status === "out_for_delivery") {
+      timestampUpdates.outForDeliveryAt = now;
+    } else if (status === "delivered") {
+      timestampUpdates.deliveredAt = now;
+    } else if (status === "cancelled") {
+      timestampUpdates.cancelledAt = now;
+    }
+
+    const updated = await updateOrder(orderId, { status, ...timestampUpdates });
+    if (!updated) {
+      return new Response(JSON.stringify({ success: false, error: "Order not found" }), { status: 404 });
+    }
+    return new Response(JSON.stringify({ success: true, order: updated }), { status: 200 });
+  } catch (error: any) {
     return new Response(JSON.stringify({ success: false, error: error?.message || "Unknown error" }), { status: 500 });
   }
 }

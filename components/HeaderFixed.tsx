@@ -29,13 +29,13 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur-md shadow-sm">
       <div className="w-full px-4 sm:px-6 lg:px-10">
-        <div className="flex h-16 lg:h-20 items-center justify-between">
+        <div className="flex h-12 md:h-14 lg:h-16 items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center shrink-0">
             <img
               src="/images/logo.png"
               alt="BRANDA"
-              className="h-10 lg:h-14 w-auto object-contain transition-all duration-300 hover:scale-105"
+              className="h-7 sm:h-8 lg:h-10 w-auto object-contain transition-all duration-300 hover:scale-105"
               onError={(e) => {
                 // Fallback to text logo if image fails
                 e.currentTarget.style.display = 'none'
@@ -66,7 +66,7 @@ export default function Header() {
               <Link
                 key={link}
                 href={`/${link.toLowerCase()}`}
-                className="relative text-sm font-medium text-gray-700 hover:text-[oklch(0.21_0.194_29.234)] transition-all group"
+                className="relative text-xs sm:text-sm font-medium text-gray-700 hover:text-[oklch(0.21_0.194_29.234)] transition-all group"
               >
                 {link}
                 <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[oklch(0.21_0.194_29.234)] transition-all duration-300 group-hover:w-full"></span>
@@ -152,35 +152,35 @@ export default function Header() {
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: "100%", opacity: 0 }}
               transition={{ type: "spring", stiffness: 120, damping: 15 }}
-              className="fixed top-16 right-0 w-72 h-[calc(100vh-4rem)] bg-white shadow-lg border-l border-gray-200 z-50 flex flex-col"
+              className="fixed top-12 right-0 w-72 h-[calc(100vh-3rem)] bg-white shadow-lg border-l border-gray-200 z-50 flex flex-col"
             >
               {/* Navigation Links */}
               <div className="px-4 pt-4 space-y-2 flex-1 overflow-y-auto">
                 <Link
                   href="/shop"
                   onClick={() => setIsMenuOpen(false)}
-                  className="block px-3 py-2 text-gray-700 hover:text-[oklch(0.21_0.194_29.234)] hover:bg-gray-50 rounded-md transition-colors"
+                  className="block px-3 py-2 text-xs sm:text-sm text-gray-700 hover:text-[oklch(0.21_0.194_29.234)] hover:bg-gray-50 rounded-md transition-colors"
                 >
                   Products
                 </Link>
                 <Link
                   href="/services"
                   onClick={() => setIsMenuOpen(false)}
-                  className="block px-3 py-2 text-gray-700 hover:text-[oklch(0.21_0.194_29.234)] hover:bg-gray-50 rounded-md transition-colors"
+                  className="block px-3 py-2 text-xs sm:text-sm text-gray-700 hover:text-[oklch(0.21_0.194_29.234)] hover:bg-gray-50 rounded-md transition-colors"
                 >
                   Services
                 </Link>
                 <Link
                   href="/categories"
                   onClick={() => setIsMenuOpen(false)}
-                  className="block px-3 py-2 text-gray-700 hover:text-[oklch(0.21_0.194_29.234)] hover:bg-gray-50 rounded-md transition-colors"
+                  className="block px-3 py-2 text-xs sm:text-sm text-gray-700 hover:text-[oklch(0.21_0.194_29.234)] hover:bg-gray-50 rounded-md transition-colors"
                 >
                   Categories
                 </Link>
                 <Link
                   href="/cart"
                   onClick={() => setIsMenuOpen(false)}
-                  className="block px-3 py-2 text-gray-700 hover:text-[oklch(0.21_0.194_29.234)] hover:bg-gray-50 rounded-md transition-colors"
+                  className="block px-3 py-2 text-xs sm:text-sm text-gray-700 hover:text-[oklch(0.21_0.194_29.234)] hover:bg-gray-50 rounded-md transition-colors"
                 >
                   Cart
                 </Link>
@@ -189,7 +189,7 @@ export default function Header() {
               {/* Footer */}
               {!userProfile && (
                 <div className="px-6 py-6 border-t border-gray-200">
-                  <p className="text-sm text-gray-600 mb-4">
+                  <p className="text-xs sm:text-sm text-gray-600 mb-4">
                     Become a Branda member to buy smarter, sell faster, and grow with the community.{" "}
                     <span className="font-medium text-black cursor-pointer">Learn more</span>
                   </p>

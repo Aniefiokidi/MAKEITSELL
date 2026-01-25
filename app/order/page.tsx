@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
+import { useNotification } from "@/contexts/NotificationContext"
 interface Booking {
   id: string
   customerId: string
@@ -30,6 +31,7 @@ interface Booking {
 
 export default function CustomerOrdersPage() {
   const { user } = useAuth()
+  const { success, error: notifyError } = useNotification()
   const [orders, setOrders] = useState<any[]>([])
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
@@ -127,9 +129,9 @@ export default function CustomerOrdersPage() {
   // Flatten orders so each product is its own card, even if from the same vendor
   const flattenedOrders = orders.flatMap(order => {
     if (Array.isArray(order.vendors) && order.vendors.length > 0) {
-      return order.vendors.flatMap((vendor, vIdx) => (
+      return order.vendors.flatMap((vendor: any, vIdx: number) => (
         Array.isArray(vendor.items) && vendor.items.length > 0
-          ? vendor.items.map((prod, pIdx) => ({
+          ? vendor.items.map((prod: any, pIdx: number) => ({
               ...order,
               _parentOrderId: order.orderId || order.id,
               vendor,
@@ -141,7 +143,7 @@ export default function CustomerOrdersPage() {
           : []
       ))
     } else if (Array.isArray(order.products) && order.products.length > 0) {
-      return order.products.map((prod, pIdx) => ({
+      return order.products.map((prod: any, pIdx: number) => ({
         ...order,
         _parentOrderId: order.orderId || order.id,
         product: prod,
@@ -195,9 +197,9 @@ export default function CustomerOrdersPage() {
                   || order.storeName
                   || 'Store';
                 return (
-                  <div key={order._parentOrderId + '-' + (order.storeId || idx) + '-' + (prod?.productId || idx)} className="bg-white rounded-xl shadow-lg border border-accent/20 p-6 flex flex-col">
+                  <div key={order._parentOrderId + '-' + (order.storeId || idx) + '-' + (prod?.productId || idx)} className="bg-card text-card-foreground rounded-xl shadow-lg border border-border p-6 flex flex-col">
                     <div className="flex flex-row items-center gap-3 mb-6">
-                      <div className="relative h-12 w-12 rounded-md overflow-hidden bg-muted flex-shrink-0">
+                      <div className="relative h-12 w-12 rounded-md overflow-hidden bg-muted shrink-0">
                         <Image src={productImage} alt={productName} fill className="object-cover" onError={e => { (e.target as HTMLImageElement).src = '/images/placeholder-product.svg' }} />
                       </div>
                       <div className="flex flex-col justify-center">
@@ -217,13 +219,15 @@ export default function CustomerOrdersPage() {
                       { label: 'SHIPPED', date: order.shippedAt, desc: '', badge: 'SHIPPED' },
                       { label: 'OUT FOR DELIVERY', date: order.outForDeliveryAt, desc: '', badge: 'OUT FOR DELIVERY' },
                       { label: 'DELIVERED', date: order.deliveredAt, desc: '', badge: 'DELIVERED' },
+                      { label: 'RECEIVED', date: (order as any).receivedAt, desc: '', badge: 'RECEIVED' },
                     ].map((step, sidx, arr) => {
                       const isActive = (() => {
                         if (step.label === 'ORDER PLACED') return true;
                         if (step.label === 'PENDING CONFIRMATION') return ['pending', 'pending_payment', 'confirmed', 'processing', 'shipped', 'delivered'].includes(order.status);
                         if (step.label === 'SHIPPED') return ['shipped', 'delivered'].includes(order.status);
                         if (step.label === 'OUT FOR DELIVERY') return order.status === 'out_for_delivery' || order.status === 'delivered';
-                        if (step.label === 'DELIVERED') return order.status === 'delivered';
+                        if (step.label === 'DELIVERED') return order.status === 'delivered' || order.status === 'received';
+                        if (step.label === 'RECEIVED') return order.status === 'received';
                         return false;
                       })();
                       const isCurrent = (() => {
@@ -232,6 +236,7 @@ export default function CustomerOrdersPage() {
                         if (step.label === 'SHIPPED') return order.status === 'shipped';
                         if (step.label === 'OUT FOR DELIVERY') return order.status === 'out_for_delivery';
                         if (step.label === 'DELIVERED') return order.status === 'delivered';
+                        if (step.label === 'RECEIVED') return order.status === 'received';
                         return false;
                       })();
                       return (
@@ -245,6 +250,9 @@ export default function CustomerOrdersPage() {
                             {step.desc && <div className="text-xs text-muted-foreground max-w-xs">{step.desc}</div>}
                             {step.label === 'DELIVERED' && order.deliveredAt && (
                               <div className="text-xs text-accent mt-1">Delivered on {typeof order.deliveredAt === 'string' ? new Date(order.deliveredAt).toLocaleDateString() : order.deliveredAt?.toLocaleDateString?.()}</div>
+                            )}
+                            {step.label === 'RECEIVED' && (order as any).receivedAt && (
+                              <div className="text-xs text-green-600 mt-1">Received on {typeof (order as any).receivedAt === 'string' ? new Date((order as any).receivedAt).toLocaleDateString() : (order as any).receivedAt?.toLocaleDateString?.()}</div>
                             )}
                           </div>
                         </div>
@@ -262,13 +270,46 @@ export default function CustomerOrdersPage() {
                       </Badge>
                     </div>
                   </div>
+                  {/* Customer Acknowledgment */}
+                  {(order.status === 'delivered') && (
+                    <div className="mt-4 flex justify-end">
+                      <Button
+                        className="bg-green-600 text-white hover:bg-green-700"
+                        onClick={async () => {
+                          try {
+                            const res = await fetch('/api/orders', {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ orderId: order._parentOrderId || order.orderId || order.id, status: 'received' })
+                            })
+                            const json = await res.json()
+                            if (json?.success) {
+                              const targetId = order._parentOrderId || order.orderId || order.id
+                              const now = new Date().toISOString()
+                              setOrders(prev => prev.map(o => {
+                                const oid = o.orderId || o.id
+                                if (oid === targetId) return { ...o, status: 'received', receivedAt: now }
+                                return o
+                              }))
+                              success('Thanks! Marked as received')
+                            } else {
+                              notifyError(json?.error || 'Failed to acknowledge receipt')
+                            }
+                          } catch (e: any) {
+                            notifyError(e?.message || 'Failed to acknowledge receipt')
+                          }
+                        }}
+                      >
+                        I have received this
+                      </Button>
+                    </div>
+                  )}
                 </div>
               );
               })}
             </div>
           )}
         </section>
-        <Footer />
       </main>
     </React.Fragment>
   );

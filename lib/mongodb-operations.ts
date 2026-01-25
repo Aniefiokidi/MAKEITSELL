@@ -228,8 +228,21 @@ export const getProducts = async (filters?: any): Promise<Product[]> => {
     return products.map(mapProduct);
   }
 };
-export const updateProduct = () => { throw new Error("Server-only: updateProduct is not available on client."); };
-export const deleteProduct = () => { throw new Error("Server-only: deleteProduct is not available on client."); };
+
+export const updateProduct = async (id: string, data: any) => {
+  await connectToDatabase();
+  const product = await ProductModel.findByIdAndUpdate(id, data, { new: true }).lean();
+  if (!product) return null;
+  const { _id, ...rest } = product as any;
+  return { ...rest, id: _id.toString() };
+};
+
+export const deleteProduct = async (id: string) => {
+  await connectToDatabase();
+  await ProductModel.findByIdAndDelete(id);
+  return true;
+};
+
 export const getVendors = () => { throw new Error("Server-only: getVendors is not available on client."); };
 export const getOrders = async (filters: any) => {
   await connectToDatabase();

@@ -735,9 +735,9 @@ export default function StorePage() {
               </Card>
             ) : (
               <>
-                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4 md:gap-6 auto-rows-max">
                   {filteredProducts.filter(product => product && product.id).map((product) => (
-                    <Card key={product.id} className="border-0 shadow-md overflow-hidden relative h-[350px] sm:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-3xl">
+                    <Card key={product.id} className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100">
                       {/* Image Container with Group Hover */}
                       <div className="group absolute inset-0 overflow-hidden">
                         {/* Full Card Image Background */}
@@ -748,61 +748,63 @@ export default function StorePage() {
                         />
                         
                         {/* Product Badges */}
-                        <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
+                        <div className="absolute top-2 sm:top-3 left-2 sm:left-3 flex flex-col gap-1 z-10">
                           {product.featured && (
-                            <Badge className="bg-yellow-500 text-black font-semibold">
-                              <svg className="inline w-4 h-4 text-yellow-400 fill-current animate-pulse mr-1" viewBox="0 0 24 24">
+                            <Badge className="bg-yellow-500 text-black font-semibold text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
+                              <svg className="inline w-3 h-3 sm:w-4 sm:h-4 text-yellow-400 fill-current animate-pulse mr-0.5 sm:mr-1" viewBox="0 0 24 24">
                                 <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
                               </svg> 
                               Featured
                             </Badge>
                           )}
                           {(product.stock ?? 0) < 10 && (product.stock ?? 0) > 0 && (
-                            <Badge variant="destructive">
+                            <Badge variant="destructive" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
                               Only {product.stock} left
                             </Badge>
                           )}
                           {product.stock === 0 && (
-                            <Badge variant="secondary" className="bg-gray-600">
+                            <Badge variant="secondary" className="bg-gray-600 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
                               Out of Stock
                             </Badge>
                           )}
                         </div>
                         
-                        {/* Action Buttons */}
-                        <div className="absolute top-3 right-3  opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+                        {/* Action Buttons - Visible on mobile */}
+                        <div className="absolute top-2 sm:top-3 right-2 sm:right-3 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 flex gap-1 sm:gap-2">
                           <Button
                             size="sm"
                             variant="outline"
-                            className="bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-110 transition-all"
+                            className="bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-110 active:scale-95 transition-all h-8 w-8 p-0 sm:h-9 sm:w-9"
                             onClick={() => {/* Add to wishlist */}}
                           >
-                            <Heart className="w-4 h-4" />
+                            <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                           </Button>
                         </div>
                         
-                        {/* Quick View */}
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-20">
+                        {/* Quick View - Visible on hover or mobile */}
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-20 hidden sm:flex">
                           <Button 
                             variant="outline" 
-                            className="bg-white/90 backdrop-blur-sm text-black hover:bg-white hover:scale-105 transition-all"
+                            className="bg-white/90 backdrop-blur-sm text-black hover:bg-white hover:scale-105 active:scale-95 transition-all text-xs sm:text-sm"
                             onClick={(e) => {
                               e.preventDefault()
                               setSelectedProduct(product)
                               setQuickViewOpen(true)
                             }}
                           >
-                            <Eye className="w-4 h-4 mr-2" />
+                            <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                             Quick View
                           </Button>
                         </div>
                       </div>
                       
                       {/* Frosted Glass Bubble Content */}
-                      <div className="absolute bottom-0 left-0 right-0 p-2.5 sm:p-3 backdrop-blur-xl bg-accent/10 border-t border-white/30 rounded-t-3xl z-30 space-y-1.5">
-                        <h3 
-                          className={`font-semibold text-xs sm:text-sm line-clamp-1 drop-shadow-lg cursor-pointer hover:opacity-80 transition-colors ${
-                            imageBrightness[product.id] === 'light' ? 'text-accent' : 'text-white'
+                      <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-2.5 md:p-3 backdrop-blur-xl bg-accent/10 border-t border-white/30 rounded-t-2xl sm:rounded-t-3xl z-30 space-y-1 gap-1 sm:gap-2">
+                        <Badge
+                          variant="outline"
+                          role="button"
+                          className={`inline-flex max-w-[80%] truncate text-[11px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow cursor-pointer hover:opacity-90 transition ${
+                            imageBrightness[product.id] === 'light' ? 'bg-accent text-white' : 'bg-accent text-white'
                           }`}
                           onClick={() => {
                             setSelectedProduct(product)
@@ -810,34 +812,37 @@ export default function StorePage() {
                           }}
                         >
                           {product.title || (product as any).name}
-                        </h3>
+                        </Badge>
                         
-                        <div className="flex items-center justify-between gap-2">
-                          <Badge variant="outline" className={`text-[10px] backdrop-blur-sm border-white/50 px-1.5 py-0 ${
-                            imageBrightness[product.id] === 'light' ? 'text-accent bg-accent/20' : 'text-white bg-accent/80'
+                        <div className="flex items-center justify-between gap-1 sm:gap-2">
+                          <Badge variant="outline" className={`text-[9px] sm:text-[10px] md:text-xs backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 ${
+                            imageBrightness[product.id] === 'light' ? 'text-white bg-accent' : 'text-white bg-accent'
                           }`}>
                             {product.category}
                           </Badge>
                           
-                          <div className={`font-bold text-sm drop-shadow-lg ${
-                            imageBrightness[product.id] === 'light' ? 'text-accent' : 'text-white'
-                          }`}>
+                          <Badge
+                            variant="outline"
+                            className={`text-[9px] sm:text-[10px] md:text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 backdrop-blur-sm ${
+                              imageBrightness[product.id] === 'light' ? 'bg-white/80 text-accent' : 'bg-white/70 text-accent'
+                            }`}
+                          >
                             {formatCurrency(product.price)}
-                          </div>
+                          </Badge>
                         </div>
                         
                         <Button 
                           size="sm"
                           onClick={() => handleAddToCart(product)}
                           disabled={product.stock === 0}
-                          className={`w-full h-7 text-xs backdrop-blur-sm hover:scale-105 transition-all hover:shadow-lg flex items-center justify-center gap-0 ${
+                          className={`w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 ${
                             imageBrightness[product.id] === 'light' 
-                              ? 'bg-accent/20 hover:bg-accent/30 text-accent' 
+                              ? 'bg-white/20 hover:bg-white/80 text-accent' 
                               : 'bg-white/50 hover:bg-white text-black'
                           }`}
                         >
-                          <img src="/images/logo3.png" alt="Add" className="w-8 h-8 -mt-2" />
-                          <span className="leading-none">Add</span>
+                          <img src="/images/logo3.png" alt="Add" className="w-6 sm:w-7 md:w-8 h-6 sm:h-7 md:h-8 -mt-1 sm:-mt-2" />
+                          <span className="leading-none hidden sm:inline">Add</span>
                         </Button>
                       </div>
                     </Card>

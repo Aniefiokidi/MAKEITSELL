@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getProductById, updateProduct, deleteProduct } from '@/lib/database'
+import { getProductById, updateProduct, deleteProduct } from '@/lib/mongodb-operations'
 
 export async function GET(
   request: NextRequest,

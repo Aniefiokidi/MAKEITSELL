@@ -5,6 +5,8 @@ import { GeistMono } from "geist/font/mono"
 import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/contexts/AuthContext"
 import { CartProvider } from "@/contexts/CartContext"
+import { NotificationProvider } from "@/contexts/NotificationContext"
+import { NotificationBox } from "@/components/NotificationBox"
 import { Suspense } from "react"
 import FooterReveal from "@/components/FooterReveal"
 import "./globals.css"
@@ -45,10 +47,13 @@ export default function RootLayout({
           <Suspense fallback={null}>
             <AuthProvider>
               <CartProvider>
-                <div className="min-h-screen flex flex-col">
-                  <main className="flex-1 flex flex-col">{children}</main>
-                  <FooterReveal />
-                </div>
+                <NotificationProvider>
+                  <NotificationBox />
+                  <div className="min-h-screen flex flex-col">
+                    <main className="flex-1 flex flex-col">{children}</main>
+                    <FooterReveal />
+                  </div>
+                </NotificationProvider>
               </CartProvider>
             </AuthProvider>
           </Suspense>
