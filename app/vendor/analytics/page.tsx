@@ -5,7 +5,7 @@ import VendorLayout from "@/components/vendor/VendorLayout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/contexts/AuthContext"
-import { BarChart3, TrendingUp, Users, DollarSign, Package, ShoppingCart } from "lucide-react"
+import { BarChart3, TrendingUp, Users, Banknote, Package, ShoppingCart } from "lucide-react"
 
 
 export default function VendorAnalyticsPage() {
@@ -89,7 +89,7 @@ export default function VendorAnalyticsPage() {
                     {revenueChange === null ? "" : `${revenueChange >= 0 ? "+" : ""}${revenueChange.toFixed(1)}% from last month`}
                   </p>
                 </div>
-                <DollarSign className="h-8 w-8 text-gray-400" />
+                <Banknote className="h-8 w-8 text-gray-400" />
               </div>
             </CardContent>
           </Card>

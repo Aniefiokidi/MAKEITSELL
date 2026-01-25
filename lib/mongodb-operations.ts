@@ -163,6 +163,14 @@ export const getServiceById = async (id: string) => {
   }
 };
 
+export const updateService = async (id: string, data: any) => {
+  await connectToDatabase();
+  const service = await ServiceModel.findByIdAndUpdate(id, data, { new: true }).lean();
+  if (!service) return null;
+  const { _id, ...rest } = service as any;
+  return { ...rest, id: _id.toString() };
+};
+
 export const deleteService = async (id: string) => {
   await connectToDatabase();
   await ServiceModel.findByIdAndDelete(id);

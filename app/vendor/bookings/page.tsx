@@ -99,11 +99,11 @@ export default function VendorBookingsPage() {
 
   const BookingCard = ({ booking }: { booking: Booking }) => (
     <Card className="hover:shadow-md transition-shadow">
-      <CardContent className="p-6">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <h3 className="font-semibold text-lg">{booking.serviceName}</h3>
-            <p className="text-sm text-muted-foreground">{booking.customerName || "Customer"}</p>
+      <CardContent className="p-4 lg:p-6">
+        <div className="flex justify-between items-start mb-4 gap-2">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-base lg:text-lg truncate">{booking.serviceName}</h3>
+            <p className="text-xs lg:text-sm text-muted-foreground truncate">{booking.customerName || "Customer"}</p>
           </div>
           <Badge
             variant={
@@ -120,22 +120,22 @@ export default function VendorBookingsPage() {
           </Badge>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 lg:gap-4 mb-4">
           <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm">{format(new Date(booking.bookingDate), "MMM dd, yyyy")}</span>
+            <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <span className="text-xs lg:text-sm truncate">{format(new Date(booking.bookingDate), "MMM dd, yyyy")}</span>
           </div>
           <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm">{booking.startTime} - {booking.endTime}</span>
+            <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <span className="text-xs lg:text-sm truncate">{booking.startTime} - {booking.endTime}</span>
           </div>
           <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm">{booking.location}</span>
+            <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <span className="text-xs lg:text-sm truncate">{booking.location}</span>
           </div>
           <div className="flex items-center gap-2">
-            <Phone className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm">{booking.customerPhone || "Not provided"}</span>
+            <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <span className="text-xs lg:text-sm truncate">{booking.customerPhone || "Not provided"}</span>
           </div>
         </div>
 
@@ -146,9 +146,9 @@ export default function VendorBookingsPage() {
           </div>
         )}
 
-        <div className="flex justify-between items-center">
-          <p className="font-semibold text-lg">{booking.totalPrice.toLocaleString('en-NG')}</p>
-          <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <p className="font-semibold text-base lg:text-lg">₦{booking.totalPrice.toLocaleString('en-NG')}</p>
+          <div className="flex gap-2 w-full sm:w-auto">
             {booking.status === "pending" && (
               <>
                 <Button size="sm" variant="default" onClick={() => handleApprove(booking.id)} className="gap-1">
@@ -191,68 +191,68 @@ export default function VendorBookingsPage() {
 
   return (
     <VendorLayout>
-      <div className="space-y-6">
+      <div className="space-y-4 lg:space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Service Bookings</h1>
-          <p className="text-muted-foreground mt-2">Manage and approve customer service appointments</p>
+          <h1 className="text-2xl lg:text-3xl font-bold">Service Bookings</h1>
+          <p className="text-sm lg:text-base text-muted-foreground mt-2">Manage and approve customer service appointments</p>
         </div>
 
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Pending</p>
-                  <p className="text-2xl font-bold">{pendingBookings.length}</p>
+            <CardContent className="p-4 lg:p-6">
+              <div className="flex flex-col lg:flex-row items-center lg:justify-between gap-2 text-center lg:text-left">
+                <div className="flex-1">
+                  <p className="text-xs lg:text-sm text-muted-foreground">Pending</p>
+                  <p className="text-xl lg:text-2xl font-bold">{pendingBookings.length}</p>
                 </div>
-                <Clock3 className="h-8 w-8 text-yellow-500 opacity-50" />
+                <Clock3 className="h-6 w-6 lg:h-8 lg:w-8 text-yellow-500 opacity-50 flex-shrink-0" />
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Confirmed</p>
-                  <p className="text-2xl font-bold">{confirmedBookings.length}</p>
+            <CardContent className="p-4 lg:p-6">
+              <div className="flex flex-col lg:flex-row items-center lg:justify-between gap-2 text-center lg:text-left">
+                <div className="flex-1">
+                  <p className="text-xs lg:text-sm text-muted-foreground">Confirmed</p>
+                  <p className="text-xl lg:text-2xl font-bold">{confirmedBookings.length}</p>
                 </div>
-                <CheckCircle2 className="h-8 w-8 text-green-500 opacity-50" />
+                <CheckCircle2 className="h-6 w-6 lg:h-8 lg:w-8 text-green-500 opacity-50 flex-shrink-0" />
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Completed</p>
-                  <p className="text-2xl font-bold">{completedBookings.length}</p>
+            <CardContent className="p-4 lg:p-6">
+              <div className="flex flex-col lg:flex-row items-center lg:justify-between gap-2 text-center lg:text-left">
+                <div className="flex-1">
+                  <p className="text-xs lg:text-sm text-muted-foreground">Completed</p>
+                  <p className="text-xl lg:text-2xl font-bold">{completedBookings.length}</p>
                 </div>
-                <CheckCircle2 className="h-8 w-8 text-blue-500 opacity-50" />
+                <CheckCircle2 className="h-6 w-6 lg:h-8 lg:w-8 text-blue-500 opacity-50 flex-shrink-0" />
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Rejected</p>
-                  <p className="text-2xl font-bold">{cancelledBookings.length}</p>
+            <CardContent className="p-4 lg:p-6">
+              <div className="flex flex-col lg:flex-row items-center lg:justify-between gap-2 text-center lg:text-left">
+                <div className="flex-1">
+                  <p className="text-xs lg:text-sm text-muted-foreground">Rejected</p>
+                  <p className="text-xl lg:text-2xl font-bold">{cancelledBookings.length}</p>
                 </div>
-                <XCircle className="h-8 w-8 text-red-500 opacity-50" />
+                <XCircle className="h-6 w-6 lg:h-8 lg:w-8 text-red-500 opacity-50 flex-shrink-0" />
               </div>
             </CardContent>
           </Card>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="pending">Pending ({pendingBookings.length})</TabsTrigger>
-            <TabsTrigger value="confirmed">Confirmed ({confirmedBookings.length})</TabsTrigger>
-            <TabsTrigger value="completed">Completed ({completedBookings.length})</TabsTrigger>
-            <TabsTrigger value="cancelled">Rejected ({cancelledBookings.length})</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto">
+            <TabsTrigger value="pending" className="text-xs lg:text-sm py-2">Pending ({pendingBookings.length})</TabsTrigger>
+            <TabsTrigger value="confirmed" className="text-xs lg:text-sm py-2">Confirmed ({confirmedBookings.length})</TabsTrigger>
+            <TabsTrigger value="completed" className="text-xs lg:text-sm py-2">Completed ({completedBookings.length})</TabsTrigger>
+            <TabsTrigger value="cancelled" className="text-xs lg:text-sm py-2">Rejected ({cancelledBookings.length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="pending" className="space-y-4">

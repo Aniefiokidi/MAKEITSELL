@@ -14,6 +14,7 @@ import {
   TrendingUp,
   FileText,
   Store,
+  Briefcase,
 } from "lucide-react"
 
 const adminNavItems = [
@@ -41,6 +42,11 @@ const adminNavItems = [
     title: "Orders",
     href: "/admin/orders",
     icon: ShoppingCart,
+  },
+  {
+    title: "Services",
+    href: "/admin/services",
+    icon: Briefcase,
   },
   {
     title: "Support",

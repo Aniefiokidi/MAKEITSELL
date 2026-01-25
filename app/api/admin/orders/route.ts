@@ -1,51 +1,98 @@
 import { NextRequest } from 'next/server'
-import { getAllOrders, getAllUsers, getAllStores } from '@/lib/mongodb-operations'
+import { getAllOrders, getAllUsers, getAllStores, getAllProducts } from '@/lib/mongodb-operations'
 
 export async function GET(_req: NextRequest) {
   try {
-    const [orders, users, stores] = await Promise.all([
+    const [orders, users, stores, products] = await Promise.all([
       getAllOrders(),
       getAllUsers(),
       getAllStores(),
+      getAllProducts(),
     ])
 
+    // Build lookup maps with multiple ID format support
     const userById: Record<string, { name?: string; email?: string }> = {}
     users.forEach((u: any) => {
-      const key = u.id || u._id?.toString?.()
+      const key = u.id || u._id?.toString?.() || String(u._id)
       if (!key) return
-      userById[key] = { name: u.name || u.displayName, email: u.email }
+      const userName = u.name || u.displayName || u.email
+      userById[key] = { name: userName, email: u.email }
+      // Also add by email as fallback
+      if (u.email) userById[u.email] = { name: userName, email: u.email }
     })
+    console.log('[/api/admin/orders] userById keys:', Object.keys(userById).slice(0, 5))
+    console.log('[/api/admin/orders] sample user:', Object.values(userById)[0])
 
     const storeById: Record<string, { storeName?: string }> = {}
     stores.forEach((s: any) => {
-      const storeKey = s.id || s._id?.toString?.()
+      const storeKey = s.id || s._id?.toString?.() || String(s._id)
       const vendorKey = s.vendorId
-      if (storeKey) storeById[storeKey] = { storeName: s.storeName }
-      if (vendorKey) storeById[vendorKey] = { storeName: s.storeName }
+      if (storeKey) storeById[storeKey] = { storeName: s.storeName || s.name }
+      if (vendorKey) storeById[vendorKey] = { storeName: s.storeName || s.name }
     })
 
+    const productById: Record<string, any> = {}
+    products.forEach((p: any) => {
+      const pId = p.id || p._id?.toString?.() || String(p._id)
+      if (pId) productById[pId] = p
+    })
+    console.log('[/api/admin/orders] productById keys count:', Object.keys(productById).length)
+    console.log('[/api/admin/orders] sample products:', Object.keys(productById).slice(0, 3).map(k => ({ id: k, hasImages: !!productById[k]?.images?.length })))
+
     const enriched = orders.map((o: any) => {
-      const customer = userById[o.customerId] || {}
+      // Resolve customer from database using registered name
+      const customer = userById[o.customerId] || userById[String(o.customerId)] || {}
+      const customerName = customer.name || 'N/A'
+      const customerEmail = customer.email || 'N/A'
       
+      // Debug first few orders
+      if (!customer.name) {
+        console.log('[/api/admin/orders] Customer not found:', { customerId: o.customerId, availableKeys: Object.keys(userById).slice(0, 3) })
+      }
+
+      // Resolve stores from database
       let storeNames: string[] = []
-      if (Array.isArray(o.vendors)) {
+      if (Array.isArray(o.vendors) && o.vendors.length > 0) {
         storeNames = o.vendors
-          .map((v: any) => storeById[v.storeId] || storeById[v.vendorId])
+          .map((v: any) => {
+            const store = storeById[v.storeId] || storeById[v.vendorId] || storeById[String(v.storeId)] || storeById[String(v.vendorId)]
+            return store?.storeName
+          })
           .filter(Boolean)
-          .map((s: any) => s.storeName)
       }
-      if (storeNames.length === 0 && Array.isArray(o.storeIds)) {
+      
+      // Fallback to storeIds if vendors didn't yield results
+      if (storeNames.length === 0 && Array.isArray(o.storeIds) && o.storeIds.length > 0) {
         storeNames = o.storeIds
-          .map((sid: string) => storeById[sid])
+          .map((sid: string) => storeById[sid]?.storeName || storeById[String(sid)]?.storeName)
           .filter(Boolean)
-          .map((s: any) => s.storeName)
       }
+
+      // Enrich all items with product information including images
+      const enrichedItems = Array.isArray(o.items) ? o.items.map((item: any, idx: number) => {
+        const productFromDb = productById[item.productId] || productById[String(item.productId)]
+        
+        // Get images: priority 1=from productFromDb, 2=from item itself, 3=empty
+        const images = productFromDb?.images?.length > 0 
+          ? productFromDb.images 
+          : (item.images?.length > 0 ? item.images : [])
+        
+        const enrichedItem = {
+          ...item,
+          images: images,
+          title: productFromDb?.title || item.title || item.name || 'Product',
+          name: productFromDb?.name || item.name || productFromDb?.title || item.title || 'Product',
+          price: item.price || productFromDb?.price || 0,
+        }
+        return enrichedItem
+      }) : []
 
       return {
         ...o,
-        customerName: customer.name || 'N/A',
-        customerEmail: customer.email || 'N/A',
+        customerName,
+        customerEmail,
         storeNames,
+        items: enrichedItems,
       }
     })
 

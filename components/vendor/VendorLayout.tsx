@@ -88,7 +88,7 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
 
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-16 items-center justify-between border-b bg-card px-6">
+        <header className="flex h-16 items-center justify-between border-b bg-card px-4 lg:px-6">
           <div className="lg:hidden">
             <Button
               variant="ghost"
@@ -99,23 +99,21 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
             </Button>
           </div>
           <div className="flex-1" />
-          
-          <div className="flex items-center space-x-4">
-            
-  
-            <Button asChild variant="outline" className="hover:bg-accent hover:scale-105 transition-all hover:shadow-lg">
+
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm" className="hover:bg-accent hover:scale-105 transition-all hover:shadow-lg">
               <Link href="/vendor/products/new">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Product
+                <Plus className="h-4 w-4 lg:mr-2" />
+                <span className="hidden lg:inline">Add Product</span>
               </Link>
             </Button>
-            <Button variant="outline" onClick={() => routes.push('/stores')}>
+            <Button variant="outline" size="sm" className="hidden sm:flex" onClick={() => routes.push('/stores')}>
               <Store className="mr-2 h-4 w-4" />
               Back To home
             </Button>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           {children}
         </main>
       </div>

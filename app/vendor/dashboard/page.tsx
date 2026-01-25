@@ -336,64 +336,64 @@ export default function VendorDashboardPage() {
     return (
       <>
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
           <Card className="animate-scale-in hover-lift" style={{ animationDelay: '0.1s' }}>
-            <CardContent className="p-6">
+            <CardContent className="p-4 lg:p-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xl font-bold">₦{formatCurrency(revenue)}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-lg lg:text-xl font-bold truncate">₦{formatCurrency(revenue)}</p>
                   <p className="text-xs text-gray-600">Product Revenue</p>
                   <p className="text-xs text-green-600">
                     {`${safeRevenueChange >= 0 ? "+" : ""}${safeRevenueChange.toFixed(1)}% from last month`}
                   </p>
                 </div>
-                <Banknote className="h-8 w-8 text-accent animate-pulse-glow" />
+                <Banknote className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow flex-shrink-0" />
               </div>
             </CardContent>
           </Card>
 
           <Card className="animate-scale-in hover-lift" style={{ animationDelay: '0.2s' }}>
-            <CardContent className="p-6">
+            <CardContent className="p-4 lg:p-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xl font-bold">{productsCount}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-lg lg:text-xl font-bold">{productsCount}</p>
                   <p className="text-xs text-gray-600">Products Listed</p>
-                  <p className="text-xs text-green-600">
+                  <p className="text-xs text-green-600 truncate">
                     {typeof newProductsThisWeek === "number" ? `+${newProductsThisWeek} new this week` : ""}
                     {` (${safeProductsChange >= 0 ? "+" : ""}${safeProductsChange.toFixed(1)}% vs last week)`}
                   </p>
                 </div>
-                <Package className="h-8 w-8 text-accent animate-pulse-glow" style={{ animationDelay: '0.2s' }} />
+                <Package className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow flex-shrink-0" style={{ animationDelay: '0.2s' }} />
               </div>
             </CardContent>
           </Card>
 
           <Card className="animate-scale-in hover-lift" style={{ animationDelay: '0.3s' }}>
-            <CardContent className="p-6">
+            <CardContent className="p-4 lg:p-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xl font-bold">{ordersCount}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-lg lg:text-xl font-bold">{ordersCount}</p>
                   <p className="text-xs text-gray-600">Total Orders</p>
                   <p className="text-xs text-green-600">
                     {`${safeOrdersChange >= 0 ? "+" : ""}${safeOrdersChange.toFixed(1)}% from last month`}
                   </p>
                 </div>
-                <ShoppingCart className="h-8 w-8 text-accent animate-pulse-glow" style={{ animationDelay: '0.4s' }} />
+                <ShoppingCart className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow flex-shrink-0" style={{ animationDelay: '0.4s' }} />
               </div>
             </CardContent>
           </Card>
 
           <Card className="animate-scale-in hover-lift" style={{ animationDelay: '0.4s' }}>
-            <CardContent className="p-6">
+            <CardContent className="p-4 lg:p-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xl font-bold">{safeConversion}%</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-lg lg:text-xl font-bold">{safeConversion}%</p>
                   <p className="text-xs text-gray-600">Conversion Rate</p>
                   <p className="text-xs text-green-600">
                     {`${safeConversionRateChange >= 0 ? "+" : ""}${safeConversionRateChange.toFixed(1)}% from last month`}
                   </p>
                 </div>
-                <TrendingUp className="h-8 w-8 text-accent animate-pulse-glow" style={{ animationDelay: '0.6s' }} />
+                <TrendingUp className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow flex-shrink-0" style={{ animationDelay: '0.6s' }} />
               </div>
             </CardContent>
           </Card>
@@ -489,62 +489,62 @@ export default function VendorDashboardPage() {
     return (
       <>
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
           <Card className="animate-scale-in hover-lift" style={{ animationDelay: '0.1s' }}>
-            <CardContent className="p-6">
+            <CardContent className="p-4 lg:p-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xl font-bold">₦{formatCurrency(revenue)}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-lg lg:text-xl font-bold truncate">₦{formatCurrency(revenue)}</p>
                   <p className="text-xs text-gray-600">Service Revenue</p>
                   <p className="text-xs text-green-600">Completed bookings</p>
                 </div>
-                <Banknote className="h-8 w-8 text-accent animate-pulse-glow" />
+                <Banknote className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow flex-shrink-0" />
               </div>
             </CardContent>
           </Card>
 
           <Card className="animate-scale-in hover-lift" style={{ animationDelay: '0.2s' }}>
-            <CardContent className="p-6">
+            <CardContent className="p-4 lg:p-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xl font-bold">{servicesCount}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-lg lg:text-xl font-bold">{servicesCount}</p>
                   <p className="text-xs text-gray-600">Services Offered</p>
                   <p className="text-xs text-blue-600">{active} active</p>
                 </div>
-                <Wrench className="h-8 w-8 text-accent animate-pulse-glow" style={{ animationDelay: '0.2s' }} />
+                <Wrench className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow flex-shrink-0" style={{ animationDelay: '0.2s' }} />
               </div>
             </CardContent>
           </Card>
 
           <Card className="animate-scale-in hover-lift" style={{ animationDelay: '0.3s' }}>
-            <CardContent className="p-6">
+            <CardContent className="p-4 lg:p-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xl font-bold">{bookingsCount}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-lg lg:text-xl font-bold">{bookingsCount}</p>
                   <p className="text-xs text-gray-600">Total Bookings</p>
                   <p className="text-xs text-amber-600">{pending} pending</p>
                 </div>
-                <Calendar className="h-8 w-8 text-accent animate-pulse-glow" style={{ animationDelay: '0.4s' }} />
+                <Calendar className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow flex-shrink-0" style={{ animationDelay: '0.4s' }} />
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Recent Bookings and Service Performance */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
           <Card>
             <CardHeader>
-              <CardTitle>Recent Bookings</CardTitle>
-              <CardDescription>Latest service appointments</CardDescription>
+              <CardTitle className="text-base lg:text-lg">Recent Bookings</CardTitle>
+              <CardDescription className="text-xs lg:text-sm">Latest service appointments</CardDescription>
             </CardHeader>
             <CardContent>
               {recent.length === 0 ? (
                 <div className="text-center py-8">
-                  <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-gray-600 mb-4">No bookings yet</p>
-                  <Button asChild variant="outline">
+                  <Calendar className="h-10 w-10 lg:h-12 lg:w-12 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-sm lg:text-base text-gray-600 mb-4">No bookings yet</p>
+                  <Button asChild variant="outline" size="sm" className="text-xs lg:text-sm">
                     <Link href="/vendor/services/new">
-                      <Plus className="mr-2 h-4 w-4" />
+                      <Plus className="mr-2 h-3 w-3 lg:h-4 lg:w-4" />
                       Add Your First Service
                     </Link>
                   </Button>
