@@ -64,31 +64,36 @@ const adminNavItems = [
   },
 ]
 
-export default function AdminSidebar() {
+export default function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
 
+  const handleNavigation = () => {
+    onNavigate?.()
+  }
+
   return (
-    <div className="flex h-full w-64 flex-col bg-card border-r">
-      <div className="flex h-16 items-center border-b px-6">
+    <div className="flex h-full w-full lg:w-64 flex-col bg-card border-r">
+      <div className="flex h-16 items-center border-b px-4 lg:px-6">
         <div className="flex items-center gap-2">
           <Shield className="h-6 w-6 text-primary" />
-          <span className="font-bold">Admin Panel</span>
+          <span className="font-bold text-sm lg:text-base">Admin Panel</span>
         </div>
       </div>
-      <nav className="flex-1 space-y-1 p-4">
+      <nav className="flex-1 space-y-1 p-2 lg:p-4 overflow-y-auto">
         {adminNavItems.map((item) => {
           const Icon = item.icon
           return (
             <Link
               key={item.href}
               href={item.href}
+              onClick={handleNavigation}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
                 pathname === item.href ? "bg-accent text-accent-foreground" : "text-muted-foreground",
               )}
             >
-              <Icon className="h-4 w-4" />
-              {item.title}
+              <Icon className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate">{item.title}</span>
             </Link>
           )
         })}

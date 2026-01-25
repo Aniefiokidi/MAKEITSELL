@@ -54,7 +54,15 @@ export async function getGlobalDashboard() {
     const orderTotal = vendorTotalsByOrder(o)
     if (o.customerId) customerSpendMap.set(o.customerId, (customerSpendMap.get(o.customerId) || 0) + orderTotal)
   })
-  const topCustomers = Array.from(customerSpendMap.entries()).map(([customerId, spend]) => ({ customerId, spend }))
+  const userById: Record<string, { name?: string; email?: string }> = {}
+  users.forEach(u => { userById[u.id || (u as any)._id] = { name: u.name || (u as any).displayName, email: u.email } })
+
+  const topCustomers = Array.from(customerSpendMap.entries()).map(([customerId, spend]) => ({
+    customerId,
+    spend,
+    name: userById[customerId]?.name || 'Customer',
+    email: userById[customerId]?.email || 'N/A',
+  }))
     .sort((a, b) => b.spend - a.spend).slice(0, 10)
 
   // Top products by sales (fallback to product.sales field)

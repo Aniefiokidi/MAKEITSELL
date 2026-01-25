@@ -39,27 +39,27 @@ export default function AdminVendorsPage() {
     <AdminLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Vendors Management</h1>
-          <p className="text-muted-foreground">View and manage all vendors on the marketplace</p>
+          <h1 className="text-2xl lg:text-3xl font-bold">Vendors Management</h1>
+          <p className="text-muted-foreground text-sm lg:text-base">View and manage all vendors on the marketplace</p>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Search Vendors</CardTitle>
+            <CardTitle className="text-base lg:text-lg">Search Vendors</CardTitle>
           </CardHeader>
           <CardContent>
             <Input
               placeholder="Search by store name or email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="max-w-md"
+              className="w-full lg:max-w-md text-sm"
             />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>All Vendors</CardTitle>
+            <CardTitle className="text-base lg:text-lg">All Vendors ({filtered.length})</CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -67,43 +67,84 @@ export default function AdminVendorsPage() {
                 <div className="animate-spin h-8 w-8 border-t-2 border-b-2 border-accent rounded-full"></div>
               </div>
             ) : filtered.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">No vendors found</div>
+              <div className="text-center py-8 text-muted-foreground text-sm">No vendors found</div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Store Name</TableHead>
-                      <TableHead>Vendor</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Joined</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filtered.map((vendor) => (
-                      <TableRow key={vendor.id || vendor._id}>
-                        <TableCell className="font-medium">{vendor.storeName || "N/A"}</TableCell>
-                        <TableCell>{vendor.name || "N/A"}</TableCell>
-                        <TableCell>{vendor.email || "N/A"}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{vendor.vendorType || "both"}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={vendor.status === "active" ? "secondary" : "outline"}>
-                            {vendor.status || "pending"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {vendor.createdAt
-                            ? new Date(vendor.createdAt).toLocaleDateString()
-                            : "N/A"}
-                        </TableCell>
+              <div className="space-y-4">
+                {/* Mobile view - Card layout */}
+                <div className="lg:hidden space-y-4">
+                  {filtered.map((vendor) => (
+                    <Card key={vendor.id || vendor._id} className="bg-muted/50">
+                      <CardContent className="pt-4">
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="font-medium">Store:</span>
+                            <span className="text-right font-medium text-xs">{vendor.storeName || "N/A"}</span>
+                          </div>
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="font-medium">Vendor:</span>
+                            <span className="text-right text-xs">{vendor.name || "N/A"}</span>
+                          </div>
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="font-medium">Email:</span>
+                            <span className="text-right text-xs break-all">{vendor.email || "N/A"}</span>
+                          </div>
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="font-medium">Type:</span>
+                            <Badge variant="outline" className="text-xs">{vendor.vendorType || "both"}</Badge>
+                          </div>
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="font-medium">Status:</span>
+                            <Badge variant={vendor.status === "active" ? "secondary" : "outline"} className="text-xs">
+                              {vendor.status || "pending"}
+                            </Badge>
+                          </div>
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="font-medium">Joined:</span>
+                            <span className="text-right text-xs">
+                              {vendor.createdAt ? new Date(vendor.createdAt).toLocaleDateString() : "N/A"}
+                            </span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Desktop view - Table layout */}
+                <div className="hidden lg:block overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Store Name</TableHead>
+                        <TableHead className="text-xs">Vendor</TableHead>
+                        <TableHead className="text-xs">Email</TableHead>
+                        <TableHead className="text-xs">Type</TableHead>
+                        <TableHead className="text-xs">Status</TableHead>
+                        <TableHead className="text-xs">Joined</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {filtered.map((vendor) => (
+                        <TableRow key={vendor.id || vendor._id}>
+                          <TableCell className="font-medium text-xs">{vendor.storeName || "N/A"}</TableCell>
+                          <TableCell className="text-xs">{vendor.name || "N/A"}</TableCell>
+                          <TableCell className="text-xs">{vendor.email || "N/A"}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">{vendor.vendorType || "both"}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={vendor.status === "active" ? "secondary" : "outline"} className="text-xs">
+                              {vendor.status || "pending"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            {vendor.createdAt ? new Date(vendor.createdAt).toLocaleDateString() : "N/A"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             )}
           </CardContent>

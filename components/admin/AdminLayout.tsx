@@ -4,11 +4,12 @@ import type React from "react"
 
 import { useAuth } from "@/contexts/AuthContext"
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import AdminSidebar from "./AdminSidebar"
 import { Button } from "@/components/ui/button"
-import { LogOut, User } from "lucide-react"
+import { LogOut, User, Menu, X } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -17,6 +18,7 @@ interface AdminLayoutProps {
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const { user, userProfile, logout, loading } = useAuth()
   const router = useRouter()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
     // Don't redirect while still loading the session
@@ -60,16 +62,44 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <AdminSidebar />
+    <div className="flex min-h-screen bg-background flex-col lg:flex-row">
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:flex">
+        <AdminSidebar />
+      </div>
+
+      {/* Mobile Sidebar */}
+      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <SheetTrigger asChild>
+          <Button variant="ghost" size="icon" className="lg:hidden ml-2">
+            <Menu className="h-5 w-5" />
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-64 p-0">
+          <AdminSidebar />
+        </SheetContent>
+      </Sheet>
+
       <div className="flex flex-1 flex-col">
-        <header className="flex h-16 items-center justify-between border-b bg-card px-6">
-          <h1 className="text-lg font-semibold">Make It Sell Admin Dashboard</h1>
+        <header className="flex h-16 items-center justify-between border-b bg-card px-4 lg:px-6 gap-2">
+          <div className="flex items-center gap-2 lg:gap-0 flex-1">
+            <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="lg:hidden">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-64 p-0">
+                <AdminSidebar onNavigate={() => setSidebarOpen(false)} />
+              </SheetContent>
+            </Sheet>
+            <h1 className="text-base lg:text-lg font-semibold truncate">Make It Sell Admin</h1>
+          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="flex items-center gap-2">
                 <User className="h-4 w-4" />
-                {user.email}
+                <span className="hidden sm:inline truncate max-w-[150px]">{user.email}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -80,7 +110,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-4 lg:p-6 overflow-y-auto">{children}</main>
       </div>
     </div>
   )

@@ -53,42 +53,42 @@ export default function OverseerDashboardPage() {
   return (
     <div className="min-h-screen bg-linear-to-b from-background via-accent/10 to-background">
       <Header />
-      <div className="container mx-auto px-4 py-10">
-        <h1 className="text-3xl font-black mb-6">Overseer Dashboard</h1>
+      <div className="container mx-auto px-3 lg:px-4 py-6 lg:py-10">
+        <h1 className="text-2xl lg:text-3xl font-black mb-6">Overseer Dashboard</h1>
         {loading ? (
           <div className="flex justify-center py-20"><span className="animate-spin h-8 w-8 border-t-2 border-b-2 border-accent rounded-full"></span></div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Totals</CardTitle>
-                <CardDescription>Platform-wide metrics</CardDescription>
+                <CardTitle className="text-base lg:text-lg">Totals</CardTitle>
+                <CardDescription className="text-xs lg:text-sm">Platform-wide metrics</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-2 gap-3 lg:gap-4 text-xs lg:text-sm">
                   <div>
                     <div className="text-muted-foreground">Revenue</div>
-                    <div className="text-xl font-bold">₦{(data?.totals?.totalRevenue || 0).toLocaleString('en-NG')}</div>
+                    <div className="text-lg lg:text-xl font-bold">₦{(data?.totals?.totalRevenue || 0).toLocaleString('en-NG')}</div>
                   </div>
                   <div>
                     <div className="text-muted-foreground">Orders</div>
-                    <div className="text-xl font-bold">{data?.totals?.totalOrders || 0}</div>
+                    <div className="text-lg lg:text-xl font-bold">{data?.totals?.totalOrders || 0}</div>
                   </div>
                   <div>
                     <div className="text-muted-foreground">Products</div>
-                    <div className="text-xl font-bold">{data?.totals?.totalProducts || 0}</div>
+                    <div className="text-lg lg:text-xl font-bold">{data?.totals?.totalProducts || 0}</div>
                   </div>
                   <div>
                     <div className="text-muted-foreground">Users</div>
-                    <div className="text-xl font-bold">{data?.totals?.totalUsers || 0}</div>
+                    <div className="text-lg lg:text-xl font-bold">{data?.totals?.totalUsers || 0}</div>
                   </div>
                   <div>
                     <div className="text-muted-foreground">Vendors</div>
-                    <div className="text-xl font-bold">{data?.totals?.vendorsCount || 0}</div>
+                    <div className="text-lg lg:text-xl font-bold">{data?.totals?.vendorsCount || 0}</div>
                   </div>
                   <div>
                     <div className="text-muted-foreground">Customers</div>
-                    <div className="text-xl font-bold">{data?.totals?.customersCount || 0}</div>
+                    <div className="text-lg lg:text-xl font-bold">{data?.totals?.customersCount || 0}</div>
                   </div>
                 </div>
               </CardContent>
@@ -96,92 +96,88 @@ export default function OverseerDashboardPage() {
 
             <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle>Top Vendors by Revenue</CardTitle>
+                <CardTitle className="text-base lg:text-lg">Top Vendors by Revenue</CardTitle>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Store</TableHead>
-                      <TableHead>Vendor ID</TableHead>
-                      <TableHead>Revenue</TableHead>
-                      <TableHead>Sales (Qty)</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(data?.topVendors || []).map((v: any) => (
-                      <TableRow key={v.vendorId}>
-                        <TableCell>{v.storeName}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{v.vendorId}</TableCell>
-                        <TableCell>₦{(v.revenue || 0).toLocaleString('en-NG')}</TableCell>
-                        <TableCell>{v.sales || 0}</TableCell>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Store</TableHead>
+                        <TableHead className="text-xs">Vendor ID</TableHead>
+                        <TableHead className="text-xs">Revenue</TableHead>
+                        <TableHead className="text-xs">Sales</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {(data?.topVendors || []).map((v: any) => (
+                        <TableRow key={v.vendorId}>
+                          <TableCell className="text-xs">{v.storeName}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{v.vendorId}</TableCell>
+                          <TableCell className="text-xs font-semibold">₦{(v.revenue || 0).toLocaleString('en-NG')}</TableCell>
+                          <TableCell className="text-xs">{v.sales || 0}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Top Customers by Spend</CardTitle>
+                <CardTitle className="text-base lg:text-lg">Top Customers by Spend</CardTitle>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Customer ID</TableHead>
-                      <TableHead>Spend</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(data?.topCustomers || []).map((c: any) => (
-                      <TableRow key={c.customerId}>
-                        <TableCell className="text-xs text-muted-foreground">{c.customerId}</TableCell>
-                        <TableCell>₦{(c.spend || 0).toLocaleString('en-NG')}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <div className="space-y-3">
+                  {(data?.topCustomers || []).slice(0, 5).map((c: any) => (
+                    <div key={c.customerId} className="flex justify-between items-start gap-2 p-2 bg-muted/50 rounded text-xs">
+                      <span className="text-muted-foreground truncate">{c.customerId}</span>
+                      <span className="font-semibold flex-shrink-0">₦{(c.spend || 0).toLocaleString('en-NG')}</span>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
 
             <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle>Top Products by Units Sold</CardTitle>
+                <CardTitle className="text-base lg:text-lg">Top Products by Units Sold</CardTitle>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Product</TableHead>
-                      <TableHead>Product ID</TableHead>
-                      <TableHead>Units</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(data?.topProducts || []).map((p: any) => (
-                      <TableRow key={p.productId}>
-                        <TableCell>{p.title}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{p.productId}</TableCell>
-                        <TableCell>{p.qty || 0}</TableCell>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Product</TableHead>
+                        <TableHead className="text-xs">Product ID</TableHead>
+                        <TableHead className="text-xs">Units</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {(data?.topProducts || []).map((p: any) => (
+                        <TableRow key={p.productId}>
+                          <TableCell className="text-xs truncate">{p.title}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{p.productId}</TableCell>
+                          <TableCell className="text-xs font-semibold">{p.qty || 0}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Longest Tenure Vendors</CardTitle>
+                <CardTitle className="text-base lg:text-lg">Longest Tenure Vendors</CardTitle>
               </CardHeader>
               <CardContent>
-                <ul className="space-y-2">
+                <ul className="space-y-2 text-xs">
                   {(data?.vendorsByTenure || []).map((s: any) => (
-                    <li key={s.id} className="flex items-center justify-between">
-                      <span>{s.storeName || s.name || 'Store'}</span>
-                      <Badge variant="outline" className="text-xs">Since {s.createdAt ? new Date(s.createdAt).toLocaleDateString() : 'Unknown'}</Badge>
+                    <li key={s.id} className="flex items-center justify-between gap-2">
+                      <span className="truncate">{s.storeName || s.name || 'Store'}</span>
+                      <Badge variant="outline" className="text-xs flex-shrink-0">Since {s.createdAt ? new Date(s.createdAt).toLocaleDateString() : 'Unknown'}</Badge>
                     </li>
                   ))}
                 </ul>
@@ -190,18 +186,18 @@ export default function OverseerDashboardPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Subscriptions Expiring Soon</CardTitle>
-                <CardDescription>Within 14 days</CardDescription>
+                <CardTitle className="text-base lg:text-lg">Subscriptions Expiring Soon</CardTitle>
+                <CardDescription className="text-xs">Within 14 days</CardDescription>
               </CardHeader>
               <CardContent>
-                <ul className="space-y-2">
+                <ul className="space-y-2 text-xs">
                   {(data?.expiringSubscriptions || []).length === 0 ? (
                     <li className="text-muted-foreground">None detected</li>
                   ) : (
                     (data?.expiringSubscriptions || []).map((s: any) => (
-                      <li key={s.vendorId} className="flex items-center justify-between">
-                        <span>{s.storeName}</span>
-                        <Badge variant="secondary">{new Date(s.subscriptionExpiresAt).toLocaleDateString()}</Badge>
+                      <li key={s.vendorId} className="flex items-center justify-between gap-2">
+                        <span className="truncate">{s.storeName}</span>
+                        <Badge variant="secondary" className="text-xs flex-shrink-0">{new Date(s.subscriptionExpiresAt).toLocaleDateString()}</Badge>
                       </li>
                     ))
                   )}

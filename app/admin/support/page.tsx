@@ -178,31 +178,31 @@ export default function AdminSupportPage() {
     <AdminLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-balance">Support Management</h1>
-          <p className="text-muted-foreground">Handle escalated tickets and complex customer issues</p>
+          <h1 className="text-2xl lg:text-3xl font-bold text-balance">Support Management</h1>
+          <p className="text-muted-foreground text-sm lg:text-base">Handle escalated tickets and complex customer issues</p>
         </div>
 
         <Tabs defaultValue="escalated" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="escalated">Escalated Tickets</TabsTrigger>
-            <TabsTrigger value="analytics">Support Analytics</TabsTrigger>
+          <TabsList className="w-full lg:w-auto">
+            <TabsTrigger value="escalated" className="flex-1 lg:flex-none">Escalated Tickets</TabsTrigger>
+            <TabsTrigger value="analytics" className="flex-1 lg:flex-none">Support Analytics</TabsTrigger>
           </TabsList>
 
           <TabsContent value="escalated" className="space-y-6">
             {/* Filters */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-sm lg:text-base">
                   <Filter className="h-5 w-5" />
                   Filter Tickets
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Status</label>
+                <div className="space-y-3 lg:space-y-0 lg:flex lg:gap-4">
+                  <div className="space-y-2 flex-1">
+                    <label className="text-xs lg:text-sm font-medium">Status</label>
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-40">
+                      <SelectTrigger className="w-full text-sm">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -213,10 +213,10 @@ export default function AdminSupportPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Priority</label>
+                  <div className="space-y-2 flex-1">
+                    <label className="text-xs lg:text-sm font-medium">Priority</label>
                     <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                      <SelectTrigger className="w-40">
+                      <SelectTrigger className="w-full text-sm">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -232,18 +232,18 @@ export default function AdminSupportPage() {
               </CardContent>
             </Card>
 
-            {/* Tickets Grid */}
-            <div className="grid gap-6 md:grid-cols-2">
+            {/* Tickets Grid - Responsive */}
+            <div className="grid gap-4 lg:gap-6 grid-cols-1 lg:grid-cols-2">
               {/* Tickets List */}
               <div className="space-y-4">
-                <h2 className="text-xl font-semibold">Support Tickets ({filteredTickets.length})</h2>
+                <h2 className="text-base lg:text-xl font-semibold">Support Tickets ({filteredTickets.length})</h2>
                 {loading ? (
                   <div className="text-center py-8">
                     <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-                    <p>Loading tickets...</p>
+                    <p className="text-sm text-muted-foreground">Loading tickets...</p>
                   </div>
                 ) : filteredTickets.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">No tickets found.</p>
+                  <p className="text-center text-muted-foreground py-8 text-sm">No tickets found.</p>
                 ) : (
                   filteredTickets.map((ticket) => (
                     <Card
@@ -254,30 +254,28 @@ export default function AdminSupportPage() {
                       onClick={() => setSelectedTicket(ticket)}
                     >
                     <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-1 flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             {getStatusIcon(ticket.status)}
-                            <span className="font-medium">{ticket.id}</span>
+                            <span className="font-medium text-xs lg:text-sm truncate">{ticket.id}</span>
                           </div>
-                          <h3 className="font-semibold text-balance">{ticket.subject}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Customer: {ticket.customerName} • Vendor: {ticket.vendorName}
+                          <h3 className="font-semibold text-sm lg:text-base text-balance">{ticket.subject}</h3>
+                          <p className="text-xs lg:text-sm text-muted-foreground">
+                            {ticket.customerName} • {ticket.vendorName}
                           </p>
                         </div>
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-col gap-1 flex-shrink-0">
                           {getStatusBadge(ticket.status)}
                           {getPriorityBadge(ticket.priority)}
-                          {getEscalationBadge(ticket.escalatedFrom)}
                         </div>
                       </div>
                     </CardHeader>
                     <CardContent className="pt-0">
                       <div className="space-y-2">
-                        <p className="text-sm text-muted-foreground line-clamp-2">{ticket.description}</p>
-                        <p className="text-xs text-muted-foreground">Escalation reason: {ticket.escalationReason}</p>
+                        <p className="text-xs lg:text-sm text-muted-foreground line-clamp-2">{ticket.description}</p>
                         <div className="text-xs text-muted-foreground">
-                          Last updated: {ticket.updatedAt?.toDate?.()?.toLocaleDateString() || 'Unknown'}
+                          {ticket.updatedAt?.toDate?.()?.toLocaleDateString() || 'Unknown'}
                         </div>
                       </div>
                     </CardContent>
@@ -290,13 +288,13 @@ export default function AdminSupportPage() {
               <div className="space-y-4">
                 {selectedTicket ? (
                   <>
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-xl font-semibold">Ticket Details</h2>
+                    <div className="flex items-center justify-between gap-2">
+                      <h2 className="text-base lg:text-xl font-semibold">Ticket Details</h2>
                       <Select
                         value={selectedTicket.status}
                         onValueChange={(value) => handleStatusChange(selectedTicket.id, value)}
                       >
-                        <SelectTrigger className="w-32">
+                        <SelectTrigger className="w-32 lg:w-40 text-sm">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

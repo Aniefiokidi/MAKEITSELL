@@ -41,12 +41,12 @@ export default function AdminReportsPage() {
     <AdminLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Reports</h1>
-          <p className="text-muted-foreground">Vendor revenue, subscriptions, and VAT overview.</p>
+          <h1 className="text-2xl lg:text-3xl font-bold">Reports</h1>
+          <p className="text-muted-foreground text-sm lg:text-base">Vendor revenue, subscriptions, and VAT overview.</p>
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-12 text-muted-foreground">Loading reports...</div>
+          <div className="flex justify-center py-12 text-muted-foreground text-sm">Loading reports...</div>
         ) : error ? (
           <Card>
             <CardHeader>
@@ -57,54 +57,54 @@ export default function AdminReportsPage() {
             </CardContent>
           </Card>
         ) : data ? (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 lg:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             <Card>
               <CardHeader>
-                <CardTitle>Vendors</CardTitle>
+                <CardTitle className="text-sm lg:text-base">Vendors</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">{data.vendorCount.toLocaleString()}</p>
-                <p className="text-muted-foreground text-sm">Active vendors in the system</p>
+                <p className="text-xl lg:text-3xl font-bold">{data.vendorCount.toLocaleString()}</p>
+                <p className="text-muted-foreground text-xs lg:text-sm">Active vendors in the system</p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Monthly Vendor Fee</CardTitle>
+                <CardTitle className="text-sm lg:text-base">Monthly Vendor Fee</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">₦{data.monthlyVendorFee.toLocaleString()}</p>
-                <p className="text-muted-foreground text-sm">Rate: ₦{data.monthlyVendorFeeRate.toLocaleString()} per vendor / month</p>
+                <p className="text-xl lg:text-3xl font-bold">₦{data.monthlyVendorFee.toLocaleString()}</p>
+                <p className="text-muted-foreground text-xs lg:text-sm">Rate: ₦{data.monthlyVendorFeeRate.toLocaleString()} / vendor</p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Lifetime Vendor Fee</CardTitle>
+                <CardTitle className="text-sm lg:text-base">Lifetime Vendor Fee</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">₦{data.lifetimeVendorFee.toLocaleString()}</p>
-                <p className="text-muted-foreground text-sm">Calculated from vendors' active months</p>
+                <p className="text-xl lg:text-3xl font-bold">₦{data.lifetimeVendorFee.toLocaleString()}</p>
+                <p className="text-muted-foreground text-xs lg:text-sm">From vendors' active months</p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Total Order Revenue</CardTitle>
+                <CardTitle className="text-sm lg:text-base">Total Order Revenue</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">₦{data.totalOrderRevenue.toLocaleString()}</p>
-                <p className="text-muted-foreground text-sm">All recorded orders</p>
+                <p className="text-xl lg:text-3xl font-bold">₦{data.totalOrderRevenue.toLocaleString()}</p>
+                <p className="text-muted-foreground text-xs lg:text-sm">All recorded orders</p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Total VAT</CardTitle>
+                <CardTitle className="text-sm lg:text-base">Total VAT</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">₦{data.totalVAT.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                <p className="text-muted-foreground text-sm">VAT rate assumed: {(data.vatRate * 100).toFixed(1)}%</p>
+                <p className="text-xl lg:text-3xl font-bold">₦{data.totalVAT.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                <p className="text-muted-foreground text-xs lg:text-sm">Rate: {(data.vatRate * 100).toFixed(1)}%</p>
               </CardContent>
             </Card>
           </div>

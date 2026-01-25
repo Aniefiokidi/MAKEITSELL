@@ -65,65 +65,65 @@ export default function AdminDashboard() {
     <AdminLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-balance">Dashboard Overview</h1>
-          <p className="text-muted-foreground">Monitor your marketplace performance and key metrics</p>
+          <h1 className="text-2xl lg:text-3xl font-bold text-balance">Dashboard Overview</h1>
+          <p className="text-muted-foreground text-sm lg:text-base">Monitor your marketplace performance and key metrics</p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 lg:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+              <CardTitle className="text-xs lg:text-sm font-medium">Total Users</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalUsers.toLocaleString()}</div>
+              <div className="text-xl lg:text-2xl font-bold">{stats.totalUsers.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">All platform users</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Vendors</CardTitle>
+              <CardTitle className="text-xs lg:text-sm font-medium">Active Vendors</CardTitle>
               <Store className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.activeVendors.toLocaleString()}</div>
+              <div className="text-xl lg:text-2xl font-bold">{stats.activeVendors.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">Store owners</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+              <CardTitle className="text-xs lg:text-sm font-medium">Total Products</CardTitle>
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalProducts.toLocaleString()}</div>
+              <div className="text-xl lg:text-2xl font-bold">{stats.totalProducts.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">Listed items</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+              <CardTitle className="text-xs lg:text-sm font-medium">Total Revenue</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">₦{stats.totalRevenue.toLocaleString()}</div>
+              <div className="text-xl lg:text-2xl font-bold">₦{stats.totalRevenue.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">All-time total</p>
             </CardContent>
           </Card>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-4 lg:gap-6 grid-cols-1 md:grid-cols-3">
           <Card className="border-orange-200 bg-orange-50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-orange-800">Top Vendors</CardTitle>
+              <CardTitle className="text-xs lg:text-sm font-medium text-orange-800">Top Vendors</CardTitle>
               <MessageSquare className="h-4 w-4 text-orange-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-800">{(data?.topVendors || []).length}</div>
-              <Button size="sm" variant="outline" className="mt-2 text-orange-700 border-orange-300 bg-transparent" onClick={() => router.push('/admin/vendors')}>
+              <div className="text-xl lg:text-2xl font-bold text-orange-800">{(data?.topVendors || []).length}</div>
+              <Button size="sm" variant="outline" className="mt-2 w-full lg:w-auto text-orange-700 border-orange-300 bg-transparent text-xs" onClick={() => router.push('/admin/vendors')}>
                 View Vendors
               </Button>
             </CardContent>
@@ -131,12 +131,12 @@ export default function AdminDashboard() {
 
           <Card className="border-red-200 bg-red-50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-red-800">Total Products</CardTitle>
+              <CardTitle className="text-xs lg:text-sm font-medium text-red-800">Total Products</CardTitle>
               <AlertTriangle className="h-4 w-4 text-red-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-800">{stats.totalProducts}</div>
-              <Button size="sm" variant="outline" className="mt-2 text-red-700 border-red-300 bg-transparent" onClick={() => router.push('/admin/products')}>
+              <div className="text-xl lg:text-2xl font-bold text-red-800">{stats.totalProducts}</div>
+              <Button size="sm" variant="outline" className="mt-2 w-full lg:w-auto text-red-700 border-red-300 bg-transparent text-xs" onClick={() => router.push('/admin/products')}>
                 View Products
               </Button>
             </CardContent>
@@ -144,31 +144,31 @@ export default function AdminDashboard() {
 
           <Card className="border-green-200 bg-green-50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-green-800">Total Orders</CardTitle>
+              <CardTitle className="text-xs lg:text-sm font-medium text-green-800">Total Orders</CardTitle>
               <TrendingUp className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-800">{data?.totals?.totalOrders || 0}</div>
+              <div className="text-xl lg:text-2xl font-bold text-green-800">{data?.totals?.totalOrders || 0}</div>
               <p className="text-xs text-green-600 mt-1">Completed transactions</p>
             </CardContent>
           </Card>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-4 lg:gap-6 grid-cols-1 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>Top Vendors by Revenue</CardTitle>
+              <CardTitle className="text-sm lg:text-base">Top Vendors by Revenue</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {(data?.topVendors || []).slice(0, 3).map((vendor: any, idx: number) => (
-                  <div key={idx} className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <p className="font-medium">{vendor.storeName}</p>
-                      <p className="text-sm text-muted-foreground">{vendor.sales} sales</p>
+                  <div key={idx} className="flex items-center justify-between gap-2">
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{vendor.storeName}</p>
+                      <p className="text-xs text-muted-foreground">{vendor.sales} sales</p>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold">₦{vendor.revenue.toLocaleString()}</p>
+                    <div className="text-right flex-shrink-0">
+                      <p className="font-bold text-sm">₦{vendor.revenue.toLocaleString()}</p>
                     </div>
                   </div>
                 ))}
@@ -178,18 +178,18 @@ export default function AdminDashboard() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Top Customers by Spend</CardTitle>
+              <CardTitle className="text-sm lg:text-base">Top Customers by Spend</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {(data?.topCustomers || []).slice(0, 3).map((customer: any, idx: number) => (
-                  <div key={idx} className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <p className="font-medium">Customer</p>
-                      <p className="text-xs text-muted-foreground">{customer.customerId}</p>
+                  <div key={idx} className="flex items-center justify-between gap-2">
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <p className="font-medium text-sm">Customer</p>
+                      <p className="text-xs text-muted-foreground truncate">{customer.customerId}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold">₦{customer.spend.toLocaleString()}</p>
+                    <div className="text-right flex-shrink-0">
+                      <p className="font-bold text-sm">₦{customer.spend.toLocaleString()}</p>
                     </div>
                   </div>
                 ))}

@@ -216,24 +216,21 @@ export default function CustomerOrdersPage() {
                       { label: 'ORDER PLACED', date: order.createdAt, desc: '', badge: 'ORDER PLACED' },
                       { label: 'PENDING CONFIRMATION', date: order.createdAt, desc: 'We are in the process of confirming your order. You will receive an SMS / Call shortly.', badge: 'PENDING CONFIRMATION' },
                       { label: 'SHIPPED', date: order.shippedAt, desc: '', badge: 'SHIPPED' },
-                      { label: 'OUT FOR DELIVERY', date: order.outForDeliveryAt, desc: '', badge: 'OUT FOR DELIVERY' },
                       { label: 'DELIVERED', date: order.deliveredAt, desc: '', badge: 'DELIVERED' },
                       { label: 'RECEIVED', date: (order as any).receivedAt, desc: '', badge: 'RECEIVED' },
                     ].map((step, sidx, arr) => {
                       const isActive = (() => {
                         if (step.label === 'ORDER PLACED') return true;
-                        if (step.label === 'PENDING CONFIRMATION') return ['pending', 'pending_payment', 'confirmed', 'processing', 'shipped', 'delivered'].includes(order.status);
-                        if (step.label === 'SHIPPED') return ['shipped', 'delivered'].includes(order.status);
-                        if (step.label === 'OUT FOR DELIVERY') return order.status === 'out_for_delivery' || order.status === 'delivered';
-                        if (step.label === 'DELIVERED') return order.status === 'delivered' || order.status === 'received';
+                        if (step.label === 'PENDING CONFIRMATION') return ['pending', 'pending_payment', 'confirmed', 'processing', 'shipped', 'delivered', 'received'].includes(order.status);
+                        if (step.label === 'SHIPPED') return ['shipped', 'delivered', 'received'].includes(order.status);
+                        if (step.label === 'DELIVERED') return ['delivered', 'received'].includes(order.status);
                         if (step.label === 'RECEIVED') return order.status === 'received';
                         return false;
                       })();
                       const isCurrent = (() => {
                         if (step.label === 'ORDER PLACED') return order.status === 'pending' || order.status === 'pending_payment';
-                        if (step.label === 'PENDING CONFIRMATION') return order.status === 'confirmed' || order.status === 'processing';
+                        if (step.label === 'PENDING CONFIRMATION') return ['confirmed', 'processing'].includes(order.status);
                         if (step.label === 'SHIPPED') return order.status === 'shipped';
-                        if (step.label === 'OUT FOR DELIVERY') return order.status === 'out_for_delivery';
                         if (step.label === 'DELIVERED') return order.status === 'delivered';
                         if (step.label === 'RECEIVED') return order.status === 'received';
                         return false;
