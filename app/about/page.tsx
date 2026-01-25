@@ -1,6 +1,5 @@
 "use client"
 
-import Footer from "@/components/Footer"
 import Header from "@/components/Header"
 
 export default function AboutPage() {
@@ -221,7 +220,6 @@ export default function AboutPage() {
           </div>
         </div>
       </div>
-      <Footer/>
     </div>
   )
 }

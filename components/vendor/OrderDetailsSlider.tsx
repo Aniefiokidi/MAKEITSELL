@@ -10,26 +10,30 @@ export default function OrderDetailsSlider({ open, onOpenChange, order, onStatus
   const shipping = order.shippingInfo || {};
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="max-w-lg w-full bg-white rounded-l-2xl shadow-2xl p-8 border-l border-accent">
-        <SheetHeader>
-          <SheetTitle className="text-2xl font-bold mb-2">Order Details</SheetTitle>
-        </SheetHeader>
-        <div className="space-y-6">
+      <SheetContent
+        side="right"
+        className="h-full w-[92vw] sm:w-[420px] md:w-[520px] lg:w-[640px] bg-accent/10 backdrop-blur-md text-foreground rounded-l-2xl shadow-2xl p-0 border-l border-white/20 flex flex-col overflow-hidden"
+      >
+        <div className="flex-1 overflow-y-auto p-8">
+          <SheetHeader>
+            <SheetTitle className="text-2xl font-bold mb-2">Order Details</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-6">
           <div>
             <div className="font-extrabold text-xl mb-1 text-accent">Order #{(order.orderId || order.id || "").toString().substring(0, 8).toUpperCase()}</div>
             <div className="text-sm text-muted-foreground mb-2">Placed on {order.createdAt ? (typeof order.createdAt === 'string' ? new Date(order.createdAt).toLocaleDateString() : order.createdAt?.toLocaleDateString?.()) : "Unknown date"}</div>
           </div>
-          <div className="border-b pb-4 mb-4">
+          <div className="border-b border-white/10 pb-4 mb-4">
             <div className="font-semibold text-lg mb-2 text-accent">Customer Info</div>
             <div className="mb-1"><span className="font-medium">Name:</span> {`${shipping.firstName || ""} ${shipping.lastName || ""}`.trim() || order.customerName || "N/A"}</div>
             <div className="mb-1"><span className="font-medium">Email:</span> {shipping.email || order.customerEmail || "N/A"}</div>
             <div className="mb-1"><span className="font-medium">Phone:</span> {shipping.phone || order.customerPhone || "N/A"}</div>
             <div className="mb-1"><span className="font-medium">Address:</span> {shipping.address || "N/A"}</div>
           </div>
-          <div className="border-b pb-4 mb-4">
+          <div className="border-b border-white/10 pb-4 mb-4">
             <div className="font-semibold text-lg mb-2 text-accent">Order Items</div>
             {order.products?.length > 0 ? order.products.map((prod, idx) => (
-              <div key={idx} className="flex items-center gap-4 mb-3 bg-accent/5 rounded-lg p-2">
+              <div key={idx} className="flex items-center gap-4 mb-3 bg-white/5 backdrop-blur-sm rounded-lg p-2">
                 {prod.image && (
                   <img src={prod.image} alt={prod.title || "Product"} className="w-14 h-14 object-cover rounded shadow" />
                 )}
@@ -63,7 +67,7 @@ export default function OrderDetailsSlider({ open, onOpenChange, order, onStatus
               disabled={order.status === 'confirmed' || order.status === 'processing' || order.status === 'shipped' || order.status === 'shipped_interstate' || order.status === 'out_for_delivery' || order.status === 'delivered'}
               onClick={async () => {
                 try {
-                  const res = await fetch('/api/vendor/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: order.orderId || order.id, status: 'confirmed' }) })
+                  const res = await fetch('/api/vendor/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: order.orderId || order.id, status: 'confirmed', vendorId: order.vendor?.vendorId || order.storeId }) })
                   const json = await res.json();
                   if (res.ok && json.success) { success('Order confirmed'); onStatusUpdated?.(); onOpenChange(false); } else { notifyError(json.error || 'Failed to confirm order'); }
                 } catch (e: any) { notifyError(e?.message || 'Failed to confirm order'); }
@@ -76,7 +80,7 @@ export default function OrderDetailsSlider({ open, onOpenChange, order, onStatus
               disabled={order.status === 'shipped' || order.status === 'shipped_interstate' || order.status === 'out_for_delivery' || order.status === 'delivered'}
               onClick={async () => {
                 try {
-                  const res = await fetch('/api/vendor/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: order.orderId || order.id, status: 'shipped' }) })
+                  const res = await fetch('/api/vendor/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: order.orderId || order.id, status: 'shipped', vendorId: order.vendor?.vendorId || order.storeId }) })
                   const json = await res.json();
                   if (res.ok && json.success) { success('Marked as shipped'); onStatusUpdated?.(); onOpenChange(false); } else { notifyError(json.error || 'Failed to mark shipped'); }
                 } catch (e: any) { notifyError(e?.message || 'Failed to mark shipped'); }
@@ -89,7 +93,7 @@ export default function OrderDetailsSlider({ open, onOpenChange, order, onStatus
               disabled={order.status === 'shipped' || order.status === 'shipped_interstate' || order.status === 'out_for_delivery' || order.status === 'delivered'}
               onClick={async () => {
                 try {
-                  const res = await fetch('/api/vendor/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: order.orderId || order.id, status: 'shipped_interstate' }) })
+                  const res = await fetch('/api/vendor/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: order.orderId || order.id, status: 'shipped_interstate', vendorId: order.vendor?.vendorId || order.storeId }) })
                   const json = await res.json();
                   if (res.ok && json.success) { success('Marked as shipped (interstate)'); onStatusUpdated?.(); onOpenChange(false); } else { notifyError(json.error || 'Failed to mark shipped (interstate)'); }
                 } catch (e: any) { notifyError(e?.message || 'Failed to mark shipped (interstate)'); }
@@ -102,7 +106,7 @@ export default function OrderDetailsSlider({ open, onOpenChange, order, onStatus
               disabled={order.status === 'out_for_delivery' || order.status === 'delivered'}
               onClick={async () => {
                 try {
-                  const res = await fetch('/api/vendor/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: order.orderId || order.id, status: 'out_for_delivery' }) })
+                  const res = await fetch('/api/vendor/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: order.orderId || order.id, status: 'out_for_delivery', vendorId: order.vendor?.vendorId || order.storeId }) })
                   const json = await res.json();
                   if (res.ok && json.success) { success('Out for delivery'); onStatusUpdated?.(); onOpenChange(false); } else { notifyError(json.error || 'Failed to mark out for delivery'); }
                 } catch (e: any) { notifyError(e?.message || 'Failed to mark out for delivery'); }
@@ -115,7 +119,7 @@ export default function OrderDetailsSlider({ open, onOpenChange, order, onStatus
               disabled={order.status === 'delivered'}
               onClick={async () => {
                 try {
-                  const res = await fetch('/api/vendor/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: order.orderId || order.id, status: 'delivered' }) })
+                  const res = await fetch('/api/vendor/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: order.orderId || order.id, status: 'delivered', vendorId: order.vendor?.vendorId || order.storeId }) })
                   const json = await res.json();
                   if (res.ok && json.success) { success('Marked delivered'); onStatusUpdated?.(); onOpenChange(false); } else { notifyError(json.error || 'Failed to mark delivered'); }
                 } catch (e: any) { notifyError(e?.message || 'Failed to mark delivered'); }
@@ -127,7 +131,7 @@ export default function OrderDetailsSlider({ open, onOpenChange, order, onStatus
               className="px-3 py-2 rounded-md bg-red-600 text-white text-sm font-semibold hover:bg-red-700"
               onClick={async () => {
                 try {
-                  const res = await fetch('/api/vendor/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: order.orderId || order.id, status: 'cancelled' }) })
+                  const res = await fetch('/api/vendor/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: order.orderId || order.id, status: 'cancelled', vendorId: order.vendor?.vendorId || order.storeId }) })
                   const json = await res.json();
                   if (res.ok && json.success) { success('Order cancelled'); onStatusUpdated?.(); onOpenChange(false); } else { notifyError(json.error || 'Failed to cancel order'); }
                 } catch (e: any) { notifyError(e?.message || 'Failed to cancel order'); }
@@ -137,7 +141,7 @@ export default function OrderDetailsSlider({ open, onOpenChange, order, onStatus
             </button>
           </div>
         </div>
-        <SheetClose className="mt-8 w-full py-3 rounded-lg bg-accent text-white font-bold text-lg shadow hover:bg-accent/90 transition">Close</SheetClose>
+        </div>
       </SheetContent>
     </Sheet>
   );

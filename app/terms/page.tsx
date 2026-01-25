@@ -2,7 +2,6 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Scale, Shield, AlertTriangle, Users, FileText, Gavel } from "lucide-react"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 
 export default function TermsPage() {
   return (
@@ -425,7 +424,6 @@ export default function TermsPage() {
           </Card>
         </div>
       </div>
-      <Footer />
     </>
   )
 }

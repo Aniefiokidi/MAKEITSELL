@@ -15,7 +15,6 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import SupportChat from "@/components/support/SupportChat"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 import ProtectedRoute from "@/components/auth/ProtectedRoute"
 import { useAuth } from "@/contexts/AuthContext"
 import { MessageCircle, Ticket, HelpCircle, Clock, CheckCircle, AlertCircle, Loader2 } from "lucide-react"
@@ -414,7 +413,6 @@ export default function SupportPage() {
             </Tabs>
           </div>
         </main>
-        <Footer />
       </div>
     </ProtectedRoute>
   )

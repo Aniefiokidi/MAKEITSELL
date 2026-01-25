@@ -78,23 +78,34 @@ export default function VendorDashboardPage() {
     return amount.toLocaleString('en-NG')
   }
 
+  const loadDashboard = async () => {
+    if (!user) return;
+    setDataLoading(true);
+    try {
+      const res = await fetch(`/api/vendor/dashboard?vendorId=${encodeURIComponent(user.uid)}`);
+      const data = await res.json();
+      if (data.success) {
+        setDashboard(data.data);
+      }
+    } catch (error) {
+      console.error("Error loading dashboard data:", error);
+    } finally {
+      setDataLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadDashboard = async () => {
-      if (!user) return;
-      setDataLoading(true);
-      try {
-        const res = await fetch(`/api/vendor/dashboard?vendorId=${encodeURIComponent(user.uid)}`);
-        const data = await res.json();
-        if (data.success) {
-          setDashboard(data.data);
-        }
-      } catch (error) {
-        console.error("Error loading dashboard data:", error);
-      } finally {
-        setDataLoading(false);
+    loadDashboard();
+  }, [user]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadDashboard();
       }
     };
-    loadDashboard();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [user]);
 
   // Show loading while authentication is being checked or userProfile is loading
@@ -146,8 +157,29 @@ export default function VendorDashboardPage() {
   return (
     <VendorLayout>
       <div className="animate-fade-in">
-        <h1 className="text-lg font-bold" style={{ textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))' }}>Dashboard</h1>
-        <p className="text-xs text-muted-foreground">Welcome back! Here's what's happening with your store.</p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-lg font-bold" style={{ textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))' }}>Dashboard</h1>
+          <p className="text-xs text-muted-foreground">Welcome back! Here's what's happening with your store.</p>
+        </div>
+        <Button
+          onClick={loadDashboard}
+          disabled={dataLoading}
+          variant="outline"
+          size="sm"
+          className="gap-2"
+        >
+          {dataLoading ? (
+            <>
+              <span className="animate-spin">↻</span> Refreshing
+            </>
+          ) : (
+            <>
+              ↻ Refresh
+            </>
+          )}
+        </Button>
+      </div>
       </div>
 
       {/* Subscription Status */}

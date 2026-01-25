@@ -59,10 +59,13 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { orderId, status } = body || {};
+    const { orderId, status, vendorId } = body || {};
     if (!orderId || !status) {
       return new Response(JSON.stringify({ success: false, error: "Missing orderId or status" }), { status: 400 });
     }
+
+    await connectToDatabase();
+    const OrderModel = mongoose.model('Order', new mongoose.Schema({}, { strict: false }));
 
     // Map status to timestamp fields
     const now = new Date();
@@ -79,11 +82,33 @@ export async function PATCH(req: NextRequest) {
       timestampUpdates.cancelledAt = now;
     }
 
-    const updated = await updateOrder(orderId, { status, ...timestampUpdates });
-    if (!updated) {
-      return new Response(JSON.stringify({ success: false, error: "Order not found" }), { status: 404 });
+    // If vendorId provided, update only that vendor's status in the vendors array
+    if (vendorId) {
+      const updated = await OrderModel.findByIdAndNew(
+        orderId,
+        {
+          $set: {
+            'vendors.$[elem].status': status,
+            ...Object.fromEntries(Object.entries(timestampUpdates).map(([k, v]) => [`vendors.$[elem].${k}`, v]))
+          }
+        },
+        {
+          arrayFilters: [{ 'elem.vendorId': vendorId }],
+          new: true
+        }
+      );
+      if (!updated) {
+        return new Response(JSON.stringify({ success: false, error: "Order not found" }), { status: 404 });
+      }
+      return new Response(JSON.stringify({ success: true, order: updated }), { status: 200 });
+    } else {
+      // Fallback: update global order status
+      const updated = await updateOrder(orderId, { status, ...timestampUpdates });
+      if (!updated) {
+        return new Response(JSON.stringify({ success: false, error: "Order not found" }), { status: 404 });
+      }
+      return new Response(JSON.stringify({ success: true, order: updated }), { status: 200 });
     }
-    return new Response(JSON.stringify({ success: true, order: updated }), { status: 200 });
   } catch (error: any) {
     return new Response(JSON.stringify({ success: false, error: error?.message || "Unknown error" }), { status: 500 });
   }

@@ -8,7 +8,7 @@ import { CartProvider } from "@/contexts/CartContext"
 import { NotificationProvider } from "@/contexts/NotificationContext"
 import { NotificationBox } from "@/components/NotificationBox"
 import { Suspense } from "react"
-import FooterReveal from "@/components/FooterReveal"
+import Footer from "@/components/Footer"
 import "./globals.css"
 
 export const metadata: Metadata = {
@@ -49,9 +49,9 @@ export default function RootLayout({
               <CartProvider>
                 <NotificationProvider>
                   <NotificationBox />
-                  <div className="min-h-screen flex flex-col">
+                  <div className="flex flex-col min-h-screen">
                     <main className="flex-1 flex flex-col">{children}</main>
-                    <FooterReveal />
+                    <Footer />
                   </div>
                 </NotificationProvider>
               </CartProvider>

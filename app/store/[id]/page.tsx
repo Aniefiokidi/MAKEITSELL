@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 import "./store-mobile-fix.css"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -409,7 +408,6 @@ export default function StorePage() {
             </div>
           </div>
         </div>
-        <Footer />
       </div>
     )
   }
@@ -431,7 +429,6 @@ export default function StorePage() {
             </Link>
           </div>
         </div>
-        <Footer />
       </div>
     )
   }
@@ -782,7 +779,7 @@ export default function StorePage() {
                         </div>
                         
                         {/* Quick View - Visible on hover or mobile */}
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-20 hidden sm:flex">
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 items-center justify-center z-20 hidden sm:flex">
                           <Button 
                             variant="outline" 
                             className="bg-white/90 backdrop-blur-sm text-black hover:bg-white hover:scale-105 active:scale-95 transition-all text-xs sm:text-sm"
