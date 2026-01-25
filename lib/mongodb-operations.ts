@@ -23,6 +23,15 @@ export const updateOrder = async (orderId: string, data: any) => {
   return { ...rest, id: _id.toString() };
 };
 
+export const getAllOrders = async () => {
+  await connectToDatabase();
+  const orders = await OrderModel.find({}).lean();
+  return orders.map((o: any) => {
+    const { _id, ...rest } = o;
+    return { ...rest, id: _id.toString() };
+  });
+};
+
 import connectToDatabase from './mongodb';
 import mongoose from 'mongoose';
 // @ts-ignore
@@ -31,6 +40,15 @@ import { Product as ProductModel } from './models/Product';
 import { Store as StoreModel } from './models/Store';
 // @ts-ignore
 import { User as UserModel } from './models/User';
+
+export const getAllUsers = async () => {
+  await connectToDatabase();
+  const users = await UserModel.find({}).lean();
+  return users.map((u: any) => {
+    const { _id, ...rest } = u;
+    return { ...rest, id: _id.toString() };
+  });
+};
 
 // Service model definition (no separate file yet)
 const ServiceSchema = new mongoose.Schema({
@@ -57,6 +75,24 @@ const ServiceModel = (mongoose.models.Service as any) || mongoose.model('Service
 export const getStoreById = async (id: string) => {
   await connectToDatabase();
   return StoreModel.findById(id).lean();
+};
+
+export const getAllStores = async () => {
+  await connectToDatabase();
+  const stores = await StoreModel.find({}).lean();
+  return stores.map((s: any) => {
+    const { _id, ...rest } = s;
+    return { ...rest, id: _id.toString() };
+  });
+};
+
+export const getAllProducts = async () => {
+  await connectToDatabase();
+  const products = await ProductModel.find({}).lean();
+  return products.map((p: any) => {
+    const { _id, ...rest } = p;
+    return { ...rest, id: _id.toString() };
+  });
 };
 
 // --- User by ID ---

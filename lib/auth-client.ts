@@ -71,7 +71,12 @@ export const signIn = async (email: string, password: string) => {
     });
     const result = await response.json();
     if (result.success && result.user && result.sessionToken) {
-      // Session is managed by HTTP-only cookie only
+      // Store session token in sessionStorage as backup
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('sessionToken', result.sessionToken)
+        console.log('[signIn] Stored sessionToken in sessionStorage')
+      }
+      // Session is also managed by HTTP-only cookie
       return {
         user: {
           uid: result.user.id,

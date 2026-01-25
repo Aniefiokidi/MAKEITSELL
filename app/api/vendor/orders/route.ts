@@ -74,6 +74,8 @@ export async function PATCH(req: NextRequest) {
       timestampUpdates.confirmedAt = now;
     } else if (status === "shipped" || status === "shipped_interstate") {
       timestampUpdates.shippedAt = now;
+      // Auto-confirm when shipped
+      timestampUpdates.confirmedAt = now;
     } else if (status === "out_for_delivery") {
       timestampUpdates.outForDeliveryAt = now;
     } else if (status === "delivered") {

@@ -9,62 +9,37 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Search, Filter, MoreHorizontal, UserCheck, UserX } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { useState } from "react"
-
-// Mock users data
-const mockUsers = [
-  {
-    id: "user_001",
-    name: "John Doe",
-    email: "john@example.com",
-    role: "customer",
-    status: "active",
-    joinDate: "2024-01-10",
-    orders: 12,
-    totalSpent: 1299.99,
-  },
-  {
-    id: "user_002",
-    name: "Jane Smith",
-    email: "jane@example.com",
-    role: "vendor",
-    status: "active",
-    joinDate: "2024-01-08",
-    orders: 0,
-    totalSpent: 0,
-  },
-  {
-    id: "user_003",
-    name: "Mike Johnson",
-    email: "mike@example.com",
-    role: "customer",
-    status: "suspended",
-    joinDate: "2024-01-05",
-    orders: 3,
-    totalSpent: 299.99,
-  },
-  {
-    id: "user_004",
-    name: "Sarah Wilson",
-    email: "sarah@example.com",
-    role: "customer",
-    status: "active",
-    joinDate: "2024-01-12",
-    orders: 8,
-    totalSpent: 899.5,
-  },
-]
+import { useEffect, useState } from "react"
 
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState(mockUsers)
+  const [users, setUsers] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [roleFilter, setRoleFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
 
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await fetch("/api/admin/users")
+        const data = await res.json()
+        if (data.success) {
+          setUsers(data.users || [])
+        }
+      } catch (error) {
+        console.error("Failed to fetch users:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchUsers()
+  }, [])
+
   const filteredUsers = users.filter((user) => {
+    const term = searchTerm.toLowerCase()
     const matchesSearch =
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase())
+      (user.name || "").toLowerCase().includes(term) ||
+      (user.email || "").toLowerCase().includes(term)
     const matchesRole = roleFilter === "all" || user.role === roleFilter
     const matchesStatus = statusFilter === "all" || user.status === statusFilter
     return matchesSearch && matchesRole && matchesStatus
@@ -189,58 +164,64 @@ export default function AdminUsersPage() {
             <CardTitle>Users ({filteredUsers.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Join Date</TableHead>
-                  <TableHead>Orders</TableHead>
-                  <TableHead>Total Spent</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{user.name}</p>
-                        <p className="text-sm text-muted-foreground">{user.email}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>{getRoleBadge(user.role)}</TableCell>
-                    <TableCell>{getStatusBadge(user.status)}</TableCell>
-                    <TableCell>{new Date(user.joinDate).toLocaleDateString()}</TableCell>
-                    <TableCell>{user.orders}</TableCell>
-                    <TableCell>${user.totalSpent.toFixed(2)}</TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {user.status === "active" ? (
-                            <DropdownMenuItem onClick={() => handleStatusChange(user.id, "suspended")}>
-                              <UserX className="mr-2 h-4 w-4" />
-                              Suspend User
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem onClick={() => handleStatusChange(user.id, "active")}>
-                              <UserCheck className="mr-2 h-4 w-4" />
-                              Activate User
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+            {loading ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin h-8 w-8 border-t-2 border-b-2 border-accent rounded-full"></div>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Join Date</TableHead>
+                    <TableHead>Orders</TableHead>
+                    <TableHead>Total Spent</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredUsers.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{user.name || "N/A"}</p>
+                          <p className="text-sm text-muted-foreground">{user.email}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>{getRoleBadge(user.role)}</TableCell>
+                      <TableCell>{getStatusBadge(user.status)}</TableCell>
+                      <TableCell>{user.joinDate ? new Date(user.joinDate).toLocaleDateString() : "N/A"}</TableCell>
+                      <TableCell>{user.orders || 0}</TableCell>
+                      <TableCell>₦{(user.totalSpent || 0).toLocaleString()}</TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {user.status === "active" ? (
+                              <DropdownMenuItem onClick={() => handleStatusChange(user.id, "suspended")}>
+                                <UserX className="mr-2 h-4 w-4" />
+                                Suspend User
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem onClick={() => handleStatusChange(user.id, "active")}>
+                                <UserCheck className="mr-2 h-4 w-4" />
+                                Activate User
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>

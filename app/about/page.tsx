@@ -4,7 +4,7 @@ import Header from "@/components/Header"
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
+    <div className="min-h-screen bg-linear-to-br from-background via-background to-accent/5">
         <Header/>
       <div className="container mx-auto px-4 py-16">
         <div className="max-w-6xl mx-auto">
@@ -16,7 +16,7 @@ export default function AboutPage() {
               </div>
               Empowering Businesses Worldwide
             </div>
-            <h1 className="text-5xl md:text-7xl font-black bg-gradient-to-r from-foreground via-accent to-foreground bg-clip-text text-transparent mb-6 leading-tight">
+            <h1 className="text-5xl md:text-7xl font-black bg-linear-to-r from-foreground via-accent to-foreground bg-clip-text text-transparent mb-6 leading-tight">
               About Make It Sell
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
@@ -67,7 +67,7 @@ export default function AboutPage() {
             </div>
             <div className="order-1 lg:order-2">
               <div className="relative">
-                <div className="absolute -inset-4 bg-gradient-to-r from-accent/20 to-accent/10 rounded-3xl blur-xl"></div>
+                <div className="absolute -inset-4 bg-linear-to-r from-accent/20 to-accent/10 rounded-3xl blur-xl"></div>
                 <div className="relative bg-card border border-border/50 rounded-3xl p-8 shadow-2xl">
                   <img src="/heroimg8.jpg" alt="Make It Sell team" className="w-full h-80 object-cover rounded-2xl" />
                   <div className="absolute -bottom-6 -right-6 bg-accent text-accent-foreground w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg">
@@ -89,9 +89,9 @@ export default function AboutPage() {
             
             <div className="grid md:grid-cols-3 gap-8">
               <div className="group">
-                <div className="relative bg-gradient-to-br from-card to-accent/5 border border-border/50 rounded-3xl p-8 text-center hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+                <div className="relative bg-linear-to-br from-card to-accent/5 border border-border/50 rounded-3xl p-8 text-center hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
                   <div className="absolute -top-6 left-1/2 transform -translate-x-1/2">
-                    <div className="w-16 h-16 bg-gradient-to-br from-accent to-accent/80 rounded-2xl flex items-center justify-center shadow-xl">
+                    <div className="w-16 h-16 bg-linear-to-br from-accent to-accent/80 rounded-2xl flex items-center justify-center shadow-xl">
                       <svg className="w-8 h-8 text-accent-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>
@@ -111,9 +111,9 @@ export default function AboutPage() {
               </div>
 
               <div className="group">
-                <div className="relative bg-gradient-to-br from-card to-accent/5 border border-border/50 rounded-3xl p-8 text-center hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+                <div className="relative bg-linear-to-br from-card to-accent/5 border border-border/50 rounded-3xl p-8 text-center hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
                   <div className="absolute -top-6 left-1/2 transform -translate-x-1/2">
-                    <div className="w-16 h-16 bg-gradient-to-br from-accent to-accent/80 rounded-2xl flex items-center justify-center shadow-xl">
+                    <div className="w-16 h-16 bg-linear-to-br from-accent to-accent/80 rounded-2xl flex items-center justify-center shadow-xl">
                       <svg className="w-8 h-8 text-accent-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
                           strokeLinecap="round"
@@ -138,9 +138,9 @@ export default function AboutPage() {
               </div>
 
               <div className="group">
-                <div className="relative bg-gradient-to-br from-card to-accent/5 border border-border/50 rounded-3xl p-8 text-center hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+                <div className="relative bg-linear-to-br from-card to-accent/5 border border-border/50 rounded-3xl p-8 text-center hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
                   <div className="absolute -top-6 left-1/2 transform -translate-x-1/2">
-                    <div className="w-16 h-16 bg-gradient-to-br from-accent to-accent/80 rounded-2xl flex items-center justify-center shadow-xl">
+                    <div className="w-16 h-16 bg-linear-to-br from-accent to-accent/80 rounded-2xl flex items-center justify-center shadow-xl">
                       <svg className="w-8 h-8 text-accent-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
                           strokeLinecap="round"
@@ -168,8 +168,8 @@ export default function AboutPage() {
 
           {/* CTA Section */}
           <div className="relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-accent/20 via-accent/10 to-transparent rounded-3xl"></div>
-            <div className="relative bg-gradient-to-br from-card to-accent/5 border border-border/50 rounded-3xl p-12 text-center shadow-2xl">
+            <div className="absolute inset-0 bg-linear-to-r from-accent/20 via-accent/10 to-transparent rounded-3xl"></div>
+            <div className="relative bg-linear-to-br from-card to-accent/5 border border-border/50 rounded-3xl p-12 text-center shadow-2xl">
               <div className="max-w-3xl mx-auto">
                 <div className="inline-flex items-center gap-2 bg-accent text-accent-foreground px-4 py-2 rounded-full text-sm font-bold mb-6">
                   <svg className="w-4 h-4 animate-spin" fill="currentColor" viewBox="0 0 24 24">
@@ -177,7 +177,7 @@ export default function AboutPage() {
                   </svg>
                   Ready to Scale?
                 </div>
-                <h2 className="text-4xl md:text-5xl font-black mb-6 bg-gradient-to-r from-foreground to-accent bg-clip-text text-transparent">
+                <h2 className="text-4xl md:text-5xl font-black mb-6 bg-linear-to-r from-foreground to-accent bg-clip-text text-transparent">
                   Grow Your Business with Us
                 </h2>
                 <p className="text-xl text-muted-foreground mb-10 leading-relaxed">
@@ -190,7 +190,7 @@ export default function AboutPage() {
                     className="group relative bg-accent hover:bg-accent/80 text-accent-foreground px-8 py-4 rounded-2xl font-bold text-lg transition-all duration-300 hover:scale-105 hover:shadow-2xl"
                   >
                     <span className="relative z-10">Start Selling Today</span>
-                    <div className="absolute inset-0 bg-gradient-to-r from-accent to-accent/80 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="absolute inset-0 bg-linear-to-r from-accent to-accent/80 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                   </a>
                   <a 
                     href="/stores" 

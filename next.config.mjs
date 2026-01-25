@@ -1,8 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -12,7 +9,6 @@ const nextConfig = {
   },
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-dialog', '@radix-ui/react-select'],
-    turbo: false, // Disable Turbopack, force Webpack
   },
   images: {
     unoptimized: process.env.NODE_ENV === 'development',
@@ -43,46 +39,6 @@ const nextConfig = {
         pathname: '/**',
       },
     ],
-  },
-  // Bundle optimization
-  webpack: (config, { dev, isServer }) => {
-    // Handle MongoDB and Node.js-specific modules for client-side
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        net: false,
-        tls: false,
-        crypto: false,
-        stream: false,
-        url: false,
-        zlib: false,
-        http: false,
-        https: false,
-        assert: false,
-        os: false,
-        path: false,
-        'child_process': false,
-        'fs/promises': false,
-      }
-      
-      // Externalize MongoDB and Mongoose for client-side builds
-      config.externals = config.externals || []
-      config.externals.push('mongodb', 'mongoose')
-    }
-
-    if (!dev && !isServer) {
-      config.optimization.splitChunks.chunks = 'all'
-      config.optimization.splitChunks.cacheGroups = {
-        ...config.optimization.splitChunks.cacheGroups,
-        vendor: {
-          test: /[\\/]node_modules[\\/]/,
-          name: 'vendors',
-          chunks: 'all',
-        },
-      }
-    }
-    return config
   },
 }
 
