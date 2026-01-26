@@ -69,7 +69,30 @@ export default function AdminVendorsBankDetailsPage() {
             ) : vendors.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground text-sm">No vendors found</div>
             ) : (
-              <div className="overflow-x-auto">
+                <>
+                
+              {/* Responsive: Table for desktop, stacked cards for mobile */}
+              <div className="block md:hidden space-y-4">
+                {vendors.map((store) => (
+                  <div key={store._id || store.id} className="rounded-lg border bg-background p-4 shadow-sm">
+                    <div className="font-semibold text-base mb-1">{store.storeName || store.name}</div>
+                    <div className="text-xs text-muted-foreground mb-2">Vendor: {store.vendorName || store.ownerName || store.owner || store.vendorId || "-"}</div>
+                    <div className="flex flex-col gap-1 text-sm">
+                      <div><span className="font-medium">Bank:</span> {store.bankName || "-"}</div>
+                      <div><span className="font-medium">Account Number:</span> {store.accountNumber || "-"}</div>
+                      <div><span className="font-medium">Account Name:</span> {store.accountName || "-"}</div>
+                      <div>
+                        <span className="font-medium">Verified:</span> {store.accountVerified ? (
+                          <span className="text-green-600 font-semibold">Yes</span>
+                        ) : (
+                          <span className="text-red-600">No</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="hidden md:block overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -101,6 +124,7 @@ export default function AdminVendorsBankDetailsPage() {
                   </TableBody>
                 </Table>
               </div>
+                </>
             )}
           </CardContent>
         </Card>
