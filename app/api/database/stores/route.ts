@@ -56,12 +56,17 @@ export async function GET(request: NextRequest) {
         name: store.storeName,
         description: store.storeDescription,
         logoImage: store.storeImage || store.profileImage || store.logo,
-        // Use profileImage as first choice for bannerImage
         bannerImage: store.profileImage || firstProductImage || store.bannerImages?.[0] || store.storeBanner || store.storeImage,
         productImages: firstProductImage ? [firstProductImage] : [],
         location: store.address,
         city: store.address?.split(',')[1]?.trim() || store.address,
-        productCount: productCount
+        productCount: productCount,
+        // Payout fields
+        bankName: store.bankName || '',
+        bankCode: store.bankCode || '',
+        accountNumber: store.accountNumber || '',
+        accountName: store.accountName || '',
+        accountVerified: !!store.accountVerified,
       }
     }))
 

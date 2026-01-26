@@ -201,10 +201,20 @@ export default function VendorStoreSettingsPage() {
   }
 
   const handleBankChange = (code: string) => {
+    // Only force OPay code if OPay is actually selected
+    let fixedCode = code;
     const selected = banks.find(b => b.code === code);
+    if (selected && selected.name.includes('OPay')) {
+      fixedCode = '999992';
+    }
+    if (!fixedCode || typeof fixedCode !== 'string' || fixedCode.trim() === '') {
+      setAccountError('Please select a valid bank.');
+      setSettings(prev => ({ ...prev, bankCode: '', bankName: '', accountName: '', accountVerified: false }));
+      return;
+    }
     setSettings(prev => ({
       ...prev,
-      bankCode: code,
+      bankCode: fixedCode,
       bankName: selected?.name || "",
       accountName: "",
       accountVerified: false,
@@ -214,31 +224,47 @@ export default function VendorStoreSettingsPage() {
 
   const handleAccountNumberChange = (value: string) => {
     const clean = value.replace(/[^0-9]/g, '').slice(0, 10);
-    setSettings(prev => ({ ...prev, accountNumber: clean, accountVerified: false, accountName: "" }));
+    setSettings(prev => ({
+      ...prev,
+      accountNumber: clean,
+      accountVerified: false,
+      accountName: "",
+    }));
     setAccountError(null);
-    if (settings.bankCode && clean.length === 10) {
-      handleVerifyAccount(clean);
-    }
   };
+  // Robust verification: useEffect triggers only when both fields are updated
+  useEffect(() => {
+    if (
+      settings.bankCode &&
+      settings.bankCode.trim() !== "" &&
+      settings.accountNumber.length === 10
+    ) {
+      handleVerifyAccount();
+    }
+  }, [settings.bankCode, settings.accountNumber]);
 
   const handleVerifyAccount = async (accountNumberOverride?: string) => {
     const accountNumber = accountNumberOverride || settings.accountNumber;
-    if (!settings.bankCode || !accountNumber || accountNumber.length !== 10) {
+    const bankCode = settings.bankCode;
+    if (!bankCode || typeof bankCode !== 'string' || bankCode.trim() === '' || !accountNumber || accountNumber.length !== 10) {
       setAccountError("Select a bank and enter a valid 10-digit account number.");
       return;
     }
     setVerifyLoading(true);
     setAccountError(null);
     try {
+      // Debug log
+      console.log("[DEBUG] Resolving account:", { bankCode, accountNumber });
       const res = await fetch("/api/vendor/resolve-account", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          bankCode: settings.bankCode,
-          accountNumber,
+          bankCode: bankCode.trim(),
+          accountNumber: accountNumber.trim(),
         }),
       });
       const data = await res.json();
+      console.log("[DEBUG] Resolve response:", data);
       if (data.success && data.accountName) {
         setSettings(prev => ({ ...prev, accountName: data.accountName, accountVerified: true }));
         showNotificationBox("Account verified", "success");

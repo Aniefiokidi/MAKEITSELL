@@ -20,7 +20,13 @@ const StoreSchema = new Schema({
   deliveryFee: { type: Number },
   minimumOrder: { type: Number },
   phone: { type: String },
-  email: { type: String }
+  email: { type: String },
+  // Payout/bank details fields
+  bankName: { type: String },
+  bankCode: { type: String },
+  accountNumber: { type: String },
+  accountName: { type: String },
+  accountVerified: { type: Boolean, default: false }
 }, { timestamps: true });
 
 export const Store = models.Store || model('Store', StoreSchema);
