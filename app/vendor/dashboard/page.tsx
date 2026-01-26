@@ -34,6 +34,14 @@ export default function VendorDashboardPage() {
     daysUntilExpiry: number;
     accountStatus: 'active' | 'suspended' | 'deleted';
   } | null>(null);
+  // Popup for new vendors
+  const [showSetupPopup, setShowSetupPopup] = useState(false);
+  useEffect(() => {
+    // Show popup if user just registered and store setup is incomplete
+    if (userProfile?.role === "vendor" && (!userProfile?.storeSetupComplete || userProfile?.storeSetupComplete === false)) {
+      setShowSetupPopup(true);
+    }
+  }, [userProfile]);
 
   // Handle subscription renewal
   const handleRenewSubscription = async () => {
@@ -156,30 +164,47 @@ export default function VendorDashboardPage() {
 
   return (
     <VendorLayout>
-      <div className="animate-fade-in">
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-lg font-bold" style={{ textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))' }}>Dashboard</h1>
-          <p className="text-xs text-muted-foreground">Welcome back! Here's what's happening with your store.</p>
+      {/* Setup popup for new vendors */}
+      {showSetupPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white/80 dark:bg-gray-900/80 rounded-xl shadow-2xl p-8 max-w-sm mx-auto flex flex-col items-center justify-center border border-accent" style={{backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)'}}>
+            <h2 className="text-xl font-bold mb-2 text-center">Welcome to MakeItSell!</h2>
+            <p className="mb-4 text-center text-muted-foreground">To start selling, please finish setting up your store.</p>
+            <Link href="/vendor/store-settings" passHref legacyBehavior>
+              <Button className="w-full mb-2 font-semibold text-base shadow-lg" variant="accent" onClick={() => setShowSetupPopup(false)}>
+                Go to Store Settings
+              </Button>
+            </Link>
+            <Button variant="ghost" className="w-full mt-1 text-xs" onClick={() => setShowSetupPopup(false)}>
+              Maybe later
+            </Button>
+          </div>
         </div>
-        <Button
-          onClick={loadDashboard}
-          disabled={dataLoading}
-          variant="outline"
-          size="sm"
-          className="gap-2"
-        >
-          {dataLoading ? (
-            <>
-              <span className="animate-spin">↻</span> Refreshing
-            </>
-          ) : (
-            <>
-              ↻ Refresh
-            </>
-          )}
-        </Button>
-      </div>
+      )}
+      <div className="animate-fade-in">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-lg font-bold" style={{ textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))' }}>Dashboard</h1>
+            <p className="text-xs text-muted-foreground">Welcome back! Here's what's happening with your store.</p>
+          </div>
+          <Button
+            onClick={loadDashboard}
+            disabled={dataLoading}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+          >
+            {dataLoading ? (
+              <>
+                <span className="animate-spin">↻</span> Refreshing
+              </>
+            ) : (
+              <>
+                ↻ Refresh
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Subscription Status */}

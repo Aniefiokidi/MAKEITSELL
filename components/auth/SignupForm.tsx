@@ -457,7 +457,7 @@ export default function SignupForm() {
                 </div>
 
                 {/* Store Description */}
-                <div className="space-y-2">
+                <div className="space-y-2 mt-3">
                   <Label htmlFor="storeDescription">Store Description *</Label>
                   <textarea
                     id="storeDescription"
@@ -475,7 +475,7 @@ export default function SignupForm() {
                 </div>
 
                 {/* Store Category */}
-                <div className="space-y-2">
+                <div className="space-y-2 mt-3">
                   <Label htmlFor="storeCategory">Store Category *</Label>
                   <Select
                     value={formData.storeCategory}
@@ -520,7 +520,7 @@ export default function SignupForm() {
                 </div>
 
                 {/* Store Phone */}
-                <div className="space-y-2">
+                <div className="space-y-2 mt-3">
                   <Label htmlFor="storePhone">Store Phone (Optional)</Label>
                   <Input
                     id="storePhone"
@@ -615,7 +615,7 @@ export default function SignupForm() {
         </CardContent>
 
         <CardFooter className="flex flex-col space-y-4">
-          <Button type="submit" className="w-full" disabled={loading || uploadingLogo || !acceptTerms}>
+          <Button type="submit" className="w-full mt-3" disabled={loading || uploadingLogo || !acceptTerms}>
             {(loading || uploadingLogo) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {uploadingLogo 
               ? "Uploading Logo..." 

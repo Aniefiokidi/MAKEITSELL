@@ -729,12 +729,12 @@ export default function VendorStoreSettingsPage() {
                 </div>
               </CardContent>
             </Card>
-            {/* Save Button (Sticky) */}
+            {/* Save Button (Sticky) disabled={saveDisabled} */}
             <div className="sticky bottom-0 bg-background py-4 border-t flex flex-col md:flex-row md:items-center md:justify-end gap-2 z-10">
               {saveDisabled && (
                 <p className="text-sm text-muted-foreground">Verify payout details before saving.</p>
               )}
-              <Button type="submit" disabled={saveDisabled} className="px-8 text-base font-semibold">
+              <Button type="submit"  className="px-8 text-base font-semibold">
                 {loading || bgUploading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
