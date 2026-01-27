@@ -147,18 +147,18 @@ export default function ShopPage() {
 
         {/* Content Overlay at Bottom - Full Width */}
         <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-b-[2.5rem] border-t border-white/10 p-3 sm:p-4">
-          <div className="flex items-start justify-between w-full gap-2 mb-1.5">
+          <div className="flex items-start justify-between w-full gap-1 mb-1">
             <div className="flex-1 min-w-0">
-              <h3 className="text-base sm:text-lg font-bold tracking-tight mb-0.5 text-white drop-shadow-lg truncate">
+              <h3 className="text-xs sm:text-base md:text-lg font-bold tracking-tight mb-0.5 text-white drop-shadow-lg truncate">
                 {store.name || "Unnamed Store"}
               </h3>
-              <div className="flex items-center text-[10px] sm:text-xs font-medium text-white/90 tracking-wide mb-1.5">
-                <MapPin className="h-3 w-3 mr-1 shrink-0" />
+              <div className="flex items-center text-[8px] sm:text-xs font-medium text-white/90 tracking-wide mb-1">
+                <MapPin className="h-2.5 w-2.5 mr-0.5 shrink-0" />
                 <span className="truncate">{store.location || store.city || "Location not specified"}</span>
               </div>
               
               {store.category && (
-                <Badge variant="outline" className="w-fit text-[10px] font-semibold py-0.5 px-2 h-5 tracking-wide border-2 border-white/40 bg-white/10 text-white backdrop-blur-sm">
+                <Badge variant="outline" className="w-fit text-[7px] sm:text-[10px] font-semibold py-0.5 px-1.5 sm:px-2 h-4 sm:h-5 tracking-wide border-2 border-white/40 bg-white/10 text-white backdrop-blur-sm">
                   {categories.find(c => c.id === store.category)?.name || store.category}
                 </Badge>
               )}
@@ -169,8 +169,8 @@ export default function ShopPage() {
               e.preventDefault()
               handleStoreClick(store._id || store.id)
             }}>
-              <div className="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 hover:bg-accent hover:text-white transition-all duration-200 cursor-pointer group/arrow">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent group-hover/arrow:text-white transition-colors group-hover/arrow:translate-x-0.5">
+              <div className="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full bg-white flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 hover:bg-accent hover:text-white transition-all duration-200 cursor-pointer group/arrow">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent group-hover/arrow:text-white transition-colors group-hover/arrow:translate-x-0.5">
                   <path d="M5 12h14"/>
                   <path d="m12 5 7 7-7 7"/>
                 </svg>
@@ -179,14 +179,16 @@ export default function ShopPage() {
           </div>
 
           {/* Stats */}
-          <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-[11px] font-medium text-white/80 tracking-wide">
-            <div className="flex items-center gap-0.5 sm:gap-1">
-              <Users className="h-3 w-3" />
-              <span>{store.productCount || 0} products</span>
+          <div className="flex items-center gap-1 sm:gap-2 md:gap-3 text-[7px] sm:text-[10px] md:text-[11px] font-medium text-white/80 tracking-wide">
+            <div className="flex items-center gap-0.5">
+              <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+              <span className="hidden sm:inline">{store.productCount || 0} products</span>
+              <span className="sm:hidden">{store.productCount || 0}</span>
             </div>
-            <div className="flex items-center gap-0.5 sm:gap-1">
-              <Clock className="h-3 w-3" />
-              <span>Est. {new Date(store.createdAt || Date.now()).getFullYear()}</span>
+            <div className="flex items-center gap-0.5">
+              <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+              <span className="hidden sm:inline">Est. {new Date(store.createdAt || Date.now()).getFullYear()}</span>
+              <span className="sm:hidden">{new Date(store.createdAt || Date.now()).getFullYear()}</span>
             </div>
           </div>
         </div>
@@ -216,58 +218,59 @@ export default function ShopPage() {
       <div className={isTransitioning ? 'page-slide-transition' : ''}>
       <Header />
       
-      <main className="flex-1 container mx-auto px-4 py-4">
+      <main className="flex-1 container mx-auto px-2 sm:px-4 py-4 sm:py-6">
         {/* Unified Header Bar */}
-        <div className="space-y-3 mb-6">
-          {/* First Row - Products Button (Mobile: Own Line, Desktop: Inline with everything) */}
-          <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 lg:gap-4">
+        <div className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
+          {/* First Row - Products Button */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
             {/* View All Products Button */}
-            <Link href="/products" className="inline-block lg:shrink-0">
+            <Link href="/products" className="inline-block sm:shrink-0">
               <Button 
-                className="w-full lg:w-auto bg-white/10 hover:bg-white/20 backdrop-blur-xl border border-accent/30 text-accent font-bold text-sm px-6 py-3 rounded-full shadow-lg shadow-white/10 hover:shadow-xl hover:shadow-white/20 transition-all duration-200 active:scale-95 hover:border-white/40 flex items-center justify-center gap-2"
+                className="w-full sm:w-auto bg-white/10 hover:bg-white/20 backdrop-blur-xl border border-accent/30 text-accent font-bold text-xs sm:text-sm px-3 sm:px-6 py-3 sm:py-3 rounded-full shadow-lg shadow-white/10 hover:shadow-xl hover:shadow-white/20 transition-all duration-200 active:scale-95 hover:border-white/40 flex items-center justify-center gap-2"
                 style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}
               >
-                <Package className="h-4 w-4" />
-                <span>View All Products</span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <Package className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">View All Products</span>
+                <span className="sm:hidden">Products</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="hidden sm:inline">
                   <path d="M5 12h14"/>
                   <path d="m12 5 7 7-7 7"/>
                 </svg>
               </Button>
             </Link>
 
-            {/* Second Row on Mobile - Controls */}
-            <div className="flex items-center gap-2 w-full lg:flex-1">
+            {/* Controls Row */}
+            <div className="flex items-center gap-2 sm:gap-3 w-full sm:flex-1">
               {/* Mobile Search Icon */}
               <Button
                 variant="outline"
                 size="icon"
-                className="lg:hidden h-10 w-10 shrink-0 border-accent/20 hover:border-accent/40 transition-all"
+                className="sm:hidden h-10 w-10 shrink-0 border-accent/20 hover:border-accent/40 transition-all p-1"
                 onClick={() => setShowMobileSearch(!showMobileSearch)}
               >
-                <Search className="h-4 w-4 " />
+                <Search className="h-4 w-4" />
               </Button>
 
               {/* Desktop Search Bar */}
-              <div className="hidden lg:flex flex-1 relative group">
+              <div className="hidden sm:flex flex-1 relative group">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5 group-focus-within:text-primary transition-colors" />
                 <Input
                   type="text"
-                  placeholder="Search stores by name, category, or description..."
+                  placeholder="Search stores..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-12 border-2 focus:border-primary transition-colors w-full"
+                  className="pl-10 h-10 border-2 focus:border-primary transition-colors w-full text-sm"
                 />
               </div>
 
               {/* Category Filter */}
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="w-[100px] sm:w-[130px] lg:w-[160px] border-2 border-accent/20 hover:border-accent/40 transition-colors h-10 lg:h-12 text-xs sm:text-sm">
+                <SelectTrigger className="flex-1 sm:w-auto border-2 border-accent/20 hover:border-accent/40 transition-colors h-10 text-xs sm:text-sm p-2">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
+                    <SelectItem key={category.id} value={category.id} className="text-xs sm:text-sm">
                       {category.name}
                     </SelectItem>
                   ))}
@@ -276,13 +279,13 @@ export default function ShopPage() {
 
               {/* Sort */}
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-[85px] sm:w-[110px] lg:w-[140px] h-10 lg:h-12 text-xs sm:text-sm border-2 border-accent/20 hover:border-accent/40 transition-colors">
+                <SelectTrigger className="flex-1 sm:w-auto h-10 text-xs sm:text-sm border-2 border-accent/20 hover:border-accent/40 transition-colors p-2">
                   <SelectValue placeholder="Sort" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="name">Name A-Z</SelectItem>
-                  <SelectItem value="newest">Newest</SelectItem>
-                  <SelectItem value="products">Most Products</SelectItem>
+                  <SelectItem value="name" className="text-xs sm:text-sm">Name A-Z</SelectItem>
+                  <SelectItem value="newest" className="text-xs sm:text-sm">Newest</SelectItem>
+                  <SelectItem value="products" className="text-xs sm:text-sm">Most Products</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -292,9 +295,9 @@ export default function ShopPage() {
                 size="icon"
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="hover:scale-110 hover:bg-accent/10 transition-all h-10 w-10 lg:h-12 lg:w-12 shrink-0 border-accent/20 hover:border-accent/40"
+                className="hover:scale-110 hover:bg-accent/10 transition-all h-10 w-10 sm:w-12 shrink-0 border-accent/20 hover:border-accent/40 p-1"
               >
-                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-4 w-4 sm:h-5 sm:w-5 ${refreshing ? 'animate-spin' : ''}`} />
               </Button>
             </div>
           </div>
@@ -306,7 +309,7 @@ export default function ShopPage() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setSelectedCategory("all")}
-                className="text-xs hover:text-accent hover:bg-accent/10 transition-all h-8"
+                className="text-[10px] sm:text-xs hover:text-accent hover:bg-accent/10 transition-all h-7 sm:h-8"
               >
                 Clear Filter
               </Button>
@@ -316,15 +319,15 @@ export default function ShopPage() {
 
         {/* Mobile Search Slide Out */}
         {showMobileSearch && (
-          <div className="lg:hidden mb-4 overflow-hidden animate-in slide-in-from-top-2 duration-300">
+          <div className="sm:hidden mb-4 overflow-hidden animate-in slide-in-from-top-2 duration-300">
             <div className="relative group">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5 group-focus-within:text-primary transition-colors" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4 group-focus-within:text-primary transition-colors" />
               <Input
                 type="text"
                 placeholder="Search stores..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-12 border-2 focus:border-primary transition-colors w-full"
+                className="pl-9 h-10 border-2 focus:border-primary transition-colors w-full text-xs sm:text-sm"
                 autoFocus
               />
             </div>
@@ -332,15 +335,15 @@ export default function ShopPage() {
         )}
 
         {/* Results Count */}
-        <div className="mb-6">
-          <p className="text-sm text-muted-foreground">
+        <div className="mb-6 sm:mb-8">
+          <p className="text-xs sm:text-sm text-muted-foreground">
             {loading ? "Loading stores..." : `Showing ${sortedStores.length} store${sortedStores.length !== 1 ? 's' : ''}`}
           </p>
         </div>
 
         {/* Stores Grid */}
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
             {[...Array(8)].map((_, i) => (
               <Card key={i} className="h-full">
                 <Skeleton className="aspect-video rounded-t-lg" />
@@ -361,23 +364,24 @@ export default function ShopPage() {
             ))}
           </div>
         ) : sortedStores.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-6 animate-in fade-in duration-500">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5 lg:gap-6 animate-in fade-in duration-500">
             {sortedStores.map((store) => (
               <StoreCard key={store._id || store.id} store={store} />
             ))}
           </div>
         ) : (
-          <div className="text-center py-24" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif' }}>
-            <div className="inline-flex p-8 bg-linear-to-br from-accent/20 to-orange-500/20 rounded-full mb-8 border-4 border-accent/20 shadow-2xl shadow-accent/20 animate-pulse">
-              <Store className="h-24 w-24 text-accent" />
+          <div className="text-center py-12 sm:py-24" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif' }}>
+            <div className="inline-flex p-4 sm:p-8 bg-linear-to-br from-accent/20 to-orange-500/20 rounded-full mb-4 sm:mb-8 border-4 border-accent/20 shadow-2xl shadow-accent/20 animate-pulse">
+              <Store className="h-12 w-12 sm:h-24 sm:w-24 text-accent" />
             </div>
-            <h3 className="text-5xl font-black mb-4 tracking-wider uppercase">NO STORES FOUND BESTIE</h3>
-            <p className="text-muted-foreground text-xl font-bold mb-8 max-w-md mx-auto uppercase tracking-wide">
-              TRY DIFFERENT FILTERS OR SEARCH TERMS TO FIND UR VIBE
+            <h3 className="text-2xl sm:text-5xl font-black mb-2 sm:mb-4 tracking-wider uppercase">NO STORES</h3>
+            <p className="text-muted-foreground text-xs sm:text-xl font-bold mb-4 sm:mb-8 max-w-md mx-auto uppercase tracking-wide px-2">
+              TRY DIFFERENT FILTERS OR SEARCH
             </p>
-            <Button onClick={handleRefresh} size="lg" className="bg-linear-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-black text-xl px-8 py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all uppercase tracking-wider">
-              <RefreshCw className="h-5 w-5 mr-2" />
-              REFRESH FR
+            <Button onClick={handleRefresh} size="sm" className="bg-linear-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-black text-xs sm:text-xl px-4 sm:px-8 py-2 sm:py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all uppercase tracking-wider">
+              <RefreshCw className="h-3 w-3 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">REFRESH FR</span>
+              <span className="sm:hidden">REFRESH</span>
             </Button>
           </div>
         )}

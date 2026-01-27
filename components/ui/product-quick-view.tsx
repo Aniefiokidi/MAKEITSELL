@@ -63,7 +63,7 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <style>{cursorStyle}</style>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto product-quick-view-modal">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto product-quick-view-modal bg-white/30 backdrop-blur-xl border border-white/20 shadow-2xl shadow-accent/10 rounded-2xl">
         <VisuallyHidden>
           <DialogTitle>Product Details</DialogTitle>
         </VisuallyHidden>
@@ -77,7 +77,7 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 pt-6">
           {/* Left: Image Gallery */}
-          <div className="space-y-3 md:space-y-4 order-2 md:order-1">
+          <div className="space-y-3 md:space-y-4 order-1 md:order-1">
             <div className="relative w-full aspect-square rounded-2xl overflow-hidden bg-slate-100">
               <Image
                 src={displayImage}
@@ -122,10 +122,10 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
           {/* Right: Product Details */}
           <div className="space-y-4 md:space-y-6 order-1 md:order-2">
             <div>
-              <h2 className="text-xl md:text-2xl font-bold text-slate-900 mb-1 md:mb-2 leading-tight">
+              <h2 className="text-xl md:text-2xl font-bold bg-accent text-white px-2 py-1 rounded-full mb-2 md:mb-3 leading-tight w-fit">
                 {product.title || product.name}
               </h2>
-              <p className="text-xs md:text-sm text-slate-600">
+              <p className="text-xs md:text-sm bg-accent text-white inline-block px-2 py-1 rounded-full font-medium mb-2 md:mb-3">
                 by <span className="font-semibold">{storeName || product.vendorName || 'Premium Vendor'}</span>
               </p>
             </div>
@@ -133,10 +133,10 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
             {/* Price and Stock */}
             <div className="space-y-2 md:space-y-3">
               <div className="flex items-baseline gap-3">
-                <p className="text-2xl md:text-3xl font-bold text-accent">₦{product.price?.toLocaleString()}</p>
+                <p className="text-2xl md:text-3xl font-bold bg-accent text-white px-2 py-1 rounded-full mb-2 md:mb-3 leading-tight w-fit">₦{product.price?.toLocaleString()}</p>
               </div>
 
-              <div className={`rounded-lg md:rounded-xl p-2 md:p-3 flex items-center gap-2 text-xs md:text-sm ${
+              <div className={`rounded-lg md:rounded-xl p-2 md:p-3 flex items-center gap-2 text-xs md:text-sm  ${
                 (product.stock || 0) > 10 
                   ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
                   : (product.stock || 0) > 0

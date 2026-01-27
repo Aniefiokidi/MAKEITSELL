@@ -18,25 +18,25 @@ import Image from "next/image"
 const getCategoryIcon = (category: string) => {
   switch(category) {
     case "photography":
-      return <Camera className="h-8 w-8 text-white" />
+      return <Camera className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
     case "consulting":
-      return <Briefcase className="h-8 w-8 text-white" />
+      return <Briefcase className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
     case "repairs":
-      return <Wrench className="h-8 w-8 text-white" />
+      return <Wrench className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
     case "design":
-      return <Palette className="h-8 w-8 text-white" />
+      return <Palette className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
     case "fitness":
-      return <Dumbbell className="h-8 w-8 text-white" />
+      return <Dumbbell className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
     case "education":
-      return <GraduationCap className="h-8 w-8 text-white" />
+      return <GraduationCap className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
     case "beauty":
-      return <Scissors className="h-8 w-8 text-white" />
+      return <Scissors className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
     case "cleaning":
-      return <Sparkles className="h-8 w-8 text-white" />
+      return <Sparkles className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
     case "tech":
-      return <Laptop className="h-8 w-8 text-white" />
+      return <Laptop className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
     default:
-      return <Settings className="h-8 w-8 text-white" />
+      return <Settings className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
   }
 }
 
@@ -172,9 +172,9 @@ export default function ServicesPage() {
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
       
-      <main className="flex-1 container mx-auto px-4 py-4">
+      <main className="flex-1 container mx-auto px-2 sm:px-4 py-3 sm:py-4">
         {/* Unified Header Bar - Mobile Optimized */}
-        <div className="flex flex-col lg:flex-row items-start lg:items-center gap-3 mb-6">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
           {/* Desktop Search Bar - Hidden on mobile */}
           <div className="hidden lg:flex flex-1 relative group">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5 group-focus-within:text-primary transition-colors" />
@@ -183,29 +183,29 @@ export default function ServicesPage() {
               placeholder="Search services..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-12 border-2 focus:border-primary transition-colors w-full"
+              className="pl-10 h-12 border-2 focus:border-primary transition-colors w-full text-sm"
             />
           </div>
 
           {/* Controls Container - Compact on mobile */}
-          <div className="flex items-center gap-2 w-full lg:w-auto">
+          <div className="flex items-center gap-1 sm:gap-2 w-full lg:w-auto">
             {/* Mobile Search Icon */}
             <Button
               variant="outline"
               size="icon"
-              className="lg:hidden h-10 w-10 shrink-0 border-accent/20 hover:border-accent/40 transition-all"
+              className="lg:hidden h-8 w-8 sm:h-9 sm:w-9 shrink-0 border-accent/20 hover:border-accent/40 transition-all p-1"
               onClick={() => setShowMobileSearch(!showMobileSearch)}
             >
-              <Search className="h-4 w-4" />
+              <Search className="h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
             {/* Category Filter */}
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-[130px] sm:w-[150px] lg:w-[180px] border-2 border-accent/20 hover:border-accent/40 transition-colors h-10 lg:h-12">
-                <SelectValue placeholder="All Categories" />
+              <SelectTrigger className="w-[70px] sm:w-[110px] md:w-[150px] lg:w-[180px] border-2 border-accent/20 hover:border-accent/40 transition-colors h-8 sm:h-9 md:h-10 lg:h-12 text-[9px] sm:text-xs md:text-sm p-1">
+                <SelectValue placeholder="Cat" />
               </SelectTrigger>
               <SelectContent>
                 {SERVICE_CATEGORIES.map((cat) => (
-                  <SelectItem key={cat.value} value={cat.value}>
+                  <SelectItem key={cat.value} value={cat.value} className="text-xs sm:text-sm">
                     {cat.label}
                   </SelectItem>
                 ))}
@@ -214,14 +214,14 @@ export default function ServicesPage() {
 
             {/* Location Filter */}
             <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-              <SelectTrigger className="w-[100px] sm:w-[120px] lg:w-[160px] h-10 lg:h-12 border-accent/20 ">
-                <SelectValue placeholder="All Locations" />
+              <SelectTrigger className="w-[70px] sm:w-[110px] md:w-[140px] lg:w-[160px] h-8 sm:h-9 md:h-10 lg:h-12 border-accent/20 text-[9px] sm:text-xs md:text-sm p-1">
+                <SelectValue placeholder="Loc" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Locations</SelectItem>
-                <SelectItem value="online">Online</SelectItem>
-                <SelectItem value="home-service">Home Service</SelectItem>
-                <SelectItem value="store">Store/Office</SelectItem>
+                <SelectItem value="all" className="text-xs sm:text-sm">All Locations</SelectItem>
+                <SelectItem value="online" className="text-xs sm:text-sm">Online</SelectItem>
+                <SelectItem value="home-service" className="text-xs sm:text-sm">Home Service</SelectItem>
+                <SelectItem value="store" className="text-xs sm:text-sm">Store/Office</SelectItem>
               </SelectContent>
             </Select>
 
@@ -231,24 +231,24 @@ export default function ServicesPage() {
               size="icon"
               onClick={refreshServices}
               disabled={refreshing}
-              className="hover:scale-110 hover:bg-accent/10 transition-all h-10 w-10 lg:h-12 lg:w-12 shrink-0 border-accent/20 hover:border-accent/40"
+              className="hover:scale-110 hover:bg-accent/10 transition-all h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 lg:h-12 lg:w-12 shrink-0 border-accent/20 hover:border-accent/40 p-1"
             >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 ${refreshing ? 'animate-spin' : ''}`} />
             </Button>
           </div>
         </div>
 
         {/* Mobile Search Slide Out */}
         {showMobileSearch && (
-          <div className="lg:hidden mb-4 overflow-hidden animate-in slide-in-from-top-2 duration-300">
+          <div className="lg:hidden mb-2 sm:mb-4 overflow-hidden animate-in slide-in-from-top-2 duration-300">
             <div className="relative group">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5 group-focus-within:text-primary transition-colors" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4 group-focus-within:text-primary transition-colors" />
               <Input
                 type="search"
                 placeholder="Search services..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-10 border-2 focus:border-primary transition-colors w-full"
+                className="pl-9 h-9 sm:h-10 border-2 focus:border-primary transition-colors w-full text-xs sm:text-sm"
                 autoFocus
               />
             </div>
@@ -256,45 +256,46 @@ export default function ServicesPage() {
         )}
 
         {/* Results Count */}
-        <div className="mb-6">
-          <p className="text-sm text-muted-foreground">
+        <div className="mb-3 sm:mb-6">
+          <p className="text-xs sm:text-sm text-muted-foreground">
             {loading ? "Loading services..." : `Showing ${filteredServices.length} service${filteredServices.length !== 1 ? 's' : ''}`}
           </p>
         </div>
 
         {/* Services Grid */}
         {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <Card key={i} className="animate-pulse">
-                <div className="h-48 bg-muted rounded-t-lg" />
-                <CardHeader>
-                  <div className="h-6 bg-muted rounded w-3/4" />
-                  <div className="h-4 bg-muted rounded w-1/2 mt-2" />
+                <div className="h-32 sm:h-48 bg-muted rounded-t-lg" />
+                <CardHeader className="p-2 sm:p-4">
+                  <div className="h-4 sm:h-6 bg-muted rounded w-3/4" />
+                  <div className="h-3 sm:h-4 bg-muted rounded w-1/2 mt-1 sm:mt-2" />
                 </CardHeader>
-                <CardContent>
-                  <div className="h-20 bg-muted rounded" />
+                <CardContent className="p-2 sm:p-4">
+                  <div className="h-12 sm:h-20 bg-muted rounded" />
                 </CardContent>
               </Card>
             ))}
           </div>
         ) : filteredServices.length === 0 ? (
-          <div className="text-center py-24" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif' }}>
+          <div className="text-center py-12 sm:py-24" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif' }}>
             {services.length === 0 ? (
-              <div className="space-y-4">
-                <div className="inline-flex p-8 bg-linear-to-br from-accent/20 to-orange-500/20 rounded-full mb-8 border-4 border-accent/20 shadow-2xl shadow-accent/20 animate-pulse">
-                  <svg className="h-24 w-24 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="space-y-2 sm:space-y-4">
+                <div className="inline-flex p-4 sm:p-8 bg-linear-to-br from-accent/20 to-orange-500/20 rounded-full mb-3 sm:mb-8 border-4 border-accent/20 shadow-2xl shadow-accent/20 animate-pulse">
+                  <svg className="h-12 w-12 sm:h-24 sm:w-24 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </div>
-                <h3 className="text-5xl font-black mb-4 tracking-wider uppercase">NO SERVICES YET BESTIE</h3>
-                <p className="text-muted-foreground text-xl font-bold mb-8 max-w-md mx-auto uppercase tracking-wide">
-                  SERVICES WILL DROP HERE WHEN PROVIDERS JOIN THE VIBE
+                <h3 className="text-lg sm:text-5xl font-black mb-1 sm:mb-4 tracking-wider uppercase">NO SERVICES</h3>
+                <p className="text-muted-foreground text-[10px] sm:text-xl font-bold mb-3 sm:mb-8 max-w-md mx-auto uppercase tracking-wide px-2">
+                  SERVICES WILL DROP WHEN PROVIDERS JOIN
                 </p>
-                <Button onClick={refreshServices} disabled={refreshing} size="lg" className="bg-linear-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-black text-xl px-8 py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all uppercase tracking-wider">
-                  <RefreshCw className="h-5 w-5 mr-2" />
-                  CHECK FOR NEW SERVICES
+                <Button onClick={refreshServices} disabled={refreshing} size="sm" className="bg-linear-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-black text-xs sm:text-xl px-4 sm:px-8 py-2 sm:py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all uppercase tracking-wider">
+                  <RefreshCw className="h-3 w-3 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">CHECK FOR NEW SERVICES</span>
+                  <span className="sm:hidden">CHECK NEW</span>
                 </Button>
               </div>
             ) : (
@@ -319,7 +320,7 @@ export default function ServicesPage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 animate-in fade-in duration-500">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4 animate-in fade-in duration-500">
             {filteredServices.map((service, index) => {
               const serviceName = service.title || 'Service'
               
@@ -340,7 +341,7 @@ export default function ServicesPage() {
                       />
                     ) : (
                       <div className="flex items-center justify-center h-full bg-linear-to-br from-accent/90 via-orange-500/90 to-red-600/90">
-                        <svg className="h-20 w-20 text-white drop-shadow-lg animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="h-12 w-12 sm:h-20 sm:w-20 text-white drop-shadow-lg animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
@@ -351,8 +352,8 @@ export default function ServicesPage() {
                     <div className="absolute inset-0 bg-linear-to-b rounded-b-3xl from-black/20 via-transparent via-50% to-black/90" />
                     
                     {/* Provider Icon in Center Top */}
-                    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
-                      <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md border-4 border-white overflow-hidden shadow-2xl ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110">
+                    <div className="absolute top-3 sm:top-4 left-1/2 -translate-x-1/2 z-20">
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-white/20 backdrop-blur-md border-3 sm:border-4 border-white overflow-hidden shadow-2xl ring-3 sm:ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110">
                         <div className="w-full h-full flex items-center justify-center">
                           {getCategoryIcon(service.category)}
                         </div>
@@ -360,23 +361,8 @@ export default function ServicesPage() {
                     </div>
 
                     {/* Content Overlay at Bottom */}
-                    <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-b-3xl border-t border-white/10 p-3 sm:p-4">
-                      <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-b-3xl border-t border-white/10 p-3 sm:p-4 ">
-                        <div className="flex items-start justify-between gap-3 mb-2">
-                          <div className="flex-1 min-w-0 ">
-                            <h3 className="text-xl font-bold tracking-tight mb-1 text-white drop-shadow-lg truncate">
-                              {serviceName}
-                            </h3>
-                            {service.providerName && (
-                              <div className="flex items-center gap-1 text-xs font-medium text-white/90 tracking-wide mb-2">
-                                <Verified className="h-3 w-3 shrink-0" />
-                                <span className="truncate">{service.providerName}</span>
-                              </div>
-                            )}
-                            
-                            <Badge variant="outline" className="w-fit text-[10px] font-semibold py-0.5 px-2 h-5 tracking-wide border-2 border-white/40 bg-white/10 text-white backdrop-blur-sm">
-                              {SERVICE_CATEGORIES.find(c => c.value === service.category)?.label || service.category}
-                            </Badge>
+                    <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-b-3xl border-t border-white/10 p-2 sm:p-4">
+                      <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-b-3xl border-t border-white/10 p-2 sm:p-4 \">\n                        <div className=\"flex items-start justify-between gap-2 sm:gap-3 mb-1 sm:mb-2\">\n                          <div className=\"flex-1 min-w-0\">\n                            <h3 className=\"text-xs sm:text-lg md:text-xl font-bold tracking-tight mb-0.5 sm:mb-1 text-white drop-shadow-lg truncate\">\n                              {serviceName}\n                            </h3>\n                            {service.providerName && (\n                              <div className=\"flex items-center gap-0.5 text-[7px] sm:text-xs font-medium text-white/90 tracking-wide mb-1 sm:mb-2\">\n                                <Verified className=\"h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0\" />\n                                <span className=\"truncate\">{service.providerName}</span>\n                              </div>\n                            )}\n                            \n                            <Badge variant=\"outline\" className=\"w-fit text-[7px] sm:text-[10px] font-semibold py-0.5 px-1.5 sm:px-2 h-4 sm:h-5 tracking-wide border-2 border-white/40 bg-white/10 text-white backdrop-blur-sm\">\n                              {SERVICE_CATEGORIES.find(c => c.value === service.category)?.label || service.category}\n                            </Badge>
                           </div>
 
                           {/* Arrow Button */}

@@ -483,26 +483,28 @@ export default function StorePage() {
           </Button>
         </div>
         {/* Store Information */}
-        <div className="absolute bottom-0 left-0 right-0 p-8 text-white z-10">
+        <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-8 text-white z-10">
           <div className="container mx-auto">
-            <div className="flex flex-col lg:flex-row items-start lg:items-end gap-6 store-header-mobile-fix">
+            <div className="flex flex-col lg:flex-row items-start lg:items-end gap-4 sm:gap-6 store-header-mobile-fix">
               {/* Store Avatar (Logo) and Store Name beside each other on mobile */}
-              <div className="flex flex-row items-center gap-3 lg:flex-col lg:items-start">
-                <Avatar className="w-16 h-16 border-4 border-white/20 backdrop-blur-sm store-logo-mobile">
+              <div className="flex flex-col sm:flex-row sm:items-start items-center gap-3 lg:flex-col lg:items-start w-full sm:w-auto">
+                <Avatar className="w-14 sm:w-16 h-14 sm:h-16 border-4 border-white/20 backdrop-blur-sm store-logo-mobile">
                   <AvatarImage src={store.storeImage} alt={store.storeName} />
                   <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
                     {store.storeName.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-3 mb-1">
-                    <h1 className="text-2xl font-bold">{store.storeName}</h1>
-                    <Badge variant="secondary" className="bg-green-600/80 text-white border-0">
+                <div className="flex flex-col items-center sm:items-start">
+                  <div className="flex flex-col sm:flex-row items-center sm:items-start gap-2 mb-2">
+                    <h1 className="text-xl sm:text-2xl font-bold">{store.storeName}</h1>
+                  </div>
+                  <div className="flex gap-2 flex-wrap justify-center sm:justify-start">
+                    <Badge variant="secondary" className="bg-green-600/80 text-white border-0 text-xs sm:text-sm py-1">
                       <Verified className="w-3 h-3 mr-1" />
                       Verified
                     </Badge>
                     {store.isOpen && (
-                      <Badge variant="secondary" className="bg-blue-600/80 text-white border-0">
+                      <Badge variant="secondary" className="bg-blue-600/80 text-white border-0 text-xs sm:text-sm py-1">
                         <Clock className="w-3 h-3 mr-1" />
                         Open Now
                       </Badge>
@@ -510,42 +512,46 @@ export default function StorePage() {
                   </div>
                 </div>
               </div>
+              
               {/* Store Details */}
-              <div className="flex-1">
+              <div className="flex-1 w-full">
+                <p className="text-sm sm:text-base text-gray-200 mb-4 max-w-2xl line-clamp-2">{store.storeDescription}</p>
                 
-                <p className="text-xl text-gray-200 mb-4 max-w-2xl">{store.storeDescription}</p>
-                
-                {/* Store Stats */}
-                <div className="flex flex-wrap items-center gap-6 text-gray-300">
-                  <div className="flex items-center gap-2">
-                    <Package className="w-4 h-4" />
+                {/* Store Stats - Stacked on mobile */}
+                <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-6 text-gray-300">
+                  <div className="flex items-center gap-2 text-xs sm:text-sm">
+                    <Package className="w-4 h-4 flex-shrink-0" />
                     <span>({store.totalProducts || products.length || 0} products)</span>
                   </div>
                   
-                  <Separator orientation="vertical" className="h-6 bg-white/20" />
+                  <div className="hidden sm:block">
+                    <Separator orientation="vertical" className="h-4 bg-white/20" />
+                  </div>
                   
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4" />
+                  <div className="flex items-center gap-2 text-xs sm:text-sm">
+                    <MapPin className="w-4 h-4 flex-shrink-0" />
                     <span>Lagos, Nigeria</span>
                   </div>
                   
-                  <Separator orientation="vertical" className="h-6 bg-white/20" />
+                  <div className="hidden sm:block">
+                    <Separator orientation="vertical" className="h-4 bg-white/20" />
+                  </div>
                   
-                  <div className="flex items-center gap-2">
-                    <MessageCircle className="w-4 h-4" />
+                  <div className="flex items-center gap-2 text-xs sm:text-sm">
+                    <MessageCircle className="w-4 h-4 flex-shrink-0" />
                     <span>Responds within {store.responseTime || '1 hour'}</span>
                   </div>
                 </div>
               </div>
               
               {/* Action Buttons */}
-              <div className="flex gap-3">
-                <Button variant="outline" className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20 hover:scale-105 transition-all">
+              <div className="flex gap-2 sm:gap-3 w-full sm:w-auto flex-col sm:flex-row">
+                <Button variant="outline" className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20 hover:scale-105 transition-all text-xs sm:text-sm py-2 sm:py-3">
                   <MessageCircle className="w-4 h-4 mr-2" />
                   Contact Seller
                 </Button>
                 <Button 
-                  className={isFollowing ? "bg-green-600 hover:bg-green-700 hover:scale-105 transition-all" : "bg-primary hover:bg-primary/90 hover:scale-105 transition-all"}
+                  className={`${isFollowing ? "bg-green-600 hover:bg-green-700 hover:scale-105 transition-all" : "bg-primary hover:bg-primary/90 hover:scale-105 transition-all"} text-xs sm:text-sm py-2 sm:py-3`}
                   onClick={handleFollowToggle}
                   disabled={!user || followLoading}
                 >
@@ -560,57 +566,6 @@ export default function StorePage() {
 
       {/* Store Content */}
       <div className="container mx-auto px-4 py-8 flex-1">
-        {/* Store Highlights Section */}
-        <div className="mb-8">
-          {/* Make 3-up even on mobile, tighten spacing on small screens */}
-          <div className="grid grid-cols-3 gap-2 sm:gap-6">
-            {/* Products Available */}
-            <Card className="border-0 shadow-md hover:shadow-lg transition-shadow min-h-[88px] sm:min-h-0">
-              <CardContent className="p-3 sm:p-6 text-center">
-                <Package className="w-5 h-5 sm:w-8 sm:h-8 mx-auto mb-2 sm:mb-3 text-blue-600" />
-                <div className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">{(store.totalProducts || products.length || 0).toLocaleString('en-NG')}</div>
-                <div className="text-[10px] sm:text-sm text-muted-foreground dark:text-white">Products Available</div>
-              </CardContent>
-            </Card>
-            
-            {/* Store Quality Assurance */}
-            <Card className="border-0 shadow-md hover:shadow-lg transition-shadow min-h-[88px] sm:min-h-0">
-              <CardContent className="p-3 sm:p-6 text-center">
-                <div className="flex items-center justify-center mb-2 sm:mb-3">
-                  <Shield className="w-5 h-5 sm:w-8 sm:h-8 text-green-600" />
-                </div>
-                <div className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white">Quality</div>
-                <div className="text-[10px] sm:text-sm text-muted-foreground dark:text-white">Assured</div>
-                <div className="text-[10px] sm:text-xs text-green-600 mt-1 font-medium">
-                  Verified Business
-                </div>
-              </CardContent>
-            </Card>
-            
-            {/* Store Features */}
-            <Card className="border-0 shadow-md hover:shadow-lg transition-shadow min-h-[88px] sm:min-h-0">
-              <CardContent className="p-3 sm:p-6 text-center">
-                <Shield className="w-5 h-5 sm:w-8 sm:h-8 mx-auto mb-2 sm:mb-3 text-green-600" />
-                <div className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white mb-1 sm:mb-2">Trusted Seller</div>
-                <div className="space-y-0.5 sm:space-y-1">
-                  <div className="flex items-center justify-center text-[10px] sm:text-xs text-green-600">
-                    <Verified className="w-3 h-3 mr-1" />
-                    Verified Account
-                  </div>
-                  <div className="flex items-center justify-center text-[10px] sm:text-xs text-blue-600">
-                    <Truck className="w-3 h-3 mr-1" />
-                    Fast Shipping
-                  </div>
-                  <div className="flex items-center justify-center text-[10px] sm:text-xs text-purple-600">
-                    <MessageCircle className="w-3 h-3 mr-1" />
-                    Quick Response
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
         {/* Store Navigation Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
           <TabsList className="grid w-full grid-cols-2">
@@ -622,9 +577,9 @@ export default function StorePage() {
             {/* Advanced Search and Filter */}
             <Card className="border-0 shadow-sm">
               <CardContent className="p-6">
-                <div className="flex flex-col lg:flex-row gap-4">
+                <div className="space-y-4">
                   {/* Search */}
-                  <div className="relative flex-1">
+                  <div className="relative w-full">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                     <Input
                       placeholder={`Search products in ${store.storeName}...`}
@@ -634,11 +589,12 @@ export default function StorePage() {
                     />
                   </div>
                   
-                  {/* Filters */}
-                  <div className="flex gap-3">
+                  {/* Filters - Side by Side with Icons */}
+                  <div className="flex gap-2 justify-center flex-nowrap">
                     <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                      <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Category" />
+                      <SelectTrigger className="w-24 sm:w-28 md:w-32">
+                        <Filter className="w-4 h-4 mr-1" />
+                        <span className="hidden sm:inline text-sm ml-1">Cat...</span>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Categories</SelectItem>
@@ -651,28 +607,30 @@ export default function StorePage() {
                     </Select>
                     
                     <Select value={priceRange} onValueChange={setPriceRange}>
-                      <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Price Range" />
+                      <SelectTrigger className="w-24 sm:w-28 md:w-32 px-2 sm:px-3">
+                        <span className="text-base">₦</span>
+                        <span className="hidden sm:inline text-sm ml-1">Prices</span>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Prices</SelectItem>
-                        <SelectItem value="0-5000">₦0 - ₦5,000</SelectItem>
-                        <SelectItem value="5000-20000">₦5,000 - ₦20,000</SelectItem>
-                        <SelectItem value="20000-50000">₦20,000 - ₦50,000</SelectItem>
-                        <SelectItem value="50000">₦50,000+</SelectItem>
+                        <SelectItem value="0-5000">₦0 - ₦5K</SelectItem>
+                        <SelectItem value="5000-20000">₦5K - ₦20K</SelectItem>
+                        <SelectItem value="20000-50000">₦20K - ₦50K</SelectItem>
+                        <SelectItem value="50000">₦50K+</SelectItem>
                       </SelectContent>
                     </Select>
                     
                     <Select value={sortBy} onValueChange={setSortBy}>
-                      <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Sort by" />
+                      <SelectTrigger className="w-24 sm:w-28 md:w-32">
+                        <TrendingUp className="w-4 h-4 mr-1" />
+                        <SelectValue placeholder="Sort" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="featured">Featured</SelectItem>
                         <SelectItem value="newest">Newest</SelectItem>
-                        <SelectItem value="popular">Most Popular</SelectItem>
-                        <SelectItem value="price-low">Price: Low to High</SelectItem>
-                        <SelectItem value="price-high">Price: High to Low</SelectItem>
+                        <SelectItem value="popular">Popular</SelectItem>
+                        <SelectItem value="price-low">Low → High</SelectItem>
+                        <SelectItem value="price-high">High → Low</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -736,7 +694,10 @@ export default function StorePage() {
                   {filteredProducts.filter(product => product && product.id).map((product) => (
                     <Card key={product.id} className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100">
                       {/* Image Container with Group Hover */}
-                      <div className="group absolute inset-0 overflow-hidden">
+                      <div className="group absolute inset-0 overflow-hidden cursor-pointer" onClick={() => {
+                        setSelectedProduct(product)
+                        setQuickViewOpen(true)
+                      }}>
                         {/* Full Card Image Background */}
                         <img
                           src={product.images?.[0] || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"}
@@ -851,60 +812,71 @@ export default function StorePage() {
           
           <TabsContent value="about">
             <Card className="border-0 shadow-sm">
-              <CardHeader>
-                <CardTitle>About {store.storeName}</CardTitle>
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg sm:text-2xl">About {store.storeName}</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-8">
                 <div>
-                  <h4 className="font-semibold mb-2">Store Description</h4>
-                  <p className="text-muted-foreground leading-relaxed">{store.storeDescription}</p>
+                  <h4 className="font-semibold mb-3 text-sm sm:text-base">Store Description</h4>
+                  <p className="text-muted-foreground leading-relaxed text-sm">{store.storeDescription}</p>
                 </div>
                 
                 <Separator />
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="font-semibold mb-3">Store Information</h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Category:</span>
-                        <Badge variant="outline">{store.category}</Badge>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Location:</span>
-                        <span>{store.address || 'Nigeria'}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Products:</span>
-                        <span>{(store.totalProducts || products.length || 0)} items</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Response Time:</span>
-                        <span>{store.responseTime || '1 hour'}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Store Status:</span>
-                        <Badge variant={store.isOpen ? "default" : "secondary"}>
-                          {store.isOpen ? "Open" : "Closed"}
-                        </Badge>
-                      </div>
+                {/* Store Information Section */}
+                <div>
+                  <h4 className="font-semibold mb-4 text-sm sm:text-base">Store Information</h4>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center pb-3 border-b border-border/50">
+                      <span className="text-muted-foreground text-sm">Category:</span>
+                      <Badge variant="outline" className="text-xs sm:text-sm">{store.category}</Badge>
+                    </div>
+                    <div className="pb-3 border-b border-border/50">
+                      <span className="text-muted-foreground text-sm block mb-1">Location:</span>
+                      <span className="text-sm">{store.address || 'Nigeria'}</span>
+                    </div>
+                    <div className="flex justify-between items-center pb-3 border-b border-border/50">
+                      <span className="text-muted-foreground text-sm">Products:</span>
+                      <span className="text-sm font-medium">{(store.totalProducts || products.length || 0)} items</span>
+                    </div>
+                    <div className="flex justify-between items-center pb-3 border-b border-border/50">
+                      <span className="text-muted-foreground text-sm">Response Time:</span>
+                      <span className="text-sm font-medium">{store.responseTime || '1 hour'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground text-sm">Store Status:</span>
+                      <Badge variant={store.isOpen ? "default" : "secondary"} className="text-xs sm:text-sm">
+                        {store.isOpen ? "Open" : "Closed"}
+                      </Badge>
                     </div>
                   </div>
-                  
-                  <div>
-                    <h4 className="font-semibold mb-3">Shipping Information</h4>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Truck className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm">Free shipping on orders over {formatCurrency(store.shippingInfo?.freeShippingThreshold || 5000)}</span>
+                </div>
+
+                <Separator />
+                
+                {/* Shipping Information Section */}
+                <div>
+                  <h4 className="font-semibold mb-4 text-sm sm:text-base">Shipping Information</h4>
+                  <div className="space-y-4">
+                    <div className="flex gap-3 items-start pb-3 border-b border-border/50">
+                      <Truck className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Free Shipping Threshold</p>
+                        <span className="text-sm font-medium">{formatCurrency(store.shippingInfo?.freeShippingThreshold || 5000)}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm">Estimated delivery: {store.shippingInfo?.estimatedDelivery || store.deliveryTime || '1-3 days'}</span>
+                    </div>
+                    <div className="flex gap-3 items-start pb-3 border-b border-border/50">
+                      <Clock className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Estimated Delivery</p>
+                        <span className="text-sm font-medium">{store.shippingInfo?.estimatedDelivery || store.deliveryTime || '1-3 days'}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Package className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm">Shipping cost: {formatCurrency(store.shippingInfo?.shippingCost || 500)}</span>
+                    </div>
+                    <div className="flex gap-3 items-start">
+                      <Package className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Shipping Cost</p>
+                        <span className="text-sm font-medium">{formatCurrency(store.shippingInfo?.shippingCost || 500)}</span>
                       </div>
                     </div>
                   </div>

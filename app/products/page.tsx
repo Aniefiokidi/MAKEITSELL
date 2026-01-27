@@ -14,6 +14,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import Image from "next/image"
 import { useCart } from "@/contexts/CartContext"
 import { useToast } from "@/hooks/use-toast"
+import { ProductQuickView } from "@/components/ui/product-quick-view"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 const categories = [
   { id: "all", name: "All Categories" },
@@ -55,10 +57,14 @@ export default function AllProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
+  const [priceRange, setPriceRange] = useState("all")
   const [sortBy, setSortBy] = useState("featured")
   const [refreshing, setRefreshing] = useState(false)
+  const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null)
+  const [showQuickView, setShowQuickView] = useState(false)
   const { addItem } = useCart()
   const { toast } = useToast()
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     fetchAllProducts()
@@ -92,14 +98,14 @@ export default function AllProductsPage() {
 
   const handleAddToCart = (product: Product) => {
     addItem({
+      id: product.id,
       productId: product.id,
-      name: product.title || product.name || "Product",
+      title: product.title || product.name || "Product",
       price: product.price,
-      quantity: 1,
       image: product.images?.[0] || "/placeholder.png",
       vendorId: product.vendorId,
       vendorName: product.vendorName || "Unknown Vendor",
-      stock: product.stock || 0
+      maxStock: product.stock || 100,
     })
 
     toast({
@@ -119,7 +125,16 @@ export default function AllProductsPage() {
     
     const matchesCategory = selectedCategory === "all" || product.category === selectedCategory
     
-    return matchesSearch && matchesCategory
+    let matchesPrice = true
+    if (priceRange !== "all") {
+      const price = product.price
+      if (priceRange === "0-5000") matchesPrice = price <= 5000
+      else if (priceRange === "5000-20000") matchesPrice = price > 5000 && price <= 20000
+      else if (priceRange === "20000-100000") matchesPrice = price > 20000 && price <= 100000
+      else if (priceRange === "100000+") matchesPrice = price > 100000
+    }
+    
+    return matchesSearch && matchesCategory && matchesPrice
   })
 
   // Sort products
@@ -201,9 +216,14 @@ export default function AllProductsPage() {
     }
 
     return (
-      <Card className="border-0 shadow-md overflow-hidden relative h-[350px] sm:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-3xl group">
+      <Card 
+        className="border-0 shadow-md overflow-hidden relative h-[350px] sm:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-3xl group cursor-pointer"
+      >
         {/* Image Container with Group Hover */}
-        <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden cursor-pointer" onClick={() => {
+          setQuickViewProduct(product)
+          setShowQuickView(true)
+        }}>
           {/* Full Card Image Background */}
           <img
             src={product.images?.[0] || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"}
@@ -214,7 +234,7 @@ export default function AllProductsPage() {
           />
           
           {/* Gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent via-50% to-black/90" />
+          <div className="absolute inset-0 bg-linear-to-b from-black/20 via-transparent via-50% to-black/90" />
           
           {/* Product Badges */}
           <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
@@ -249,16 +269,17 @@ export default function AllProductsPage() {
           </div>
           
           {/* Quick View */}
-          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-20">
-            <Link href={`/store/${product.storeId || product.vendorId}`}>
-              <Button 
-                variant="outline" 
-                className="bg-white/90 backdrop-blur-sm text-black hover:bg-white hover:scale-105 transition-all"
-              >
-                <Eye className="h-4 w-4 mr-2" />
-                View
-              </Button>
-            </Link>
+          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-20 cursor-pointer" onClick={() => {
+            setQuickViewProduct(product)
+            setShowQuickView(true)
+          }}>
+            <Button 
+              variant="outline" 
+              className="bg-white/90 backdrop-blur-sm text-black hover:bg-white hover:scale-105 transition-all"
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              View
+            </Button>
           </div>
         </div>
         
@@ -314,7 +335,7 @@ export default function AllProductsPage() {
       
       <main className="flex-1 container mx-auto px-4 py-8">
         {/* Header with Liquid Glass Effect */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8 p-6 md:p-8 bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 shadow-xl shadow-accent/5 hover:shadow-2xl hover:shadow-accent/10 transition-all duration-300">
+        <div className="flex flex-col md:flex-row items-center md:items-center justify-center md:justify-between gap-4 mb-8 p-6 md:p-8 bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 shadow-xl shadow-accent/5 hover:shadow-2xl hover:shadow-accent/10 transition-all duration-300">
           <div>
             <h1 className="text-5xl md:text-7xl font-black tracking-wider uppercase mb-2" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif' }}>
               <span className="drop-shadow-[0_2px_2px_oklch(0.35_0.15_15/0.5)]" style={{WebkitTextFillColor: 'white', WebkitTextStroke: '1px oklch(0.35 0.15 15)', color: 'white'}}>ALL PRODUCTS</span>
@@ -323,10 +344,10 @@ export default function AllProductsPage() {
           </div>
           
           {/* Category Filter */}
-          <div className="flex items-center gap-3 p-4 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-lg shadow-white/5 hover:shadow-xl hover:shadow-white/10 transition-all duration-300">
+          <div className="flex flex-col md:flex-row items-center gap-3 p-4 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-lg shadow-white/5 hover:shadow-xl hover:shadow-white/10 transition-all duration-300">
             <span className="text-sm font-black uppercase tracking-wider text-muted-foreground" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif' }}>Category:</span>
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-[180px] border-2 border-accent/20 hover:border-accent/40 transition-colors">
+              <SelectTrigger className="w-full md:w-[180px] border-2 border-accent/20 hover:border-accent/40 transition-colors">
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
               <SelectContent>
@@ -351,7 +372,7 @@ export default function AllProductsPage() {
         </div>
 
         {/* Search and Sort */}
-        <div className="flex flex-col lg:flex-row gap-4 mb-8">
+        <div className="flex flex-col gap-4 mb-8">
           <div className="flex-1 relative group">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5 group-focus-within:text-primary transition-colors" />
             <Input
@@ -359,13 +380,13 @@ export default function AllProductsPage() {
               placeholder="Search products by name, category, vendor, or description..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-12 border-2 focus:border-primary transition-colors"
+              className="pl-10 h-12 border-2 focus:border-primary transition-colors w-full"
             />
           </div>
           
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 sm:flex-wrap justify-center sm:justify-start">
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-full sm:w-40">
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent>
@@ -378,12 +399,25 @@ export default function AllProductsPage() {
               </SelectContent>
             </Select>
 
+            <Select value={priceRange} onValueChange={setPriceRange}>
+              <SelectTrigger className="w-full sm:w-40">
+                <SelectValue placeholder="Price Range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Prices</SelectItem>
+                <SelectItem value="0-5000">₦0 - ₦5,000</SelectItem>
+                <SelectItem value="5000-20000">₦5,000 - ₦20,000</SelectItem>
+                <SelectItem value="20000-100000">₦20,000 - ₦100,000</SelectItem>
+                <SelectItem value="100000+">₦100,000+</SelectItem>
+              </SelectContent>
+            </Select>
+
             <Button
               variant="outline"
               size="icon"
               onClick={handleRefresh}
               disabled={refreshing}
-              className="hover:scale-110 hover:bg-accent/10 transition-all"
+              className="hover:scale-110 hover:bg-accent/10 transition-all w-full xs:w-auto"
             >
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             </Button>
@@ -391,10 +425,23 @@ export default function AllProductsPage() {
         </div>
 
         {/* Results Count */}
-        <div className="mb-6">
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <p className="text-sm text-muted-foreground">
             {loading ? "Loading products..." : `Showing ${sortedProducts.length} product${sortedProducts.length !== 1 ? 's' : ''}`}
           </p>
+          {(selectedCategory !== "all" || priceRange !== "all") && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSelectedCategory("all")
+                setPriceRange("all")
+              }}
+              className="text-xs hover:text-accent hover:bg-accent/10 transition-all w-fit"
+            >
+              Clear All Filters
+            </Button>
+          )}
         </div>
 
         {/* Products Display */}
@@ -434,20 +481,30 @@ export default function AllProductsPage() {
           </div>
         ) : (
           <div className="text-center py-24" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif' }}>
-            <div className="inline-flex p-8 bg-gradient-to-br from-accent/20 to-orange-500/20 rounded-full mb-8 border-4 border-accent/20 shadow-2xl shadow-accent/20 animate-pulse">
+            <div className="inline-flex p-8 bg-linear-to-br from-accent/20 to-orange-500/20 rounded-full mb-8 border-4 border-accent/20 shadow-2xl shadow-accent/20 animate-pulse">
               <Package className="h-24 w-24 text-accent" />
             </div>
             <h3 className="text-5xl font-black mb-4 tracking-wider uppercase">NO PRODUCTS FOUND</h3>
             <p className="text-muted-foreground text-xl font-bold mb-8 max-w-md mx-auto uppercase tracking-wide">
               TRY DIFFERENT FILTERS OR SEARCH TERMS
             </p>
-            <Button onClick={handleRefresh} size="lg" className="bg-gradient-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-black text-xl px-8 py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all uppercase tracking-wider">
+            <Button onClick={handleRefresh} size="lg" className="bg-linear-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-black text-xl px-8 py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all uppercase tracking-wider">
               <RefreshCw className="h-5 w-5 mr-2" />
               REFRESH
             </Button>
           </div>
         )}
       </main>
+
+      <ProductQuickView 
+        product={quickViewProduct as any}
+        open={showQuickView}
+        onClose={() => {
+          setShowQuickView(false)
+          setQuickViewProduct(null)
+        }}
+        onAddToCart={handleAddToCart}
+      />
 
       <Footer />
     </div>

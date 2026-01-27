@@ -30,14 +30,14 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white/95 dark:bg-background dark:text-foreground backdrop-blur-md shadow-sm">
-      <div className="w-full px-4 sm:px-6 lg:px-10">
-        <div className="flex h-12 md:h-14 lg:h-16 items-center justify-between">
+      <div className="w-full px-2 sm:px-4 lg:px-10">
+        <div className="flex h-10 md:h-14 lg:h-16 items-center justify-between gap-1">
           {/* Logo */}
           <Link href="/" className="flex items-center shrink-0">
             <img
               src="/images/logo (2).png"
               alt="Make It Sell"
-              className="h-4 lg:h-8 w-auto object-contain transition-all duration-300 hover:scale-105"
+              className="h-3 sm:h-4 lg:h-8 w-auto object-contain transition-all duration-300 hover:scale-105"
               onError={(e) => {
                 // Fallback to text logo if image fails
                 e.currentTarget.style.display = 'none'
@@ -172,33 +172,33 @@ export default function Header() {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", stiffness: 120, damping: 15 }}
-              className="fixed top-0 right-0 w-80 h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 shadow-2xl z-[100] flex flex-col overflow-hidden"
+              className="fixed top-0 right-0 w-[85vw] max-w-xs h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 shadow-2xl z-[100] flex flex-col overflow-hidden"
             >
               {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between p-3 sm:p-6 border-b border-gray-200 dark:border-gray-700">
                 <img
                   src="/images/logo (2).png"
                   alt="Make It Sell"
-                  className="h-6 w-auto object-contain"
+                  className="h-4 sm:h-6 w-auto object-contain"
                 />
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setIsMenuOpen(false)}
-                  className="hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full"
+                  className="hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full h-8 w-8"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-4 w-4" />
                 </Button>
               </div>
 
               {/* Navigation Links - Oval Buttons */}
-              <div className="px-6 pt-8 pb-6 space-y-4 flex-1 overflow-y-auto">
+              <div className="px-3 sm:px-6 pt-6 sm:pt-8 pb-4 sm:pb-6 space-y-2 sm:space-y-4 flex-1 overflow-y-auto">
                 <Link
                   href="/stores"
                   onClick={() => setIsMenuOpen(false)}
                   className="block w-full"
                 >
-                  <div className="bg-[oklch(0.21_0.194_29.234)] dark:bg-[oklch(0.25_0.194_29.234)] text-white px-6 py-3 rounded-full text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
+                  <div className="bg-[oklch(0.21_0.194_29.234)] dark:bg-[oklch(0.25_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
                     Stores
                   </div>
                 </Link>
@@ -207,7 +207,7 @@ export default function Header() {
                   onClick={() => setIsMenuOpen(false)}
                   className="block w-full"
                 >
-                  <div className="bg-[oklch(0.21_0.194_29.234)] dark:bg-[oklch(0.25_0.194_29.234)] text-white px-6 py-3 rounded-full text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
+                  <div className="bg-[oklch(0.21_0.194_29.234)] dark:bg-[oklch(0.25_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
                     Services
                   </div>
                 </Link>
@@ -216,7 +216,7 @@ export default function Header() {
                   onClick={() => setIsMenuOpen(false)}
                   className="block w-full"
                 >
-                  <div className="bg-[oklch(0.21_0.194_29.234)] dark:bg-[oklch(0.25_0.194_29.234)] text-white px-6 py-3 rounded-full text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
+                  <div className="bg-[oklch(0.21_0.194_29.234)] dark:bg-[oklch(0.25_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
                     About Us
                   </div>
                 </Link>
@@ -225,7 +225,7 @@ export default function Header() {
                   onClick={() => setIsMenuOpen(false)}
                   className="block w-full"
                 >
-                  <div className="bg-[oklch(0.21_0.194_29.234)] dark:bg-[oklch(0.25_0.194_29.234)] text-white px-6 py-3 rounded-full text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
+                  <div className="bg-[oklch(0.21_0.194_29.234)] dark:bg-[oklch(0.25_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
                     FAQS
                   </div>
                 </Link>
@@ -234,7 +234,7 @@ export default function Header() {
                   onClick={() => setIsMenuOpen(false)}
                   className="block w-full"
                 >
-                  <div className="bg-[oklch(0.21_0.194_29.234)] dark:bg-[oklch(0.25_0.194_29.234)] text-white px-6 py-3 rounded-full text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
+                  <div className="bg-[oklch(0.21_0.194_29.234)] dark:bg-[oklch(0.25_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
                     Contact Us
                   </div>
                 </Link>
@@ -251,7 +251,7 @@ export default function Header() {
                       onClick={() => setIsMenuOpen(false)}
                       className="block w-full"
                     >
-                      <div className="bg-[oklch(0.21_0.194_29.234)] dark:bg-[oklch(0.25_0.194_29.234)] text-white px-6 py-3 rounded-full text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
+                      <div className="bg-[oklch(0.21_0.194_29.234)] dark:bg-[oklch(0.25_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
                         Sign in
                       </div>
                     </Link>
@@ -260,7 +260,7 @@ export default function Header() {
                       onClick={() => setIsMenuOpen(false)}
                       className="block w-full"
                     >
-                      <div className="bg-white dark:bg-gray-800 text-[oklch(0.21_0.194_29.234)] dark:text-white border-2 border-[oklch(0.21_0.194_29.234)] dark:border-gray-600 px-6 py-3 rounded-full text-sm text-center font-medium hover:bg-[oklch(0.21_0.194_29.234)] hover:text-white dark:hover:bg-[oklch(0.25_0.194_29.234)] transition-all shadow-md hover:shadow-lg">
+                      <div className="bg-white dark:bg-gray-800 text-[oklch(0.21_0.194_29.234)] dark:text-white border-2 border-[oklch(0.21_0.194_29.234)] dark:border-gray-600 px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:bg-[oklch(0.21_0.194_29.234)] hover:text-white dark:hover:bg-[oklch(0.25_0.194_29.234)] transition-all shadow-md hover:shadow-lg">
                         Join Us
                       </div>
                     </Link>
@@ -270,12 +270,12 @@ export default function Header() {
 
               {/* Footer Section */}
               {!(user && userProfile) && (
-                <div className="px-6 py-6 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
-                  <h3 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white mb-2">Get early access</h3>
-                  <p className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400 mb-3">
+                <div className="px-3 sm:px-6 py-3 sm:py-6 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+                  <h3 className="text-xs font-semibold text-gray-900 dark:text-white mb-1">Get early access</h3>
+                  <p className="text-[10px] text-gray-600 dark:text-gray-400 mb-2">
                     Become a Make It Sell member to buy smarter, sell faster, and grow with the community.
                   </p>
-                  <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-500">
+                  <p className="text-[9px] text-gray-500 dark:text-gray-500">
                     © 2026 Make It Sell. All rights reserved.
                   </p>
                 </div>

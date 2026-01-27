@@ -8,28 +8,28 @@ export default function TermsPage() {
     <>
       <Header />
       <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-4xl">
           {/* Header */}
-          <div className="mb-8">
-            <nav className="text-sm text-muted-foreground mb-4">
+          <div className="mb-6 sm:mb-8">
+            <nav className="text-[9px] xs:text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4">
               <Link href="/" className="hover:text-primary">Home</Link>
-              <span className="mx-2">/</span>
+              <span className="mx-1.5 sm:mx-2">/</span>
               <span>Terms of Service</span>
             </nav>
-            <h1 className="text-3xl font-bold mb-4">Terms of Service</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 sm:mb-4">Terms of Service</h1>
+            <p className="text-muted-foreground text-[9px] xs:text-xs sm:text-sm">
               Last updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           </div>
 
           {/* Terms Overview */}
-          <Card className="mb-8 border-primary/20 bg-primary/5">
-            <CardContent className="p-6">
-              <div className="flex items-start gap-4">
-                <Scale className="w-8 h-8 text-primary mt-1" />
-                <div>
-                  <h2 className="text-xl font-semibold mb-2">Welcome to Make It Sell Marketplace</h2>
-                  <p className="text-muted-foreground">
+          <Card className="mb-6 sm:mb-8 border-primary/20 bg-primary/5">
+            <CardContent className="p-3 sm:p-6">
+              <div className="flex items-start gap-2 sm:gap-4">
+                <Scale className="w-5 h-5 sm:w-8 sm:h-8 text-primary mt-1 shrink-0" />
+                <div className="min-w-0">
+                  <h2 className="text-sm sm:text-lg md:text-xl font-semibold mb-1 sm:mb-2">Welcome to Make It Sell Marketplace</h2>
+                  <p className="text-muted-foreground text-[10px] xs:text-xs sm:text-sm leading-relaxed">
                     These Terms of Service govern your use of the Make It Sell Marketplace platform. By accessing or using our services, 
                     you agree to be bound by these terms. Please read them carefully.
                   </p>
@@ -39,39 +39,39 @@ export default function TermsPage() {
           </Card>
 
           {/* Quick Navigation */}
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle>Quick Navigation</CardTitle>
+          <Card className="mb-6 sm:mb-8">
+            <CardHeader className="p-3 sm:p-6">
+              <CardTitle className="text-base sm:text-xl">Quick Navigation</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <Link href="#acceptance" className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                  <FileText className="w-4 h-4" />
-                  <span className="text-sm">Acceptance of Terms</span>
+            <CardContent className="p-3 sm:p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
+                <Link href="#acceptance" className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                  <FileText className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
+                  <span className="text-[8px] xs:text-[9px] sm:text-xs line-clamp-2">Acceptance of Terms</span>
                 </Link>
-                <Link href="#user-accounts" className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                  <Users className="w-4 h-4" />
-                  <span className="text-sm">User Accounts</span>
+                <Link href="#user-accounts" className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                  <Users className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
+                  <span className="text-[8px] xs:text-[9px] sm:text-xs line-clamp-2">User Accounts</span>
                 </Link>
-                <Link href="#marketplace-rules" className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                  <Gavel className="w-4 h-4" />
-                  <span className="text-sm">Marketplace Rules</span>
+                <Link href="#marketplace-rules" className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                  <Gavel className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
+                  <span className="text-[8px] xs:text-[9px] sm:text-xs line-clamp-2">Marketplace Rules</span>
                 </Link>
-                <Link href="#prohibited-conduct" className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                  <AlertTriangle className="w-4 h-4" />
-                  <span className="text-sm">Prohibited Conduct</span>
+                <Link href="#prohibited-conduct" className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                  <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
+                  <span className="text-[8px] xs:text-[9px] sm:text-xs line-clamp-2">Prohibited Conduct</span>
                 </Link>
-                <Link href="#vendor-subscription" className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                  <Users className="w-4 h-4" />
-                  <span className="text-sm">Vendor Subscriptions</span>
+                <Link href="#vendor-subscription" className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                  <Users className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
+                  <span className="text-[8px] xs:text-[9px] sm:text-xs line-clamp-2">Vendor Subscriptions</span>
                 </Link>
-                <Link href="#liability" className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                  <Shield className="w-4 h-4" />
-                  <span className="text-sm">Liability & Disclaimers</span>
+                <Link href="#liability" className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                  <Shield className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
+                  <span className="text-[8px] xs:text-[9px] sm:text-xs line-clamp-2">Liability & Disclaimers</span>
                 </Link>
-                <Link href="#contact" className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                  <Scale className="w-4 h-4" />
-                  <span className="text-sm">Contact & Disputes</span>
+                <Link href="#contact" className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                  <Scale className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
+                  <span className="text-[8px] xs:text-[9px] sm:text-xs line-clamp-2">Contact & Disputes</span>
                 </Link>
               </div>
             </CardContent>
@@ -79,20 +79,20 @@ export default function TermsPage() {
 
           {/* Acceptance of Terms */}
           <Card className="mb-6" id="acceptance">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5" />
+            <CardHeader className="p-3 sm:p-6">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg md:text-xl">
+                <FileText className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
                 Acceptance of Terms
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
+            <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-6">
+              <p className="text-[9px] xs:text-[10px] sm:text-sm text-muted-foreground">
                 By accessing and using the Make It Sell Marketplace platform, you acknowledge that you have read, understood, 
                 and agree to be bound by these Terms of Service and all applicable laws and regulations.
               </p>
               <div>
-                <h4 className="font-semibold mb-2">Agreement Conditions</h4>
-                <ul className="text-sm text-muted-foreground space-y-1 pl-4">
+                <h4 className="font-semibold text-xs sm:text-base mb-1 sm:mb-2">Agreement Conditions</h4>
+                <ul className="text-[9px] xs:text-[10px] sm:text-sm text-muted-foreground space-y-1 pl-3 sm:pl-4">
                   <li>• You must be at least 18 years old to use our services</li>
                   <li>• You have the legal capacity to enter into this agreement</li>
                   <li>• You agree to comply with all local, state, and federal laws</li>

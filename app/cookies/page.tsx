@@ -11,28 +11,28 @@ export default function CookiesPage() {
     <>
       <Header />
       <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-4xl">
           {/* Header */}
-          <div className="mb-8">
-            <nav className="text-sm text-muted-foreground mb-4">
+          <div className="mb-6 sm:mb-8">
+            <nav className="text-[9px] xs:text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4">
               <Link href="/" className="hover:text-primary">Home</Link>
-              <span className="mx-2">/</span>
+              <span className="mx-1.5 sm:mx-2">/</span>
               <span>Cookie Policy</span>
             </nav>
-            <h1 className="text-3xl font-bold mb-4">Cookie Policy</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 sm:mb-4">Cookie Policy</h1>
+            <p className="text-muted-foreground text-[9px] xs:text-xs sm:text-sm">
               Last updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           </div>
 
           {/* Cookie Overview */}
-          <Card className="mb-8 border-primary/20 bg-primary/5">
-            <CardContent className="p-6">
-              <div className="flex items-start gap-4">
-                <Cookie className="w-8 h-8 text-primary mt-1" />
-                <div>
-                  <h2 className="text-xl font-semibold mb-2">About Cookies</h2>
-                  <p className="text-muted-foreground">
+          <Card className="mb-6 sm:mb-8 border-primary/20 bg-primary/5">
+            <CardContent className="p-3 sm:p-6">
+              <div className="flex items-start gap-2 sm:gap-4">
+                <Cookie className="w-5 h-5 sm:w-8 sm:h-8 text-primary mt-1 shrink-0" />
+                <div className="min-w-0">
+                  <h2 className="text-sm sm:text-lg md:text-xl font-semibold mb-1 sm:mb-2">About Cookies</h2>
+                  <p className="text-muted-foreground text-[10px] xs:text-xs sm:text-sm leading-relaxed">
                     This Cookie Policy explains how Make It Sell Marketplace uses cookies and similar technologies to provide, 
                     improve, and protect our services. By using our platform, you consent to our use of cookies as described in this policy.
                   </p>
@@ -42,19 +42,19 @@ export default function CookiesPage() {
           </Card>
 
           {/* Quick Actions */}
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle>Cookie Preferences</CardTitle>
+          <Card className="mb-6 sm:mb-8">
+            <CardHeader className="p-3 sm:p-6">
+              <CardTitle className="text-base sm:text-lg md:text-xl">Cookie Preferences</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button className="flex-1">
-                  <Settings className="w-4 h-4 mr-2" />
-                  Manage Cookie Settings
+            <CardContent className="p-3 sm:p-6">
+              <div className="flex flex-col xs:flex-row gap-2 sm:gap-4">
+                <Button className="flex-1 text-[9px] xs:text-[10px] sm:text-xs md:text-sm py-2 sm:py-3 h-8 sm:h-10">
+                  <Settings className="w-3 h-3 xs:w-4 xs:h-4 mr-1 sm:mr-2" />
+                  Manage Settings
                 </Button>
-                <Button variant="outline" className="flex-1">
-                  <ToggleLeft className="w-4 h-4 mr-2" />
-                  Accept All Cookies
+                <Button variant="outline" className="flex-1 text-[9px] xs:text-[10px] sm:text-xs md:text-sm py-2 sm:py-3 h-8 sm:h-10">
+                  <ToggleLeft className="w-3 h-3 xs:w-4 xs:h-4 mr-1 sm:mr-2" />
+                  Accept All
                 </Button>
               </div>
             </CardContent>
@@ -62,20 +62,20 @@ export default function CookiesPage() {
 
           {/* What Are Cookies */}
           <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Cookie className="w-5 h-5" />
+            <CardHeader className="p-3 sm:p-6">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg md:text-xl">
+                <Cookie className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
                 What Are Cookies?
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
+            <CardContent className="space-y-3 sm:space-y-4 p-3 sm:p-6">
+              <p className="text-[9px] xs:text-[10px] sm:text-sm text-muted-foreground">
                 Cookies are small text files that are stored on your device when you visit a website. They help us 
                 recognize your device and remember information about your visit, such as your preferred language and other settings.
               </p>
               <div>
-                <h4 className="font-semibold mb-2">Types of Information Stored</h4>
-                <ul className="text-sm text-muted-foreground space-y-1 pl-4">
+                <h4 className="font-semibold text-xs sm:text-base mb-1 sm:mb-2">Types of Information Stored</h4>
+                <ul className="text-[9px] xs:text-[10px] sm:text-sm text-muted-foreground space-y-1 pl-3 sm:pl-4">
                   <li>• Your login status and preferences</li>
                   <li>• Items in your shopping cart</li>
                   <li>• Language and region settings</li>
