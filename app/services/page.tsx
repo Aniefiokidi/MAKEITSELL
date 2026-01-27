@@ -362,30 +362,43 @@ export default function ServicesPage() {
 
                     {/* Content Overlay at Bottom */}
                     <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-b-3xl border-t border-white/10 p-2 sm:p-4">
-                      <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-b-3xl border-t border-white/10 p-2 sm:p-4 \">\n                        <div className=\"flex items-start justify-between gap-2 sm:gap-3 mb-1 sm:mb-2\">\n                          <div className=\"flex-1 min-w-0\">\n                            <h3 className=\"text-xs sm:text-lg md:text-xl font-bold tracking-tight mb-0.5 sm:mb-1 text-white drop-shadow-lg truncate\">\n                              {serviceName}\n                            </h3>\n                            {service.providerName && (\n                              <div className=\"flex items-center gap-0.5 text-[7px] sm:text-xs font-medium text-white/90 tracking-wide mb-1 sm:mb-2\">\n                                <Verified className=\"h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0\" />\n                                <span className=\"truncate\">{service.providerName}</span>\n                              </div>\n                            )}\n                            \n                            <Badge variant=\"outline\" className=\"w-fit text-[7px] sm:text-[10px] font-semibold py-0.5 px-1.5 sm:px-2 h-4 sm:h-5 tracking-wide border-2 border-white/40 bg-white/10 text-white backdrop-blur-sm\">\n                              {SERVICE_CATEGORIES.find(c => c.value === service.category)?.label || service.category}\n                            </Badge>
-                          </div>
-
-                          {/* Arrow Button */}
-                          <Link href={`/service/${service.id}`}>
-                            <div className="shrink-0 w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-xl hover:scale-110 hover:bg-accent hover:text-white transition-all cursor-pointer group/arrow">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent group-hover/arrow:text-white">
-                                <path d="M5 12h14"/>
-                                <path d="m12 5 7 7-7 7"/>
-                              </svg>
+                      <div className="flex items-start justify-between gap-2 sm:gap-3 mb-1 sm:mb-2">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-xs sm:text-lg md:text-xl font-bold tracking-tight mb-0.5 sm:mb-1 text-white drop-shadow-lg truncate">
+                            {serviceName}
+                          </h3>
+                          {service.providerName && (
+                            <div className="flex items-center gap-0.5 text-[7px] sm:text-xs font-medium text-white/90 tracking-wide mb-1 sm:mb-2">
+                              <Verified className="h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0" />
+                              <span className="truncate">{service.providerName}</span>
                             </div>
-                          </Link>
+                          )}
+                          
+                          <Badge variant="outline" className="w-fit text-[7px] sm:text-[10px] font-semibold py-0.5 px-1.5 sm:px-2 h-4 sm:h-5 tracking-wide border-2 border-white/40 bg-white/10 text-white backdrop-blur-sm">
+                            {SERVICE_CATEGORIES.find(c => c.value === service.category)?.label || service.category}
+                          </Badge>
                         </div>
 
-                        {/* Stats */}
-                        <div className="flex items-center gap-3 text-[11px] font-medium text-white/80 tracking-wide">
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            <span>{service.duration}</span>
+                        {/* Arrow Button */}
+                        <Link href={`/service/${service.id}`}>
+                          <div className="shrink-0 w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-xl hover:scale-110 hover:bg-accent hover:text-white transition-all cursor-pointer group/arrow">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent group-hover/arrow:text-white">
+                              <path d="M5 12h14"/>
+                              <path d="m12 5 7 7-7 7"/>
+                            </svg>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <Banknote className="h-3 w-3" />
-                            <span>{formatCurrency(service.price)}</span>
-                          </div>
+                        </Link>
+                      </div>
+
+                      {/* Stats */}
+                      <div className="flex items-center gap-3 text-[11px] font-medium text-white/80 tracking-wide">
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          <span>{service.duration}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Banknote className="h-3 w-3" />
+                          <span>{formatCurrency(service.price)}</span>
                         </div>
                       </div>
                     </div>

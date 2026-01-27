@@ -74,43 +74,43 @@ export default function ShippingPage() {
                       <div className="flex justify-between items-start gap-2 p-2 sm:p-3 bg-muted/50 rounded-lg">
                         <div className="min-w-0">
                           <span className="font-medium text-xs sm:text-base block">Express (1-2 days)</span>
-                          <p className="text-[9px] xs:text-[10px] sm:text-xs text-muted-foreground\">Next business day delivery</p>
+                          <p className="text-[9px] xs:text-[10px] sm:text-xs text-muted-foreground">Next business day delivery</p>
                         </div>
-                        <Badge variant="outline\" className=\"text-[8px] xs:text-[9px] sm:text-xs shrink-0\">₦5,000</Badge>
+                        <Badge variant="outline" className="text-[8px] xs:text-[9px] sm:text-xs shrink-0">₦5,000</Badge>
                       </div>
                       <div className="flex justify-between items-start gap-2 p-2 sm:p-3 bg-muted/50 rounded-lg">
                         <div className="min-w-0">
-                          <span className="font-medium text-xs sm:text-base block\">Standard (3-5 days)</span>
-                          <p className="text-[9px] xs:text-[10px] sm:text-xs text-muted-foreground\">Business days delivery</p>
+                          <span className="font-medium text-xs sm:text-base block">Standard (3-5 days)</span>
+                          <p className="text-[9px] xs:text-[10px] sm:text-xs text-muted-foreground">Business days delivery</p>
                         </div>
-                        <Badge variant="outline\" className=\"text-[8px] xs:text-[9px] sm:text-xs shrink-0\">₦2,500</Badge>
+                        <Badge variant="outline" className="text-[8px] xs:text-[9px] sm:text-xs shrink-0">₦2,500</Badge>
                       </div>
-                      <div className="flex justify-between items-start gap-2 p-2 sm:p-3 bg-muted/50 rounded-lg\">
-                        <div className=\"min-w-0\">
-                          <span className=\"font-medium text-xs sm:text-base block\">Economy (5-7 days)</span>
-                          <p className=\"text-[9px] xs:text-[10px] sm:text-xs text-muted-foreground\">Free over ₦15,000</p>
+                      <div className="flex justify-between items-start gap-2 p-2 sm:p-3 bg-muted/50 rounded-lg">
+                        <div className="min-w-0">
+                          <span className="font-medium text-xs sm:text-base block">Economy (5-7 days)</span>
+                          <p className="text-[9px] xs:text-[10px] sm:text-xs text-muted-foreground">Free over ₦15,000</p>
                         </div>
-                        <Badge variant=\"outline\" className=\"text-[8px] xs:text-[9px] sm:text-xs shrink-0\">₦1,000</Badge>
+                        <Badge variant="outline" className="text-[8px] xs:text-[9px] sm:text-xs shrink-0">₦1,000</Badge>
                       </div>
                     </div>
                   </div>
                   
                   <div>
-                    <h4 className=\"font-semibold text-xs sm:text-base mb-2 sm:mb-3\">International Shipping</h4>
-                    <div className=\"space-y-1.5 sm:space-y-2\">
-                      <div className=\"flex justify-between items-start gap-2 p-2 sm:p-3 bg-muted/50 rounded-lg\">
-                        <div className=\"min-w-0\">
-                          <span className=\"font-medium text-xs sm:text-base block\">West Africa</span>
-                          <p className=\"text-[9px] xs:text-[10px] sm:text-xs text-muted-foreground\">7-14 business days</p>
+                    <h4 className="font-semibold text-xs sm:text-base mb-2 sm:mb-3">International Shipping</h4>
+                    <div className="space-y-1.5 sm:space-y-2">
+                      <div className="flex justify-between items-start gap-2 p-2 sm:p-3 bg-muted/50 rounded-lg">
+                        <div className="min-w-0">
+                          <span className="font-medium text-xs sm:text-base block">West Africa</span>
+                          <p className="text-[9px] xs:text-[10px] sm:text-xs text-muted-foreground">7-14 business days</p>
                         </div>
-                        <Badge variant=\"outline\" className=\"text-[8px] xs:text-[9px] sm:text-xs shrink-0\">₦12,000</Badge>
+                        <Badge variant="outline" className="text-[8px] xs:text-[9px] sm:text-xs shrink-0">₦12,000</Badge>
                       </div>
-                      <div className=\"flex justify-between items-start gap-2 p-2 sm:p-3 bg-muted/50 rounded-lg\">
-                        <div className=\"min-w-0\">
-                          <span className=\"font-medium text-xs sm:text-base block\">International</span>
-                          <p className=\"text-[9px] xs:text-[10px] sm:text-xs text-muted-foreground\">14-21 business days</p>
+                      <div className="flex justify-between items-start gap-2 p-2 sm:p-3 bg-muted/50 rounded-lg">
+                        <div className="min-w-0">
+                          <span className="font-medium text-xs sm:text-base block">International</span>
+                          <p className="text-[9px] xs:text-[10px] sm:text-xs text-muted-foreground">14-21 business days</p>
                         </div>
-                        <Badge variant=\"outline\" className=\"text-[8px] xs:text-[9px] sm:text-xs shrink-0\">₦18,000</Badge>
+                        <Badge variant="outline" className="text-[8px] xs:text-[9px] sm:text-xs shrink-0">₦18,000</Badge>
                       </div>
                     </div>
                   </div>
@@ -120,17 +120,17 @@ export default function ShippingPage() {
 
             {/* Shipping Policies */}
             <Card>
-              <CardHeader className=\"p-3 sm:p-6\">
-                <CardTitle className=\"flex items-center gap-2 text-base sm:text-lg md:text-xl\">
-                  <Clock className=\"w-4 h-4 sm:w-5 sm:h-5 shrink-0\" />
+              <CardHeader className="p-3 sm:p-6">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg md:text-xl">
+                  <Clock className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
                   Shipping Policies
                 </CardTitle>
               </CardHeader>
-              <CardContent className=\"p-3 sm:p-6\">
-                <div className=\"space-y-3 sm:space-y-4\">
+              <CardContent className="p-3 sm:p-6">
+                <div className="space-y-3 sm:space-y-4">
                   <div>
-                    <h4 className=\"font-semibold text-xs sm:text-base mb-1.5 sm:mb-2\">Processing Time</h4>
-                    <ul className=\"space-y-0.5 sm:space-y-1 text-[9px] xs:text-[10px] sm:text-xs md:text-sm text-muted-foreground pl-3\">
+                    <h4 className="font-semibold text-xs sm:text-base mb-1.5 sm:mb-2">Processing Time</h4>
+                    <ul className="space-y-0.5 sm:space-y-1 text-[9px] xs:text-[10px] sm:text-xs md:text-sm text-muted-foreground pl-3">
                       <li>• Orders placed before 2 PM EST ship same day</li>
                       <li>• Custom items may require 1-3 business days</li>
                       <li>• Weekends and holidays may extend processing</li>
@@ -138,8 +138,8 @@ export default function ShippingPage() {
                   </div>
                   
                   <div>
-                    <h4 className=\"font-semibold text-xs sm:text-base mb-1.5 sm:mb-2\">Delivery Options</h4>
-                    <ul className=\"space-y-0.5 sm:space-y-1 text-[9px] xs:text-[10px] sm:text-xs md:text-sm text-muted-foreground pl-3\">
+                    <h4 className="font-semibold text-xs sm:text-base mb-1.5 sm:mb-2">Delivery Options</h4>
+                    <ul className="space-y-0.5 sm:space-y-1 text-[9px] xs:text-[10px] sm:text-xs md:text-sm text-muted-foreground pl-3">
                       <li>• Signature required for orders over ₦50,000</li>
                       <li>• P.O. Box delivery available</li>
                       <li>• Hold for pickup at carrier locations</li>
@@ -147,8 +147,8 @@ export default function ShippingPage() {
                   </div>
                   
                   <div>
-                    <h4 className=\"font-semibold text-xs sm:text-base mb-1.5 sm:mb-2\">Special Items</h4>
-                    <ul className=\"space-y-0.5 sm:space-y-1 text-[9px] xs:text-[10px] sm:text-xs md:text-sm text-muted-foreground pl-3\">
+                    <h4 className="font-semibold text-xs sm:text-base mb-1.5 sm:mb-2">Special Items</h4>
+                    <ul className="space-y-0.5 sm:space-y-1 text-[9px] xs:text-[10px] sm:text-xs md:text-sm text-muted-foreground pl-3">
                       <li>• Large items may require freight shipping</li>
                       <li>• Hazardous materials have restrictions</li>
                       <li>• Perishables ship via expedited methods only</li>
