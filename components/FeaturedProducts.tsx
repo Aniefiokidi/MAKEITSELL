@@ -155,18 +155,25 @@ export default function FeaturedProducts() {
 
         <div className="grid grid-cols-1 gap-6  sm:grid-cols-2 lg:grid-cols-4">
           {products.map((product, index) => (
-            <Card key={product.id} className="group overflow-hidden  transition-all duration-300 animate-scale-in hover-lift" style={{ animationDelay: `${index * 0.1}s` }}>
+            <Card key={product.id} className={`group overflow-hidden  transition-all duration-300 animate-scale-in hover-lift ${product.stock === 0 ? 'opacity-75' : ''}`} style={{ animationDelay: `${index * 0.1}s` }}>
               <div className="relative h-60 w-full aspect-square overflow-hidden">
                 <Image
                   src={product.images[0] || "/placeholder.svg"}
                   alt={product.title}
                   fill
-                  className="object-cover group-hover:scale-110   transition-transform duration-300"
+                  className={`object-cover group-hover:scale-110   transition-transform duration-300 ${product.stock === 0 ? 'grayscale' : ''}`}
                 />
-                {product.originalPrice > product.price && (
+                {product.originalPrice > product.price && product.stock > 0 && (
                   <Badge className="absolute top-3 left-3 bg-accent text-accent-foreground">
                     Save ₦{(product.originalPrice - product.price).toFixed(2)}
                   </Badge>
+                )}
+                {product.stock === 0 && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="bg-red-600 text-white px-8 py-2 transform -rotate-45 font-bold text-sm shadow-lg">
+                      OUT OF STOCK
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -195,9 +202,14 @@ export default function FeaturedProducts() {
               </CardContent>
 
               <CardFooter className="px-4 pt-0">
-                <Button className="w-full" onClick={() => addToCart(product)}>
+                <Button 
+                  className="w-full" 
+                  onClick={() => addToCart(product)}
+                  disabled={product.stock === 0}
+                  variant={product.stock === 0 ? "outline" : "default"}
+                >
                   <ShoppingCart className="h-4 w-4 mr-2" />
-                  Add to Cart
+                  {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
                 </Button>
               </CardFooter>
             </Card>

@@ -702,8 +702,17 @@ export default function StorePage() {
                         <img
                           src={product.images?.[0] || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"}
                           alt={(product.title || (product as any).name || 'Product') as string}
-                          className={`absolute inset-0 w-full h-full ${store?.category?.toLowerCase() === 'electronics' ? 'object-contain bg-white' : 'object-cover'} group-hover:scale-110 transition-transform duration-500`}
+                          className={`absolute inset-0 w-full h-full ${store?.category?.toLowerCase() === 'electronics' ? 'object-contain bg-white' : 'object-cover'} group-hover:scale-110 transition-transform duration-500 ${product.stock === 0 ? 'grayscale' : ''}`}
                         />
+                        
+                        {/* Out of Stock Red Tape Overlay */}
+                        {product.stock === 0 && (
+                          <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
+                            <div className="bg-red-600 text-white px-4 sm:px-8 py-1 sm:py-2 transform -rotate-45 font-bold text-xs sm:text-sm shadow-lg">
+                              OUT OF STOCK
+                            </div>
+                          </div>
+                        )}
                         
                         {/* Product Badges */}
                         <div className="absolute top-2 sm:top-3 left-2 sm:left-3 flex flex-col gap-1 z-10">

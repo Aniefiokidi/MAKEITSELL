@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useAuth } from "@/contexts/AuthContext"
-import { User, Settings, ShoppingBag, Store, LifeBuoy, LogOut, BarChart3, MessageCircle, Calendar } from "lucide-react"
+import { User, Settings, ShoppingBag, Store, LifeBuoy, LogOut, BarChart3, MessageCircle, Calendar, Package } from "lucide-react"
 
 export default function UserMenu() {
   const { user, userProfile, logout } = useAuth()
@@ -124,9 +124,15 @@ export default function UserMenu() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/vendor/orders" className="cursor-pointer text-xs sm:text-sm">
+              <Link href="/order" className="cursor-pointer text-xs sm:text-sm">
                 <ShoppingBag className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                 Orders
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/vendor/orders" className="cursor-pointer text-xs sm:text-sm">
+                <Package className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                Manage Orders
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>

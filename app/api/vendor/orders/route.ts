@@ -65,7 +65,16 @@ export async function PATCH(req: NextRequest) {
     }
 
     await connectToDatabase();
-    const OrderModel = mongoose.model('Order', new mongoose.Schema({}, { strict: false }));
+    
+    // Get existing Order model or create it safely
+    let OrderModel;
+    try {
+      OrderModel = mongoose.model('Order');
+    } catch (error) {
+      // If model doesn't exist, create it
+      const OrderSchema = new mongoose.Schema({}, { strict: false, timestamps: true });
+      OrderModel = mongoose.model('Order', OrderSchema);
+    }
 
     // Map status to timestamp fields
     const now = new Date();
@@ -86,7 +95,7 @@ export async function PATCH(req: NextRequest) {
 
     // If vendorId provided, update only that vendor's status in the vendors array
     if (vendorId) {
-      const updated = await OrderModel.findByIdAndNew(
+      const updated = await OrderModel.findByIdAndUpdate(
         orderId,
         {
           $set: {
@@ -112,6 +121,7 @@ export async function PATCH(req: NextRequest) {
       return new Response(JSON.stringify({ success: true, order: updated }), { status: 200 });
     }
   } catch (error: any) {
+    console.error('PATCH /api/vendor/orders error:', error);
     return new Response(JSON.stringify({ success: false, error: error?.message || "Unknown error" }), { status: 500 });
   }
 }

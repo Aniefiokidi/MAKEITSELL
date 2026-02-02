@@ -47,6 +47,10 @@ export async function GET(request: NextRequest) {
     // Update product stock and sales (supports both top-level items and vendor items)
     if (order && (order.items || order.vendors)) {
       try {
+        console.log('=== UPDATING PRODUCT STOCK ===');
+        console.log('Order items:', JSON.stringify(order.items, null, 2));
+        console.log('Order vendors:', JSON.stringify(order.vendors, null, 2));
+        
         await connectToDatabase()
         const db = mongoose.connection.db
 
@@ -77,17 +81,34 @@ export async function GET(request: NextRequest) {
               continue
             }
 
-            const result = await db.collection('products').updateOne(
-              { $or: filters },
-              {
-                $inc: {
-                  stock: -qty,
-                  sales: qty
+            // First check current stock to prevent negative values
+            const currentProduct = await db.collection('products').findOne({ $or: filters })
+            const currentStock = currentProduct?.stock || 0
+            const stockDeduction = Math.min(qty, currentStock) // Don't deduct more than available stock
+            
+            if (stockDeduction > 0) {
+              const result = await db.collection('products').updateOne(
+                { $or: filters },
+                {
+                  $inc: {
+                    stock: -stockDeduction,
+                    sales: qty
+                  }
                 }
-              }
-            )
-
-            console.log(`Updated product ${item.productId}: deducted ${qty} stock, added ${qty} sales; matched ${result?.matchedCount}`)
+              )
+              console.log(`Updated product ${item.productId}: deducted ${stockDeduction} stock (requested ${qty}), added ${qty} sales; matched ${result?.matchedCount}`)
+            } else {
+              // Still record the sale even if no stock to deduct
+              const result = await db.collection('products').updateOne(
+                { $or: filters },
+                {
+                  $inc: {
+                    sales: qty
+                  }
+                }
+              )
+              console.log(`Product ${item.productId} out of stock - recorded ${qty} sales only; matched ${result?.matchedCount}`)
+            }
           }
           console.log('Product stock and sales updated successfully')
         }
@@ -212,17 +233,34 @@ export async function POST(request: NextRequest) {
                 continue
               }
 
-              const result = await db.collection('products').updateOne(
-                { $or: filters },
-                {
-                  $inc: {
-                    stock: -qty,
-                    sales: qty
+              // First check current stock to prevent negative values
+              const currentProduct = await db.collection('products').findOne({ $or: filters })
+              const currentStock = currentProduct?.stock || 0
+              const stockDeduction = Math.min(qty, currentStock) // Don't deduct more than available stock
+              
+              if (stockDeduction > 0) {
+                const result = await db.collection('products').updateOne(
+                  { $or: filters },
+                  {
+                    $inc: {
+                      stock: -stockDeduction,
+                      sales: qty
+                    }
                   }
-                }
-              )
-
-              console.log(`Updated product ${item.productId}: deducted ${qty} stock, added ${qty} sales; matched ${result?.matchedCount}`)
+                )
+                console.log(`Updated product ${item.productId}: deducted ${stockDeduction} stock (requested ${qty}), added ${qty} sales; matched ${result?.matchedCount}`)
+              } else {
+                // Still record the sale even if no stock to deduct
+                const result = await db.collection('products').updateOne(
+                  { $or: filters },
+                  {
+                    $inc: {
+                      sales: qty
+                    }
+                  }
+                )
+                console.log(`Product ${item.productId} out of stock - recorded ${qty} sales only; matched ${result?.matchedCount}`)
+              }
             }
             console.log('Product stock and sales updated successfully')
           }
