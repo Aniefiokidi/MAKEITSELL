@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getStoreById, getUserById } from '@/lib/mongodb-operations'
+import { getStoreById, getStoreByVendorId, getUserById } from '@/lib/mongodb-operations'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
@@ -62,8 +62,16 @@ export async function GET(
       return NextResponse.json({ success: true, data: virtualStore })
     }
 
-    // Regular store lookup
-    const store = await getStoreById(id)
+    // Regular store lookup - try by vendorId first, then by _id
+    console.log('Looking for store with vendorId:', id)
+    let store = await getStoreByVendorId(id)
+    console.log('Store by vendorId result:', store ? store.storeName : 'not found')
+    if (!store) {
+      console.log('Trying store by _id:', id)
+      store = await getStoreById(id)
+      console.log('Store by _id result:', store ? store.storeName : 'not found')
+    }
+    console.log('Store lookup result:', store ? 'found' : 'not found', 'for ID:', id)
 
     if (!store) {
       return NextResponse.json({
@@ -99,7 +107,7 @@ export async function GET(
 // PATCH: Update store by ID
 import { updateStore } from '@/lib/mongodb-operations';
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     if (!id) {

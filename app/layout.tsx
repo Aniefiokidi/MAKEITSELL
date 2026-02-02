@@ -40,7 +40,7 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
       </head>
       <body
-        className={`font-sans ${GeistSans.variable} ${GeistMono.variable} min-h-screen bg-background text-foreground`}
+        className={`font-sans ${GeistSans.variable} ${GeistMono.variable} min-h-screen text-foreground`}
         suppressHydrationWarning={true}
       >
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>

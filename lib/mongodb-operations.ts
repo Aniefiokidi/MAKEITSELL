@@ -74,7 +74,27 @@ const ServiceModel = (mongoose.models.Service as any) || mongoose.model('Service
 // --- Store by ID ---
 export const getStoreById = async (id: string) => {
   await connectToDatabase();
-  return StoreModel.findById(id).lean();
+  try {
+    // Check if id is a valid MongoDB ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return null;
+    }
+    return await StoreModel.findById(id).lean();
+  } catch (error) {
+    console.error('getStoreById error:', error);
+    return null;
+  }
+};
+
+// --- Store by vendorId ---
+export const getStoreByVendorId = async (vendorId: string) => {
+  await connectToDatabase();
+  try {
+    return await StoreModel.findOne({ vendorId }).lean();
+  } catch (error) {
+    console.error('getStoreByVendorId error:', error);
+    return null;
+  }
 };
 
 export const getAllStores = async () => {
@@ -98,7 +118,16 @@ export const getAllProducts = async () => {
 // --- User by ID ---
 export const getUserById = async (id: string) => {
   await connectToDatabase();
-  return UserModel.findById(id).lean();
+  try {
+    // Check if id is a valid MongoDB ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return null;
+    }
+    return await UserModel.findById(id).lean();
+  } catch (error) {
+    console.error('getUserById error:', error);
+    return null;
+  }
 };
 
 // --- Update Store ---

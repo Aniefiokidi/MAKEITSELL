@@ -1,90 +1,152 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { useAuth } from "@/contexts/AuthContext"
-import { ShoppingBag, Users, Shield, Star, ArrowRight, Sparkles } from "lucide-react"
+import { ArrowRight, Search, Star, Users, Shield, Sparkles } from "lucide-react"
+import Image from "next/image"
 
-export default function HeroSection() {
-  const { userProfile } = useAuth()
-  
-  return (
-    <section className="relative min-h-[100vh] sm:min-h-[90vh] md:min-h-[90vh]  flex items-center justify-center overflow-hidden">
-      {/* Background video with gradient overlay */}
-      <video
-        className="absolute inset-0 w-full h-full object-cover"
-        src="/VID.MOV"
-        autoPlay
-        muted
-        loop
-        playsInline
-        poster="/hero-img.jpg"
-      />
-      <div className="absolute inset-0 bg-gradient-to-br from-black via-black/70 to-black" />
-      
-      {/* Animated background elements - Hidden on mobile for better performance */}
-      <div className="absolute inset-0 overflow-hidden hidden lg:block">
-        <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-accent rounded-full animate-pulse opacity-60" />
-        <div className="absolute top-3/4 right-1/3 w-1 h-1 bg-white rounded-full animate-pulse opacity-40" />
-        <div className="absolute top-1/2 right-1/4 w-3 h-3 bg-accent/50 rounded-full animate-pulse opacity-50" />
+ 
+function HeroSection() {
+    const { userProfile } = useAuth();
+    return (
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-white via-gray-100 to-white dark:from-black dark:via-gray-900 dark:to-black">
+      {/* Floating bubbles with images */}
+      <style jsx global>{`
+        @keyframes bubbleFloat1 {
+          0% { transform: translateY(0) scale(1); }
+          50% { transform: translateY(-30px) scale(1.08); }
+          100% { transform: translateY(0) scale(1); }
+        }
+        @keyframes bubbleFloat2 {
+          0% { transform: translateY(0) scale(1); }
+          50% { transform: translateY(40px) scale(0.95); }
+          100% { transform: translateY(0) scale(1); }
+        }
+        @keyframes bubbleFloat3 {
+          0% { transform: translateY(0) scale(1); }
+          50% { transform: translateY(-20px) scale(1.1); }
+          100% { transform: translateY(0) scale(1); }
+        }
+        @keyframes bubbleFloat4 {
+          0% { transform: translateY(0) scale(1); }
+          50% { transform: translateY(30px) scale(0.92); }
+          100% { transform: translateY(0) scale(1); }
+        }
+        @keyframes bubbleFloat5 {
+          0% { transform: translateY(0) scale(1); }
+          50% { transform: translateY(-15px) scale(1.05); }
+          100% { transform: translateY(0) scale(1); }
+        }
+        .bubble-anim-1 { animation: bubbleFloat1 7s ease-in-out infinite; }
+        .bubble-anim-2 { animation: bubbleFloat2 9s ease-in-out infinite; }
+        .bubble-anim-3 { animation: bubbleFloat3 6s ease-in-out infinite; }
+        .bubble-anim-4 { animation: bubbleFloat4 8s ease-in-out infinite; }
+        .bubble-anim-5 { animation: bubbleFloat5 10s ease-in-out infinite; }
+      `}</style>
+      <div className="pointer-events-none select-none">
+        {/* Bubble 1 */}
+        <div className="absolute top-[8%] left-[2%] bubble-anim-1 z-10 w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40">
+          <div className="w-full h-full rounded-full bg-white/30 dark:bg-white/10 backdrop-blur-lg shadow-xl flex items-center justify-center overflow-hidden border-2 border-accent">
+            <Image src="/images/logo (1).jpg" alt="Bubble 1" fill className="object-fit w-full h-full" />
+          </div>
+        </div>
+        {/* Bubble 2 */}
+        <div className="absolute top-[18%] right-[4%] bubble-anim-2 z-10 w-20 h-20 sm:w-28 sm:h-28 md:w-32 md:h-32">
+          <div className="w-full h-full rounded-full bg-white/30 dark:bg-white/10 backdrop-blur-lg shadow-xl flex items-center justify-center overflow-hidden border-2 border-accent">
+            <Image src="/images/logo2.png" alt="Bubble 2" fill className="object-cover w-full h-full bg-white" />
+          </div>
+        </div>
+        {/* Bubble 3 */}
+        <div className="absolute bottom-[12%] left-[8%] bubble-anim-3 z-10 w-16 h-16 sm:w-24 sm:h-24 md:w-28 md:h-28">
+          <div className="w-full h-full rounded-full bg-white/30 dark:bg-white/10 backdrop-blur-lg shadow-xl flex items-center justify-center overflow-hidden border-2 border-accent">
+            <Image src="/images/Home.png" alt="Bubble 3" fill className="object-cover w-full h-full" />
+          </div>
+        </div>
+        {/* Bubble 4 */}
+        <div className="absolute bottom-[10%] right-[6%] bubble-anim-4 z-10 w-20 h-20 sm:w-28 sm:h-28 md:w-36 md:h-36">
+          <div className="w-full h-full rounded-full bg-white/30 dark:bg-white/10 backdrop-blur-lg shadow-xl flex items-center justify-center overflow-hidden border-2 border-accent">
+            <Image src="/images/logo (2).png" alt="Bubble 4" fill className="object-fit w-full h-full bg-white" />
+          </div>
+        </div>
+        {/* Bubble 5 */}
+        <div className="absolute top-[55%] left-[45%] bubble-anim-5 z-10 w-12 h-12 sm:w-16 sm:h-16 md:w-24 md:h-24">
+          <div className="w-full h-full rounded-full bg-white/30 dark:bg-white/10 backdrop-blur-lg shadow-xl flex items-center justify-center overflow-hidden border-2 border-accent">
+            <Image src="/bubble5.jpg" alt="Bubble 5" fill className="object-cover w-full h-full" />
+          </div>
+        </div>
       </div>
 
-      <div className="container mx-auto px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 relative z-10 w-full">
-        <div className="max-w-7xl mx-auto text-center">
-          {/* Main headline with enhanced typography */}
-          <h1 className="text-xl xs:text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold leading-tight mb-3 sm:mb-5 md:mb-7">
-            <span className="text-white animate-fade-in" style={{
-              textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))'
-            }}>
-              Discover Amazing
-            </span>
-            <span className="text-white block mt-0 animate-fade-in-delay" style={{
-              textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))'
-            }}>
-              Products
-            </span>
-          </h1>
-
-          {/* Enhanced description */}
-          <p className="text-xs sm:text-sm md:text-base lg:text-lg xl:text-xl text-gray-200 max-w-xs sm:max-w-sm md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto mb-4 sm:mb-6 md:mb-8 leading-relaxed px-2 sm:px-4 md:px-0 animate-fade-in" style={{ animationDelay: '0.4s' }}>
-            Shop from trusted vendors nationwide. Secure payments & unbeatable prices.
-          </p>
-
-          {/* Enhanced CTA buttons */}
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 md:gap-4 justify-center items-center px-3 sm:px-6 md:px-0 animate-fade-in" style={{ animationDelay: '0.6s' }}>
-            <Button
-              asChild
-              size="lg"
-              className="group bg-accent hover:bg-accent/90 text-white px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 lg:py-5 text-xs sm:text-sm md:text-base font-semibold rounded-full shadow-2xl hover:shadow-accent/25 transition-all duration-300 transform hover:scale-105 w-full sm:w-auto max-w-xs sm:max-w-none hover-lift"
-            >
-              <Link href="/stores" className="flex items-center justify-center">
-                Start Shopping
-                <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform duration-200" />
-              </Link>
-            </Button>
+      {/* Frosted glass hero content */}
+      <div className="container mx-auto px-2 sm:px-4 md:px-8 lg:px-12 xl:px-16 relative z-20 w-full">
+        <div className="max-w-3xl mx-auto text-center flex flex-col items-center justify-center gap-4 bg-white/70 dark:bg-white/10 backdrop-blur-2xl rounded-3xl shadow-2xl p-4 sm:p-8 md:p-12 border border-white/20">
+          {/* Logo and tagline */}
+          <div className="flex flex-col items-center gap-2 mb-2">
+            <Image src="/images/logo2.png" alt="MakeItSell Logo" width={120} height={120} className="rounded-xl shadow-lg bg-white/80 p-2" />
+            <span className="text-accent font-bold text-lg sm:text-xl tracking-wide">WHERE EVERYTHING SELLS!</span>
           </div>
 
-          {/* Additional features showcase */}
-          <div className="mt-6 sm:mt-8 md:mt-10 lg:mt-12 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 md:gap-4 max-w-6xl mx-auto px-2 sm:px-4 md:px-0">
-            <div className="text-center p-2 sm:p-3 md:p-4 lg:p-6 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10 animate-scale-in hover-lift" style={{ animationDelay: '0.8s' }}>
-              <Shield className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 lg:h-7 lg:w-7 text-accent mx-auto mb-1 sm:mb-2 animate-float" />
-              <h3 className="text-white font-semibold mb-1 text-[10px] sm:text-xs md:text-sm">Secure Payment</h3>
-              <p className="text-gray-300 text-[8px] sm:text-xs leading-relaxed">Protected transactions</p>
+          {/* Main headline */}
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-neutral-900 dark:text-white drop-shadow mb-2">
+            Find What You Love, <span className="text-accent">From Real People</span>
+          </h1>
+          <p className="text-base sm:text-lg md:text-xl text-neutral-700 dark:text-gray-200 max-w-2xl mx-auto mb-2">
+            Nigeria’s most trusted marketplace for unique products, unbeatable prices, and real customer support.
+          </p>
+
+          {/* Search bar */}
+          <form className="flex w-full max-w-md mx-auto bg-white/90 dark:bg-white/20 rounded-full shadow-lg overflow-hidden border border-accent/30 focus-within:ring-2 focus-within:ring-accent">
+            <input
+              type="text"
+              placeholder="What are you looking for today?"
+              className="flex-1 px-4 py-2 text-neutral-900 dark:text-white bg-transparent outline-none placeholder:text-neutral-500 dark:placeholder:text-gray-300"
+              aria-label="Search products"
+            />
+            <Button type="submit" className="rounded-none rounded-r-full bg-accent hover:bg-accent/90 text-white px-4">
+              <Search className="h-5 w-5" />
+            </Button>
+          </form>
+
+          {/* CTA button */}
+          <Button
+            asChild
+            size="lg"
+            className="group bg-accent hover:bg-accent/90 text-white px-8 py-3 text-lg font-semibold rounded-full shadow-2xl hover:shadow-accent/25 transition-all duration-300 transform hover:scale-105 mt-2"
+          >
+            <Link href="/stores" className="flex items-center justify-center">
+              Start Shopping
+              <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform duration-200" />
+            </Link>
+          </Button>
+
+          {/* Features section */}
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
+            <div className="text-center p-4 rounded-xl bg-white/60 dark:bg-white/10 backdrop-blur border border-white/10">
+              <Shield className="h-7 w-7 text-accent mx-auto mb-2" />
+              <h3 className="font-semibold mb-1 text-sm text-neutral-900 dark:text-white">Secure Payment</h3>
+              <p className="text-neutral-700 dark:text-gray-300 text-xs leading-relaxed">Protected transactions</p>
             </div>
-            <div className="text-center p-2 sm:p-3 md:p-4 lg:p-6 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10 animate-scale-in hover-lift" style={{ animationDelay: '0.9s' }}>
-              <Users className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 lg:h-7 lg:w-7 text-accent mx-auto mb-1 sm:mb-2 animate-float" style={{ animationDelay: '0.2s' }} />
-              <h3 className="text-white font-semibold mb-1 text-[10px] sm:text-xs md:text-sm">Trusted Vendors</h3>
-              <p className="text-gray-300 text-[8px] sm:text-xs leading-relaxed">Verified sellers</p>
+            <div className="text-center p-4 rounded-xl bg-white/60 dark:bg-white/10 backdrop-blur border border-white/10">
+              <Users className="h-7 w-7 text-accent mx-auto mb-2" />
+              <h3 className="font-semibold mb-1 text-sm text-neutral-900 dark:text-white">Trusted Vendors</h3>
+              <p className="text-neutral-700 dark:text-gray-300 text-xs leading-relaxed">Verified sellers</p>
             </div>
-            <div className="text-center p-3 sm:p-4 md:p-6 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10 col-span-1 animate-scale-in hover-lift" style={{ animationDelay: '1s' }}>
-              <Sparkles className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 lg:h-8 lg:w-8 text-accent mx-auto mb-2 sm:mb-3 animate-float" style={{ animationDelay: '0.4s' }} />
-              <h3 className="text-white font-semibold mb-1 sm:mb-2 text-xs sm:text-sm md:text-base">Customer Service</h3>
-              <p className="text-gray-300 text-xs sm:text-sm leading-relaxed">24/7 intelligent customer assistance</p>
+            <div className="text-center p-4 rounded-xl bg-white/60 dark:bg-white/10 backdrop-blur border border-white/10">
+              <Sparkles className="h-7 w-7 text-accent mx-auto mb-2" />
+              <h3 className="font-semibold mb-1 text-sm text-neutral-900 dark:text-white">Customer Service</h3>
+              <p className="text-neutral-700 dark:text-gray-300 text-xs leading-relaxed">24/7 intelligent customer assistance</p>
             </div>
+          </div>
+
+          {/* Scroll down indicator */}
+          <div className="mt-8 flex flex-col items-center animate-bounce">
+            <span className="text-white/70 text-xs mb-1">Scroll to explore more</span>
+            <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent" viewBox="0 0 24 24"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
           </div>
         </div>
       </div>
     </section>
   )
 }
+
+export default HeroSection;

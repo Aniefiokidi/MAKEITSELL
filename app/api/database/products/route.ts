@@ -4,21 +4,28 @@ import { getProducts, createProduct } from "@/lib/mongodb-operations"
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
     const category = searchParams.get('category')
     const vendorId = searchParams.get('vendorId')
     const featured = searchParams.get('featured')
     const limit = searchParams.get('limit')
 
+    if (id) {
+      // Fetch single product by id
+      const product = await (await import('@/lib/mongodb-operations')).getProductById(id)
+      if (!product) {
+        return NextResponse.json({ success: false, error: 'Product not found', data: [] }, { status: 404 })
+      }
+      return NextResponse.json({ success: true, data: [product] })
+    }
+
     const filters: any = {}
-    
     if (category) filters.category = category
     if (vendorId) filters.vendorId = vendorId
     if (featured) filters.featured = featured === 'true'
     if (limit) filters.limitCount = parseInt(limit)
 
     const products = await getProducts(filters)
-
-    // Map MongoDB product fields to UI expected fields
     const mappedProducts = products?.map(product => ({
       ...product,
       id: product._id?.toString() || product.id
