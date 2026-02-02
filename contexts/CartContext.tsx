@@ -23,7 +23,7 @@ interface CartContextType {
   addItem: (item: Omit<CartItem, "quantity"> & { title: string }) => void // Ensure title is present
   removeItem: (productId: string) => void
   updateQuantity: (productId: string, quantity: number) => void
-  clearCart: () => void
+  clearCart: () => Promise<void>
   isOpen: boolean
   setIsOpen: (open: boolean) => void
 }
@@ -171,8 +171,26 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     )
   }
 
-  const clearCart = () => {
+  const clearCart = async () => {
+    console.log('clearCart called, current items:', items)
     setItems([])
+    
+    // Clear persistent storage as well
+    try {
+      // Clear localStorage for anonymous users
+      localStorage.removeItem('anonymous_cart')
+      
+      // Clear database cart for logged-in users
+      if (user && user.uid) {
+        const { setUserCart } = require('@/lib/database-client')
+        await setUserCart(user.uid, [])
+      }
+      console.log('Cart items cleared from all storage')
+    } catch (error) {
+      console.error('Error clearing persistent cart storage:', error)
+      // Still clear local state even if persistent storage fails
+      console.log('Local cart state cleared despite storage error')
+    }
   }
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0)
@@ -188,7 +206,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         addItem: mounted ? addItem : () => {},
         removeItem: mounted ? removeItem : () => {},
         updateQuantity: mounted ? updateQuantity : () => {},
-        clearCart: mounted ? clearCart : () => {},
+        clearCart: mounted ? clearCart : async () => {},
         isOpen: mounted ? isOpen : false,
         setIsOpen: mounted ? setIsOpen : () => {},
       }}

@@ -11,14 +11,28 @@ import Footer from "@/components/Footer"
 import { useCart } from "@/contexts/CartContext"
 
 export default function OrderConfirmationPage() {
-  const { clearCart } = useCart()
+  const { clearCart, items } = useCart()
   const router = useRouter()
 
   useEffect(() => {
     // Clear the cart when landing on order confirmation page
-    clearCart()
+    const clearCartAsync = async () => {
+      console.log('Order confirmation page loaded, clearing cart...')
+      console.log('Current cart items:', items)
+      console.log('Available clearCart function:', typeof clearCart)
+      try {
+        await clearCart()
+        console.log('Cart cleared successfully from order confirmation page')
+        console.log('Cart items after clearing:', items)
+      } catch (error) {
+        console.error('Error clearing cart from order confirmation page:', error)
+      }
+    }
+    
+    // Add a small delay to ensure all contexts are loaded
+    setTimeout(clearCartAsync, 100)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [clearCart])
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -77,6 +91,19 @@ export default function OrderConfirmationPage() {
             </Button>
             <Button variant="outline" asChild className="hover:bg-accent/10 hover:text-accent transition-all">
               <Link href="/stores">Continue Shopping</Link>
+            </Button>
+            {/* Debug button - remove in production */}
+            <Button 
+              onClick={async () => {
+                console.log('Manual cart clear triggered, current items:', items)
+                await clearCart()
+                console.log('Manual cart clear completed, items now:', items)
+              }}
+              variant="ghost" 
+              size="sm"
+              className="text-xs opacity-50"
+            >
+              Clear Cart (Debug)
             </Button>
           </div>
         </div>

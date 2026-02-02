@@ -36,12 +36,59 @@ export default function VendorDashboardPage() {
   } | null>(null);
   // Popup for new vendors
   const [showSetupPopup, setShowSetupPopup] = useState(false);
+  const [storeData, setStoreData] = useState<any>(null);
+
+  // Check if store setup is actually complete
+  const isStoreSetupComplete = (store: any) => {
+    if (!store) return false;
+    
+    // Check required payout information
+    const hasPayoutInfo = store.bankCode && 
+                         store.accountNumber && 
+                         store.accountVerified && 
+                         store.accountName;
+    
+    // Check required images
+    const hasImages = store.profileImage && store.storeImage;
+    
+    // Check basic store info
+    const hasBasicInfo = store.storeName;
+    
+    return hasPayoutInfo && hasImages && hasBasicInfo;
+  };
+
   useEffect(() => {
-    // Show popup if user just registered and store setup is incomplete
-    if (userProfile?.role === "vendor" && (!userProfile?.storeSetupComplete || userProfile?.storeSetupComplete === false)) {
-      setShowSetupPopup(true);
-    }
-  }, [userProfile]);
+    // Load store data to check setup completion
+    const loadStoreData = async () => {
+      if (!user?.uid) return;
+      
+      try {
+        const res = await fetch(`/api/database/stores?vendorId=${encodeURIComponent(user.uid)}`);
+        const data = await res.json();
+        
+        if (data.success && data.data && data.data.length > 0) {
+          const store = data.data[0];
+          setStoreData(store);
+          
+          // Show popup only if store setup is actually incomplete
+          if (userProfile?.role === "vendor" && !isStoreSetupComplete(store)) {
+            setShowSetupPopup(true);
+          }
+        } else if (userProfile?.role === "vendor") {
+          // No store exists yet, definitely need setup
+          setShowSetupPopup(true);
+        }
+      } catch (error) {
+        console.error("Error loading store data:", error);
+        // If we can't load store data and user is vendor, show popup to be safe
+        if (userProfile?.role === "vendor") {
+          setShowSetupPopup(true);
+        }
+      }
+    };
+
+    loadStoreData();
+  }, [user, userProfile]);
 
   // Handle subscription renewal
   const handleRenewSubscription = async () => {
@@ -170,11 +217,11 @@ export default function VendorDashboardPage() {
           <div className="bg-white/80 dark:bg-gray-900/80 rounded-xl shadow-2xl p-8 max-w-sm mx-auto flex flex-col items-center justify-center border border-accent" style={{backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)'}}>
             <h2 className="text-xl font-bold mb-2 text-center">Welcome to MakeItSell!</h2>
             <p className="mb-4 text-center text-muted-foreground">To start selling, please finish setting up your store.</p>
-            <Link href="/vendor/store-settings" passHref legacyBehavior>
-              <Button className="w-full mb-2 font-semibold text-base shadow-lg" variant="accent" onClick={() => setShowSetupPopup(false)}>
+            <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg" variant="accent" onClick={() => setShowSetupPopup(false)}>
+              <Link href="/vendor/store-settings">
                 Go to Store Settings
-              </Button>
-            </Link>
+              </Link>
+            </Button>
             <Button variant="ghost" className="w-full mt-1 text-xs" onClick={() => setShowSetupPopup(false)}>
               Maybe later
             </Button>

@@ -145,8 +145,7 @@ function TrendingProducts() {
 export default function HomePage() {
   const searchParams = useSearchParams()
   const [showDeletedMessage, setShowDeletedMessage] = useState(false)
-  const [showIntro, setShowIntro] = useState(true)
-  const [fadeOutIntro, setFadeOutIntro] = useState(false)
+  const [fadeIn, setFadeIn] = useState(false)
 
   useEffect(() => {
     if (searchParams.get('account_deleted') === 'true') {
@@ -157,50 +156,14 @@ export default function HomePage() {
   }, [searchParams])
 
   useEffect(() => {
-    if (!showIntro) return
-    const timer = setTimeout(() => {
-      setFadeOutIntro(true)
-      setTimeout(() => setShowIntro(false), 700)
-    }, 5000)
+    // Trigger fade-in effect on component mount
+    const timer = setTimeout(() => setFadeIn(true), 100)
     return () => clearTimeout(timer)
-  }, [showIntro])
-
-  const startFadeOutIntro = () => {
-    if (fadeOutIntro) return
-    setFadeOutIntro(true)
-    setTimeout(() => setShowIntro(false), 700)
-  }
-
-  const handleIntroEnd = () => startFadeOutIntro()
-  const handleSkip = () => startFadeOutIntro()
+  }, [])
 
   return (
     <div className="min-h-screen flex flex-col relative">
-      {showIntro && (
-        <div
-          className={`fixed inset-0 bg-black flex items-center justify-center overflow-hidden transition-opacity duration-700 z-50 ${fadeOutIntro ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
-        >
-          <video
-            className="absolute inset-0 w-full h-full object-contain"
-            src="/images/MIS AD 1.mp4"
-            autoPlay
-            muted
-            playsInline
-            onEnded={handleIntroEnd}
-          />
-          <div className="absolute inset-0 bg-black/30" />
-          <div className="absolute bottom-8 inset-x-0 flex justify-center z-10">
-            <button
-              onClick={handleSkip}
-              className="px-4 py-2 text-sm font-semibold text-white bg-black/60 border border-white/30 rounded-full backdrop-blur-md hover:bg-white/10 transition cursor-pointer"
-            >
-              Skip intro
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className={`min-h-screen flex flex-col transition-opacity duration-700 ${showIntro ? 'opacity-0' : 'opacity-100'} bg-gradient-to-br from-accent/30 via-white to-accent/20 dark:from-black dark:via-gray-900 dark:to-black relative overflow-hidden`}>
+      <div className={`min-h-screen flex flex-col transition-opacity duration-1000 ${fadeIn ? 'opacity-100' : 'opacity-0'} bg-gradient-to-br from-accent/30 via-white to-accent/20 dark:from-black dark:via-gray-900 dark:to-black relative overflow-hidden`}>
        
         <Header />
         <main className="flex-1 relative z-20">
