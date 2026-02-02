@@ -186,7 +186,7 @@ export default function FeaturedProducts() {
                   <span className="text-sm text-muted-foreground">({product.reviews})</span>
                 </div>
 
-                <h3 className="font-semibold text-lg mb-2 line-clamp-2 text-pretty">{product.title}</h3>
+                <h3 className="font-semibold text-base sm:text-lg mb-2 line-clamp-2 text-pretty break-words hyphens-auto leading-tight">{product.title}</h3>
                 <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{product.description}</p>
 
                 <div className="flex items-center justify-between mb-3">

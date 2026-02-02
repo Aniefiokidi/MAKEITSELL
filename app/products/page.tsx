@@ -6,18 +6,18 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Search, RefreshCw, ShoppingCart, Heart, Package, TrendingUp, Eye } from "lucide-react"
-import Link from "next/link"
-import Header from "@/components/Header"
+import { Search, RefreshCw, ShoppingCart, Heart, Package, TrendingUp, Eye, ArrowLeft } from "lucide-react"
 import Footer from "@/components/Footer"
 import { Skeleton } from "@/components/ui/skeleton"
-import Image from "next/image"
+import Header from "@/components/Header"
 import { useCart } from "@/contexts/CartContext"
 import { useToast } from "@/hooks/use-toast"
 import { ProductQuickView } from "@/components/ui/product-quick-view"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useRouter } from "next/navigation"
 
-const categories = [
+// Static categories - fallback if API fails
+const defaultCategories = [
   { id: "all", name: "All Categories" },
   { id: "electronics", name: "Electronics" },
   { id: "fashion", name: "Fashion" },
@@ -62,9 +62,19 @@ export default function AllProductsPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null)
   const [showQuickView, setShowQuickView] = useState(false)
+  const [imageBrightness, setImageBrightness] = useState<{ [key: string]: 'light' | 'dark' }>({})
+  const [isTransitioning, setIsTransitioning] = useState(false)
   const { addItem } = useCart()
   const { toast } = useToast()
   const isMobile = useIsMobile()
+  const router = useRouter()
+
+  const handleBackToStores = () => {
+    setIsTransitioning(true)
+    setTimeout(() => {
+      window.location.href = '/stores'
+    }, 600)
+  }
 
   useEffect(() => {
     fetchAllProducts()
@@ -166,163 +176,192 @@ export default function AllProductsPage() {
   }, {} as ProductsByCategory)
 
   const ProductCard = ({ product }: { product: Product }) => {
-    const [imageBrightness, setImageBrightness] = useState<'light' | 'dark'>('dark')
-    const isElectronics = product.category === 'electronics'
+    const isElectronics = product.category?.toLowerCase().includes('electronics')
+    const productBrightness = imageBrightness[product.id] || 'dark'
 
-    useEffect(() => {
-      if (product.images?.[0]) {
-        detectImageBrightness(product.images[0])
-      }
-    }, [product.images])
-
-    const detectImageBrightness = (imageUrl: string) => {
-      const img = new window.Image()
-      img.crossOrigin = "Anonymous"
-      img.src = imageUrl
+    const detectImageBrightness = (imageUrl: string, productId: string) => {
+      if (typeof window === 'undefined') return
       
+      const img = new window.Image()
+      img.crossOrigin = 'anonymous'
       img.onload = () => {
-        const canvas = document.createElement('canvas')
-        const ctx = canvas.getContext('2d')
-        if (!ctx) return
-        
-        canvas.width = img.width
-        canvas.height = img.height
-        ctx.drawImage(img, 0, 0)
-        
         try {
+          const canvas = document.createElement('canvas')
+          const ctx = canvas.getContext('2d')
+          if (!ctx) return
+          
+          canvas.width = img.width
+          canvas.height = img.height
+          ctx.drawImage(img, 0, 0)
+          
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
           const data = imageData.data
-          const width = canvas.width
-          const height = canvas.height
-          
-          const bottomStartRow = Math.floor(height * 0.75)
-          const startPixelIndex = (bottomStartRow * width) * 4
+          const sampleSize = Math.floor(data.length / 1000) * 4
+          const startPixelIndex = Math.floor(data.length * 0.1)
           
           let r = 0, g = 0, b = 0, totalPixels = 0
           
-          for (let i = startPixelIndex; i < data.length; i += 8) {
+          for (let i = startPixelIndex; i < data.length; i += sampleSize) {
             r += data[i]
-            g += data[i + 1]
+            g += data[i + 1] 
             b += data[i + 2]
             totalPixels++
           }
           
           const avgBrightness = (r + g + b) / (totalPixels * 3)
-          setImageBrightness(avgBrightness > 128 ? 'light' : 'dark')
+          setImageBrightness(prev => ({
+            ...prev,
+            [productId]: avgBrightness > 128 ? 'light' : 'dark'
+          }))
         } catch (error) {
           console.error('Error detecting brightness:', error)
         }
       }
+      img.src = imageUrl
+    }
+
+    React.useEffect(() => {
+      if (product.images?.[0]) {
+        detectImageBrightness(product.images[0], product.id)
+      }
+    }, [product.images, product.id])
+
+    const formatCurrency = (price: number) => {
+      return new Intl.NumberFormat('en-NG', {
+        style: 'currency',
+        currency: 'NGN'
+      }).format(price)
     }
 
     return (
-      <Card 
-        className="border-0 shadow-md overflow-hidden relative h-[350px] sm:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-3xl group cursor-pointer"
-      >
+      <Card className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100">
         {/* Image Container with Group Hover */}
-        <div className="absolute inset-0 overflow-hidden cursor-pointer" onClick={() => {
+        <div className="group absolute inset-0 overflow-hidden cursor-pointer" onClick={() => {
           setQuickViewProduct(product)
           setShowQuickView(true)
         }}>
           {/* Full Card Image Background */}
           <img
             src={product.images?.[0] || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"}
-            alt={product.title || product.name || 'Product'}
+            alt={(product.title || product.name || 'Product') as string}
             className={`absolute inset-0 w-full h-full ${
               isElectronics ? 'object-contain bg-white' : 'object-cover'
-            } group-hover:${isElectronics ? 'scale-105' : 'scale-110'} transition-transform duration-500`}
+            } group-hover:scale-110 transition-transform duration-500 ${(product.stock ?? 0) === 0 ? 'grayscale' : ''}`}
           />
           
-          {/* Gradient overlay */}
-          <div className="absolute inset-0 bg-linear-to-b from-black/20 via-transparent via-50% to-black/90" />
+          {/* Out of Stock Red Tape Overlay */}
+          {(product.stock ?? 0) === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
+              <div className="bg-red-600 text-white px-4 sm:px-8 py-1 sm:py-2 transform -rotate-45 font-bold text-xs sm:text-sm shadow-lg">
+                OUT OF STOCK
+              </div>
+            </div>
+          )}
           
           {/* Product Badges */}
-          <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
+          <div className="absolute top-2 sm:top-3 left-2 sm:left-3 flex flex-col gap-1 z-10">
             {product.featured && (
-              <Badge className="bg-yellow-500 text-black font-semibold">
-                <TrendingUp className="h-3 w-3 mr-1" />
+              <Badge className="bg-yellow-500 text-black font-semibold text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
+                <svg className="inline w-3 h-3 sm:w-4 sm:h-4 text-yellow-400 fill-current animate-pulse mr-0.5 sm:mr-1" viewBox="0 0 24 24">
+                  <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
+                </svg> 
                 Featured
               </Badge>
             )}
             {(product.stock ?? 0) < 10 && (product.stock ?? 0) > 0 && (
-              <Badge variant="destructive">
+              <Badge variant="destructive" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
                 Only {product.stock} left
               </Badge>
             )}
-            {product.stock === 0 && (
-              <Badge variant="secondary" className="bg-gray-600">
+            {(product.stock ?? 0) === 0 && (
+              <Badge variant="secondary" className="bg-gray-600 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
                 Out of Stock
               </Badge>
             )}
           </div>
           
-          {/* Action Buttons */}
-          <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+          {/* Action Buttons - Visible on mobile */}
+          <div className="absolute top-2 sm:top-3 right-2 sm:right-3 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 flex gap-1 sm:gap-2">
             <Button
               size="sm"
               variant="outline"
-              className="bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-110 transition-all"
+              className="bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-110 active:scale-95 transition-all h-8 w-8 p-0 sm:h-9 sm:w-9"
               onClick={() => {/* Add to wishlist */}}
             >
-              <Heart className="h-4 w-4" />
+              <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </Button>
           </div>
           
-          {/* Quick View */}
-          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-20 cursor-pointer" onClick={() => {
-            setQuickViewProduct(product)
-            setShowQuickView(true)
-          }}>
+          {/* Quick View - Visible on hover or mobile */}
+          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 items-center justify-center z-20 hidden sm:flex">
             <Button 
               variant="outline" 
-              className="bg-white/90 backdrop-blur-sm text-black hover:bg-white hover:scale-105 transition-all"
+              className="bg-white/90 backdrop-blur-sm text-black hover:bg-white hover:scale-105 active:scale-95 transition-all text-xs sm:text-sm"
+              onClick={(e) => {
+                e.preventDefault()
+                setQuickViewProduct(product)
+                setShowQuickView(true)
+              }}
             >
-              <Eye className="h-4 w-4 mr-2" />
-              View
+              <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+              Quick View
             </Button>
           </div>
         </div>
         
         {/* Frosted Glass Bubble Content */}
-        <div className={`absolute bottom-0 left-0 right-0 p-2.5 sm:p-3 backdrop-blur-xl ${
-          imageBrightness === 'light' 
-            ? 'bg-white/30 border-white/40' 
-            : 'bg-accent/10 border-white/30'
-        } border-t rounded-t-3xl z-30 space-y-1.5`}>
-          <h3 
-            className={`font-semibold text-xs sm:text-sm line-clamp-1 drop-shadow-lg cursor-pointer hover:opacity-80 transition-colors ${
-              imageBrightness === 'light' ? 'text-gray-900' : 'text-white'
+        <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-2.5 md:p-3 backdrop-blur-xl bg-accent/10 border-t border-white/30 rounded-t-2xl sm:rounded-t-3xl z-30 space-y-1 gap-1 sm:gap-2">
+          <Badge
+            variant="outline"
+            role="button"
+            className={`inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow cursor-pointer hover:opacity-90 transition min-h-5 sm:min-h-6 items-center justify-center text-center leading-tight ${
+              productBrightness === 'light' ? 'bg-accent text-white' : 'bg-accent text-white'
             }`}
+            onClick={() => {
+              setQuickViewProduct(product)
+              setShowQuickView(true)
+            }}
+            style={{
+              whiteSpace: 'normal',
+              wordBreak: 'break-word',
+              hyphens: 'auto',
+              lineHeight: '1.2'
+            }}
           >
-            {product.title || product.name}
-          </h3>
+            <span className="line-clamp-2 sm:line-clamp-1">
+              {product.title || product.name}
+            </span>
+          </Badge>
           
-          <div className="flex items-center justify-between gap-2">
-            <Badge variant="outline" className={`text-[10px] backdrop-blur-sm border-white/50 px-1.5 py-0 ${
-              imageBrightness === 'light' ? 'text-gray-900 bg-white/30' : 'text-white bg-accent/80'
+          <div className="flex items-center justify-between gap-1 sm:gap-2">
+            <Badge variant="outline" className={`text-[9px] sm:text-[10px] md:text-xs backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 ${
+              productBrightness === 'light' ? 'text-white bg-accent' : 'text-white bg-accent'
             }`}>
               {product.category}
             </Badge>
             
-            <div className={`font-bold text-sm drop-shadow-lg ${
-              imageBrightness === 'light' ? 'text-gray-900' : 'text-white'
-            }`}>
-              ₦{product.price.toLocaleString()}
-            </div>
+            <Badge
+              variant="outline"
+              className={`text-[9px] sm:text-[10px] md:text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 backdrop-blur-sm ${
+                productBrightness === 'light' ? 'bg-white/80 text-accent' : 'bg-white/70 text-accent'
+              }`}
+            >
+              {formatCurrency(product.price)}
+            </Badge>
           </div>
           
           <Button 
             size="sm"
             onClick={() => handleAddToCart(product)}
-            disabled={product.status !== 'active' || (product.stock || 0) === 0}
-            className={`w-full h-7 text-xs backdrop-blur-sm hover:scale-105 transition-all hover:shadow-lg flex items-center justify-center gap-0 ${
-              imageBrightness === 'light' 
-                ? 'bg-accent/20 hover:bg-accent/30 text-accent' 
+            disabled={(product.stock ?? 0) === 0}
+            className={`w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 ${
+              productBrightness === 'light' 
+                ? 'bg-white/20 hover:bg-white/80 text-accent' 
                 : 'bg-white/50 hover:bg-white text-black'
             }`}
           >
-            <ShoppingCart className="w-4 h-4" />
-            <span className="leading-none ml-1">Add</span>
+            <img src="/images/logo3.png" alt="Add" className="w-6 sm:w-7 md:w-8 h-6 sm:h-7 md:h-8 -mt-1 sm:-mt-2" />
+            <span className="leading-none hidden sm:inline">Add</span>
           </Button>
         </div>
       </Card>
@@ -331,150 +370,140 @@ export default function AllProductsPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <style jsx global>{`
+        @keyframes slideOutRight {
+          from {
+            transform: translateX(0);
+            opacity: 1;
+          }
+          to {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+        }
+
+        .page-slide-transition {
+          animation: slideOutRight 0.6s ease-in-out forwards;
+        }
+      `}</style>
+
       <Header />
-      
-      <main className="flex-1 container mx-auto px-4 py-8">
-        {/* Header with Liquid Glass Effect */}
-        <div className="flex flex-col md:flex-row items-center md:items-center justify-center md:justify-between gap-4 mb-8 p-6 md:p-8 bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 shadow-xl shadow-accent/5 hover:shadow-2xl hover:shadow-accent/10 transition-all duration-300">
-          <div>
-            <h1 className="text-5xl md:text-7xl font-black tracking-wider uppercase mb-2" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif' }}>
-              <span className="drop-shadow-[0_2px_2px_oklch(0.35_0.15_15/0.5)]" style={{WebkitTextFillColor: 'white', WebkitTextStroke: '1px oklch(0.35 0.15 15)', color: 'white'}}>ALL PRODUCTS</span>
-            </h1>
-            <p className="text-muted-foreground text-lg">Browse products from all stores in one place</p>
-          </div>
-          
-          {/* Category Filter */}
-          <div className="flex flex-col md:flex-row items-center gap-3 p-4 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-lg shadow-white/5 hover:shadow-xl hover:shadow-white/10 transition-all duration-300">
-            <span className="text-sm font-black uppercase tracking-wider text-muted-foreground" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif' }}>Category:</span>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-full md:w-[180px] border-2 border-accent/20 hover:border-accent/40 transition-colors">
-                <SelectValue placeholder="All Categories" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((category) => (
-                  <SelectItem key={category.id} value={category.id}>
-                    {category.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {selectedCategory !== "all" && (
+
+      <div className={isTransitioning ? 'page-slide-transition' : ''}>
+        <main className="flex-1 container mx-auto px-4 py-8">
+          {/* Combined Glass Pane: Back Button, Header, and Filters */}
+          <div className="mb-8 p-6 md:p-8 bg-gradient-to-br from-accent/5 via-accent/15 to-accent/50 backdrop-blur-2xl rounded-3xl border border-accent/30 shadow-2xl shadow-accent/20 hover:shadow-3xl hover:shadow-accent/30 transition-all duration-500">
+            
+            {/* Back to Stores Button */}
+            <div className="mb-6">
               <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedCategory("all")}
-                className="text-xs hover:text-accent hover:bg-accent/10 transition-all"
+                onClick={handleBackToStores}
+                variant="outline"
+                className="border-accent/50 bg-accent/10 hover:bg-accent text-white hover:text-white transition-all backdrop-blur-sm shadow-lg hover:shadow-xl"
               >
-                Clear
+                <ArrowLeft className="w-4 h-4 mr-2 text-white" />
+                Back to Stores
               </Button>
-            )}
+            </div>
+
+            {/* Header Section */}
+            <div className="flex flex-col md:flex-row items-center md:items-center justify-center md:justify-between gap-4 mb-8">
+              <div className="text-center md:text-left">
+                <h1 className="text-3xl md:text-4xl lg:text-5xl font-white text-white mb-2 drop-shadow-lg" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif' }}>
+                  ALL PRODUCTS
+                </h1>
+                <p className="text-base md:text-lg text-white font-medium drop-shadow-sm">
+                  Discover amazing products from all our vendors
+                </p>
+              </div>
+              <div className="flex items-center gap-4 text-sm md:text-base">
+                <div className="bg-accent/20 backdrop-blur-sm px-4 py-2 rounded-full border border-accent/40 shadow-lg">
+                  <span className="font-bold text-white drop-shadow-sm">{filteredProducts.length}</span>
+                  <span className="text-white ml-1">Products</span>
+                </div>
+                <Button
+                  onClick={handleRefresh}
+                  variant="outline"
+                  size="sm"
+                  disabled={refreshing}
+                  className="border-accent/50 bg-accent/10  hover:bg-accent hover:text-white transition-all backdrop-blur-sm shadow-lg hover:shadow-xl"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
+            </div>
+
+            {/* Search and Filters */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-accent/60" />
+                <Input
+                  placeholder="Search products..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 bg-accent/5 border-accent/30 focus:border-accent/50 backdrop-blur-sm"
+                />
+              </div>
+              
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="bg-accent/5 border-accent/30 focus:border-accent/50 backdrop-blur-sm">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {defaultCategories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={priceRange} onValueChange={setPriceRange}>
+                <SelectTrigger className="bg-accent/5 border-accent/30 focus:border-accent/50 backdrop-blur-sm">
+                  <SelectValue placeholder="Price Range" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Prices</SelectItem>
+                  <SelectItem value="0-5000">₦0 - ₦5,000</SelectItem>
+                  <SelectItem value="5000-20000">₦5,000 - ₦20,000</SelectItem>
+                  <SelectItem value="20000-100000">₦20,000 - ₦100,000</SelectItem>
+                  <SelectItem value="100000+">₦100,000+</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="bg-accent/5 border-accent/30 focus:border-accent/50 backdrop-blur-sm">
+                  <SelectValue placeholder="Sort By" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="featured">Featured First</SelectItem>
+                  <SelectItem value="name">Name A-Z</SelectItem>
+                  <SelectItem value="price-low">Price: Low to High</SelectItem>
+                  <SelectItem value="price-high">Price: High to Low</SelectItem>
+                  <SelectItem value="newest">Newest First</SelectItem>
+                  <SelectItem value="popular">Most Popular</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        </div>
 
-        {/* Search and Sort */}
-        <div className="flex flex-col gap-4 mb-8">
-          <div className="flex-1 relative group">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5 group-focus-within:text-primary transition-colors" />
-            <Input
-              type="text"
-              placeholder="Search products by name, category, vendor, or description..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-12 border-2 focus:border-primary transition-colors w-full"
-            />
-          </div>
-          
-          <div className="flex flex-col sm:flex-row gap-2 sm:flex-wrap justify-center sm:justify-start">
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-full sm:w-40">
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="featured">Featured</SelectItem>
-                <SelectItem value="name">Name A-Z</SelectItem>
-                <SelectItem value="price-low">Price: Low to High</SelectItem>
-                <SelectItem value="price-high">Price: High to Low</SelectItem>
-                <SelectItem value="popular">Most Popular</SelectItem>
-                <SelectItem value="newest">Newest</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={priceRange} onValueChange={setPriceRange}>
-              <SelectTrigger className="w-full sm:w-40">
-                <SelectValue placeholder="Price Range" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Prices</SelectItem>
-                <SelectItem value="0-5000">₦0 - ₦5,000</SelectItem>
-                <SelectItem value="5000-20000">₦5,000 - ₦20,000</SelectItem>
-                <SelectItem value="20000-100000">₦20,000 - ₦100,000</SelectItem>
-                <SelectItem value="100000+">₦100,000+</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="hover:scale-110 hover:bg-accent/10 transition-all w-full xs:w-auto"
-            >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-            </Button>
-          </div>
-        </div>
-
-        {/* Results Count */}
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <p className="text-sm text-muted-foreground">
-            {loading ? "Loading products..." : `Showing ${sortedProducts.length} product${sortedProducts.length !== 1 ? 's' : ''}`}
-          </p>
-          {(selectedCategory !== "all" || priceRange !== "all") && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSelectedCategory("all")
-                setPriceRange("all")
-              }}
-              className="text-xs hover:text-accent hover:bg-accent/10 transition-all w-fit"
-            >
-              Clear All Filters
-            </Button>
-          )}
-        </div>
-
-        {/* Products Display */}
+        {/* Products Grid */}
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6">
-            {[...Array(10)].map((_, i) => (
-              <Card key={i} className="border-0 shadow-md overflow-hidden relative h-[350px] sm:h-[450px] rounded-3xl">
-                <Skeleton className="w-full h-full rounded-3xl" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[...Array(8)].map((_, i) => (
+              <Card key={i} className="border-0 shadow-lg overflow-hidden">
+                <Skeleton className="w-full h-[200px] sm:h-[250px]" />
+                <CardContent className="p-4">
+                  <Skeleton className="h-6 w-3/4 mb-2" />
+                  <Skeleton className="h-4 w-1/2 mb-4" />
+                  <Skeleton className="h-8 w-full" />
+                </CardContent>
               </Card>
             ))}
           </div>
-        ) : selectedCategory === "all" && sortedProducts.length > 0 ? (
-          // Display by category
-          <div className="space-y-12">
-            {Object.entries(productsByCategory).map(([category, categoryProducts]) => (
-              <div key={category} className="animate-in fade-in duration-500">
-                <h2 className="text-3xl md:text-4xl font-black tracking-wider uppercase mb-6" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif' }}>
-                  <span className="text-accent">
-                    {categories.find(c => c.id === category)?.name || category}
-                  </span>
-                  <span className="text-muted-foreground ml-3">({categoryProducts.length})</span>
-                </h2>
-                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6">
-                  {categoryProducts.map((product) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : sortedProducts.length > 0 ? (
-          // Display filtered results
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6 animate-in fade-in duration-500">
+        ) : filteredProducts.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6">
             {sortedProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
@@ -482,11 +511,11 @@ export default function AllProductsPage() {
         ) : (
           <div className="text-center py-24" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif' }}>
             <div className="inline-flex p-8 bg-linear-to-br from-accent/20 to-orange-500/20 rounded-full mb-8 border-4 border-accent/20 shadow-2xl shadow-accent/20 animate-pulse">
-              <Package className="h-24 w-24 text-accent" />
+              <Package className="h-16 w-16 text-accent" />
             </div>
-            <h3 className="text-5xl font-black mb-4 tracking-wider uppercase">NO PRODUCTS FOUND</h3>
-            <p className="text-muted-foreground text-xl font-bold mb-8 max-w-md mx-auto uppercase tracking-wide">
-              TRY DIFFERENT FILTERS OR SEARCH TERMS
+            <h2 className="text-4xl md:text-5xl font-black text-accent mb-4">NO PRODUCTS FOUND</h2>
+            <p className="text-lg text-gray-600 mb-8 max-w-md mx-auto leading-relaxed">
+              We couldn't find any products matching your search criteria. Try adjusting your filters or search terms.
             </p>
             <Button onClick={handleRefresh} size="lg" className="bg-linear-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-black text-xl px-8 py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all uppercase tracking-wider">
               <RefreshCw className="h-5 w-5 mr-2" />
@@ -495,6 +524,7 @@ export default function AllProductsPage() {
           </div>
         )}
       </main>
+      </div>
 
       <ProductQuickView 
         product={quickViewProduct as any}

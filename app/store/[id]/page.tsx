@@ -770,15 +770,23 @@ export default function StorePage() {
                         <Badge
                           variant="outline"
                           role="button"
-                          className={`inline-flex max-w-[80%] truncate text-[11px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow cursor-pointer hover:opacity-90 transition ${
+                          className={`inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow cursor-pointer hover:opacity-90 transition min-h-[20px] sm:min-h-[24px] items-center justify-center text-center leading-tight ${
                             imageBrightness[product.id] === 'light' ? 'bg-accent text-white' : 'bg-accent text-white'
                           }`}
                           onClick={() => {
                             setSelectedProduct(product)
                             setQuickViewOpen(true)
                           }}
+                          style={{
+                            whiteSpace: 'normal',
+                            wordBreak: 'break-word',
+                            hyphens: 'auto',
+                            lineHeight: '1.2'
+                          }}
                         >
-                          {product.title || (product as any).name}
+                          <span className="line-clamp-2 sm:line-clamp-1">
+                            {product.title || (product as any).name}
+                          </span>
                         </Badge>
                         
                         <div className="flex items-center justify-between gap-1 sm:gap-2">
