@@ -498,39 +498,39 @@ class EmailService {
     const emailHtml = `
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
         <!-- Header -->
-        <div style="text-align: center; margin-bottom: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px;">
+        <div style="text-align: center; margin-bottom: 30px; padding: 20px; background: linear-gradient(135deg, oklch(0.35 0.15 15) 0%, oklch(0.45 0.18 20) 100%); border-radius: 10px;">
           <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700;">📧 Verify Your Email</h1>
           <p style="color: white; margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Complete your account setup</p>
         </div>
 
         <!-- Welcome Message -->
         <div style="text-align: center; margin-bottom: 30px;">
-          <h2 style="color: #333; margin: 0 0 10px 0; font-size: 24px;">Welcome to Make It Sell, ${name}!</h2>
-          <p style="color: #666; margin: 0; font-size: 16px; line-height: 1.5;">
+          <h2 style="color: oklch(0.295 0.014 258.338); margin: 0 0 10px 0; font-size: 24px;">Welcome to Make It Sell, ${name}!</h2>
+          <p style="color: oklch(0.631 0 0); margin: 0; font-size: 16px; line-height: 1.5;">
             Thanks for joining our marketplace! To get started, please verify your email address.
           </p>
         </div>
 
         <!-- Verification Instructions -->
-        <div style="background-color: #f8f9fa; padding: 25px; border-radius: 10px; margin-bottom: 25px;">
-          <h3 style="color: #333; margin: 0 0 15px 0; font-size: 18px;">Just one more step...</h3>
-          <p style="color: #666; margin: 0 0 20px 0; line-height: 1.6;">
+        <div style="background-color: oklch(0.976 0 0); padding: 25px; border-radius: 10px; margin-bottom: 25px; border: 1px solid oklch(0.898 0 0);">
+          <h3 style="color: oklch(0.295 0.014 258.338); margin: 0 0 15px 0; font-size: 18px;">Just one more step...</h3>
+          <p style="color: oklch(0.631 0 0); margin: 0 0 20px 0; line-height: 1.6;">
             Click the button below to verify your email address and activate your account. 
             This link will expire in 24 hours for security reasons.
           </p>
           
           <div style="text-align: center; margin: 25px 0;">
             <a href="${verificationUrl}" 
-               style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 15px 30px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);">
+               style="display: inline-block; background: linear-gradient(135deg, oklch(0.35 0.15 15) 0%, oklch(0.45 0.18 20) 100%); color: white; text-decoration: none; padding: 15px 30px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px oklch(0.35 0.15 15 / 0.3);">
               ✅ Verify My Email
             </a>
           </div>
         </div>
 
         <!-- Benefits -->
-        <div style="background-color: #e8f5e8; padding: 20px; border-radius: 10px; border-left: 4px solid #28a745; margin-bottom: 25px;">
-          <h3 style="color: #155724; margin: 0 0 15px 0; font-size: 16px;">🎉 Once verified, you can:</h3>
-          <ul style="color: #155724; margin: 0; padding-left: 20px; line-height: 1.6;">
+        <div style="background-color: oklch(0.35 0.15 15 / 0.05); padding: 20px; border-radius: 10px; border-left: 4px solid oklch(0.35 0.15 15); margin-bottom: 25px;">
+          <h3 style="color: oklch(0.295 0.014 258.338); margin: 0 0 15px 0; font-size: 16px;">🎉 Once verified, you can:</h3>
+          <ul style="color: oklch(0.295 0.014 258.338); margin: 0; padding-left: 20px; line-height: 1.6;">
             <li>Browse and purchase thousands of products</li>
             <li>Create your own store and start selling</li>
             <li>Access exclusive deals and promotions</li>
@@ -540,30 +540,30 @@ class EmailService {
         </div>
 
         <!-- Alternative Link -->
-        <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107; margin-bottom: 25px;">
-          <p style="color: #856404; margin: 0 0 10px 0; font-weight: 600; font-size: 14px;">
+        <div style="background-color: oklch(0.35 0.15 15 / 0.08); padding: 15px; border-radius: 8px; border-left: 4px solid oklch(0.35 0.15 15); margin-bottom: 25px;">
+          <p style="color: oklch(0.295 0.014 258.338); margin: 0 0 10px 0; font-weight: 600; font-size: 14px;">
             🔗 Can't click the button?
           </p>
-          <p style="color: #856404; margin: 0; font-size: 14px; line-height: 1.5;">
+          <p style="color: oklch(0.295 0.014 258.338); margin: 0; font-size: 14px; line-height: 1.5;">
             Copy and paste this link into your browser:<br>
-            <span style="word-break: break-all; font-family: monospace; background: rgba(0,0,0,0.1); padding: 2px 4px; border-radius: 3px;">
+            <span style="word-break: break-all; font-family: monospace; background: oklch(0.898 0 0); padding: 2px 4px; border-radius: 3px;">
               ${verificationUrl}
             </span>
           </p>
         </div>
 
         <!-- Support -->
-        <div style="text-align: center; color: #666; font-size: 14px; padding-top: 20px; border-top: 1px solid #eee;">
+        <div style="text-align: center; color: oklch(0.631 0 0); font-size: 14px; padding-top: 20px; border-top: 1px solid oklch(0.898 0 0);">
           <p style="margin: 0 0 10px 0;">
             Having trouble? We're here to help!
           </p>
           <p style="margin: 0;">
-            Contact us at <a href="mailto:support@makeitsell.com" style="color: #667eea; text-decoration: none;">support@makeitsell.com</a>
+            Contact us at <a href="mailto:support@makeitsell.com" style="color: oklch(0.35 0.15 15); text-decoration: none; font-weight: 600;">support@makeitsell.com</a>
           </p>
         </div>
 
         <!-- Footer -->
-        <div style="text-align: center; color: #999; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+        <div style="text-align: center; color: oklch(0.631 0 0); font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid oklch(0.898 0 0);">
           <p style="margin: 0;">
             This email was sent to ${email}. If you didn't create an account, you can safely ignore this email.
           </p>

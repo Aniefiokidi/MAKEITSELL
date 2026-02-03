@@ -19,6 +19,7 @@ import Link from "next/link"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
 import ProtectedRoute from "@/components/auth/ProtectedRoute"
+import DeliveryEstimator from "@/components/checkout/DeliveryEstimator"
 
 export default function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCart()
@@ -27,6 +28,7 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [paymentMethod] = useState("paystack") // Default to Paystack for Nigerian marketplace
+  const [deliveryCost, setDeliveryCost] = useState(0)
 
   const [shippingInfo, setShippingInfo] = useState({
     firstName: "",
@@ -44,12 +46,9 @@ export default function CheckoutPage() {
     setShippingInfo((prev) => ({ ...prev, [field]: value }))
   }
 
-  // Calculate tax based on subtotal tiers
+  // Calculate tax as 7% of subtotal
   const calculateTax = (amount: number) => {
-    if (amount >= 50000) return 1500
-    if (amount >= 10000) return 1000
-    if (amount >= 2000) return 500
-    return 0
+    return Math.round(amount * 0.07) // 7% tax
   }
 
   // Format currency with commas
@@ -59,7 +58,7 @@ export default function CheckoutPage() {
 
   const subtotal = totalPrice
   const tax = calculateTax(subtotal)
-  const shipping = 0 // Free shipping
+  const shipping = deliveryCost // Use calculated delivery cost
   const total = subtotal + tax + shipping
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -328,6 +327,18 @@ export default function CheckoutPage() {
                     </CardContent>
                   </Card>
 
+                  {/* Delivery Estimation */}
+                  <DeliveryEstimator
+                    customerAddress={{
+                      address: shippingInfo.address,
+                      city: shippingInfo.city,
+                      state: shippingInfo.state,
+                      country: shippingInfo.country
+                    }}
+                    onDeliveryCostUpdate={setDeliveryCost}
+                    disabled={loading}
+                  />
+
                   {/* Payment Information */}
                   <Card>
                     <CardHeader>
@@ -384,13 +395,15 @@ export default function CheckoutPage() {
                         </div>
                         <div className="flex justify-between">
                           <span>Shipping</span>
-                          <span className="text-muted-foreground">TBD</span>
+                          <span>{deliveryCost > 0 ? `₦${formatCurrency(deliveryCost)}` : '₦0'}</span>
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          *Rider will call to arrange dispatch fee
-                        </div>
+                        {deliveryCost === 0 && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Enter address to calculate delivery
+                          </div>
+                        )}
                         <div className="flex justify-between">
-                          <span>Tax</span>
+                          <span>VAT </span>
                           <span>₦{formatCurrency(tax)}</span>
                         </div>
                       </div>
@@ -402,9 +415,11 @@ export default function CheckoutPage() {
                           <span>Total</span>
                           <span>₦{formatCurrency(total)}</span>
                         </div>
-                        <div className="text-xs text-muted-foreground text-right">
-                          *Total excluding shipping fee
-                        </div>
+                        {deliveryCost === 0 && (
+                          <div className="text-xs text-muted-foreground text-right">
+                            *Delivery cost not yet calculated
+                          </div>
+                        )}
                       </div>
 
                       <div className="pt-4">

@@ -17,7 +17,7 @@ export default function OverseerDashboardPage() {
 
   useEffect(() => {
     if (!user) return
-    if ((user.email || '').toLowerCase() !== 'makeitsell@gmail.com') {
+    if ((user.email || '').toLowerCase() !== 'noreply@makeitsell.org') {
       if (typeof window !== 'undefined') window.location.href = '/unauthorized'
       return
     }

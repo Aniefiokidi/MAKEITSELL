@@ -17,7 +17,7 @@ async function createOverseerAccount() {
     const db = mongoose.connection.db;
     const usersCollection = db.collection('users');
 
-    const email = 'makeitsell@gmail.com';
+    const email = 'noreply@makeitsell.org';
     const password = '123456';
     const passwordHash = hashPassword(password);
     const sessionToken = crypto.randomBytes(32).toString('hex');
@@ -35,6 +35,7 @@ async function createOverseerAccount() {
             name: 'Overseer',
             displayName: 'Make It Sell Overseer',
             sessionToken,
+            isEmailVerified: true,
             updatedAt: new Date()
           }
         }
@@ -49,6 +50,7 @@ async function createOverseerAccount() {
         name: 'Overseer',
         displayName: 'Make It Sell Overseer',
         sessionToken,
+        isEmailVerified: true,
         createdAt: new Date(),
         updatedAt: new Date()
       });
