@@ -11,8 +11,14 @@ export async function signUp({ email, password, name, role, vendorInfo }: { emai
   await connectToDatabase();
   const existing = await User.findOne({ email });
   if (existing) throw new Error('Email already in use');
+  
   const passwordHash = hashPassword(password);
   const sessionToken = crypto.randomBytes(32).toString('hex');
+  
+  // Generate email verification token
+  const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+  const emailVerificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  
   const user = await User.create({
     email,
     passwordHash,
@@ -20,7 +26,28 @@ export async function signUp({ email, password, name, role, vendorInfo }: { emai
     role: role || 'customer',
     vendorInfo,
     sessionToken,
+    isEmailVerified: false,
+    emailVerificationToken,
+    emailVerificationTokenExpiry,
   });
+
+  // Send verification email
+  try {
+    const { emailService } = require('./email');
+    const verificationUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/verify-email?token=${emailVerificationToken}`;
+    
+    await emailService.sendEmailVerification({
+      email: user.email,
+      name: user.name || 'User',
+      verificationUrl
+    });
+    
+    console.log(`[auth.signUp] Verification email sent to: ${user.email}`);
+  } catch (emailError) {
+    console.error('[auth.signUp] Failed to send verification email:', emailError);
+    // Don't fail signup if email fails - user can request resend
+  }
+
   return { success: true, user: { id: user._id, email: user.email, name: user.name, role: user.role }, sessionToken };
 }
 
@@ -29,6 +56,18 @@ export async function signIn({ email, password }: { email: string, password: str
   const user = await User.findOne({ email });
   console.log('[auth.signIn] User found:', user ? 'YES' : 'NO');
   if (!user) throw new Error('Invalid credentials');
+  
+  // Check email verification
+  if (!user.isEmailVerified) {
+    // Check if this is a legacy user (no verification token set)
+    if (!user.emailVerificationToken || !user.emailVerificationTokenExpiry) {
+      // This is likely a legacy user - we'll offer to send verification email
+      throw new Error('EMAIL_NOT_VERIFIED_LEGACY');
+    } else {
+      // User has been sent verification email but hasn't verified
+      throw new Error('Please verify your email address before signing in. Check your inbox for a verification email.');
+    }
+  }
   
   const inputPasswordHash = hashPassword(password);
 
@@ -66,5 +105,11 @@ export async function getUserBySessionToken(sessionToken: string) {
   const user = await User.findOne({ sessionToken });
   console.log('[auth.getUserBySessionToken] User found:', user ? 'YES' : 'NO');
   if (!user) return null;
-  return { id: user._id, email: user.email, name: user.name, role: user.role };
+  return { 
+    id: user._id, 
+    email: user.email, 
+    name: user.name, 
+    role: user.role,
+    isEmailVerified: user.isEmailVerified || false
+  };
 }

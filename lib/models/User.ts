@@ -13,6 +13,9 @@ const UserSchema = new Schema({
   role: { type: String, default: 'customer' },
   vendorInfo: { type: Schema.Types.Mixed },
   sessionToken: { type: String },
+  isEmailVerified: { type: Boolean, default: false },
+  emailVerificationToken: { type: String },
+  emailVerificationTokenExpiry: { type: Date },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });

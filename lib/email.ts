@@ -24,14 +24,14 @@ class EmailService {
   private transporter: nodemailer.Transporter
 
   constructor() {
-    // Enhanced SMTP configuration with fallbacks
+    // Enhanced SMTP configuration with EMAIL_ variables (primary) and SMTP_ fallback
     const smtpConfig: any = {
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
+      host: process.env.EMAIL_HOST || process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.EMAIL_PORT || process.env.SMTP_PORT || '587'),
+      secure: process.env.EMAIL_PORT === '465' || process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
       auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        user: process.env.EMAIL_USER || process.env.SMTP_USER,
+        pass: process.env.EMAIL_PASS || process.env.SMTP_PASS,
       },
       // Additional options for better compatibility
       tls: {
@@ -64,19 +64,25 @@ class EmailService {
   }
 
   async sendEmail(emailData: EmailData): Promise<boolean> {
+    console.log('[emailService.sendEmail] Attempting to send email to:', emailData.to)
+    console.log('[emailService.sendEmail] Subject:', emailData.subject)
+    console.log('[emailService.sendEmail] From address:', process.env.EMAIL_FROM || `"${process.env.SMTP_FROM_NAME || 'Make It Sell'}" <${process.env.SMTP_FROM_EMAIL || process.env.EMAIL_USER}>`)
+    
     try {
-      await this.transporter.sendMail({
-        from: `"${process.env.SMTP_FROM_NAME || 'Make It Sell Marketplace'}" <${process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER}>`,
+      const result = await this.transporter.sendMail({
+        from: process.env.EMAIL_FROM || `"${process.env.SMTP_FROM_NAME || 'Make It Sell'}" <${process.env.SMTP_FROM_EMAIL || process.env.EMAIL_USER}>`,
         to: emailData.to,
         subject: emailData.subject,
         html: emailData.html,
         attachments: emailData.attachments,
       })
       
-      console.log('Email sent successfully to:', emailData.to)
+      console.log('[emailService.sendEmail] Email sent successfully to:', emailData.to)
+      console.log('[emailService.sendEmail] Message ID:', result.messageId)
       return true
     } catch (error) {
-      console.error('Email sending failed:', error)
+      console.error('[emailService.sendEmail] Email sending failed for:', emailData.to)
+      console.error('[emailService.sendEmail] Error details:', error)
       return false
     }
   }
@@ -308,7 +314,7 @@ class EmailService {
                style="background: #667eea; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 600; margin-right: 10px;">
               Contact Support
             </a>
-            <a href="${process.env.NEXT_PUBLIC_APP_URL}/orders" 
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/order?orderId=${orderData.orderId}" 
                style="background: white; color: #667eea; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 600; border: 2px solid #667eea;">
               Track Order
             </a>
@@ -471,6 +477,103 @@ class EmailService {
     return await this.sendEmail({
       to,
       subject,
+      html: emailHtml
+    })
+  }
+
+  async sendEmailVerification({ email, name, verificationUrl }: {
+    email: string
+    name: string
+    verificationUrl: string
+  }): Promise<boolean> {
+    console.log('[emailService] Sending verification email to:', email)
+    console.log('[emailService] Verification URL:', verificationUrl)
+    console.log('[emailService] SMTP Config:', {
+      host: process.env.EMAIL_HOST || process.env.SMTP_HOST,
+      port: process.env.EMAIL_PORT || process.env.SMTP_PORT,
+      user: process.env.EMAIL_USER || process.env.SMTP_USER,
+      from: process.env.EMAIL_FROM || `"${process.env.SMTP_FROM_NAME || 'Make It Sell'}" <${process.env.SMTP_FROM_EMAIL || process.env.EMAIL_USER}>`
+    })
+    
+    const emailHtml = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+        <!-- Header -->
+        <div style="text-align: center; margin-bottom: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px;">
+          <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700;">📧 Verify Your Email</h1>
+          <p style="color: white; margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Complete your account setup</p>
+        </div>
+
+        <!-- Welcome Message -->
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h2 style="color: #333; margin: 0 0 10px 0; font-size: 24px;">Welcome to Make It Sell, ${name}!</h2>
+          <p style="color: #666; margin: 0; font-size: 16px; line-height: 1.5;">
+            Thanks for joining our marketplace! To get started, please verify your email address.
+          </p>
+        </div>
+
+        <!-- Verification Instructions -->
+        <div style="background-color: #f8f9fa; padding: 25px; border-radius: 10px; margin-bottom: 25px;">
+          <h3 style="color: #333; margin: 0 0 15px 0; font-size: 18px;">Just one more step...</h3>
+          <p style="color: #666; margin: 0 0 20px 0; line-height: 1.6;">
+            Click the button below to verify your email address and activate your account. 
+            This link will expire in 24 hours for security reasons.
+          </p>
+          
+          <div style="text-align: center; margin: 25px 0;">
+            <a href="${verificationUrl}" 
+               style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 15px 30px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);">
+              ✅ Verify My Email
+            </a>
+          </div>
+        </div>
+
+        <!-- Benefits -->
+        <div style="background-color: #e8f5e8; padding: 20px; border-radius: 10px; border-left: 4px solid #28a745; margin-bottom: 25px;">
+          <h3 style="color: #155724; margin: 0 0 15px 0; font-size: 16px;">🎉 Once verified, you can:</h3>
+          <ul style="color: #155724; margin: 0; padding-left: 20px; line-height: 1.6;">
+            <li>Browse and purchase thousands of products</li>
+            <li>Create your own store and start selling</li>
+            <li>Access exclusive deals and promotions</li>
+            <li>Get personalized recommendations</li>
+            <li>Track your orders and manage your account</li>
+          </ul>
+        </div>
+
+        <!-- Alternative Link -->
+        <div style="background-color: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107; margin-bottom: 25px;">
+          <p style="color: #856404; margin: 0 0 10px 0; font-weight: 600; font-size: 14px;">
+            🔗 Can't click the button?
+          </p>
+          <p style="color: #856404; margin: 0; font-size: 14px; line-height: 1.5;">
+            Copy and paste this link into your browser:<br>
+            <span style="word-break: break-all; font-family: monospace; background: rgba(0,0,0,0.1); padding: 2px 4px; border-radius: 3px;">
+              ${verificationUrl}
+            </span>
+          </p>
+        </div>
+
+        <!-- Support -->
+        <div style="text-align: center; color: #666; font-size: 14px; padding-top: 20px; border-top: 1px solid #eee;">
+          <p style="margin: 0 0 10px 0;">
+            Having trouble? We're here to help!
+          </p>
+          <p style="margin: 0;">
+            Contact us at <a href="mailto:support@makeitsell.com" style="color: #667eea; text-decoration: none;">support@makeitsell.com</a>
+          </p>
+        </div>
+
+        <!-- Footer -->
+        <div style="text-align: center; color: #999; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+          <p style="margin: 0;">
+            This email was sent to ${email}. If you didn't create an account, you can safely ignore this email.
+          </p>
+        </div>
+      </div>
+    `
+
+    return await this.sendEmail({
+      to: email,
+      subject: 'Verify your email address - Make It Sell',
       html: emailHtml
     })
   }

@@ -219,20 +219,16 @@ export default function SignupForm() {
         );
         console.log("Step 1: Customer/admin account created successfully");
         // No store/service creation for customers/admins
+        
+        // Redirect to verification notice instead of logging in
+        console.log("Step 2: Redirecting to verification notice...")
+        router.push(`/signup/verify-notice?email=${encodeURIComponent(formData.email)}`)
+        return
+        return
       }
 
       console.log("Step 3: Redirecting user...")
-      // Redirect based on role
-      if (formData.role === "vendor") {
-        console.log("Redirecting to vendor dashboard...")
-        router.push("/vendor/dashboard")
-      } else if (formData.role === "admin") {
-        console.log("Redirecting to admin dashboard...")
-        router.push("/admin/dashboard")
-      } else {
-        console.log("Redirecting to home...")
-        router.push("/")
-      }
+      // This should not be reached anymore for customers
       console.log("=== SIGNUP FORM SUBMIT COMPLETED ===")
     } catch (error: any) {
       console.error("=== SIGNUP FORM ERROR ===", error)

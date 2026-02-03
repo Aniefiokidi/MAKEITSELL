@@ -19,9 +19,42 @@ export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [resendLoading, setResendLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const { login } = useAuth() // Add auth context hook
+  
+  const verified = searchParams.get("verified")
+  const showVerifiedMessage = verified === "true"
+  const isEmailVerificationError = error.includes("verify your email")
+  const isLegacyUserError = error === "EMAIL_NOT_VERIFIED_LEGACY"
+
+  const resendVerificationEmail = async () => {
+    if (!email) {
+      alert("Please enter your email address first")
+      return
+    }
+
+    setResendLoading(true)
+    try {
+      const response = await fetch("/api/auth/verify-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email })
+      })
+      const result = await response.json()
+
+      if (result.success) {
+        alert("Verification email sent! Please check your inbox.")
+      } else {
+        alert(result.error || "Failed to send verification email")
+      }
+    } catch (error) {
+      alert("An error occurred while sending the email")
+    } finally {
+      setResendLoading(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -52,7 +85,30 @@ export default function LoginForm() {
       }
     } catch (error: any) {
       console.error('Login error:', error)
-      setError(error.message || "Failed to sign in. Please check your credentials.")
+      
+      // Handle legacy users automatically
+      if (error.message === 'EMAIL_NOT_VERIFIED_LEGACY') {
+        console.log('Legacy user detected, sending verification email...')
+        try {
+          const response = await fetch("/api/auth/verify-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email })
+          })
+          const result = await response.json()
+          
+          if (result.success) {
+            setError(`We've sent a verification email to ${email}. Please check your inbox and click the verification link to complete your account setup.`)
+          } else {
+            setError('Your account needs email verification. Please contact support for assistance.')
+          }
+        } catch (emailError) {
+          console.error('Failed to send verification email:', emailError)
+          setError('Your account needs email verification. Please contact support for assistance.')
+        }
+      } else {
+        setError(error.message || "Failed to sign in. Please check your credentials.")
+      }
     } finally {
       setLoading(false)
     }
@@ -67,9 +123,38 @@ export default function LoginForm() {
       
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
+          {showVerifiedMessage && (
+            <Alert className="border-green-200 bg-green-50">
+              <AlertDescription className="text-green-800">
+                ✅ Email verified successfully! You can now sign in to your account.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
+            <Alert variant={isLegacyUserError ? "default" : "destructive"} className={isLegacyUserError ? "border-blue-200 bg-blue-50" : ""}>
+              <AlertDescription className={isLegacyUserError ? "text-blue-800" : ""}>
+                {isLegacyUserError ? (
+                  <>
+                    <div className="font-semibold mb-2">📧 Email Verification Required</div>
+                    <div>{error}</div>
+                  </>
+                ) : error}
+                {(isEmailVerificationError && !isLegacyUserError) && (
+                  <div className="mt-2">
+                    <Button
+                      onClick={resendVerificationEmail}
+                      disabled={resendLoading}
+                      variant="outline"
+                      size="sm"
+                      className="w-full mt-2"
+                    >
+                      {resendLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {resendLoading ? "Sending..." : "Resend Verification Email"}
+                    </Button>
+                  </div>
+                )}
+              </AlertDescription>
             </Alert>
           )}
 
