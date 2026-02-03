@@ -94,7 +94,8 @@ export async function POST(request: NextRequest) {
 
     // Send verification email
     const { emailService } = require('@/lib/email')
-    const verificationUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/verify-email?token=${verificationToken}`
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
+    const verificationUrl = `${baseUrl}/verify-email?token=${verificationToken}`
     
     const emailSent = await emailService.sendEmailVerification({
       email: user.email,
