@@ -133,7 +133,8 @@ export default function AllProductsPage() {
       (product.category || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       (product.vendorName || "").toLowerCase().includes(searchQuery.toLowerCase())
     
-    const matchesCategory = selectedCategory === "all" || product.category === selectedCategory
+    const matchesCategory = selectedCategory === "all" || 
+      (product.category || "").toLowerCase() === selectedCategory.toLowerCase()
     
     let matchesPrice = true
     if (priceRange !== "all") {
@@ -175,12 +176,108 @@ export default function AllProductsPage() {
     return acc
   }, {} as ProductsByCategory)
 
+  // Image Cycler Component for Product Cards
+  const ImageCycler = ({ product }: { product: Product }) => {
+    const [currentImageIndex, setCurrentImageIndex] = useState(0)
+    const [isHovered, setIsHovered] = useState(false)
+    const intervalRef = React.useRef<NodeJS.Timeout | null>(null)
+    const isElectronics = product.category?.toLowerCase().includes('electronics')
+
+    // Handle hover start
+    const handleMouseEnter = () => {
+      setIsHovered(true)
+      if (product.images && product.images.length > 1) {
+        intervalRef.current = setInterval(() => {
+          setCurrentImageIndex((prevIndex) => {
+            return prevIndex + 1 >= product.images.length ? 0 : prevIndex + 1
+          })
+        }, 1000)
+      }
+    }
+
+    // Handle hover end
+    const handleMouseLeave = () => {
+      setIsHovered(false)
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+      setCurrentImageIndex(0) // Reset to first image
+    }
+
+    // Cleanup on unmount
+    useEffect(() => {
+      return () => {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current)
+        }
+      }
+    }, [])
+
+    if (!product.images || product.images.length === 0) {
+      return (
+        <div 
+          className="absolute inset-0 w-full h-full"
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+          <img
+            src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"
+            alt={(product.title || product.name || 'Product') as string}
+            className={`absolute inset-0 w-full h-full ${
+              isElectronics ? 'object-contain bg-white' : 'object-cover'
+            } group-hover:scale-110 transition-transform duration-500 ${(product.stock ?? 0) === 0 ? 'grayscale' : ''}`}
+          />
+        </div>
+      )
+    }
+
+    return (
+      <div 
+        className="absolute inset-0 w-full h-full"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        {/* Show only one image at a time with multiple layers for fade effect */}
+        {product.images.map((image, index) => (
+          <img
+            key={index}
+            src={image || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"}
+            alt={(product.title || product.name || 'Product') as string}
+            className={`absolute inset-0 w-full h-full ${
+              isElectronics ? 'object-contain bg-white' : 'object-cover'
+            } group-hover:scale-110 transition-all duration-500 ${(product.stock ?? 0) === 0 ? 'grayscale' : ''} ${
+              index === currentImageIndex 
+                ? 'opacity-100' 
+                : 'opacity-0'
+            }`}
+            style={{ 
+              transitionProperty: 'opacity, transform', 
+              transitionDuration: '500ms, 500ms',
+              transitionTimingFunction: 'ease-in-out, ease-out'
+            }}
+          />
+        ))}
+        
+        {/* Debug indicator - remove after testing */}
+        {isHovered && product.images.length > 1 && (
+          <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded z-50">
+            Cycling: {currentImageIndex + 1}/{product.images.length}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const ProductCard = ({ product }: { product: Product }) => {
     const isElectronics = product.category?.toLowerCase().includes('electronics')
     const productBrightness = imageBrightness[product.id] || 'dark'
 
-    const detectImageBrightness = (imageUrl: string, productId: string) => {
+    const detectImageBrightness = React.useCallback((imageUrl: string, productId: string) => {
       if (typeof window === 'undefined') return
+      
+      // Skip if brightness already detected for this product
+      if (imageBrightness[productId]) return
       
       const img = new window.Image()
       img.crossOrigin = 'anonymous'
@@ -218,13 +315,13 @@ export default function AllProductsPage() {
         }
       }
       img.src = imageUrl
-    }
+    }, [])
 
     React.useEffect(() => {
-      if (product.images?.[0]) {
+      if (product.images?.[0] && !imageBrightness[product.id]) {
         detectImageBrightness(product.images[0], product.id)
       }
-    }, [product.images, product.id])
+    }, [product.id, detectImageBrightness])
 
     const formatCurrency = (price: number) => {
       return new Intl.NumberFormat('en-NG', {
@@ -234,20 +331,11 @@ export default function AllProductsPage() {
     }
 
     return (
-      <Card className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100">
+      <Card className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100 group">
         {/* Image Container with Group Hover */}
-        <div className="group absolute inset-0 overflow-hidden cursor-pointer" onClick={() => {
-          setQuickViewProduct(product)
-          setShowQuickView(true)
-        }}>
-          {/* Full Card Image Background */}
-          <img
-            src={product.images?.[0] || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"}
-            alt={(product.title || product.name || 'Product') as string}
-            className={`absolute inset-0 w-full h-full ${
-              isElectronics ? 'object-contain bg-white' : 'object-cover'
-            } group-hover:scale-110 transition-transform duration-500 ${(product.stock ?? 0) === 0 ? 'grayscale' : ''}`}
-          />
+        <div className="absolute inset-0 overflow-hidden">
+          {/* Full Card Image Background with Cycling Animation */}
+          <ImageCycler product={product} />
           
           {/* Out of Stock Red Tape Overlay */}
           {(product.stock ?? 0) === 0 && (
@@ -280,31 +368,18 @@ export default function AllProductsPage() {
             )}
           </div>
           
-          {/* Action Buttons - Visible on mobile */}
+          {/* Action Buttons - Like button visible on hover */}
           <div className="absolute top-2 sm:top-3 right-2 sm:right-3 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 flex gap-1 sm:gap-2">
             <Button
               size="sm"
               variant="outline"
               className="bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-110 active:scale-95 transition-all h-8 w-8 p-0 sm:h-9 sm:w-9"
-              onClick={() => {/* Add to wishlist */}}
-            >
-              <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </Button>
-          </div>
-          
-          {/* Quick View - Visible on hover or mobile */}
-          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 items-center justify-center z-20 hidden sm:flex">
-            <Button 
-              variant="outline" 
-              className="bg-white/90 backdrop-blur-sm text-black hover:bg-white hover:scale-105 active:scale-95 transition-all text-xs sm:text-sm"
               onClick={(e) => {
-                e.preventDefault()
-                setQuickViewProduct(product)
-                setShowQuickView(true)
+                e.stopPropagation()
+                /* Add to wishlist */
               }}
             >
-              <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-              Quick View
+              <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </Button>
           </div>
         </div>
@@ -317,7 +392,8 @@ export default function AllProductsPage() {
             className={`inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow cursor-pointer hover:opacity-90 transition min-h-5 sm:min-h-6 items-center justify-center text-center leading-tight ${
               productBrightness === 'light' ? 'bg-accent text-white' : 'bg-accent text-white'
             }`}
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation()
               setQuickViewProduct(product)
               setShowQuickView(true)
             }}
@@ -352,7 +428,10 @@ export default function AllProductsPage() {
           
           <Button 
             size="sm"
-            onClick={() => handleAddToCart(product)}
+            onClick={(e) => {
+              e.stopPropagation()
+              handleAddToCart(product)
+            }}
             disabled={(product.stock ?? 0) === 0}
             className={`w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 ${
               productBrightness === 'light' 
@@ -503,7 +582,7 @@ export default function AllProductsPage() {
             ))}
           </div>
         ) : filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-6">
             {sortedProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}

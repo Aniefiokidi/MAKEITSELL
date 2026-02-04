@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -20,7 +20,7 @@ const mockProducts = [
     price: 89.99,
     originalPrice: 129.99,
     category: "Electronics",
-    images: ["/wireless-headphones.png"],
+    images: ["/wireless-headphones.png", "/wireless-headphones.png", "/wireless-headphones.png"],
     vendorName: "TechStore Pro",
     rating: 4.8,
     reviews: 124,
@@ -33,7 +33,7 @@ const mockProducts = [
     price: 24.99,
     originalPrice: 34.99,
     category: "Fashion",
-    images: ["/cotton-tshirt.png"],
+    images: ["/cotton-tshirt.png", "/cotton-tshirt.png", "/cotton-tshirt.png"],
     vendorName: "EcoFashion",
     rating: 4.6,
     reviews: 89,
@@ -46,7 +46,7 @@ const mockProducts = [
     price: 149.99,
     originalPrice: 199.99,
     category: "Electronics",
-    images: ["/outdoor-security-camera.png"],
+    images: ["/outdoor-security-camera.png", "/outdoor-security-camera.png"],
     vendorName: "SecureHome",
     rating: 4.9,
     reviews: 203,
@@ -125,6 +125,72 @@ export default function FeaturedProducts() {
   const { user } = useAuth()
   const router = useRouter()
 
+  // Image Cycler Component for Product Cards
+  const ImageCycler = ({ product }: { product: any }) => {
+    const [currentImageIndex, setCurrentImageIndex] = useState(0)
+    const [isHovered, setIsHovered] = useState(false)
+
+    useEffect(() => {
+      if (!isHovered || !product.images || product.images.length <= 1) {
+        return
+      }
+
+      const interval = setInterval(() => {
+        setCurrentImageIndex((prevIndex) => {
+          return prevIndex + 1 >= product.images.length ? 0 : prevIndex + 1
+        })
+      }, 1000) // Change image every 1 second
+
+      return () => clearInterval(interval)
+    }, [isHovered, product.images])
+
+    // Reset to first image when hover ends
+    useEffect(() => {
+      if (!isHovered) {
+        setCurrentImageIndex(0)
+      }
+    }, [isHovered])
+
+    if (!product.images || product.images.length === 0) {
+      return (
+        <Image
+          src="/placeholder.svg"
+          alt={product.title}
+          fill
+          className={`object-cover group-hover:scale-110 transition-transform duration-300 ${product.stock === 0 ? 'grayscale' : ''}`}
+        />
+      )
+    }
+
+    return (
+      <div 
+        className="relative w-full h-full"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        {/* Show only one image at a time with multiple layers for fade effect */}
+        {product.images.map((image: string, index: number) => (
+          <Image
+            key={index}
+            src={image || "/placeholder.svg"}
+            alt={product.title}
+            fill
+            className={`object-cover group-hover:scale-110 transition-all duration-500 ${product.stock === 0 ? 'grayscale' : ''} ${
+              index === currentImageIndex 
+                ? 'opacity-100' 
+                : 'opacity-0'
+            }`}
+            style={{ 
+              transitionProperty: 'opacity, transform', 
+              transitionDuration: '500ms, 500ms',
+              transitionTimingFunction: 'ease-in-out, ease-out'
+            }}
+          />
+        ))}
+      </div>
+    )
+  }
+
   const addToCart = (product: any) => {
     if (!user) {
       router.push("/login")
@@ -157,12 +223,7 @@ export default function FeaturedProducts() {
           {products.map((product, index) => (
             <Card key={product.id} className={`group overflow-hidden  transition-all duration-300 animate-scale-in hover-lift ${product.stock === 0 ? 'opacity-75' : ''}`} style={{ animationDelay: `${index * 0.1}s` }}>
               <div className="relative h-60 w-full aspect-square overflow-hidden">
-                <Image
-                  src={product.images[0] || "/placeholder.svg"}
-                  alt={product.title}
-                  fill
-                  className={`object-cover group-hover:scale-110   transition-transform duration-300 ${product.stock === 0 ? 'grayscale' : ''}`}
-                />
+                <ImageCycler product={product} />
                 {product.originalPrice > product.price && product.stock > 0 && (
                   <Badge className="absolute top-3 left-3 bg-accent text-accent-foreground">
                     Save ₦{(product.originalPrice - product.price).toFixed(2)}
