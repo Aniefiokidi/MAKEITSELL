@@ -153,8 +153,8 @@ export default function ContactPage() {
                     </div>
                     <div className="min-w-0">
                       <h3 className="font-semibold text-xs sm:text-base mb-0.5 sm:mb-1">Email</h3>
-                      <p className="text-muted-foreground text-[10px] sm:text-sm truncate">support@makeitsell.com</p>
-                      <p className="text-muted-foreground text-[10px] sm:text-sm truncate">sales@makeitsell.com</p>
+                      <p className="text-muted-foreground text-[10px] sm:text-sm truncate">noreply@makeitsell.org</p>
+                      <p className="text-muted-foreground text-[10px] sm:text-sm truncate">noreply@makeitsell.org</p>
                     </div>
                   </div>
 
@@ -164,24 +164,8 @@ export default function ContactPage() {
                     </div>
                     <div className="min-w-0">
                       <h3 className="font-semibold text-xs sm:text-base mb-0.5 sm:mb-1">Phone</h3>
-                      <p className="text-muted-foreground text-[10px] sm:text-sm truncate">+234 812 9380 869</p>
-                      <p className="text-muted-foreground text-[10px] sm:text-sm truncate">+234 813 5672 143</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-2 sm:gap-4">
-                    <div className="bg-primary/10 p-2 sm:p-3 rounded-lg shrink-0">
-                      <MapPin className="w-4 h-4 sm:w-6 sm:h-6 text-black" />
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="font-semibold text-xs sm:text-base mb-0.5 sm:mb-1">Address</h3>
-                      <p className="text-muted-foreground text-[10px] sm:text-sm leading-relaxed">
-                        123 Allen Avenue
-                        <br />
-                        Ikeja Business District
-                        <br />
-                        Lagos, Nigeria 100001
-                      </p>
+                      <p className="text-muted-foreground text-[10px] sm:text-sm truncate">07055590445</p>
+                      <p className="text-muted-foreground text-[10px] sm:text-sm truncate">08025282040</p>
                     </div>
                   </div>
 
@@ -211,23 +195,25 @@ export default function ContactPage() {
                   <div>
                     <h4 className="font-semibold text-xs sm:text-base mb-1 sm:mb-2">How do I become a seller?</h4>
                     <p className="text-muted-foreground text-[10px] sm:text-sm">
-                      Visit our{" "}
-                      <a href="/become-seller" className="text-primary hover:text-accent hover:underline transition-colors">
-                        Become a Seller
-                      </a>{" "}
-                      page to get started with your seller account.
+                      Sign up for an account, then upgrade to a vendor account. You'll need to pay a monthly subscription to list products and start selling on our platform.
                     </p>
                   </div>
                   <div>
                     <h4 className="font-semibold text-xs sm:text-base mb-1 sm:mb-2">What payment methods do you accept?</h4>
                     <p className="text-muted-foreground text-[10px] sm:text-sm">
-                      We accept all major credit cards, PayPal, and bank transfers.
+                      We use Paystack for secure payments. You can pay with credit/debit cards, bank transfers, and mobile money.
                     </p>
                   </div>
                   <div>
-                    <h4 className="font-semibold text-xs sm:text-base mb-1 sm:mb-2">How can I track my order?</h4>
+                    <h4 className="font-semibold text-xs sm:text-base mb-1 sm:mb-2">How much does delivery cost?</h4>
                     <p className="text-muted-foreground text-[10px] sm:text-sm">
-                      Once your order ships, you'll receive a tracking number via email.
+                      Delivery cost is determined by the rider upon delivery. The exact fee will be communicated when your order arrives.
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-xs sm:text-base mb-1 sm:mb-2">Is there a subscription fee for sellers?</h4>
+                    <p className="text-muted-foreground text-[10px] sm:text-sm">
+                      Yes, vendors need an active monthly subscription to list products and receive orders. Contact us for current pricing.
                     </p>
                   </div>
                 </CardContent>

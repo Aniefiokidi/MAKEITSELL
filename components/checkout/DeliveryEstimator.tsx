@@ -126,7 +126,7 @@ export default function DeliveryEstimator({
             {estimate.distance > 0 && (
               <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
                 <div>
-                  <span className="font-medium">Distance:</span> {estimate.distance} km
+                  <span className="font-medium">Distance:</span> {estimate.distance} miles
                 </div>
                 {estimate.duration && (
                   <div>
@@ -137,7 +137,7 @@ export default function DeliveryEstimator({
             )}
 
             <div className="text-xs text-muted-foreground">
-              Base fare: ₦1,000 • Rate: ₦225/km
+              Rate: ₦1,000 per mile • Minimum charge: ₦500
             </div>
           </div>
         )}

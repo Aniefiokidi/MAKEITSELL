@@ -214,6 +214,33 @@ export async function GET(request: NextRequest) {
       // Don't fail the whole process if email fails
     }
 
+    // Send email verification email (separate from welcome email)
+    try {
+      // Fetch the user to get the verification token
+      const user = await db.collection('users').findOne({ 
+        _id: new (require('mongodb').ObjectId)(userId) 
+      })
+      
+      if (user && user.emailVerificationToken && !user.isEmailVerified) {
+        const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'
+        const verificationUrl = `${baseUrl}/verify-email?token=${user.emailVerificationToken}`
+        
+        const { emailService } = require('@/lib/email')
+        await emailService.sendEmailVerification({
+          email: signupData.email,
+          name: signupData.displayName || 'Vendor',
+          verificationUrl
+        })
+        
+        console.log(`[vendor-signup] Verification email sent to: ${signupData.email}`)
+      } else {
+        console.log(`[vendor-signup] User already verified or no token found for: ${signupData.email}`)
+      }
+    } catch (emailError) {
+      console.error('[vendor-signup] Failed to send verification email:', emailError)
+      // Don't fail the whole process if email verification email fails
+    }
+
     console.log('Vendor signup completed successfully for:', signupData.email)
 
     // Create a secure one-time login token

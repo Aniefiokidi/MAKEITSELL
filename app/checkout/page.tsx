@@ -19,7 +19,6 @@ import Link from "next/link"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
 import ProtectedRoute from "@/components/auth/ProtectedRoute"
-import DeliveryEstimator from "@/components/checkout/DeliveryEstimator"
 
 export default function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCart()
@@ -28,7 +27,6 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [paymentMethod] = useState("paystack") // Default to Paystack for Nigerian marketplace
-  const [deliveryCost, setDeliveryCost] = useState(0)
 
   const [shippingInfo, setShippingInfo] = useState({
     firstName: "",
@@ -46,9 +44,9 @@ export default function CheckoutPage() {
     setShippingInfo((prev) => ({ ...prev, [field]: value }))
   }
 
-  // Calculate tax as 7% of subtotal
-  const calculateTax = (amount: number) => {
-    return Math.round(amount * 0.07) // 7% tax
+  // Calculate VAT at 7% of subtotal
+  const calculateVAT = (amount: number) => {
+    return Math.round(amount * 0.07)
   }
 
   // Format currency with commas
@@ -57,9 +55,9 @@ export default function CheckoutPage() {
   }
 
   const subtotal = totalPrice
-  const tax = calculateTax(subtotal)
-  const shipping = deliveryCost // Use calculated delivery cost
-  const total = subtotal + tax + shipping
+  const vat = calculateVAT(subtotal)
+  const shipping = 0 // Free shipping
+  const total = subtotal + vat + shipping
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -121,7 +119,7 @@ export default function CheckoutPage() {
           country: shippingInfo.country
         },
         subtotal,
-        tax,
+        vat,
         shipping,
         totalAmount: total
       }
@@ -327,18 +325,6 @@ export default function CheckoutPage() {
                     </CardContent>
                   </Card>
 
-                  {/* Delivery Estimation */}
-                  <DeliveryEstimator
-                    customerAddress={{
-                      address: shippingInfo.address,
-                      city: shippingInfo.city,
-                      state: shippingInfo.state,
-                      country: shippingInfo.country
-                    }}
-                    onDeliveryCostUpdate={setDeliveryCost}
-                    disabled={loading}
-                  />
-
                   {/* Payment Information */}
                   <Card>
                     <CardHeader>
@@ -395,16 +381,14 @@ export default function CheckoutPage() {
                         </div>
                         <div className="flex justify-between">
                           <span>Shipping</span>
-                          <span>{deliveryCost > 0 ? `₦${formatCurrency(deliveryCost)}` : '₦0'}</span>
+                          <span className="text-muted-foreground">TBD</span>
                         </div>
-                        {deliveryCost === 0 && (
-                          <div className="text-xs text-muted-foreground mt-1">
-                            Enter address to calculate delivery
-                          </div>
-                        )}
+                        <div className="text-xs text-muted-foreground mt-1">
+                          *Rider will inform you of delivery cost
+                        </div>
                         <div className="flex justify-between">
-                          <span>VAT </span>
-                          <span>₦{formatCurrency(tax)}</span>
+                          <span>VAT</span>
+                          <span>₦{formatCurrency(vat)}</span>
                         </div>
                       </div>
 
@@ -415,11 +399,9 @@ export default function CheckoutPage() {
                           <span>Total</span>
                           <span>₦{formatCurrency(total)}</span>
                         </div>
-                        {deliveryCost === 0 && (
-                          <div className="text-xs text-muted-foreground text-right">
-                            *Delivery cost not yet calculated
-                          </div>
-                        )}
+                        <div className="text-xs text-muted-foreground text-right">
+                          *Excluding delivery fee (to be determined by rider)
+                        </div>
                       </div>
 
                       <div className="pt-4">

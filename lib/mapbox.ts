@@ -23,8 +23,7 @@ const MAPBOX_ACCESS_TOKEN = process.env.MAPBOX_ACCESS_TOKEN
 
 export class MapboxService {
   private baseUrl = 'https://api.mapbox.com'
-  private baseFare = 1000 // Base fare: ₦1,000
-  private deliveryRatePerKm = 225 // ₦225 per kilometer
+  private deliveryRatePerMile = 1000 // ₦1,000 per mile
 
   async geocodeAddress(address: Address): Promise<Coordinates | null> {
     if (!MAPBOX_ACCESS_TOKEN) {
@@ -78,8 +77,8 @@ export class MapboxService {
         const distanceMeters = route.distance
         const durationSeconds = route.duration
         
-        // Convert meters to kilometers
-        const distanceKm = distanceMeters / 1000
+        // Convert meters to miles
+        const distanceMiles = distanceMeters * 0.000621371
         
         // Format duration
         const hours = Math.floor(durationSeconds / 3600)
@@ -87,7 +86,7 @@ export class MapboxService {
         const duration = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`
         
         return {
-          distance: parseFloat(distanceKm.toFixed(2)),
+          distance: parseFloat(distanceMiles.toFixed(2)),
           duration
         }
       }
@@ -120,8 +119,8 @@ export class MapboxService {
         return null
       }
 
-      // Calculate cost: Base fare + (distance × rate per km)
-      const cost = this.baseFare + Math.round(distanceInfo.distance * this.deliveryRatePerKm)
+      // Calculate cost based on distance
+      const cost = Math.max(500, Math.round(distanceInfo.distance * this.deliveryRatePerMile)) // Minimum ₦500
 
       return {
         distance: distanceInfo.distance,
@@ -139,13 +138,13 @@ export class MapboxService {
     const city = customerCity.toLowerCase()
     const state = customerState.toLowerCase()
 
-    // Major cities - shorter estimated distance
+    // Major cities - cheaper delivery
     const majorCities = ['lagos', 'abuja', 'kano', 'ibadan', 'benin city', 'port harcourt']
     if (majorCities.some(major => city.includes(major))) {
-      return this.baseFare + (5 * this.deliveryRatePerKm) // ~5km estimated
+      return 1000
     }
 
-    // State capitals and large cities - medium distance
+    // State capitals and large cities
     const stateCities = [
       'abeokuta', 'umuahia', 'awka', 'bauchi', 'yenagoa', 'makurdi', 'calabar',
       'asaba', 'abakaliki', 'ado ekiti', 'enugu', 'gombe', 'owerri', 'kaduna',
@@ -154,11 +153,11 @@ export class MapboxService {
     ]
     
     if (stateCities.some(stateCity => city.includes(stateCity))) {
-      return this.baseFare + (10 * this.deliveryRatePerKm) // ~10km estimated
+      return 1500
     }
 
-    // Remote/rural areas - longer distance
-    return this.baseFare + (20 * this.deliveryRatePerKm) // ~20km estimated
+    // Remote/rural areas
+    return 2500
   }
 }
 
