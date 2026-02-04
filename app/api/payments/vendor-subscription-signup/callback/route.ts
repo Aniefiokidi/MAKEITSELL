@@ -263,7 +263,7 @@ export async function GET(request: NextRequest) {
     await db.collection('login_tokens').insertOne(tokenData)
     console.log('Login token created successfully')
 
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/signup/success?vendor=true&reference=${reference}&login_token=${reference}`)
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/signup/verify-notice?email=${encodeURIComponent(signupData.email)}&vendor=true`)
 
   } catch (error) {
     console.error('Signup callback error:', error)
