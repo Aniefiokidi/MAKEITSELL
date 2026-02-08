@@ -107,18 +107,34 @@ export default function BookingModal({ service, isOpen, onClose }: BookingModalP
 
       toast({
         title: "Booking Confirmed!",
-        description: "Your appointment has been booked successfully. The provider will confirm shortly.",
+        description: "Your appointment has been booked successfully. The provider will confirm shortly. You'll receive email confirmation.",
       })
 
       onClose()
       router.push("/appointments") // Redirect to appointments page
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating booking:", error)
-      toast({
-        title: "Booking Failed",
-        description: "Something went wrong. Please try again.",
-        variant: "destructive",
-      })
+      
+      // Handle specific error cases
+      if (error.message?.includes('time slot is already booked') || error.message?.includes('conflictingBooking')) {
+        toast({
+          title: "Time Slot Unavailable",
+          description: "This time slot is already booked. Please choose a different time.",
+          variant: "destructive",
+        })
+      } else if (error.message?.includes('Missing required fields')) {
+        toast({
+          title: "Incomplete Information",
+          description: "Please fill in all required fields and try again.",
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "Booking Failed", 
+          description: error.message || "Something went wrong. Please try again.",
+          variant: "destructive",
+        })
+      }
     } finally {
       setLoading(false)
     }

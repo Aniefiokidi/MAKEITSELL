@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,10 +9,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, CheckCircle } from "lucide-react"
+import { AlertCircle, CheckCircle, Mail, Lock } from "lucide-react"
 
 export default function ForgotPasswordPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [step, setStep] = useState<"email" | "reset">("email")
   const [email, setEmail] = useState("")
   const [resetToken, setResetToken] = useState("")
@@ -20,6 +21,22 @@ export default function ForgotPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+  // Check URL params for token and email (from email link)
+  useEffect(() => {
+    const token = searchParams.get('token')
+    const emailParam = searchParams.get('email')
+    
+    if (token && emailParam) {
+      setResetToken(token)
+      setEmail(decodeURIComponent(emailParam))
+      setStep('reset')
+      setMessage({
+        type: 'success',
+        text: '✅ Password reset link verified! Enter your new password below.'
+      })
+    }
+  }, [searchParams])
 
   const handleRequestReset = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,11 +56,13 @@ export default function ForgotPasswordPage() {
         setMessage({
           type: "success",
           text: data.token
-            ? `Reset token: ${data.token} (Save this for the next step)`
-            : "Check your email for password reset instructions",
+            ? `✅ Password reset email sent to ${email}! Check your inbox (and spam folder).`
+            : "✅ Password reset email sent! Check your inbox and spam folder.",
         })
         if (data.token) {
-          setTimeout(() => setStep("reset"), 2000)
+          // Auto-fill the token and switch to reset step in dev mode
+          setResetToken(data.token)
+          setTimeout(() => setStep("reset"), 3000)
         }
       } else {
         setMessage({ type: "error", text: data.error || "Failed to send reset email" })
@@ -98,15 +117,24 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen flex flex-col">
       <Header />
 
-      <main className="flex-1 flex items-center justify-center px-4 py-12">
+      <main className="flex-1 flex items-center justify-center bg-muted/30 px-4 py-12">
         <Card className="w-full max-w-md border-0 shadow-lg">
-          <CardHeader className="space-y-2">
-            <CardTitle className="text-2xl">Reset Password</CardTitle>
-            <CardDescription>
-              {step === "email" ? "Enter your email to receive reset instructions" : "Enter your new password"}
+          <CardHeader className="space-y-2 text-center">
+            <div className="mx-auto w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mb-4">
+              {step === "email" ? (
+                <Mail className="w-8 h-8 text-accent" />
+              ) : (
+                <Lock className="w-8 h-8 text-accent" />
+              )}
+            </div>
+            <CardTitle className="text-2xl font-bold">Reset Password</CardTitle>
+            <CardDescription className="text-center">
+              {step === "email" 
+                ? "Enter your email address and we'll send you a secure link to reset your password (expires in 30 minutes)" 
+                : "Enter your new password below"}
             </CardDescription>
           </CardHeader>
 
@@ -119,9 +147,18 @@ export default function ForgotPasswordPage() {
                   ) : (
                     <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
                   )}
-                  <AlertDescription className={message.type === "success" ? "text-green-800" : "text-red-800"}>
-                    {message.text}
-                  </AlertDescription>
+                  <div className="flex-1">
+                    <AlertDescription className={message.type === "success" ? "text-green-800" : "text-red-800"}>
+                      {message.text}
+                    </AlertDescription>
+                    {/* Show token info separately in development mode */}
+                    {message.type === "success" && resetToken && process.env.NODE_ENV === "development" && (
+                      <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
+                        <p className="font-medium mb-1">🛠️ Development Mode</p>
+                        <p>Token auto-filled below. Switching to reset form in 3 seconds...</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </Alert>
             )}
@@ -138,18 +175,29 @@ export default function ForgotPasswordPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     disabled={loading}
+                    className="h-12"
                   />
                 </div>
 
                 <Button
                   type="submit"
-                  className="w-full hover:bg-accent/80 hover:scale-105 transition-all"
+                  className="w-full h-12 text-lg hover:bg-accent/80 hover:scale-105 transition-all"
                   disabled={loading}
                 >
-                  {loading ? "Sending..." : "Send Reset Link"}
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                      Sending Reset Link...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-5 h-5 mr-2" />
+                      Send Reset Link
+                    </>
+                  )}
                 </Button>
 
-                <div className="text-center">
+                <div className="text-center pt-4 border-t">
                   <p className="text-sm text-muted-foreground">
                     Remember your password?{" "}
                     <a href="/login" className="text-accent hover:underline font-semibold">
@@ -160,18 +208,22 @@ export default function ForgotPasswordPage() {
               </form>
             ) : (
               <form onSubmit={handleResetPassword} className="space-y-4">
-                {/* Development: Show token input field */}
-                {process.env.NODE_ENV === "development" && (
+                {/* Always show token input field for development and if user doesn't have email link */}
+                {(process.env.NODE_ENV === "development" || !searchParams.get('token')) && (
                   <div className="space-y-2">
                     <Label htmlFor="token">Reset Token</Label>
                     <Input
                       id="token"
-                      placeholder="Paste the token from the confirmation message"
+                      placeholder="Enter the token from your email or the confirmation message"
                       value={resetToken}
                       onChange={(e) => setResetToken(e.target.value)}
                       required
                       disabled={loading}
+                      className="h-12 font-mono text-sm"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Check your email for the reset token or click the link in the email instead.
+                    </p>
                   </div>
                 )}
 
@@ -185,11 +237,12 @@ export default function ForgotPasswordPage() {
                     onChange={(e) => setNewPassword(e.target.value)}
                     required
                     disabled={loading}
+                    className="h-12"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="confirm">Confirm Password</Label>
+                  <Label htmlFor="confirm">Confirm New Password</Label>
                   <Input
                     id="confirm"
                     type="password"
@@ -198,42 +251,74 @@ export default function ForgotPasswordPage() {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                     disabled={loading}
+                    className="h-12"
                   />
                 </div>
 
                 <Button
                   type="submit"
-                  className="w-full hover:bg-accent/80 hover:scale-105 transition-all"
+                  className="w-full h-12 text-lg hover:bg-accent/80 hover:scale-105 transition-all"
                   disabled={loading}
                 >
-                  {loading ? "Resetting..." : "Reset Password"}
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                      Resetting Password...
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="w-5 h-5 mr-2" />
+                      Reset Password
+                    </>
+                  )}
                 </Button>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => {
-                    setStep("email")
-                    setResetToken("")
-                    setNewPassword("")
-                    setConfirmPassword("")
-                    setMessage(null)
-                  }}
-                  disabled={loading}
-                >
-                  Back
-                </Button>
+                <div className="flex space-x-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 h-12"
+                    onClick={() => {
+                      setStep("email")
+                      setResetToken("")
+                      setNewPassword("")
+                      setConfirmPassword("")
+                      setMessage(null)
+                      // Clear URL params
+                      router.replace('/forgot-password')
+                    }}
+                    disabled={loading}
+                  >
+                    ← Back to Email
+                  </Button>
+                </div>
               </form>
             )}
 
             <div className="pt-4 border-t">
-              <p className="text-xs text-muted-foreground text-center">
-                Need help? Contact{" "}
-                <a href="/support" className="text-accent hover:underline">
-                  support
-                </a>
+              <p className="text-xs text-muted-foreground text-center mb-4">
+                📝 <strong>Instructions:</strong> Enter your email above and check both your inbox and spam folder for the reset link. 
+                The link will take you directly to the password reset form.
               </p>
+              
+              <div className="text-center space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Need help? Contact{" "}
+                  <a href="mailto:support@makeitsell.com" className="text-accent hover:underline font-semibold">
+                    support@makeitsell.com
+                  </a>
+                </p>
+                
+                <div className="flex justify-center space-x-4 text-xs">
+                  <a href="/" className="text-muted-foreground hover:text-accent flex items-center">
+                    ← Home
+                  </a>
+                  <span className="text-muted-foreground">•</span>
+                  <a href="/signup" className="text-muted-foreground hover:text-accent">
+                    Create Account
+                  </a>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>

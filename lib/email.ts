@@ -481,6 +481,134 @@ class EmailService {
     })
   }
 
+  async sendPasswordResetEmail({ email, name, resetUrl, resetToken }: {
+    email: string
+    name: string
+    resetUrl: string
+    resetToken: string
+  }): Promise<boolean> {
+    console.log('[emailService] Sending password reset email to:', email)
+    console.log('[emailService] Reset URL:', resetUrl)
+    
+    const emailHtml = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 650px; margin: 0 auto; padding: 0; background-color: #ffffff; border-radius: 12px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);">
+        <!-- Header with Logo -->
+        <div style="text-align: center; padding: 40px 20px; background: linear-gradient(135deg, oklch(0.35 0.15 15) 0%, oklch(0.45 0.18 20) 100%); border-radius: 12px 12px 0 0; position: relative; overflow: hidden;">
+          <div style="position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%); animation: float 6s ease-in-out infinite;"></div>
+          <div style="position: relative; z-index: 1;">
+            <img src="https://makeitsell.org/images/logo (2).png" alt="Make It Sell Logo" style="height: 60px; width: auto; margin-bottom: 20px; filter: brightness(0) invert(1);" />
+            <h1 style="color: white; margin: 0 0 10px 0; font-size: 32px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">🔑 Password Reset</h1>
+            <p style="color: rgba(255, 255, 255, 0.95); margin: 0; font-size: 16px; line-height: 1.5; font-weight: 400;">
+              Secure access to your Make It Sell account
+            </p>
+          </div>
+        </div>
+
+        <!-- Main Content -->
+        <div style="padding: 40px 30px;">
+          <!-- Personalized Greeting -->
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h2 style="color: #1a1a1a; margin: 0 0 10px 0; font-size: 26px; font-weight: 700;">Hello ${name}! 👋</h2>
+            <p style="color: #666666; margin: 0; font-size: 16px; line-height: 1.6;">
+              We received a request to reset your password. No worries - we've got you covered!
+            </p>
+          </div>
+
+          <!-- Reset Instructions Card -->
+          <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); padding: 30px; border-radius: 16px; margin-bottom: 30px; border: 1px solid #e2e8f0; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);">
+            <h3 style="color: #1a1a1a; margin: 0 0 15px 0; font-size: 20px; font-weight: 700; display: flex; align-items: center;">
+              🚀 Quick Reset Instructions
+            </h3>
+            <p style="color: #4a5568; margin: 0 0 20px 0; line-height: 1.7; font-size: 15px;">
+              Click the button below to securely reset your password. This link will expire in <strong style="color: oklch(0.35 0.15 15);">30 minutes</strong> for your security.
+            </p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${resetUrl}" 
+                 style="display: inline-block; background: linear-gradient(135deg, oklch(0.35 0.15 15) 0%, oklch(0.45 0.18 20) 100%); color: white; text-decoration: none; padding: 16px 32px; border-radius: 12px; font-weight: 700; font-size: 16px; box-shadow: 0 8px 24px oklch(0.35 0.15 15 / 0.4); transform: translateY(0); transition: all 0.3s ease;">
+                🔑 Reset My Password Now
+              </a>
+            </div>
+          </div>
+
+          <!-- Security Information -->
+          <div style="background: linear-gradient(135deg, #fef7f0 0%, #fdeee4 100%); padding: 25px; border-radius: 12px; border-left: 5px solid #f97316; margin-bottom: 25px;">
+            <h3 style="color: #9a3412; margin: 0 0 12px 0; font-size: 16px; font-weight: 700; display: flex; align-items: center;">
+              🛡️ Security Notice
+            </h3>
+            <ul style="color: #9a3412; margin: 0; padding-left: 0; list-style: none; line-height: 1.7;">
+              <li style="margin-bottom: 8px; display: flex; align-items: flex-start;"><span style="color: #f97316; margin-right: 8px; font-weight: bold;">•</span> This link expires in exactly 30 minutes</li>
+              <li style="margin-bottom: 8px; display: flex; align-items: flex-start;"><span style="color: #f97316; margin-right: 8px; font-weight: bold;">•</span> If you didn't request this, you can safely ignore this email</li>
+              <li style="margin-bottom: 0; display: flex; align-items: flex-start;"><span style="color: #f97316; margin-right: 8px; font-weight: bold;">•</span> Your password won't change unless you click the button</li>
+            </ul>
+          </div>
+
+          <!-- Alternative Access -->
+          <div style="background: linear-gradient(135deg, #f0fdf4 0%, #e6ffed 100%); padding: 20px; border-radius: 12px; border-left: 5px solid oklch(0.35 0.15 15); margin-bottom: 30px;">
+            <h4 style="color: #15803d; margin: 0 0 12px 0; font-weight: 700; font-size: 14px; display: flex; align-items: center;">
+              🔗 Button not working?
+            </h4>
+            <p style="color: #166534; margin: 0 0 10px 0; font-size: 14px; line-height: 1.6;">
+              Copy and paste this link into your browser:
+            </p>
+            <div style="background: white; padding: 12px; border-radius: 8px; border: 1px solid #bbf7d0; word-break: break-all;">
+              <code style="font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 12px; color: #374151; line-height: 1.4;">${resetUrl}</code>
+            </div>
+          </div>
+
+          <!-- Development Token (only in dev mode) -->
+          ${process.env.NODE_ENV === 'development' ? `
+          <div style="background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); padding: 20px; border-radius: 12px; border-left: 5px solid #f59e0b; margin-bottom: 25px;">
+            <h4 style="color: #d97706; margin: 0 0 12px 0; font-weight: 700; font-size: 14px; display: flex; align-items: center;">
+              🛠️ Development Mode Only
+            </h4>
+            <p style="color: #d97706; margin: 0 0 8px 0; font-size: 13px;">
+              Manual token for testing:
+            </p>
+            <code style="background: white; padding: 8px 12px; border-radius: 6px; font-family: 'Monaco', 'Menlo', monospace; font-size: 12px; color: #374151; border: 1px solid #fcd34d; display: inline-block;">${resetToken}</code>
+          </div>
+          ` : ''}
+
+          <!-- Support Section -->
+          <div style="text-align: center; padding: 25px 0; border-top: 2px solid #f1f5f9; margin-top: 20px;">
+            <h4 style="color: #374151; margin: 0 0 12px 0; font-size: 16px; font-weight: 600;">
+              Need Help? We're Here! 🙋‍♂️
+            </h4>
+            <p style="color: #6b7280; margin: 0 0 15px 0; font-size: 14px; line-height: 1.6;">
+              Having trouble with your password reset? Our support team is ready to help.
+            </p>
+            <a href="mailto:support@makeitsell.com" 
+               style="color: oklch(0.35 0.15 15); text-decoration: none; font-weight: 600; font-size: 15px; display: inline-flex; align-items: center; background: #f8fafc; padding: 10px 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+               📧 support@makeitsell.com
+            </a>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="text-align: center; color: #94a3b8; font-size: 12px; padding: 20px 30px; background: #f8fafc; border-radius: 0 0 12px 12px; border-top: 1px solid #e2e8f0;">
+          <div style="margin-bottom: 15px;">
+            <img src="https://makeitsell.org/images/logo (2).png" alt="Make It Sell" style="height: 20px; width: auto; opacity: 0.6;" />
+          </div>
+          <p style="margin: 0 0 8px 0; line-height: 1.5;">
+            This email was sent to <strong style="color: #64748b;">${email}</strong>
+          </p>
+          <p style="margin: 0; line-height: 1.5;">
+            If you didn't request this password reset, you can safely ignore this email.
+          </p>
+          <p style="margin: 12px 0 0 0; font-size: 11px; color: #a1a1aa;">
+            © 2026 Make It Sell Marketplace. All rights reserved.
+          </p>
+        </div>
+      </div>
+    `
+
+    return await this.sendEmail({
+      to: email,
+      subject: '🔑 Reset your password - Make It Sell',
+      html: emailHtml
+    })
+  }
+
   async sendEmailVerification({ email, name, verificationUrl }: {
     email: string
     name: string

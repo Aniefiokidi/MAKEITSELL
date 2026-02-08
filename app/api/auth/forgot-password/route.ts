@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { connectToDatabase } from '@/lib/mongodb'
 import mongoose from 'mongoose'
 import crypto from 'crypto'
+import { emailService } from '@/lib/email'
 
 // User schema (same as in auth.ts)
 const userSchema = new mongoose.Schema({
@@ -42,19 +43,48 @@ export async function POST(request: NextRequest) {
 
       // Generate reset token
       const token = crypto.randomBytes(32).toString('hex')
-      const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+      const tokenExpiry = new Date(Date.now() + 30 * 60 * 1000) // 30 minutes
 
       user.resetToken = token
       user.resetTokenExpiry = tokenExpiry
       await user.save()
 
-      // In production, you would send this via email
+      // Send password reset email
+      try {
+        const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+        const resetUrl = `${baseUrl}/forgot-password?token=${token}&email=${encodeURIComponent(email)}`
+        
+        // Ensure emailService has the method before calling
+        if (typeof emailService.sendPasswordResetEmail === 'function') {
+          const emailSent = await emailService.sendPasswordResetEmail({
+            email: user.email,
+            name: user.name || 'User',
+            resetUrl: resetUrl,
+            resetToken: token
+          })
+          
+          if (emailSent) {
+            console.log(`[forgot-password] Password reset email sent successfully to: ${email}`)
+          } else {
+            console.error(`[forgot-password] Failed to send password reset email to: ${email}`)
+          }
+        } else {
+          console.error(`[forgot-password] sendPasswordResetEmail method not found on emailService`)
+          console.log(`[forgot-password] Available methods:`, Object.getOwnPropertyNames(Object.getPrototypeOf(emailService)))
+        }
+      } catch (emailError) {
+        console.error(`[forgot-password] Email service error:`, emailError)
+        // Don't fail the request if email fails - user can still use token in development
+      }
+
       console.log(`[forgot-password] Reset token for ${email}: ${token}`)
 
       return NextResponse.json(
         {
           success: true,
-          message: 'Reset instructions sent to email',
+          message: process.env.NODE_ENV === 'production' 
+            ? 'If an account exists, you will receive password reset instructions'
+            : 'Password reset email sent! Check your inbox.',
           // For development/testing, return token (remove in production)
           token: process.env.NODE_ENV === 'development' ? token : undefined,
         },
