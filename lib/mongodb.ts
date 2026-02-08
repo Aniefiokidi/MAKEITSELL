@@ -1,6 +1,10 @@
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI || '';
+// Get base URI and add database name if not present
+const baseUri = process.env.MONGODB_URI || '';
+const MONGODB_URI = baseUri.includes('/test') || baseUri.includes('/makeitsell') || baseUri.includes('/gote-marketplace') 
+  ? baseUri 
+  : baseUri + 'test';
 
 let cached = (global as any).mongoose || { conn: null, promise: null };
 

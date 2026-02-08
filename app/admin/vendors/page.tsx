@@ -99,6 +99,22 @@ export default function AdminVendorsPage() {
                             </Badge>
                           </div>
                           <div className="flex justify-between items-start gap-2">
+                            <span className="font-medium">Subscription Expires:</span>
+                            <span className="text-right text-xs">
+                              {vendor.subscriptionExpiry ? (
+                                <span className={`font-medium ${
+                                  new Date(vendor.subscriptionExpiry) < new Date() 
+                                    ? 'text-red-600' 
+                                    : new Date(vendor.subscriptionExpiry) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                                    ? 'text-orange-600'
+                                    : 'text-green-600'
+                                }`}>
+                                  {new Date(vendor.subscriptionExpiry).toLocaleDateString()}
+                                </span>
+                              ) : "N/A"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-start gap-2">
                             <span className="font-medium">Joined:</span>
                             <span className="text-right text-xs">
                               {vendor.createdAt ? new Date(vendor.createdAt).toLocaleDateString() : "N/A"}
@@ -120,6 +136,7 @@ export default function AdminVendorsPage() {
                         <TableHead className="text-xs">Email</TableHead>
                         <TableHead className="text-xs">Type</TableHead>
                         <TableHead className="text-xs">Status</TableHead>
+                        <TableHead className="text-xs">Subscription Expires</TableHead>
                         <TableHead className="text-xs">Joined</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -136,6 +153,21 @@ export default function AdminVendorsPage() {
                             <Badge variant={vendor.status === "active" ? "secondary" : "outline"} className="text-xs">
                               {vendor.status || "pending"}
                             </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            {vendor.subscriptionExpiry ? (
+                              <span className={`font-medium ${
+                                new Date(vendor.subscriptionExpiry) < new Date() 
+                                  ? 'text-red-600' 
+                                  : new Date(vendor.subscriptionExpiry) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                                  ? 'text-orange-600'
+                                  : 'text-green-600'
+                              }`}>
+                                {new Date(vendor.subscriptionExpiry).toLocaleDateString()}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">N/A</span>
+                            )}
                           </TableCell>
                           <TableCell className="text-xs">
                             {vendor.createdAt ? new Date(vendor.createdAt).toLocaleDateString() : "N/A"}

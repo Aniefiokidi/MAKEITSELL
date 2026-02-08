@@ -90,14 +90,39 @@ export async function signIn({ email, password }: { email: string, password: str
     }
 
     console.log('[auth.signIn] Legacy password accepted; upgrading to passwordHash');
-    user.passwordHash = inputPasswordHash;
   }
+  
   // Generate new session token
-  user.sessionToken = crypto.randomBytes(32).toString('hex');
-  console.log('[auth.signIn] Generated sessionToken:', user.sessionToken);
-  await user.save();
-  console.log('[auth.signIn] User saved with new sessionToken');
-  return { success: true, user: { id: user._id, email: user.email, name: user.name, role: user.role }, sessionToken: user.sessionToken };
+  const newSessionToken = crypto.randomBytes(32).toString('hex');
+  console.log('[auth.signIn] Generated sessionToken:', newSessionToken);
+  
+  // Use direct database update instead of Mongoose save to avoid document issues
+  const mongoose = require('mongoose');
+  const db = mongoose.connection.db;
+  
+  const updateResult = await db.collection('users').updateOne(
+    { email: email },
+    { 
+      $set: { 
+        sessionToken: newSessionToken,
+        passwordHash: inputPasswordHash, // Ensure passwordHash is always set
+        updatedAt: new Date()
+      } 
+    }
+  );
+  
+  console.log('[auth.signIn] Direct update result:', updateResult.modifiedCount > 0 ? 'SUCCESS' : 'FAILED');
+  
+  return { 
+    success: true, 
+    user: { 
+      id: user._id, 
+      email: user.email, 
+      name: user.name, 
+      role: user.role 
+    }, 
+    sessionToken: newSessionToken 
+  };
 }
 
 export async function getUserBySessionToken(sessionToken: string) {

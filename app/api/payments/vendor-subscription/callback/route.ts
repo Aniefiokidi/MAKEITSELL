@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { paystackService } from '@/lib/payment'
 import connectToDatabase from '@/lib/mongodb'
 import { sendEmail } from '@/lib/email'
+import { SubscriptionManagementService } from '@/lib/subscription-management'
 
 export async function GET(request: NextRequest) {
   try {
@@ -38,26 +39,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/vendor/dashboard?error=subscription_not_found`)
     }
 
-    // Calculate new subscription expiry
-    const subscriptionExpiry = new Date()
-    subscriptionExpiry.setMonth(subscriptionExpiry.getMonth() + 1) // Add 1 month
-
-    // Update or create store with active subscription
-    await db.collection('stores').updateOne(
-      { vendorId: subscriptionAttempt.vendorId },
+    // Calculate new subscription expiry and process renewal using management service
+    const renewalResult = await SubscriptionManagementService.processSubscriptionRenewal(
+      subscriptionAttempt.vendorId,
       {
-        $set: {
-          subscriptionStatus: 'active',
-          subscriptionExpiry: subscriptionExpiry,
-          isActive: true,
-          accountStatus: 'active',
-          suspendedAt: null,
-          warningEmailSent: false,
-          lastWarningEmail: null,
-          updatedAt: new Date()
-        }
-      },
-      { upsert: true }
+        reference: reference,
+        amount: paymentData.amount / 100,
+        paymentDate: paymentData.paid_at
+      }
     )
 
     // Update subscription attempt status
@@ -67,7 +56,8 @@ export async function GET(request: NextRequest) {
         $set: {
           status: 'completed',
           paymentReference: reference,
-          completedAt: new Date()
+          completedAt: new Date(),
+          paymentVerified: true
         }
       }
     )
@@ -82,28 +72,15 @@ export async function GET(request: NextRequest) {
       paymentDate: new Date(paymentData.paid_at),
       subscriptionPeriod: {
         start: new Date(),
-        end: subscriptionExpiry
+        end: renewalResult.newExpiryDate
       },
       gateway: 'paystack',
-      gatewayResponse: paymentData
+      gatewayResponse: paymentData,
+      type: 'renewal'
     })
 
-    // Send confirmation email
-    try {
-      await sendEmail(
-        subscriptionAttempt.email,
-        'Subscription Payment Confirmed - Make It Sell',
-        'subscription-confirmed',
-        {
-          amount: '₦2,500',
-          subscriptionPeriod: `${new Date().toLocaleDateString('en-NG')} - ${subscriptionExpiry.toLocaleDateString('en-NG')}`,
-          reference: reference
-        }
-      )
-    } catch (emailError) {
-      console.error('Failed to send confirmation email:', emailError)
-      // Don't fail the whole process if email fails
-    }
+    // Email confirmation is now handled by SubscriptionManagementService
+    // No need for manual email sending here
 
     return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/vendor/subscription-success?reference=${reference}`)
 
@@ -131,45 +108,78 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
     }
 
-    // Handle successful payment webhook
-    if (payload.event === 'charge.success') {
-      const reference = payload.data.reference
-      
-      // Process the payment (similar to GET handler above)
-      // This ensures webhook processing even if redirect callback fails
-      await connectToDatabase()
-      const db = require('mongoose').connection.db
-      
-      const subscriptionAttempt = await db.collection('subscription_attempts').findOne({
-        reference: reference
-      })
-      
-      if (subscriptionAttempt && subscriptionAttempt.status === 'pending') {
-        // Update subscription similar to GET handler
-        const subscriptionExpiry = new Date()
-        subscriptionExpiry.setMonth(subscriptionExpiry.getMonth() + 1)
+    // Handle subscription webhook events
+    const event = payload.event
+    const eventData = payload.data
 
-        await db.collection('stores').updateOne(
-          { vendorId: subscriptionAttempt.vendorId },
-          {
-            $set: {
-              subscriptionStatus: 'active',
-              subscriptionExpiry: subscriptionExpiry,
-              isActive: true,
-              accountStatus: 'active',
-              suspendedAt: null,
-              warningEmailSent: false,
-              updatedAt: new Date()
-            }
-          },
-          { upsert: true }
-        )
+    console.log('Subscription webhook received:', event)
 
-        await db.collection('subscription_attempts').updateOne(
-          { reference: reference },
-          { $set: { status: 'completed', completedAt: new Date() } }
-        )
-      }
+    switch (event) {
+      case 'charge.success':
+        // Handle successful subscription renewal
+        const reference = eventData.reference
+        if (reference) {
+          const subscriptionAttempt = await db.collection('subscription_attempts').findOne({
+            reference: reference,
+            status: 'pending'
+          })
+
+          if (subscriptionAttempt) {
+            await SubscriptionManagementService.processSubscriptionRenewal(
+              subscriptionAttempt.vendorId,
+              {
+                reference: reference,
+                amount: eventData.amount / 100,
+                paymentDate: eventData.paid_at
+              }
+            )
+
+            await db.collection('subscription_attempts').updateOne(
+              { reference: reference },
+              { $set: { status: 'completed', completedAt: new Date() } }
+            )
+          }
+        }
+        break
+
+      case 'charge.failed':
+        // Handle failed subscription renewal
+        const failedReference = eventData.reference
+        if (failedReference) {
+          const subscriptionAttempt = await db.collection('subscription_attempts').findOne({
+            reference: failedReference,
+            status: 'pending'
+          })
+
+          if (subscriptionAttempt) {
+            const reason = eventData.gateway_response || 'Insufficient funds or payment method issue'
+            
+            await SubscriptionManagementService.processFailedRenewal(
+              subscriptionAttempt.vendorId,
+              reason
+            )
+
+            await db.collection('subscription_attempts').updateOne(
+              { reference: failedReference },
+              { 
+                $set: { 
+                  status: 'failed', 
+                  failedAt: new Date(),
+                  failureReason: reason
+                } 
+              }
+            )
+          }
+        }
+        break
+
+      case 'subscription.create':
+        console.log('New subscription created:', eventData.subscription_code)
+        break
+
+      case 'subscription.disable':
+        console.log('Subscription disabled:', eventData.subscription_code)
+        break
     }
 
     return NextResponse.json({ success: true })
