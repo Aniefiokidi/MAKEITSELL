@@ -1,6 +1,9 @@
 import { NextRequest } from 'next/server'
 import { getAllProducts, getAllOrders, getServices, getProductById } from '@/lib/mongodb-operations'
 
+export const dynamic = 'force-static'
+export const revalidate = 0
+
 export async function GET(req: NextRequest) {
   try {
     const [products, orders] = await Promise.all([
