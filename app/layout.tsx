@@ -12,13 +12,35 @@ import Footer from "@/components/Footer"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "Make It Sell - The Marketplace",
-  description: "AI-powered marketplace with unified customer service - Make It Sell",
+  title: "Make It Sell",
+  description: "AI-powered marketplace connecting buyers with quality products and professional services",
   generator: "v0.app",
   icons: {
     icon: "/images/logo2.png",
     shortcut: "/images/logo2.png",
     apple: "/images/logo2.png",
+  },
+  metadataBase: new URL('https://www.makeitsell.org'),
+  openGraph: {
+    title: "Make It Sell",
+    description: "AI-powered marketplace connecting buyers with quality products and professional services",
+    url: "https://www.makeitsell.org",
+    siteName: "Make It Sell",
+    type: "website",
+    images: [
+      {
+        url: "/images/logo2.png",
+        width: 1200,
+        height: 630,
+        alt: "Make It Sell",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Make It Sell",
+    description: "AI-powered marketplace connecting buyers with quality products and professional services",
+    images: ["/images/logo2.png"],
   },
   // Performance optimizations
   other: {
