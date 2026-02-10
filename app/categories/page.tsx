@@ -141,19 +141,24 @@ export default function CategoriesPage() {
       <Header />
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
-          {/* Header */}
-          <div className="mb-4 sm:mb-8 animate-fade-in">
-            <nav className="text-xs sm:text-sm text-muted-foreground mb-2 sm:mb-4">
-              <Link href="/" className="hover:text-primary">
-                Home
-              </Link>
-              <span className="mx-2">/</span>
-              <span>Categories</span>
-            </nav>
-            <h1 className="text-xl sm:text-3xl font-bold mb-2 sm:mb-4" style={{ textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))' }}>Shop by Category</h1>
-            <p className="text-muted-foreground text-xs sm:text-base">
-              Discover thousands of products across our diverse categories
-            </p>
+          {/* Header in Glass Bubble */}
+          <div className="mb-8 p-6 md:p-8 bg-gradient-to-br from-accent/5 via-accent/15 to-accent/50 backdrop-blur-2xl rounded-3xl border border-accent/30 shadow-2xl shadow-accent/20 hover:shadow-3xl hover:shadow-accent/30 transition-all duration-500">
+            <div className="animate-fade-in">
+              <nav className="text-xs sm:text-sm text-accent dark:text-white mb-2 sm:mb-4">
+                <Link href="/" className="hover:text-primary">
+                  Home
+                </Link>
+                <span className="mx-2">/</span>
+                <span>Categories</span>
+              </nav>
+              <h1 className="text-xl sm:text-3xl font-bold mb-2 sm:mb-4 text-accent dark:text-white" style={{ 
+                fontFamily: '"Bebas Neue", "Impact", sans-serif',
+                textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))' 
+              }}>SHOP BY CATEGORY</h1>
+              <p className="text-accent dark:text-white text-xs sm:text-base">
+                Discover thousands of products across our diverse categories
+              </p>
+            </div>
           </div>
 
           {/* Categories Grid */}
@@ -164,9 +169,9 @@ export default function CategoriesPage() {
               
               return (
                 <Link key={category.slug} href={`/category/${category.slug}`}>
-                  <Card className={`h-full hover:shadow-2xl hover:shadow-accent/40 transition-all duration-300 group overflow-hidden border-none rounded-[2rem] relative ${category.slug === 'electronics' ? '' : 'hover:scale-[1.01]'}`} style={{ animationDelay: `${index * 0.05}s` }}>
+                  <Card className={`h-full hover:shadow-2xl hover:shadow-accent/40 transition-all duration-300 group overflow-hidden border-none rounded-2xl sm:rounded-3xl relative ${category.slug === 'electronics' ? '' : 'hover:scale-[1.01]'}`} style={{ animationDelay: `${index * 0.05}s` }}>
                     {/* Full Background with Product Image or Gradient */}
-                    <div className="aspect-[9/16] relative overflow-hidden rounded-[2rem]">
+                    <div className="aspect-[9/16] relative overflow-hidden rounded-2xl sm:rounded-3xl">
                       {categoryImage ? (
                         <>
                           {/* Product Image Background */}
@@ -200,33 +205,40 @@ export default function CategoriesPage() {
                         </div>
                       </div>
 
-                      {/* Content Overlay at Bottom - Frosted Glass Style */}
-                      <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-xl bg-white/20 dark:bg-black/20 border-t border-white/30 rounded-b-[2rem] p-3 sm:p-4 space-y-2">
-                        <div className="flex items-start justify-between w-full gap-2 mb-1">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-sm sm:text-base font-bold tracking-tight text-white drop-shadow-lg truncate">
-                              {category.name}
-                            </h3>
-                          </div>
-
-                          {/* Arrow Button */}
-                          <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 hover:bg-accent hover:text-white transition-all duration-200 cursor-pointer group/arrow">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700 group-hover/arrow:text-white transition-colors group-hover/arrow:translate-x-0.5">
+                      {/* Frosted Glass Bubble Content - Store Style */}
+                      <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-2.5 md:p-3 backdrop-blur-xl bg-accent/10 border border-white/30 rounded-2xl sm:rounded-3xl z-30 space-y-1 gap-1 sm:gap-2">
+                        <Badge
+                          variant="outline"
+                          role="button"
+                          className="inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow cursor-pointer hover:opacity-90 transition min-h-[20px] sm:min-h-[24px] items-center justify-center text-center leading-tight bg-accent text-white"
+                          style={{
+                            whiteSpace: 'normal',
+                            wordBreak: 'break-word',
+                            hyphens: 'auto',
+                            lineHeight: '1.2'
+                          }}
+                        >
+                          <span className="line-clamp-1">
+                            {category.name}
+                          </span>
+                        </Badge>
+                        
+                        <div className="flex items-center justify-between gap-1 sm:gap-2">
+                          <Badge variant="outline" className="text-[9px] sm:text-[10px] md:text-xs backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 text-white bg-accent">
+                            {categoryCounts[category.slug] ? `${categoryCounts[category.slug]} items` : 'No items yet'}
+                          </Badge>
+                          
+                          <div className="flex-shrink-0 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/70 flex items-center justify-center shadow hover:scale-110 active:scale-95 hover:bg-white transition-all duration-200 cursor-pointer group/arrow">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent group-hover/arrow:translate-x-0.5 transition-transform">
                               <path d="M5 12h14"/>
                               <path d="m12 5 7 7-7 7"/>
                             </svg>
                           </div>
                         </div>
-
-                        <div className="flex items-center justify-between gap-2">
-                          <Badge variant="outline" className="text-white text-[10px] sm:text-xs font-medium px-2 py-1 bg-accent/80 backdrop-blur-sm rounded-full border border-white/50">
-                            {categoryCounts[category.slug] ? `${categoryCounts[category.slug]} items` : 'No items yet'}
-                          </Badge>
-                          
-                          <p className="text-white/90 text-[10px] sm:text-xs line-clamp-1 flex-1">
-                            {category.description}
-                          </p>
-                        </div>
+                        
+                        <p className="text-[9px] sm:text-[10px] text-white/90 line-clamp-2 leading-tight">
+                          {category.description}
+                        </p>
                       </div>
                     </div>
                   </Card>

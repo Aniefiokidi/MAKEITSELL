@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -258,13 +259,6 @@ export default function AllProductsPage() {
             }}
           />
         ))}
-        
-        {/* Debug indicator - remove after testing */}
-        {isHovered && product.images.length > 1 && (
-          <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded z-50">
-            Cycling: {currentImageIndex + 1}/{product.images.length}
-          </div>
-        )}
       </div>
     )
   }
@@ -486,30 +480,43 @@ export default function AllProductsPage() {
             </div>
 
             {/* Header Section */}
-            <div className="flex flex-col md:flex-row items-center md:items-center justify-center md:justify-between gap-4 mb-8">
-              <div className="text-center md:text-left">
-                <h1 className="text-3xl md:text-4xl lg:text-5xl font-white text-white mb-2 drop-shadow-lg" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif' }}>
-                  ALL PRODUCTS
-                </h1>
-                <p className="text-base md:text-lg text-white font-medium drop-shadow-sm">
-                  Discover amazing products from all our vendors
-                </p>
-              </div>
-              <div className="flex items-center gap-4 text-sm md:text-base">
-                <div className="bg-accent/20 backdrop-blur-sm px-4 py-2 rounded-full border border-accent/40 shadow-lg">
-                  <span className="font-bold text-white drop-shadow-sm">{filteredProducts.length}</span>
-                  <span className="text-white ml-1">Products</span>
+            <div className="mb-4 sm:mb-8 animate-fade-in">
+              <nav className="text-xs sm:text-sm text-accent mb-2 sm:mb-4">
+                <Link href="/" className="hover:text-primary">
+                  Home
+                </Link>
+                <span className="mx-2">/</span>
+                <span>Products</span>
+              </nav>
+              
+              <div className="flex flex-col md:flex-row items-center md:items-center justify-center md:justify-between gap-4 mb-6">
+                <div className="text-center md:text-left">
+                  <h1 className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-2 text-accent" style={{ 
+                    fontFamily: '"Bebas Neue", "Impact", sans-serif',
+                    textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))'
+                  }}>
+                    ALL PRODUCTS
+                  </h1>
+                  <p className="text-accent text-xs sm:text-base md:text-lg">
+                    Discover amazing products from all our vendors
+                  </p>
                 </div>
-                <Button
-                  onClick={handleRefresh}
-                  variant="outline"
-                  size="sm"
-                  disabled={refreshing}
-                  className="border-accent/50 bg-accent/10  hover:bg-accent hover:text-white transition-all backdrop-blur-sm shadow-lg hover:shadow-xl"
-                >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                  Refresh
-                </Button>
+                <div className="flex items-center gap-4 text-sm md:text-base">
+                  <div className="bg-accent/20 backdrop-blur-sm px-4 py-2 rounded-full border border-accent/40 shadow-lg">
+                    <span className="font-bold text-accent drop-shadow-sm">{filteredProducts.length}</span>
+                    <span className="text-accent ml-1">Products</span>
+                  </div>
+                  <Button
+                    onClick={handleRefresh}
+                    variant="outline"
+                    size="sm"
+                    disabled={refreshing}
+                    className="border-accent/50 bg-accent/10 hover:bg-accent hover:text-white transition-all backdrop-blur-sm shadow-lg hover:shadow-xl"
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </Button>
+                </div>
               </div>
             </div>
 
