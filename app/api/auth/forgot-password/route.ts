@@ -94,25 +94,47 @@ export async function POST(request: NextRequest) {
 
     // Case 2: Reset password with token
     if (email && resetToken && newPassword) {
+      console.log(`[forgot-password] Reset attempt for email: ${email}`)
+      console.log(`[forgot-password] Token received (length ${resetToken.length}): ${resetToken}`)
+      
       const user = await User.findOne({ email })
       if (!user) {
+        console.log(`[forgot-password] User not found: ${email}`)
         return NextResponse.json(
           { success: false, error: 'User not found' },
           { status: 404 }
         )
       }
 
-      // Verify reset token
-      if (user.resetToken !== resetToken || !user.resetTokenExpiry) {
+      console.log(`[forgot-password] User found: ${email}`)
+      console.log(`[forgot-password] Stored token (length ${user.resetToken?.length || 0}): ${user.resetToken}`)
+      console.log(`[forgot-password] Token expiry: ${user.resetTokenExpiry}`)
+      console.log(`[forgot-password] Current time: ${new Date()}`)
+      console.log(`[forgot-password] Tokens match: ${user.resetToken === resetToken}`)
+
+      // Verify reset token exists
+      if (!user.resetToken || !user.resetTokenExpiry) {
+        console.log(`[forgot-password] No reset token found for user`)
         return NextResponse.json(
-          { success: false, error: 'Invalid or expired reset token' },
+          { success: false, error: 'No password reset request found. Please request a new reset link.' },
           { status: 400 }
         )
       }
 
+      // Check if token has expired first
       if (new Date() > user.resetTokenExpiry) {
+        console.log(`[forgot-password] Token expired`)
         return NextResponse.json(
-          { success: false, error: 'Reset token has expired' },
+          { success: false, error: 'Reset token has expired. Please request a new reset link.' },
+          { status: 400 }
+        )
+      }
+
+      // Verify reset token matches (case-sensitive)
+      if (user.resetToken !== resetToken) {
+        console.log(`[forgot-password] Token mismatch`)
+        return NextResponse.json(
+          { success: false, error: 'Invalid reset token. Please check the link in your email or request a new one.' },
           { status: 400 }
         )
       }

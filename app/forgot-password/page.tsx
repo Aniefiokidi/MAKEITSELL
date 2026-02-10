@@ -27,13 +27,15 @@ export default function ForgotPasswordPage() {
     const token = searchParams.get('token')
     const emailParam = searchParams.get('email')
     
+    console.log('[forgot-password] URL params:', { token: token?.substring(0, 20) + '...', email: emailParam, tokenLength: token?.length })
+    
     if (token && emailParam) {
-      setResetToken(token)
-      setEmail(decodeURIComponent(emailParam))
+      setResetToken(token.trim())
+      setEmail(decodeURIComponent(emailParam).trim())
       setStep('reset')
       setMessage({
         type: 'success',
-        text: '✅ Password reset link verified! Enter your new password below.'
+        text: `✅ Password reset link loaded! Token length: ${token.length} characters. Enter your new password below.`
       })
     }
   }, [searchParams])
