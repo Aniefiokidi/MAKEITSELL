@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 
     if (!reference) {
       console.log('ERROR: Missing reference')
-      const errorUrl = new URL('/checkout', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')
+      const errorUrl = new URL('/checkout', process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.org')
       errorUrl.searchParams.set('error', 'missing_reference')
       console.log('Redirecting to:', errorUrl.toString())
       return NextResponse.redirect(errorUrl.toString())
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     const verificationResult = await paystackService.verifyPayment(reference)
 
     if (!verificationResult.success) {
-      const errorUrl = new URL('/checkout', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')
+      const errorUrl = new URL('/checkout', process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.org')
       errorUrl.searchParams.set('error', 'payment_failed')
       return NextResponse.redirect(errorUrl.toString())
     }
@@ -154,7 +154,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Redirect to order confirmation page with absolute URL
-    const redirectUrl = new URL('/order-confirmation', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')
+    const redirectUrl = new URL('/order-confirmation', process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.org')
     redirectUrl.searchParams.set('orderId', orderId)
     console.log('=== PAYMENT VERIFICATION SUCCESS ===')
     console.log('Order ID:', orderId)
@@ -164,7 +164,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Payment verification error:', error)
-    const errorUrl = new URL('/checkout', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000')
+    const errorUrl = new URL('/checkout', process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.org')
     errorUrl.searchParams.set('error', 'verification_failed')
     return NextResponse.redirect(errorUrl.toString())
   }

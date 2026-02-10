@@ -222,7 +222,7 @@ export async function GET(request: NextRequest) {
       })
       
       if (user && user.emailVerificationToken && !user.isEmailVerified) {
-        const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'
+        const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://www.makeitsell.org'
         const verificationUrl = `${baseUrl}/verify-email?token=${user.emailVerificationToken}`
         
         const { emailService } = require('@/lib/email')

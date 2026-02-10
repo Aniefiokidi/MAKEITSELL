@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
 
       // Send password reset email
       try {
-        const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+        const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.org'
         const resetUrl = `${baseUrl}/forgot-password?token=${token}&email=${encodeURIComponent(email)}`
         
         // Ensure emailService has the method before calling

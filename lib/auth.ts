@@ -34,7 +34,7 @@ export async function signUp({ email, password, name, role, vendorInfo }: { emai
   // Send verification email
   try {
     const { emailService } = require('./email');
-    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://www.makeitsell.org';
     const verificationUrl = `${baseUrl}/verify-email?token=${emailVerificationToken}`;
     
     await emailService.sendEmailVerification({

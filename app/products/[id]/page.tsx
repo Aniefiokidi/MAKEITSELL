@@ -6,8 +6,8 @@ async function getProduct(id: string) {
   // Try to use absolute URL if available, else fallback to relative
   let url = '';
   if (typeof window === 'undefined') {
-    // On server, use process.env.NEXT_PUBLIC_BASE_URL or fallback to http://localhost:3000
-    const base = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    // On server, use process.env.NEXT_PUBLIC_BASE_URL or fallback to https://www.makeitsell.org
+    const base = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.makeitsell.org';
     url = `${base}/api/database/products?id=${id}`;
   } else {
     url = `/api/database/products?id=${id}`;
