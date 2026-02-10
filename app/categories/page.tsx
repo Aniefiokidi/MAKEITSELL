@@ -1,4 +1,8 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import Header from "@/components/Header"
@@ -22,84 +26,116 @@ const categories = [
     name: "Electronics",
     description: "Latest gadgets, smartphones, computers and more",
     icon: Smartphone,
-    color: "bg-blue-500",
-    count: "2,500+ items"
+    color: "bg-blue-500"
   },
   {
     slug: "fashion",
     name: "Fashion",
     description: "Clothing, shoes, bags and accessories",
     icon: Shirt,
-    color: "bg-pink-500",
-    count: "1,800+ items"
+    color: "bg-pink-500"
   },
   {
     slug: "home",
     name: "Home & Garden",
     description: "Furniture, decor, kitchen and garden items",
     icon: Home,
-    color: "bg-green-500",
-    count: "1,200+ items"
+    color: "bg-green-500"
   },
   {
     slug: "accessories",
     name: "Accessories",
     description: "Watches, jewelry, bags and more",
     icon: Watch,
-    color: "bg-purple-500",
-    count: "900+ items"
+    color: "bg-purple-500"
   },
   {
     slug: "sports",
     name: "Sports & Fitness",
     description: "Exercise equipment, sportswear and outdoor gear",
     icon: Dumbbell,
-    color: "bg-orange-500",
-    count: "750+ items"
+    color: "bg-orange-500"
   },
   {
     slug: "audio",
     name: "Audio & Music",
     description: "Headphones, speakers, instruments",
     icon: Headphones,
-    color: "bg-red-500",
-    count: "600+ items"
+    color: "bg-red-500"
   },
   {
     slug: "photography",
     name: "Photography",
     description: "Cameras, lenses, lighting equipment",
     icon: Camera,
-    color: "bg-indigo-500",
-    count: "400+ items"
+    color: "bg-indigo-500"
   },
   {
     slug: "books",
     name: "Books & Media",
     description: "Books, magazines, digital content",
     icon: Book,
-    color: "bg-amber-500",
-    count: "1,500+ items"
+    color: "bg-amber-500"
   },
   {
     slug: "gaming",
     name: "Gaming",
     description: "Video games, consoles, accessories",
     icon: Gamepad2,
-    color: "bg-teal-500",
-    count: "800+ items"
+    color: "bg-teal-500"
   },
   {
     slug: "automotive",
     name: "Automotive",
     description: "Car accessories, tools, parts",
     icon: Car,
-    color: "bg-slate-500",
-    count: "650+ items"
+    color: "bg-slate-500"
   }
 ]
 
 export default function CategoriesPage() {
+  const [categoryImages, setCategoryImages] = useState<{ [key: string]: string }>({})
+  const [categoryCounts, setCategoryCounts] = useState<{ [key: string]: number }>({})
+
+  useEffect(() => {
+    // Fetch top selling products and counts for each category
+    const fetchCategoryData = async () => {
+      const imageMap: { [key: string]: string } = {}
+      const countMap: { [key: string]: number } = {}
+      
+      for (const category of categories) {
+        try {
+          // Get products count for this category
+          const countResponse = await fetch(`/api/database/products?category=${category.slug}&count=true`)
+          const countResult = await countResponse.json()
+          
+          if (countResult.success) {
+            countMap[category.slug] = countResult.data?.length || countResult.count || 0
+          }
+          
+          // Get top selling product image
+          const response = await fetch(`/api/database/products?category=${category.slug}&limit=1&sortBy=popular`)
+          const result = await response.json()
+          
+          if (result.success && result.data && result.data.length > 0) {
+            const topProduct = result.data[0]
+            const productImage = Array.isArray(topProduct.images) ? topProduct.images[0] : topProduct.image
+            if (productImage && productImage !== "/placeholder.svg") {
+              imageMap[category.slug] = productImage
+            }
+          }
+        } catch (error) {
+          console.error(`Error fetching data for ${category.slug}:`, error)
+        }
+      }
+      
+      setCategoryImages(imageMap)
+      setCategoryCounts(countMap)
+    }
+
+    fetchCategoryData()
+  }, [])
+
   return (
     <>
       <Header />
@@ -121,30 +157,78 @@ export default function CategoriesPage() {
           </div>
 
           {/* Categories Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
             {categories.map((category, index) => {
               const IconComponent = category.icon
+              const categoryImage = categoryImages[category.slug]
+              
               return (
                 <Link key={category.slug} href={`/category/${category.slug}`}>
-                  <Card className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer animate-scale-in hover-lift" style={{ animationDelay: `${index * 0.05}s` }}>
-                    <CardContent className="p-3 sm:p-6">
-                      <div className="flex items-center space-x-2 sm:space-x-4 mb-2 sm:mb-4">
-                        <div className={`${category.color} p-2 sm:p-3 rounded-lg text-white`}>
-                          <IconComponent className="w-4 h-4 sm:w-6 sm:h-6" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-xs sm:text-lg group-hover:text-primary transition-colors truncate">
-                            {category.name}
-                          </h3>
-                          <Badge variant="secondary" className="text-[7px] sm:text-xs whitespace-nowrap">
-                            {category.count}
-                          </Badge>
+                  <Card className={`h-full hover:shadow-2xl hover:shadow-accent/40 transition-all duration-300 group overflow-hidden border-none rounded-[2rem] relative ${category.slug === 'electronics' ? '' : 'hover:scale-[1.01]'}`} style={{ animationDelay: `${index * 0.05}s` }}>
+                    {/* Full Background with Product Image or Gradient */}
+                    <div className="aspect-[9/16] relative overflow-hidden rounded-[2rem]">
+                      {categoryImage ? (
+                        <>
+                          {/* Product Image Background */}
+                          <Image
+                            src={categoryImage}
+                            alt={`Top product in ${category.name}`}
+                            fill
+                            className={`${category.slug === 'electronics' ? 'object-contain' : 'object-cover'} ${category.slug === 'electronics' ? '' : 'group-hover:scale-105'} transition-transform duration-500`}
+                          />
+                          {/* Darker overlay for better text readability on images */}
+                          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent via-40% to-black/80" />
+                        </>
+                      ) : (
+                        <>
+                          {/* Gradient Background for categories without products */}
+                          <div className={`flex items-center justify-center h-full ${category.color} bg-gradient-to-br from-current via-current to-black/20`}>
+                            {/* Background pattern overlay */}
+                            <div className="absolute inset-0 opacity-10">
+                              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1)_1px,transparent_1px)] bg-[length:20px_20px]"></div>
+                            </div>
+                          </div>
+                          {/* Lighter overlay for gradient backgrounds */}
+                          <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent via-50% to-black/60" />
+                        </>
+                      )}
+                      
+                      {/* Icon/Logo in Center Top */}
+                      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
+                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-white border-4 border-white overflow-hidden shadow-2xl ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110 flex items-center justify-center">
+                          <IconComponent className="h-6 w-6 sm:h-8 sm:w-8 text-gray-700" />
                         </div>
                       </div>
-                      <p className="text-muted-foreground text-[10px] sm:text-sm line-clamp-2 sm:line-clamp-none">
-                        {category.description}
-                      </p>
-                    </CardContent>
+
+                      {/* Content Overlay at Bottom - Frosted Glass Style */}
+                      <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-xl bg-white/20 dark:bg-black/20 border-t border-white/30 rounded-b-[2rem] p-3 sm:p-4 space-y-2">
+                        <div className="flex items-start justify-between w-full gap-2 mb-1">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-sm sm:text-base font-bold tracking-tight text-white drop-shadow-lg truncate">
+                              {category.name}
+                            </h3>
+                          </div>
+
+                          {/* Arrow Button */}
+                          <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 hover:bg-accent hover:text-white transition-all duration-200 cursor-pointer group/arrow">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700 group-hover/arrow:text-white transition-colors group-hover/arrow:translate-x-0.5">
+                              <path d="M5 12h14"/>
+                              <path d="m12 5 7 7-7 7"/>
+                            </svg>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2">
+                          <Badge variant="outline" className="text-white text-[10px] sm:text-xs font-medium px-2 py-1 bg-accent/80 backdrop-blur-sm rounded-full border border-white/50">
+                            {categoryCounts[category.slug] ? `${categoryCounts[category.slug]} items` : 'No items yet'}
+                          </Badge>
+                          
+                          <p className="text-white/90 text-[10px] sm:text-xs line-clamp-1 flex-1">
+                            {category.description}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </Card>
                 </Link>
               )
@@ -152,7 +236,7 @@ export default function CategoriesPage() {
           </div>
 
           {/* Popular Categories */}
-          <div className="mt-8 sm:mt-16 animate-fade-in" style={{ animationDelay: '0.5s' }}>
+          <div className="mt-8 sm:mt-12 animate-fade-in" style={{ animationDelay: '0.5s' }}>
             <h2 className="text-lg sm:text-2xl font-bold mb-3 sm:mb-6" style={{ textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))' }}>Popular Categories</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4">
               {categories.slice(0, 4).map((category, index) => (

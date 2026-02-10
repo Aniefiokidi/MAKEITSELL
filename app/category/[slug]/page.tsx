@@ -1,13 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, ShoppingCart, Heart } from "lucide-react"
+import { Search, ShoppingCart, Heart, ArrowLeft } from "lucide-react"
 import { useCart } from "@/contexts/CartContext"
 import Link from "next/link"
 import Header from "@/components/Header"
@@ -42,6 +42,7 @@ const fashionSubcategories = [
 
 export default function CategoryPage() {
   const params = useParams()
+  const router = useRouter()
   const categorySlug = params.slug as string
   const [products, setProducts] = useState<any[]>([])
   const [filteredProducts, setFilteredProducts] = useState<any[]>([])
@@ -165,15 +166,26 @@ export default function CategoryPage() {
       <Header />
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8">
-          {/* Header */}
+          {/* Header with Back Button */}
           <div className="mb-8">
+            {/* Back Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.back()}
+              className="mb-4 hover:bg-accent hover:text-white transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+            
             <nav className="text-sm text-muted-foreground mb-4">
               <Link href="/" className="hover:text-primary">
                 Home
               </Link>
               <span className="mx-2">/</span>
-              <Link href="/stores" className="hover:text-primary">
-                Shop
+              <Link href="/categories" className="hover:text-primary">
+                Categories
               </Link>
               <span className="mx-2">/</span>
               <span>{categoryName}</span>
@@ -249,14 +261,14 @@ export default function CategoryPage() {
             {/* Show all products as suggestions */}
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6 mt-8">
               {products.map((product) => (
-                <Card key={product.id} className="border-0 shadow-md overflow-hidden relative h-[350px] sm:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-3xl">
+                <Card key={product.id} className={`border-0 shadow-md overflow-hidden relative h-[350px] sm:h-[450px] hover:shadow-xl transition-all duration-500 ${categorySlug === 'electronics' ? 'hover:-translate-y-1' : 'hover:-translate-y-2'} rounded-3xl`}>
                   {/* Image Container with Group Hover */}
                   <div className="group absolute inset-0 overflow-hidden">
                     {/* Full Card Image Background */}
                     <img
                       src={product.image || "/placeholder.svg"}
                       alt={product.name}
-                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      className={`absolute inset-0 w-full h-full ${categorySlug === 'electronics' ? 'object-contain bg-white' : 'object-cover'} group-hover:scale-110 transition-transform duration-500`}
                     />
                     
                     {/* Product Badges */}
@@ -320,14 +332,14 @@ export default function CategoryPage() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6">
             {filteredProducts.map((product) => (
-              <Card key={product.id} className="border-0 shadow-md overflow-hidden relative h-[350px] sm:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-3xl">
+              <Card key={product.id} className={`border-0 shadow-md overflow-hidden relative h-[350px] sm:h-[450px] hover:shadow-xl transition-all duration-500 ${categorySlug === 'electronics' ? 'hover:-translate-y-1' : 'hover:-translate-y-2'} rounded-3xl`}>
                 {/* Image Container with Group Hover */}
                 <div className="group absolute inset-0 overflow-hidden">
                   {/* Full Card Image Background */}
                   <img
                     src={product.image || "/placeholder.svg"}
                     alt={product.name}
-                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    className={`absolute inset-0 w-full h-full ${categorySlug === 'electronics' ? 'object-contain bg-white' : 'object-cover'} ${categorySlug === 'electronics' ? 'group-hover:scale-105' : 'group-hover:scale-110'} transition-transform duration-500`}
                   />
                   
                   {/* Product Badges */}

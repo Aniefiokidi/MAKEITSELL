@@ -2,11 +2,13 @@
 
 import React, { useEffect, useState } from "react"
 import { ProductQuickView } from "@/components/ui/product-quick-view"
+import { Button } from "@/components/ui/button"
 import { useCart } from "@/contexts/CartContext"
 import { useSearchParams } from "next/navigation"
+import Link from "next/link"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
-import { Shield, Users, Truck, Sparkles } from "lucide-react"
+import { Shield, Users, Truck, Sparkles, ArrowRight } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle2 } from "lucide-react"
 
@@ -387,6 +389,14 @@ export default function HomePage() {
                     <span className="font-medium text-neutral-900 dark:text-white text-sm">Music</span>
                   </a>
                 </div>
+              </div>
+              <div className="text-center mt-6 sm:mt-8">
+                <Link href="/categories">
+                  <Button className="group bg-gradient-to-r from-accent to-accent/80 hover:from-accent/90 hover:to-accent/70 text-white px-6 py-3 rounded-lg transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl">
+                    View All Categories
+                    <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
+                  </Button>
+                </Link>
               </div>
             </div>
           </section>

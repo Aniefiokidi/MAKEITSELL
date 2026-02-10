@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Facebook, Twitter, Instagram, Mail, Phone, MapPin } from "lucide-react"
+import { Facebook, Twitter, Instagram, Mail, Phone } from "lucide-react"
 
 export default function Footer() {
   return (
@@ -38,7 +38,8 @@ export default function Footer() {
             <ul className="space-y-2 text-sm">
               <li><Link href="/stores" className="text-muted-foreground hover:text-accent">Stores</Link></li>
               <li><Link href="/categories" className="text-muted-foreground hover:text-accent">Categories</Link></li>
-              <li><Link href="/deals" className="text-muted-foreground hover:text-accent">Deals</Link></li>
+              <li><Link href="/services" className="text-muted-foreground hover:text-accent">Services</Link></li>
+              <li><Link href="/products" className="text-muted-foreground hover:text-accent">Products</Link></li>
             </ul>
           </div>
 
@@ -59,17 +60,15 @@ export default function Footer() {
             <ul className="space-y-3 text-sm">
               <li className="flex justify-center sm:justify-start items-center space-x-3">
                 <Mail className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">support@makeitsell.com</span>
+                <span className="text-muted-foreground">noreply@makeitsell.org</span>
               </li>
               <li className="flex justify-center sm:justify-start items-center space-x-3">
                 <Phone className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">+234 812 9380 869</span>
+                <span className="text-muted-foreground">+234 9077674884</span>
               </li>
               <li className="flex justify-center sm:justify-start items-center space-x-3">
-                <MapPin className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">
-                  123 Allen Avenue, Ikeja, Lagos State, Nigeria
-                </span>
+                <Phone className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">+234 703198441</span>
               </li>
             </ul>
           </div>
