@@ -36,6 +36,7 @@ interface Product {
   colors?: string[]
   hasSizeOptions?: boolean
   sizes?: string[]
+  colorImages?: { [key: string]: string }
   featured: boolean
   status: string
   sales: number
@@ -57,6 +58,14 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
   const [selectedSize, setSelectedSize] = useState<string>("")
 
   if (!product) return null
+
+  // Update main image when color is selected
+  const handleColorSelect = (color: string) => {
+    setSelectedColor(color)
+    if (product.colorImages && product.colorImages[color]) {
+      setMainImage(product.colorImages[color])
+    }
+  }
 
   const displayImage = mainImage || product.images?.[0] || "/placeholder.svg"
 
@@ -122,7 +131,7 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
           {/* Right: Product Details */}
           <div className="space-y-4 md:space-y-6 order-1 md:order-2">
             <div>
-              <h2 className="text-xl md:text-2xl font-bold bg-accent text-white px-2 py-1 rounded-full mb-2 md:mb-3 leading-tight w-fit">
+              <h2 className="text-xl md:text-2xl font-bold bg-accent text-white px-3 py-2 rounded-2xl mb-2 md:mb-3 leading-tight break-words">
                 {product.title || product.name}
               </h2>
               <p className="text-xs md:text-sm bg-accent text-white inline-block px-2 py-1 rounded-full font-medium mb-2 md:mb-3">
@@ -168,13 +177,17 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
                   {product.colors.map((color: string) => (
                     <button
                       key={color}
-                      onClick={() => setSelectedColor(color)}
-                      className={`px-3 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium border-2 transition-all cursor-pointer active:scale-95 ${
+                      onClick={() => handleColorSelect(color)}
+                      className={`px-3 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium border-2 transition-all cursor-pointer active:scale-95 flex items-center gap-2 ${
                         selectedColor === color
                           ? "bg-accent text-white border-accent"
                           : "bg-white text-slate-700 border-slate-300 hover:border-accent hover:bg-accent/10"
                       }`}
                     >
+                      <div 
+                        className="w-3 h-3 md:w-4 md:h-4 rounded-full border border-gray-300" 
+                        style={{ backgroundColor: color.toLowerCase().replace(/ /g, '') }}
+                      />
                       {color}
                     </button>
                   ))}

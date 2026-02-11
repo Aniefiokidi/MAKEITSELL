@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from "react"
 import { ProductQuickView } from "@/components/ui/product-quick-view"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
 import { useCart } from "@/contexts/CartContext"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
@@ -91,7 +93,7 @@ function TrendingProducts() {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 md:gap-4 max-w-5xl mx-auto">
         {[1, 2, 3].map(i => (
-          <div key={i} className="animate-pulse bg-white/60 dark:bg-white/10 rounded-xl p-4 sm:p-6 h-48" />
+          <div key={i} className="animate-pulse bg-white/60 dark:bg-white/10 rounded-2xl sm:rounded-3xl h-[280px] sm:h-[350px] md:h-[380px]" />
         ))}
       </div>
     )
@@ -103,22 +105,122 @@ function TrendingProducts() {
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 md:gap-4 max-w-5xl mx-auto">
         {products.map((product: any) => (
-          <div
-            key={product.id}
-            className="group hover:shadow-xl hover:shadow-accent/30 shadow-lg shadow-accent/20 transition-all duration-200 hover:scale-105 animate-scale-in hover-lift bg-white/60 dark:bg-white/10 rounded-xl p-4 sm:p-6 flex flex-col items-center text-center cursor-pointer"
+          <Card 
+            key={product.id} 
+            className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl cursor-pointer active:scale-95 md:active:scale-100"
             onClick={() => {
               setSelectedProduct(product)
               setQuickViewOpen(true)
             }}
           >
-            <img src={product.images?.[0] || "/placeholder.png"} alt={product.title || product.name || "Product"} className="h-20 w-20 sm:h-24 sm:w-24 object-cover rounded-lg mb-3 border-2 border-accent" />
-            <h3 className="font-semibold mb-1 text-sm text-neutral-900 dark:text-white line-clamp-1">{product.title || product.name}</h3>
-            <p className="text-neutral-700 dark:text-gray-300 text-xs mb-2 line-clamp-1">{product.storeName || product.vendorName || 'Unknown Vendor'}</p>
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <span className="text-accent font-bold text-sm">₦{product.price?.toLocaleString?.() || product.price}</span>
+            {/* Image Container */}
+            <div className="group absolute inset-0 overflow-hidden">
+              <img 
+                src={product.images?.[0] || "/placeholder.png"} 
+                alt={product.title || product.name || "Product"} 
+                className={`absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${product.stock === 0 ? 'grayscale' : ''}`}
+              />
+              
+              {/* Out of Stock Red Tape Overlay */}
+              {product.stock === 0 && (
+                <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
+                  <div className="bg-red-600 text-white px-4 sm:px-8 py-1 sm:py-2 transform -rotate-45 font-bold text-xs sm:text-sm shadow-lg">
+                    OUT OF STOCK
+                  </div>
+                </div>
+              )}
+              
+              {/* Product Badges */}
+              <div className="absolute top-2 sm:top-3 left-2 sm:left-3 flex flex-col gap-1 z-10">
+                {product.featured && (
+                  <Badge className="bg-yellow-500 text-black font-semibold text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
+                    <svg className="inline w-3 h-3 sm:w-4 sm:h-4 text-yellow-400 fill-current animate-pulse mr-0.5 sm:mr-1" viewBox="0 0 24 24">
+                      <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
+                    </svg> 
+                    Featured
+                  </Badge>
+                )}
+                {(product.stock ?? 0) < 10 && (product.stock ?? 0) > 0 && (
+                  <Badge variant="destructive" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
+                    Only {product.stock} left
+                  </Badge>
+                )}
+                {product.stock === 0 && (
+                  <Badge variant="secondary" className="bg-gray-600 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
+                    Out of Stock
+                  </Badge>
+                )}
+              </div>
             </div>
-            <span className="text-accent font-bold hover:underline text-xs">Shop Now</span>
-          </div>
+            
+            {/* Frosted Glass Bubble Content */}
+            <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-2.5 md:p-3 backdrop-blur-xl bg-accent/10 border-t border-white/30 rounded-t-2xl sm:rounded-t-3xl z-30 space-y-1 gap-1 sm:gap-2">
+              <Badge
+                variant="outline"
+                className="inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow bg-accent text-white hover:opacity-90 transition min-h-[20px] sm:min-h-[24px] items-center justify-center text-center leading-tight"
+                style={{
+                  whiteSpace: 'normal',
+                  wordBreak: 'break-word',
+                  hyphens: 'auto',
+                  lineHeight: '1.2'
+                }}
+              >
+                <span className="line-clamp-2 sm:line-clamp-1">
+                  {product.title || product.name}
+                </span>
+              </Badge>
+              
+              <div className="flex items-center justify-between gap-1 sm:gap-2">
+                <Badge variant="outline" className="text-[9px] sm:text-[10px] md:text-xs backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 text-white bg-accent">
+                  {product.storeName || product.vendorName || 'Store'}
+                </Badge>
+                
+                <Badge
+                  variant="outline"
+                  className="text-[9px] sm:text-[10px] md:text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 backdrop-blur-sm bg-white/70 text-accent"
+                >
+                  ₦{product.price?.toLocaleString?.() || product.price}
+                </Badge>
+              </div>
+              
+              {/* Sizes Display */}
+              {product.hasSizeOptions && product.sizes && product.sizes.length > 0 && (
+                <div className="flex items-center gap-1 flex-wrap">
+                  {product.sizes.slice(0, 5).map((size: string, idx: number) => (
+                    <Badge
+                      key={idx}
+                      variant="outline"
+                      className="text-[8px] sm:text-[9px] md:text-[10px] px-1 sm:px-1.5 py-0 border-white/40 bg-white/50 text-accent"
+                    >
+                      {size}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              
+              <Button 
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  addItem({
+                    productId: product.id,
+                    id: product.id,
+                    title: product.title || product.name || '',
+                    price: product.price,
+                    image: product.images?.[0] || '',
+                    maxStock: product.stock || 100,
+                    vendorId: product.vendorId,
+                    vendorName: product.storeName || product.vendorName || 'Unknown Vendor'
+                  })
+                }}
+                disabled={product.stock === 0}
+                className="w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black"
+              >
+                <img src="/images/logo3.png" alt="Add" className="w-6 sm:w-7 md:w-8 h-6 sm:h-7 md:h-8 -mt-1 sm:-mt-2" />
+                <span className="leading-none hidden sm:inline">Add</span>
+              </Button>
+            </div>
+          </Card>
         ))}
       </div>
       <ProductQuickView

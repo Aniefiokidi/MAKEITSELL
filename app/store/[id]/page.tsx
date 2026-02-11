@@ -37,7 +37,7 @@ interface Product {
   hasSizeOptions?: boolean
   colors?: string[]
   sizes?: string[]
-  colorImages?: { [key: string]: string[] }
+  colorImages?: { [key: string]: string }
   createdAt: string
   updatedAt: string
 }
@@ -756,7 +756,14 @@ export default function StorePage() {
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4 md:gap-6 auto-rows-max">
                   {filteredProducts.filter(product => product && product.id).map((product) => (
-                    <Card key={product.id} className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100">
+                    <Card 
+                      key={product.id} 
+                      className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100 cursor-pointer"
+                      onClick={() => {
+                        setSelectedProduct(product)
+                        setQuickViewOpen(true)
+                      }}
+                    >
                       {/* Image Container with Group Hover */}
                       <div className="group absolute inset-0 overflow-hidden">
                         {/* Full Card Image Background with Cycling Animation */}
@@ -814,14 +821,9 @@ export default function StorePage() {
                         <Badge
                           variant="outline"
                           role="button"
-                          className={`inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow cursor-pointer hover:opacity-90 transition min-h-[20px] sm:min-h-[24px] items-center justify-center text-center leading-tight ${
+                          className={`inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow hover:opacity-90 transition min-h-[20px] sm:min-h-[24px] items-center justify-center text-center leading-tight ${
                             imageBrightness[product.id] === 'light' ? 'bg-accent text-white' : 'bg-accent text-white'
                           }`}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setSelectedProduct(product)
-                            setQuickViewOpen(true)
-                          }}
                           style={{
                             whiteSpace: 'normal',
                             wordBreak: 'break-word',
@@ -850,6 +852,23 @@ export default function StorePage() {
                             {formatCurrency(product.price)}
                           </Badge>
                         </div>
+                        
+                        {/* Sizes Display */}
+                        {product.hasSizeOptions && product.sizes && product.sizes.length > 0 && (
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {product.sizes.slice(0, 5).map((size: string, idx: number) => (
+                              <Badge
+                                key={idx}
+                                variant="outline"
+                                className={`text-[8px] sm:text-[9px] md:text-[10px] px-1 sm:px-1.5 py-0 border-white/40 ${
+                                  imageBrightness[product.id] === 'light' ? 'bg-white/60 text-accent' : 'bg-white/50 text-accent'
+                                }`}
+                              >
+                                {size}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                         
                         <Button 
                           size="sm"

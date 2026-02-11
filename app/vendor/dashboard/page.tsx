@@ -509,14 +509,26 @@ export default function VendorDashboardPage() {
                             👤 {order.customerName || "Unknown Customer"}
                           </p>
                           {order.vendorItems && order.vendorItems.length > 0 ? (
-                            <div className="space-y-1">
+                            <div className="space-y-2">
                               {order.vendorItems.slice(0, 2).map((item: any, idx: number) => (
-                                <p key={idx} className="text-xs text-gray-600">
-                                  📦 {item.title || item.name || "Product"} × {item.quantity || 1}
-                                </p>
+                                <div key={idx} className="flex items-center gap-2">
+                                  <img 
+                                    src={item.image || item.images?.[0] || "/placeholder.png"} 
+                                    alt={item.title || item.name || "Product"}
+                                    className="w-10 h-10 rounded object-cover border border-gray-200"
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs text-gray-600 truncate">
+                                      {item.title || item.name || "Product"}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      Qty: {item.quantity || 1}
+                                    </p>
+                                  </div>
+                                </div>
                               ))}
                               {order.vendorItems.length > 2 && (
-                                <p className="text-xs text-gray-500 italic">
+                                <p className="text-xs text-gray-500 italic pl-12">
                                   +{order.vendorItems.length - 2} more item{order.vendorItems.length - 2 > 1 ? 's' : ''}
                                 </p>
                               )}
@@ -524,7 +536,7 @@ export default function VendorDashboardPage() {
                           ) : (
                             <p className="text-xs text-gray-500">No items</p>
                           )}
-                          <p className="text-xs font-semibold text-gray-700 mt-1">
+                          <p className="text-xs font-semibold text-gray-700 mt-2">
                             Total Qty: {order.totalQuantity || 0}
                           </p>
                         </div>

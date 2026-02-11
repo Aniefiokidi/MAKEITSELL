@@ -47,6 +47,35 @@ const fashionSubcategories = [
   "Socks & Underwear",
 ]
 
+const predefinedSizes = ["S", "M", "L", "XL", "XXL"]
+
+const predefinedColors = [
+  "Black",
+  "White",
+  "Gray",
+  "Red",
+  "Blue",
+  "Navy Blue",
+  "Green",
+  "Yellow",
+  "Orange",
+  "Pink",
+  "Purple",
+  "Brown",
+  "Beige",
+  "Cream",
+  "Maroon",
+  "Teal",
+  "Turquoise",
+  "Gold",
+  "Silver",
+  "Olive",
+  "Burgundy",
+  "Mint",
+  "Lavender",
+  "Coral"
+]
+
 export default function NewProduct() {
   const router = useRouter()
   const { user, userProfile } = useAuth()
@@ -73,6 +102,7 @@ export default function NewProduct() {
   const [newSize, setNewSize] = useState("")
   const [colorImages, setColorImages] = useState<{ [color: string]: File[] }>({})
   const [colorPreviews, setColorPreviews] = useState<{ [color: string]: string[] }>({})
+  const [colorImageMapping, setColorImageMapping] = useState<{ [color: string]: number }>({})
 
   const addColor = () => {
     if (newColor && !colors.includes(newColor)) {
@@ -83,13 +113,32 @@ export default function NewProduct() {
 
   const removeColor = (color: string) => {
     setColors(colors.filter(c => c !== color))
-    // Remove color images too
+    // Remove color images and mapping too
     const newColorImages = { ...colorImages }
     const newColorPreviews = { ...colorPreviews }
+    const newColorImageMapping = { ...colorImageMapping }
     delete newColorImages[color]
     delete newColorPreviews[color]
+    delete newColorImageMapping[color]
     setColorImages(newColorImages)
     setColorPreviews(newColorPreviews)
+    setColorImageMapping(newColorImageMapping)
+  }
+
+  const toggleSize = (size: string) => {
+    if (sizes.includes(size)) {
+      setSizes(sizes.filter(s => s !== size))
+    } else {
+      setSizes([...sizes, size])
+    }
+  }
+
+  const toggleColor = (color: string) => {
+    if (colors.includes(color)) {
+      removeColor(color)
+    } else {
+      setColors([...colors, color])
+    }
   }
 
   const addSize = () => {
@@ -181,16 +230,11 @@ export default function NewProduct() {
         imageUrls.push(url)
       }
 
-      // Upload color-specific images to Cloudinary
-      const colorImagesUploaded: { [key: string]: string[] } = {}
-      for (const [colorName, imageFiles] of Object.entries(colorImages)) {
-        if (imageFiles && imageFiles.length > 0) {
-          const colorImageUrls: string[] = []
-          for (const file of imageFiles) {
-            const url = await uploadToCloudinary(file)
-            colorImageUrls.push(url)
-          }
-          colorImagesUploaded[colorName] = colorImageUrls
+      // Create color to image URL mapping
+      const colorImageUrls: { [key: string]: string } = {}
+      for (const [color, imageIndex] of Object.entries(colorImageMapping)) {
+        if (imageUrls[imageIndex]) {
+          colorImageUrls[color] = imageUrls[imageIndex]
         }
       }
 
@@ -218,7 +262,7 @@ export default function NewProduct() {
           hasSizeOptions: sizes.length > 0,
           colors: colors,
           sizes: sizes,
-          colorImages: colorImagesUploaded,
+          colorImages: colorImageUrls,
         })
       })
 
@@ -434,153 +478,98 @@ export default function NewProduct() {
           <Card>
             <CardHeader>
               <CardTitle>Product Options</CardTitle>
-              <CardDescription>Add color and size options for your product (recommended for fashion items)</CardDescription>
+              <CardDescription>Add color and size options for your product</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Colors Section */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-base font-semibold">Colors</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addColor}
-                    disabled={loading}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Color
-                  </Button>
-                </div>
-                
-                {colors.length > 0 && (
-                  <div className="space-y-4">
-                    {colors.map((color, index) => (
-                      <div key={index} className="p-4 border rounded-lg space-y-4">
-                        <div className="flex items-center justify-between">
-                          <Input
-                            placeholder="Color name (e.g., Red, Blue, Black)"
-                            value={color}
-                            onChange={(e) => {
-                              const newColors = [...colors]
-                              newColors[index] = e.target.value
-                              setColors(newColors)
-                            }}
-                            disabled={loading}
-                          />
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => removeColor(index)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-
-                        {/* Color-specific images */}
-                        <div className="space-y-2">
-                          <Label className="text-sm">Images for {color || 'this color'}</Label>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                            {colorPreviews[color]?.map((preview, imgIndex) => (
-                              <div
-                                key={imgIndex}
-                                className="relative aspect-square rounded border overflow-hidden"
-                              >
-                                <img
-                                  src={preview}
-                                  alt={`${color} ${imgIndex + 1}`}
-                                  className="w-full h-full object-cover"
-                                />
-                                <Button
-                                  type="button"
-                                  variant="destructive"
-                                  size="icon"
-                                  className="absolute top-1 right-1 h-5 w-5"
-                                  onClick={() => {
-                                    const newColorImages = { ...colorImages }
-                                    const newColorPreviews = { ...colorPreviews }
-                                    if (newColorImages[color]) {
-                                      newColorImages[color] = newColorImages[color].filter((_, i) => i !== imgIndex)
-                                      newColorPreviews[color] = newColorPreviews[color].filter((_, i) => i !== imgIndex)
-                                      if (newColorImages[color].length === 0) {
-                                        delete newColorImages[color]
-                                        delete newColorPreviews[color]
-                                      }
-                                    }
-                                    setColorImages(newColorImages)
-                                    setColorPreviews(newColorPreviews)
-                                  }}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            ))}
-                            <label className="aspect-square rounded border-2 border-dashed border-muted-foreground/25 flex flex-col items-center justify-center cursor-pointer hover:border-muted-foreground/50 transition-colors text-center">
-                              <Upload className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-xs text-muted-foreground mt-1">Add Images</span>
-                              <input
-                                type="file"
-                                accept="image/*"
-                                multiple
-                                className="hidden"
-                                onChange={(e) => handleColorImagesUpload(color, e)}
-                                disabled={loading}
-                              />
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Sizes Section */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-base font-semibold">Sizes</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addSize}
-                    disabled={loading}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Size
-                  </Button>
-                </div>
-                
-                {sizes.length > 0 && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    {sizes.map((size, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <Input
-                          placeholder="Size (e.g., S, M, L, XL)"
-                          value={size}
-                          onChange={(e) => {
-                            const newSizes = [...sizes]
-                            newSizes[index] = e.target.value
-                            setSizes(newSizes)
-                          }}
+              <CardContent className="space-y-6">
+                {/* Sizes Section */}
+                <div className="space-y-4">
+                  <Label className="text-base font-semibold">Available Sizes</Label>
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                    {predefinedSizes.map((size) => (
+                      <div key={size} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`size-${size}`}
+                          checked={sizes.includes(size)}
+                          onCheckedChange={() => toggleSize(size)}
                           disabled={loading}
                         />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="icon"
-                          onClick={() => removeSize(index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+                        <Label htmlFor={`size-${size}`} className="cursor-pointer">
+                          {size}
+                        </Label>
                       </div>
                     ))}
                   </div>
+                </div>
+
+                {/* Colors Section */}
+                <div className="space-y-4">
+                  <Label className="text-base font-semibold">Available Colors</Label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {predefinedColors.map((color) => (
+                      <div key={color} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`color-${color}`}
+                          checked={colors.includes(color)}
+                          onCheckedChange={() => toggleColor(color)}
+                          disabled={loading}
+                        />
+                        <Label htmlFor={`color-${color}`} className="cursor-pointer flex items-center gap-2">
+                          <div 
+                            className="w-4 h-4 rounded-full border border-gray-300" 
+                            style={{ backgroundColor: color.toLowerCase().replace(/ /g, '') }}
+                          />
+                          {color}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Color to Image Mapping */}
+                {colors.length > 0 && previews.length > 0 && (
+                  <div className="space-y-4">
+                    <Label className="text-base font-semibold">Link Colors to Product Images</Label>
+                    <p className="text-sm text-muted-foreground">Select which image represents each color</p>
+                    <div className="grid gap-4">
+                      {colors.map((color) => (
+                        <div key={color} className="flex items-center gap-4 p-3 border rounded-lg">
+                          <div className="flex items-center gap-2 min-w-[120px]">
+                            <div 
+                              className="w-4 h-4 rounded-full border border-gray-300" 
+                              style={{ backgroundColor: color.toLowerCase().replace(/ /g, '') }}
+                            />
+                            <Label className="font-medium">{color}</Label>
+                          </div>
+                          <Select 
+                            value={colorImageMapping[color]?.toString() || ""} 
+                            onValueChange={(value) => {
+                              setColorImageMapping(prev => ({
+                                ...prev,
+                                [color]: parseInt(value)
+                              }))
+                            }}
+                          >
+                            <SelectTrigger className="flex-1">
+                              <SelectValue placeholder="Select image for this color" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {previews.map((preview, index) => (
+                                <SelectItem key={index} value={index.toString()}>
+                                  <div className="flex items-center gap-2">
+                                    <img src={preview} alt={`Image ${index + 1}`} className="w-8 h-8 object-cover rounded" />
+                                    Image {index + 1}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
           {/* Actions */}
           <div className="flex gap-4">
