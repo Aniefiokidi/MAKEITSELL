@@ -297,7 +297,7 @@ export default function TermsPage() {
               <div className="space-y-2 text-[10px] xs:text-xs sm:text-sm">
                 <p><strong>Email:</strong> noreply@makeitsell.org</p>
                 <p><strong>Phone:</strong> +234 9077674884</p>
-                <p><strong>Phone:</strong> +234 703198441</p>
+                <p><strong>Phone:</strong> +234 7031984441</p>
               </div>
             </CardContent>
           </Card>

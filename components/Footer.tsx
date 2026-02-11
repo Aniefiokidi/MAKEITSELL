@@ -68,7 +68,7 @@ export default function Footer() {
               </li>
               <li className="flex justify-center sm:justify-start items-center space-x-3">
                 <Phone className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">+234 703198441</span>
+                <span className="text-muted-foreground">+234 7031984441</span>
               </li>
             </ul>
           </div>
