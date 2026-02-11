@@ -63,13 +63,18 @@ export const signUp = async (
 // Sign in user (calls API route)
 export const signIn = async (email: string, password: string) => {
   try {
+    console.log('[signIn] Attempting login for:', email)
     const response = await fetch('/api/auth/signin', {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
+    
+    console.log('[signIn] Response status:', response.status)
     const result = await response.json();
+    console.log('[signIn] Response result:', { success: result.success, hasUser: !!result.user, hasToken: !!result.sessionToken, error: result.error })
+    
     if (result.success && result.user && result.sessionToken) {
       // Store session token in sessionStorage as backup
       if (typeof window !== 'undefined') {
@@ -95,6 +100,7 @@ export const signIn = async (email: string, password: string) => {
         }
       };
     } else {
+      console.error('[signIn] Login failed:', result.error || 'Authentication failed')
       throw new Error(result.error || 'Authentication failed');
     }
   } catch (error: any) {
