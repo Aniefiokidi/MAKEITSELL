@@ -59,15 +59,6 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
 
   if (!product) return null
 
-  // Debug logging
-  console.log('=== ProductQuickView - Product data ===')
-  console.log('Name:', product.name || product.title)
-  console.log('hasColorOptions:', product.hasColorOptions, 'Type:', typeof product.hasColorOptions)
-  console.log('hasSizeOptions:', product.hasSizeOptions, 'Type:', typeof product.hasSizeOptions)
-  console.log('colors:', product.colors, 'Is Array:', Array.isArray(product.colors))
-  console.log('sizes:', product.sizes, 'Is Array:', Array.isArray(product.sizes))
-  console.log('=======================================')
-
   // Update main image when color is selected
   const handleColorSelect = (color: string) => {
     setSelectedColor(color)
@@ -179,15 +170,7 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
             </div>
 
             {/* Color Options */}
-            {(() => {
-              const hasColors = product.hasColorOptions && product.colors && product.colors.length > 0
-              console.log('🎨 Color check:')
-              console.log('   hasColorOptions:', product.hasColorOptions)
-              console.log('   colors:', product.colors)
-              console.log('   colorsLength:', product.colors?.length)
-              console.log('   shouldShow:', hasColors)
-              return hasColors
-            })() && (
+            {product.hasColorOptions && product.colors && product.colors.length > 0 && (
               <div>
                 <h3 className="font-semibold text-xs md:text-sm mb-2">Select Color</h3>
                 <div className="flex gap-2 flex-wrap">
@@ -213,15 +196,7 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
             )}
 
             {/* Size Options */}
-            {(() => {
-              const hasSizes = product.hasSizeOptions && product.sizes && product.sizes.length > 0
-              console.log('📏 Size check:')
-              console.log('   hasSizeOptions:', product.hasSizeOptions)
-              console.log('   sizes:', product.sizes)
-              console.log('   sizesLength:', product.sizes?.length)
-              console.log('   shouldShow:', hasSizes)
-              return hasSizes
-            })() && (
+            {product.hasSizeOptions && product.sizes && product.sizes.length > 0 && (
               <div>
                 <h3 className="font-semibold text-xs md:text-sm mb-2">Select Size</h3>
                 <div className="flex gap-2 flex-wrap">

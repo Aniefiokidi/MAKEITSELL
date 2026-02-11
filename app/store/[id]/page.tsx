@@ -200,22 +200,7 @@ export default function StorePage() {
         const productsResponse = await fetch(`/api/database/products?vendorId=${storeResult.data.vendorId}`)
         const productsResult = await productsResponse.json()
         
-        console.log('🔍 Products fetched from API:', productsResult.data)
-        
         if (productsResult.success && productsResult.data) {
-          // Check first product for color/size data
-          const firstProduct = productsResult.data[0]
-          if (firstProduct) {
-            console.log('📦 First product details:', {
-              name: firstProduct.name || firstProduct.title,
-              hasColorOptions: firstProduct.hasColorOptions,
-              hasSizeOptions: firstProduct.hasSizeOptions,
-              colors: firstProduct.colors,
-              sizes: firstProduct.sizes,
-              allKeys: Object.keys(firstProduct)
-            })
-          }
-          
           setProducts(productsResult.data)
           setFilteredProducts(productsResult.data)
           
@@ -775,13 +760,6 @@ export default function StorePage() {
                       key={product.id} 
                       className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100 cursor-pointer"
                       onClick={() => {
-                        console.log('🖱️ Product clicked:')
-                        console.log('   Name:', product.name || product.title)
-                        console.log('   hasColorOptions:', product.hasColorOptions)
-                        console.log('   hasSizeOptions:', product.hasSizeOptions)
-                        console.log('   colors:', product.colors)
-                        console.log('   sizes:', product.sizes)
-                        console.log('   Full product:', JSON.stringify(product, null, 2))
                         setSelectedProduct(product)
                         setQuickViewOpen(true)
                       }}
