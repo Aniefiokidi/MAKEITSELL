@@ -610,10 +610,6 @@ export default function StorePage() {
               
               {/* Action Buttons */}
               <div className="flex gap-2 sm:gap-3 w-full sm:w-auto flex-col sm:flex-row">
-                <Button variant="outline" className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20 hover:scale-105 transition-all text-xs sm:text-sm py-2 sm:py-3">
-                  <MessageCircle className="w-4 h-4 mr-2" />
-                  Contact Seller
-                </Button>
                 <Button 
                   className={`${isFollowing ? "bg-green-600 hover:bg-green-700 hover:scale-105 transition-all" : "bg-primary hover:bg-primary/90 hover:scale-105 transition-all"} text-xs sm:text-sm py-2 sm:py-3`}
                   onClick={handleFollowToggle}

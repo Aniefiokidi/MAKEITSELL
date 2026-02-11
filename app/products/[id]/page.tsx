@@ -158,7 +158,11 @@ export default function ProductPage({ params }: { params: { id: string } }) {
               </div>
             )}
 
-            <div className="mb-4 text-sm text-muted-foreground">{product.description}</div>
+            {/* Description */}
+            <div className="mb-4 bg-slate-50 rounded-lg p-3">
+              <h3 className="font-semibold text-sm mb-2">Description</h3>
+              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">{product.description}</p>
+            </div>
             
             <div className="mb-4 flex flex-wrap gap-2">
               <span className="bg-accent/10 text-accent px-2 py-1 rounded text-xs">{product.category}</span>

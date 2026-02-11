@@ -1,10 +1,8 @@
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { RefreshCw, Package, Clock, Shield, AlertCircle, CheckCircle } from "lucide-react"
+import { AlertCircle, ShieldAlert, Package, Info } from "lucide-react"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 
 export default function ReturnsPage() {
   return (
@@ -19,201 +17,182 @@ export default function ReturnsPage() {
               <span className="mx-2">/</span>
               <span>Returns & Refunds</span>
             </nav>
-            <h1 className="text-3xl font-bold mb-4">Returns & Refunds</h1>
+            <h1 className="text-3xl font-bold mb-4">Returns & Refunds Policy</h1>
             <p className="text-muted-foreground">
-              We want you to be completely satisfied with your purchase. Learn about our hassle-free return policy.
+              Please read our policy carefully before making a purchase.
             </p>
           </div>
 
-          {/* Quick Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <Card>
-              <CardContent className="p-6 text-center">
-                <Clock className="w-12 h-12 text-blue-500 mx-auto mb-3" />
-                <h3 className="font-semibold mb-2">30-Day Returns</h3>
-                <p className="text-sm text-muted-foreground">Return most items within 30 days of delivery</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6 text-center">
-                <RefreshCw className="w-12 h-12 text-green-500 mx-auto mb-3" />
-                <h3 className="font-semibold mb-2">Free Returns</h3>
-                <p className="text-sm text-muted-foreground">Free return shipping on eligible items</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6 text-center">
-                <Shield className="w-12 h-12 text-purple-500 mx-auto mb-3" />
-                <h3 className="font-semibold mb-2">Buyer Protection</h3>
-                <p className="text-sm text-muted-foreground">Your purchases are protected</p>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Alert Banner */}
+          <Card className="mb-8 border-yellow-200 bg-yellow-50">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-4">
+                <ShieldAlert className="w-8 h-8 text-yellow-600 flex-shrink-0" />
+                <div>
+                  <h3 className="font-bold text-lg mb-2 text-yellow-900">No Return Policy</h3>
+                  <p className="text-yellow-800">
+                    Make It Sell operates under a <strong>strict no-return policy</strong>. All sales are final. 
+                    Please ensure you carefully review product details, specifications, and images before completing your purchase.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Return Policy */}
+            {/* Policy Details */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Package className="w-5 h-5" />
-                  Return Policy
+                  Our Policy
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <h4 className="font-semibold mb-2">What can be returned?</h4>
+                  <h4 className="font-semibold mb-3">Why No Returns?</h4>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    As a marketplace connecting multiple vendors with customers, we maintain a no-return policy to ensure:
+                  </p>
                   <ul className="space-y-2 text-sm">
                     <li className="flex items-start gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500 mt-0.5" />
-                      <span>Most new, unopened items within 30 days</span>
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2" />
+                      <span>Competitive pricing by reducing logistics costs</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500 mt-0.5" />
-                      <span>Items in original packaging</span>
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2" />
+                      <span>Product authenticity and quality control</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500 mt-0.5" />
-                      <span>Items with all accessories and documentation</span>
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2" />
+                      <span>Fair treatment for all vendors on our platform</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <AlertCircle className="w-4 h-4 text-red-500 mt-0.5" />
-                      <span>Some items have different return policies (see exclusions)</span>
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2" />
+                      <span>Faster delivery times and better service</span>
                     </li>
                   </ul>
                 </div>
                 
-                <div>
-                  <h4 className="font-semibold mb-2">Return Timeline</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
-                      <span className="text-sm">Request return</span>
-                      <Badge variant="outline">Within 30 days</Badge>
-                    </div>
-                    <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
-                      <span className="text-sm">Ship item back</span>
-                      <Badge variant="outline">Within 5 days</Badge>
-                    </div>
-                    <div className="flex justify-between items-center p-2 bg-muted/50 rounded">
-                      <span className="text-sm">Refund processed</span>
-                      <Badge variant="outline">3-5 business days</Badge>
-                    </div>
-                  </div>
+                <div className="pt-4 border-t">
+                  <h4 className="font-semibold mb-2">Important Notice</h4>
+                  <p className="text-sm text-muted-foreground">
+                    By completing a purchase on Make It Sell, you acknowledge and agree to this no-return policy. 
+                    We encourage you to contact vendors directly if you have questions about products before purchasing.
+                  </p>
                 </div>
               </CardContent>
             </Card>
 
-            {/* How to Return */}
+            {/* Exceptions */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <RefreshCw className="w-5 h-5" />
-                  How to Return Items
+                  <AlertCircle className="w-5 h-5" />
+                  Limited Exceptions
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">1</div>
-                    <div>
-                      <h5 className="font-medium">Start a Return Request</h5>
-                      <p className="text-sm text-muted-foreground">Go to your order history and select "Return Item"</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">2</div>
-                    <div>
-                      <h5 className="font-medium">Print Return Label</h5>
-                      <p className="text-sm text-muted-foreground">Print the prepaid return shipping label we provide</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">3</div>
-                    <div>
-                      <h5 className="font-medium">Pack and Ship</h5>
-                      <p className="text-sm text-muted-foreground">Pack item securely and drop off at any carrier location</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">4</div>
-                    <div>
-                      <h5 className="font-medium">Get Refunded</h5>
-                      <p className="text-sm text-muted-foreground">Refund issued once we receive and process your return</p>
-                    </div>
-                  </div>
+              <CardContent className="space-y-4">
+                <div>
+                  <h4 className="font-semibold mb-3">We will ONLY accept returns for:</h4>
+                  <ul className="space-y-3 text-sm">
+                    <li className="flex items-start gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                      <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <strong className="text-red-900">Damaged Items</strong>
+                        <p className="text-red-800 mt-1">Items that arrive physically damaged during shipping</p>
+                      </div>
+                    </li>
+                    <li className="flex items-start gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                      <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <strong className="text-red-900">Defective Products</strong>
+                        <p className="text-red-800 mt-1">Items that are proven to be defective or not working as described</p>
+                      </div>
+                    </li>
+                    <li className="flex items-start gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                      <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <strong className="text-red-900">Wrong Item Received</strong>
+                        <p className="text-red-800 mt-1">If you received a completely different item than what was ordered</p>
+                      </div>
+                    </li>
+                  </ul>
                 </div>
-                
-                <div className="mt-6 pt-4 border-t">
-                  <Button className="w-full">
-                    Start a Return
-                  </Button>
-                  <p className="text-xs text-muted-foreground mt-2 text-center">
-                    Need help? Contact our support team
+
+                <div className="pt-4 border-t">
+                  <h4 className="font-semibold mb-2">Claim Process</h4>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    For damage or defect claims, you must:
                   </p>
+                  <ul className="space-y-1 text-sm text-muted-foreground">
+                    <li>1. Contact us within <strong>24 hours</strong> of delivery</li>
+                    <li>2. Provide clear photos of the damage/defect</li>
+                    <li>3. Include your order number and description</li>
+                    <li>4. Keep all original packaging</li>
+                  </ul>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Exclusions */}
+          {/* What You Cannot Return */}
           <Card className="mt-8">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="w-5 h-5" />
-                Return Exclusions
+                <Info className="w-5 h-5" />
+                What Cannot Be Returned
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <h4 className="font-semibold mb-3">Items that cannot be returned:</h4>
+                  <h4 className="font-semibold mb-3">No returns accepted for:</h4>
                   <ul className="space-y-1 text-sm">
-                    <li>• Perishable goods (food, flowers, etc.)</li>
-                    <li>• Personal care items</li>
-                    <li>• Custom or personalized items</li>
-                    <li>• Digital products and downloads</li>
-                    <li>• Gift cards</li>
+                    <li>• Change of mind or buyer's remorse</li>
+                    <li>• Wrong size or color selection</li>
+                    <li>• Items not matching personal expectations</li>
+                    <li>• Price differences after purchase</li>
+                    <li>• Items purchased during sales or promotions</li>
                   </ul>
                 </div>
                 <div>
-                  <h4 className="font-semibold mb-3">Special return policies:</h4>
+                  <h4 className="font-semibold mb-3">Absolutely no returns on:</h4>
                   <ul className="space-y-1 text-sm">
-                    <li>• Electronics: 15-day return window</li>
-                    <li>• Clothing: Must have tags attached</li>
-                    <li>• Jewelry: Special authentication required</li>
-                    <li>• Large items: May require special pickup</li>
-                    <li>• International orders: Extended processing time</li>
+                    <li>• Personal care and hygiene products</li>
+                    <li>• Perishable goods</li>
+                    <li>• Custom or personalized items</li>
+                    <li>• Digital products and downloads</li>
+                    <li>• Gift cards or vouchers</li>
                   </ul>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* FAQ */}
+          {/* Tips for Shopping */}
           <Card className="mt-8">
             <CardHeader>
-              <CardTitle>Frequently Asked Questions</CardTitle>
+              <CardTitle>Shop Smart - Tips Before You Buy</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <h5 className="font-medium mb-2">When will I receive my refund?</h5>
-                  <p className="text-sm text-muted-foreground">
-                    Refunds are typically processed within 3-5 business days after we receive your returned item. 
-                    The refund will be issued to your original payment method.
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <h5 className="font-semibold mb-2 text-blue-900">Read Descriptions</h5>
+                  <p className="text-sm text-blue-800">
+                    Carefully review all product details, specifications, and sizing information
                   </p>
                 </div>
-                <div>
-                  <h5 className="font-medium mb-2">Can I exchange an item instead of returning it?</h5>
-                  <p className="text-sm text-muted-foreground">
-                    Yes! During the return process, you can choose to exchange for a different size, color, or model 
-                    instead of receiving a refund.
+                <div className="p-4 bg-green-50 rounded-lg">
+                  <h5 className="font-semibold mb-2 text-green-900">Check Images</h5>
+                  <p className="text-sm text-green-800">
+                    View all product images and zoom in to see details clearly
                   </p>
                 </div>
-                <div>
-                  <h5 className="font-medium mb-2">What if my item arrived damaged?</h5>
-                  <p className="text-sm text-muted-foreground">
-                    If your item arrived damaged or defective, please contact us immediately. We'll provide a 
-                    prepaid return label and expedite your replacement or refund.
+                <div className="p-4 bg-purple-50 rounded-lg">
+                  <h5 className="font-semibold mb-2 text-purple-900">Contact Vendor</h5>
+                  <p className="text-sm text-purple-800">
+                    Ask vendors questions before purchasing if you're uncertain about anything
                   </p>
                 </div>
               </div>
@@ -222,9 +201,9 @@ export default function ReturnsPage() {
 
           {/* Contact Section */}
           <div className="mt-8 text-center">
-            <h3 className="text-lg font-semibold mb-2">Need Help with Your Return?</h3>
+            <h3 className="text-lg font-semibold mb-2">Received a Damaged or Defective Item?</h3>
             <p className="text-muted-foreground mb-4">
-              Our customer service team is here to help you with any questions about returns or refunds.
+              Contact our support team within 24 hours with photos and your order details.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button variant="outline" asChild>
@@ -237,7 +216,6 @@ export default function ReturnsPage() {
           </div>
         </div>
       </div>
-      <Footer />
     </>
   )
 }

@@ -220,7 +220,7 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
             {/* Description */}
             <div className="bg-slate-50 rounded-lg md:rounded-xl p-3 md:p-4">
               <h3 className="font-semibold text-xs md:text-sm mb-2">Description</h3>
-              <p className="text-xs md:text-sm text-slate-700 leading-relaxed">{product.description}</p>
+              <p className="text-xs md:text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">{product.description}</p>
             </div>
 
             {/* Action Buttons */}
