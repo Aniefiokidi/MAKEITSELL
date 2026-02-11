@@ -41,13 +41,23 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Generate reset token
+      console.log(`[forgot-password] Generating NEW token for: ${email}`)
+      console.log(`[forgot-password] Old token: ${user.resetToken || 'none'}`)
+      console.log(`[forgot-password] Old expiry: ${user.resetTokenExpiry || 'none'}`)
+
+      // Generate NEW reset token (always fresh)
       const token = crypto.randomBytes(32).toString('hex')
       const tokenExpiry = new Date(Date.now() + 30 * 60 * 1000) // 30 minutes
 
+      // Clear old token and set new one
       user.resetToken = token
       user.resetTokenExpiry = tokenExpiry
+      user.updatedAt = new Date()
       await user.save()
+
+      console.log(`[forgot-password] NEW token generated: ${token}`)
+      console.log(`[forgot-password] NEW expiry: ${tokenExpiry}`)
+      console.log(`[forgot-password] Token saved to database`)
 
       // Send password reset email
       try {

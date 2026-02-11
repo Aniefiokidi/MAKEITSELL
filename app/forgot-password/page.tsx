@@ -109,7 +109,22 @@ export default function ForgotPasswordPage() {
         setMessage({ type: "success", text: "Password reset successfully! Redirecting to login..." })
         setTimeout(() => router.push("/login"), 2000)
       } else {
-        setMessage({ type: "error", text: data.error || "Failed to reset password" })
+        // Check if it's an expired token error
+        const isExpiredToken = data.error?.toLowerCase().includes('expired')
+        const errorMessage = isExpiredToken 
+          ? "⏰ This reset link has expired (links expire after 30 minutes). Please request a new password reset link below."
+          : data.error || "Failed to reset password"
+        
+        setMessage({ type: "error", text: errorMessage })
+        
+        // If token expired, switch back to email step after a short delay
+        if (isExpiredToken) {
+          setTimeout(() => {
+            setStep("email")
+            setResetToken("")
+            setMessage({ type: "error", text: "Your previous reset link expired. Enter your email below to get a new one." })
+          }, 3000)
+        }
       }
     } catch (error) {
       setMessage({ type: "error", text: "An error occurred. Please try again." })
@@ -285,13 +300,13 @@ export default function ForgotPasswordPage() {
                       setResetToken("")
                       setNewPassword("")
                       setConfirmPassword("")
-                      setMessage(null)
+                      setMessage({ type: "error", text: "Requesting a new reset link. Enter your email below." })
                       // Clear URL params
                       router.replace('/forgot-password')
                     }}
                     disabled={loading}
                   >
-                    ← Back to Email
+                    ← Request New Link
                   </Button>
                 </div>
               </form>
