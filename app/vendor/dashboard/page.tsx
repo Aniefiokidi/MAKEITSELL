@@ -494,14 +494,40 @@ export default function VendorDashboardPage() {
                 <>
                   <div className="space-y-4">
                     {recent.map((order, index) => (
-                      <div key={order.id || order._id || index} className="flex justify-between items-center p-3 rounded-lg hover:bg-accent/5 transition-colors">
-                        <div>
-                          <p className="font-medium">Order #{order.id.slice(-8)}</p>
-                          <p className="text-sm text-gray-600">
-                            {order.createdAt?.toDate?.()?.toLocaleDateString()}
+                      <div key={order.id || order._id || index} className="p-3 rounded-lg hover:bg-accent/5 transition-colors border border-gray-100">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <p className="font-medium">Order #{order.id.slice(-8)}</p>
+                            <p className="text-sm text-gray-600">
+                              {order.createdAt?.toDate?.()?.toLocaleDateString()}
+                            </p>
+                          </div>
+                          <Badge variant="outline">{order.status}</Badge>
+                        </div>
+                        <div className="mt-2 pt-2 border-t border-gray-100">
+                          <p className="text-sm font-medium text-gray-700 mb-1">
+                            👤 {order.customerName || "Unknown Customer"}
+                          </p>
+                          {order.vendorItems && order.vendorItems.length > 0 ? (
+                            <div className="space-y-1">
+                              {order.vendorItems.slice(0, 2).map((item: any, idx: number) => (
+                                <p key={idx} className="text-xs text-gray-600">
+                                  📦 {item.title || item.name || "Product"} × {item.quantity || 1}
+                                </p>
+                              ))}
+                              {order.vendorItems.length > 2 && (
+                                <p className="text-xs text-gray-500 italic">
+                                  +{order.vendorItems.length - 2} more item{order.vendorItems.length - 2 > 1 ? 's' : ''}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-500">No items</p>
+                          )}
+                          <p className="text-xs font-semibold text-gray-700 mt-1">
+                            Total Qty: {order.totalQuantity || 0}
                           </p>
                         </div>
-                        <Badge variant="outline">{order.status}</Badge>
                       </div>
                     ))}
                   </div>

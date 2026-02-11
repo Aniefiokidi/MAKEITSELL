@@ -1,4 +1,5 @@
 import { getOrdersByVendor, getVendorProducts, getServices, getBookingsByProvider } from "./mongodb-operations";
+import { User } from "./models/User";
 
 export async function getVendorDashboard(vendorId: string) {
   const orders = await getOrdersByVendor(vendorId);
@@ -69,8 +70,38 @@ export async function getVendorDashboard(vendorId: string) {
   // Low stock products (less than 10 items)
   const lowStockProducts = products.filter(p => (p.stock || 0) < 10);
 
-  // Recent orders (last 5)
-  const recentOrders = orders.slice(0, 5);
+  // Recent orders (last 5) - enriched with customer info and vendor items
+  const recentOrdersData = orders.slice(0, 5);
+  const recentOrders = await Promise.all(
+    recentOrdersData.map(async (order: any) => {
+      // Fetch customer information
+      let customerName = "Unknown Customer";
+      try {
+        const customer = await User.findOne({ email: order.customerId }).lean();
+        if (customer) {
+          customerName = customer.displayName || customer.name || customer.email || "Unknown Customer";
+        }
+      } catch (error) {
+        console.error("Error fetching customer:", error);
+      }
+
+      // Filter items to only include this vendor's products
+      const vendorItems = (order.items || []).filter((item: any) => {
+        // Check if item has vendorId matching current vendor
+        return item.vendorId === vendorId;
+      });
+
+      // Calculate total quantity for this order
+      const totalQuantity = vendorItems.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
+
+      return {
+        ...order,
+        customerName,
+        vendorItems,
+        totalQuantity,
+      };
+    })
+  );
 
   return {
     totalRevenue,
