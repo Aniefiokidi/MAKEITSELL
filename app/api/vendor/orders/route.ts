@@ -87,6 +87,9 @@ export async function PATCH(req: NextRequest) {
       timestampUpdates.confirmedAt = now;
     } else if (status === "out_for_delivery") {
       timestampUpdates.outForDeliveryAt = now;
+      // Out for delivery implies shipped, so mark as shipped too
+      timestampUpdates.shippedAt = now;
+      timestampUpdates.confirmedAt = now;
     } else if (status === "delivered") {
       timestampUpdates.deliveredAt = now;
     } else if (status === "cancelled") {

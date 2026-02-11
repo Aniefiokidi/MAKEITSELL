@@ -102,23 +102,32 @@ export default function AppointmentsPage() {
       
       <main className="flex-1 container mx-auto px-4 py-12">
         {/* Header */}
-        <div className="mb-12">
-          <h1 className="text-5xl md:text-7xl font-black tracking-wider uppercase mb-4" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif', textShadow: '2px 2px 4px rgba(0,0,0,0.1)' }}>
-            <span style={{WebkitTextFillColor: 'white', WebkitTextStroke: '1px oklch(0.35 0.15 15)', color: 'white'}}>YOUR APPOINTMENTS</span>
-          </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl">
-            Manage and track all your service appointments in one place. Connect with your service providers and stay organized.
-          </p>
+        <div className="mb-8 p-6 md:p-8 bg-gradient-to-br from-accent/5 via-accent/15 to-accent/50 backdrop-blur-2xl rounded-3xl border border-accent/30 shadow-2xl shadow-accent/20 hover:shadow-3xl hover:shadow-accent/30 transition-all duration-500">
+          <div className="text-center md:text-left">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-2 text-accent dark:text-white/70" style={{ 
+              fontFamily: '"Bebas Neue", "Impact", sans-serif',
+              textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))'
+            }}>
+              YOUR APPOINTMENTS
+            </h1>
+            <p className="text-accent dark:text-white/70 text-sm sm:text-base md:text-lg">
+              Manage and track all your service appointments in one place
+            </p>
+          </div>
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex flex-wrap gap-3 mb-8">
+        <div className="flex flex-wrap gap-3 mb-8 ">
           {(["all", "upcoming", "completed", "cancelled"] as const).map((tab) => (
             <Button
               key={tab}
               variant={filter === tab ? "default" : "outline"}
               onClick={() => setFilter(tab)}
-              className="capitalize"
+              className={`capitalize transition-all ${
+                filter === tab 
+                  ? "bg-accent text-white/90 hover:bg-white/90 hover:text-accent border-accent/30" 
+                  : "border-accent/30"
+              }`}
             >
               {tab === "upcoming" ? "Upcoming & Confirmed" : tab}
             </Button>
@@ -144,7 +153,7 @@ export default function AppointmentsPage() {
                   ? "You don't have any upcoming appointments. Browse services and book one today!"
                   : `You don't have any ${filter} appointments.`}
               </p>
-              <Button onClick={() => router.push("/services")} size="lg">
+              <Button onClick={() => router.push("/services")} size="lg" className="bg-accent text-white/90 hover:bg-white/90 hover:text-accent border-accent/30 transition-all">
                 Browse Services
               </Button>
             </CardContent>

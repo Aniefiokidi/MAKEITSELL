@@ -1,4 +1,4 @@
-import { getOrdersByVendor, getVendorProducts, getServices, getBookingsByProvider } from "./mongodb-operations";
+import { getOrdersByVendor, getVendorProducts, getServices, getBookingsByProvider, getProductById } from "./mongodb-operations";
 import { User } from "./models/User";
 
 export async function getVendorDashboard(vendorId: string) {
@@ -71,33 +71,64 @@ export async function getVendorDashboard(vendorId: string) {
   const lowStockProducts = products.filter(p => (p.stock || 0) < 10);
 
   // Recent orders (last 5) - enriched with customer info and vendor items
-  const recentOrdersData = orders.slice(0, 5);
+  const recentOrdersData = orders.slice(0, 5); // Already sorted by DB query
   const recentOrders = await Promise.all(
     recentOrdersData.map(async (order: any) => {
-      // Fetch customer information
+      // Fetch customer information - customerId is the user's MongoDB _id
       let customerName = "Unknown Customer";
       try {
-        const customer = await User.findOne({ email: order.customerId }).lean();
+        // Try finding by _id (customerId is stored as the user's ID)
+        const customer = await User.findById(order.customerId).lean();
+        
         if (customer) {
           customerName = customer.displayName || customer.name || customer.email || "Unknown Customer";
+        } else if (order.customerId) {
+          // Fallback: if ID looks like an email, show it
+          if (order.customerId.includes('@')) {
+            customerName = order.customerId;
+          }
         }
       } catch (error) {
         console.error("Error fetching customer:", error);
+        // If customerId is an email, use it
+        if (order.customerId?.includes('@')) {
+          customerName = order.customerId;
+        }
       }
 
-      // Filter items to only include this vendor's products
-      const vendorItems = (order.items || []).filter((item: any) => {
-        // Check if item has vendorId matching current vendor
-        return item.vendorId === vendorId;
-      });
+      // Find vendor-specific items from vendors array (same logic as orders API)
+      const vendorData = order.vendors?.find((v: any) => v.vendorId === vendorId);
+      const items = vendorData?.items || order.items || [];
+
+      // Enrich items with product details
+      const enrichedItems = await Promise.all(
+        items.map(async (item: any) => {
+          try {
+            const product = await getProductById(item.productId);
+            return {
+              ...item,
+              title: item.name || product?.name || 'Unknown Product',
+              image: item.image || product?.images?.[0] || '',
+              price: item.price || product?.price || 0
+            };
+          } catch (err) {
+            return {
+              ...item,
+              title: item.name || 'Unknown Product',
+              image: item.image || '',
+              price: item.price || 0
+            };
+          }
+        })
+      );
 
       // Calculate total quantity for this order
-      const totalQuantity = vendorItems.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
+      const totalQuantity = enrichedItems.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
 
       return {
         ...order,
         customerName,
-        vendorItems,
+        vendorItems: enrichedItems,
         totalQuantity,
       };
     })

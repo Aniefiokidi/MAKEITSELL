@@ -103,8 +103,7 @@ export async function POST(request: NextRequest) {
       const providerEmail = provider?.email
       
       if (providerEmail) {
-        const emailService = new AppointmentEmailService()
-        await emailService.sendBookingConfirmationEmails({
+        await AppointmentEmailService.sendBookingConfirmationEmails({
           bookingId: booking.id,
           customerName: bookingData.customerName,
           customerEmail: bookingData.customerEmail,
@@ -115,8 +114,11 @@ export async function POST(request: NextRequest) {
           bookingDate: new Date(bookingData.bookingDate),
           startTime: bookingData.startTime,
           endTime: bookingData.endTime,
+          duration: bookingData.duration || 60,
           location: bookingData.location,
+          locationType: bookingData.locationType || 'in-person',
           totalPrice: bookingData.totalPrice,
+          status: bookingData.status || 'pending',
           notes: bookingData.notes
         })
         console.log('✅ Booking confirmation emails sent successfully')

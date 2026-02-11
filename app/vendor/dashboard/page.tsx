@@ -497,9 +497,9 @@ export default function VendorDashboardPage() {
                       <div key={order.id || order._id || index} className="p-3 rounded-lg hover:bg-accent/5 transition-colors border border-gray-100">
                         <div className="flex justify-between items-start mb-2">
                           <div>
-                            <p className="font-medium">Order #{order.id.slice(-8)}</p>
+                            <p className="font-medium">Order #{(order.id || order._id || "").toString().slice(-8).toUpperCase()}</p>
                             <p className="text-sm text-gray-600">
-                              {order.createdAt?.toDate?.()?.toLocaleDateString()}
+                              {order.createdAt ? (typeof order.createdAt === 'string' ? new Date(order.createdAt).toLocaleDateString() : order.createdAt?.toLocaleDateString?.() || 'Unknown date') : 'Unknown date'}
                             </p>
                           </div>
                           <Badge variant="outline">{order.status}</Badge>

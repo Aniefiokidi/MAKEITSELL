@@ -100,12 +100,6 @@ export default function AboutPage() {
                   <div className="pt-6 sm:pt-8">
                     <h3 className="text-xs sm:text-lg md:text-2xl font-bold mb-2 sm:mb-4">Expand Your Reach</h3>
                     <p className="text-muted-foreground text-[9px] xs:text-[10px] sm:text-sm md:text-base leading-relaxed">Connect with thousands of customers beyond your local market</p>
-                    <div className="mt-3 sm:mt-6 inline-flex items-center gap-1.5 sm:gap-2 text-accent font-medium text-[9px] xs:text-[10px] sm:text-xs group-hover:gap-3 transition-all">
-                      <span>Learn More</span>
-                      <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                      </svg>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -127,12 +121,6 @@ export default function AboutPage() {
                   <div className="pt-6 sm:pt-8">
                     <h3 className="text-xs sm:text-lg md:text-2xl font-bold mb-2 sm:mb-4">Boost Sales</h3>
                     <p className="text-muted-foreground text-[9px] xs:text-[10px] sm:text-sm md:text-base leading-relaxed">Increase revenue with access to a broader customer base</p>
-                    <div className="mt-3 sm:mt-6 inline-flex items-center gap-1.5 sm:gap-2 text-accent font-medium text-[9px] xs:text-[10px] sm:text-xs group-hover:gap-3 transition-all">
-                      <span>Learn More</span>
-                      <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                      </svg>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -154,12 +142,6 @@ export default function AboutPage() {
                   <div className="pt-6 sm:pt-8">
                     <h3 className="text-xs sm:text-lg md:text-2xl font-bold mb-2 sm:mb-4">Build Your Brand</h3>
                     <p className="text-muted-foreground text-[9px] xs:text-[10px] sm:text-sm md:text-base leading-relaxed">Establish your business presence and build customer loyalty</p>
-                    <div className="mt-3 sm:mt-6 inline-flex items-center gap-1.5 sm:gap-2 text-accent font-medium text-[9px] xs:text-[10px] sm:text-xs group-hover:gap-3 transition-all">
-                      <span>Learn More</span>
-                      <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                      </svg>
-                    </div>
                   </div>
                 </div>
               </div>

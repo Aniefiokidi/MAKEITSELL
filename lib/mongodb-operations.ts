@@ -25,7 +25,9 @@ export const updateOrder = async (orderId: string, data: any) => {
 
 export const getAllOrders = async () => {
   await connectToDatabase();
-  const orders = await OrderModel.find({}).lean();
+  const orders = await OrderModel.find({})
+    .sort({ createdAt: -1 }) // Sort by most recent first
+    .lean();
   return orders.map((o: any) => {
     const { _id, ...rest } = o;
     return { ...rest, id: _id.toString() };
@@ -231,7 +233,9 @@ export const getOrdersByVendor = async (vendorId: string) => {
   // Query orders where the vendor is in the vendors array
   const orders = await OrderModel.find({
     'vendors.vendorId': vendorId
-  }).lean();
+  })
+  .sort({ createdAt: -1 }) // Sort by most recent first
+  .lean();
   return orders.map((o: any) => {
     const { _id, ...rest } = o;
     return { ...rest, id: _id.toString() };
@@ -323,7 +327,9 @@ export const getOrders = async (filters: any) => {
   if (filters?.customerId) query.customerId = filters.customerId;
   if (filters?.vendorId) query.vendors = { $elemMatch: { vendorId: filters.vendorId } };
   if (filters?.status) query.status = filters.status;
-  const orders = await OrderModel.find(query).lean();
+  const orders = await OrderModel.find(query)
+    .sort({ createdAt: -1 }) // Sort by most recent first
+    .lean();
   return orders.map((o: any) => {
     const { _id, ...rest } = o;
     return { ...rest, id: _id.toString() };

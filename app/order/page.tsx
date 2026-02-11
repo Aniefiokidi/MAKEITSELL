@@ -39,6 +39,10 @@ export default function CustomerOrdersPage() {
   const [productDetails, setProductDetails] = useState<Record<string, any>>({})
   const [storeDetails, setStoreDetails] = useState<Record<string, any>>({})
   const [storeNames, setStoreNames] = useState<{ [vendorId: string]: string }>({})
+  
+  // Filter states
+  const [completionFilter, setCompletionFilter] = useState<'all' | 'complete' | 'incomplete'>('incomplete')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
 
   // Format currency with commas
   const formatCurrency = (amount: number) => {
@@ -126,7 +130,7 @@ export default function CustomerOrdersPage() {
     }
   }, [loading, orders, productDetails, storeDetails]);
   // Flatten orders so each product is its own card, even if from the same vendor
-  const flattenedOrders = orders.flatMap(order => {
+  const allFlattenedOrders = orders.flatMap(order => {
     if (Array.isArray(order.vendors) && order.vendors.length > 0) {
       return order.vendors.flatMap((vendor: any, vIdx: number) => (
         Array.isArray(vendor.items) && vendor.items.length > 0
@@ -154,23 +158,115 @@ export default function CustomerOrdersPage() {
     }
   })
 
+  // Apply filters
+  const flattenedOrders = allFlattenedOrders.filter(order => {
+    // Completion filter
+    if (completionFilter === 'complete') {
+      if (!['delivered', 'received'].includes(order.status)) return false
+    } else if (completionFilter === 'incomplete') {
+      if (['delivered', 'received', 'cancelled'].includes(order.status)) return false
+    }
+    
+    // Status filter
+    if (statusFilter !== 'all' && order.status !== statusFilter) {
+      return false
+    }
+    
+    return true
+  })
+
   return (
     <React.Fragment>
       <main className="min-h-screen bg-linear-to-b from-background via-accent/10 to-background flex flex-col font-sans">
         <Header />
         <section className="flex-1 w-full max-w-7xl mx-auto mt-10 mb-16 px-2 md:px-0">
           <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-center mb-8">Package History</h1>
+          
+          {/* Filters */}
+          {!loading && allFlattenedOrders.length > 0 && (
+            <div className="mb-6 bg-card rounded-lg p-4 shadow-md border border-border">
+              <div className="flex flex-col md:flex-row gap-4">
+                {/* Completion Filter */}
+                <div className="flex-1">
+                  <label className="block text-sm font-semibold mb-2">Order Status</label>
+                  <div className="flex gap-2">
+                    <Button
+                      variant={completionFilter === 'all' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setCompletionFilter('all')}
+                      className="flex-1"
+                    >
+                      All ({allFlattenedOrders.length})
+                    </Button>
+                    <Button
+                      variant={completionFilter === 'complete' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setCompletionFilter('complete')}
+                      className="flex-1"
+                    >
+                      Complete ({allFlattenedOrders.filter(o => ['delivered', 'received'].includes(o.status)).length})
+                    </Button>
+                    <Button
+                      variant={completionFilter === 'incomplete' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setCompletionFilter('incomplete')}
+                      className="flex-1"
+                    >
+                      In Progress ({allFlattenedOrders.filter(o => !['delivered', 'received', 'cancelled'].includes(o.status)).length})
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* Delivery Stage Filter */}
+                <div className="flex-1">
+                  <label className="block text-sm font-semibold mb-2">Delivery Stage</label>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
+                  >
+                    <option value="all">All Stages</option>
+                    <option value="pending">Pending</option>
+                    <option value="pending_payment">Pending Payment</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="processing">Processing</option>
+                    <option value="shipped">Shipped</option>
+                    <option value="shipped_interstate">Shipped (Interstate)</option>
+                    <option value="out_for_delivery">Out for Delivery</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="received">Received</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+              </div>
+              
+              {/* Results count */}
+              <div className="mt-3 text-sm text-muted-foreground">
+                Showing {flattenedOrders.length} of {allFlattenedOrders.length} orders
+              </div>
+            </div>
+          )}
+          
           {loading ? (
             <div className="flex justify-center items-center py-24">
               <span className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent"></span>
             </div>
-          ) : flattenedOrders.length === 0 ? (
+          ) : allFlattenedOrders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24">
               <span className="text-6xl mb-4">🛒</span>
               <h2 className="text-3xl font-bold mb-2">No Orders Yet</h2>
               <p className="text-muted-foreground mb-6">You haven't placed any product orders yet. Start shopping now!</p>
               <Button asChild size="lg" className="bg-accent text-white font-bold px-8 py-4 rounded-full shadow-lg hover:bg-accent/80 transition-all">
                 <a href="/stores">Browse Stores</a>
+              </Button>
+            </div>
+          ) : flattenedOrders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-24">
+              <span className="text-6xl mb-4">🔍</span>
+              <h2 className="text-3xl font-bold mb-2">No Orders Match Your Filters</h2>
+              <p className="text-muted-foreground mb-6">Try adjusting your filters to see more orders.</p>
+              <Button size="lg" onClick={() => { setCompletionFilter('all'); setStatusFilter('all'); }} className="bg-accent text-white font-bold px-8 py-4 rounded-full shadow-lg hover:bg-accent/80 transition-all">
+                Clear Filters
               </Button>
             </div>
           ) : (
@@ -221,8 +317,8 @@ export default function CustomerOrdersPage() {
                     ].map((step, sidx, arr) => {
                       const isActive = (() => {
                         if (step.label === 'ORDER PLACED') return true;
-                        if (step.label === 'PENDING CONFIRMATION') return ['pending', 'pending_payment', 'confirmed', 'processing', 'shipped', 'delivered', 'received'].includes(order.status);
-                        if (step.label === 'SHIPPED') return ['shipped', 'delivered', 'received'].includes(order.status);
+                        if (step.label === 'PENDING CONFIRMATION') return ['pending', 'pending_payment', 'confirmed', 'processing', 'shipped', 'shipped_interstate', 'out_for_delivery', 'delivered', 'received'].includes(order.status);
+                        if (step.label === 'SHIPPED') return ['shipped', 'shipped_interstate', 'out_for_delivery', 'delivered', 'received'].includes(order.status);
                         if (step.label === 'DELIVERED') return ['delivered', 'received'].includes(order.status);
                         if (step.label === 'RECEIVED') return order.status === 'received';
                         return false;
@@ -230,7 +326,7 @@ export default function CustomerOrdersPage() {
                       const isCurrent = (() => {
                         if (step.label === 'ORDER PLACED') return order.status === 'pending' || order.status === 'pending_payment';
                         if (step.label === 'PENDING CONFIRMATION') return ['confirmed', 'processing'].includes(order.status);
-                        if (step.label === 'SHIPPED') return order.status === 'shipped';
+                        if (step.label === 'SHIPPED') return ['shipped', 'shipped_interstate', 'out_for_delivery'].includes(order.status);
                         if (step.label === 'DELIVERED') return order.status === 'delivered';
                         if (step.label === 'RECEIVED') return order.status === 'received';
                         return false;
