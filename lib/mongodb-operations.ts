@@ -282,7 +282,26 @@ export const getServices = async (filters: ServiceFilters): Promise<Service[]> =
 export interface Product {
   id: string;
   vendorId: string;
+  vendorName?: string;
+  name?: string;
+  title?: string;
+  description?: string;
+  price?: number;
+  category?: string;
+  subcategory?: string;
   images?: string[];
+  stock?: number;
+  sku?: string;
+  featured?: boolean;
+  status?: string;
+  sales?: number;
+  hasColorOptions?: boolean;
+  hasSizeOptions?: boolean;
+  colors?: string[];
+  sizes?: string[];
+  colorImages?: { [key: string]: string };
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export const getProducts = async (filters?: any): Promise<Product[]> => {
