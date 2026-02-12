@@ -24,8 +24,12 @@ export default function ContactPage() {
     e.preventDefault()
     setIsSubmitting(true)
 
-    // Simulate form submission
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    // Send message to email (backend API call)
+    await fetch("/api/contact", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData)
+    })
 
     setSubmitted(true)
     setIsSubmitting(false)
@@ -62,7 +66,7 @@ export default function ContactPage() {
                   <div className="text-center py-6 sm:py-8">
                     <div className="bg-green-100 text-green-800 p-3 sm:p-4 rounded-lg mb-3 sm:mb-4">
                       <p className="font-semibold text-xs sm:text-sm">Thank you for your message!</p>
-                      <p className="text-xs sm:text-sm">We'll get back to you within 24 hours.</p>
+                      <p className="text-xs sm:text-sm">We've received your message and will get back to you within 48 hours. You will also receive an auto-response email confirmation.</p>
                     </div>
                     <Button onClick={() => setSubmitted(false)} className="hover:bg-accent/80 hover:scale-105 transition-all hover:shadow-lg text-xs sm:text-sm">Send Another Message</Button>
                   </div>
@@ -153,7 +157,6 @@ export default function ContactPage() {
                     <div className="min-w-0">
                       <h3 className="font-semibold text-xs sm:text-base mb-0.5 sm:mb-1">Email</h3>
                       <p className="text-muted-foreground text-[10px] sm:text-sm truncate">noreply@makeitsell.org</p>
-                      <p className="text-muted-foreground text-[10px] sm:text-sm truncate">noreply@makeitsell.org</p>
                     </div>
                   </div>
 
@@ -163,8 +166,8 @@ export default function ContactPage() {
                     </div>
                     <div className="min-w-0">
                       <h3 className="font-semibold text-xs sm:text-base mb-0.5 sm:mb-1">Phone</h3>
-                      <p className="text-muted-foreground text-[10px] sm:text-sm truncate">07055590445</p>
-                      <p className="text-muted-foreground text-[10px] sm:text-sm truncate">08025282040</p>
+                      <p className="text-muted-foreground text-[10px] sm:text-sm truncate">+234 9077874884</p>
+                      <p className="text-muted-foreground text-[10px] sm:text-sm truncate">+234 7031986441</p>
                     </div>
                   </div>
 
