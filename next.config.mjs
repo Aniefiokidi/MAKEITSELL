@@ -40,15 +40,10 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-
-  // Static export for GitHub Pages
   output: 'export',
-
-  // Performance optimizations
   compiler: {
     removeConsole: process.env.NODE_ENV === "production",
   },
-
   experimental: {
     optimizePackageImports: [
       "lucide-react",
@@ -56,7 +51,6 @@ const nextConfig = {
       "@radix-ui/react-select",
     ],
   },
-
   images: {
     unoptimized: true,
     formats: ["image/webp", "image/avif"],
@@ -89,4 +83,4 @@ const nextConfig = {
   },
 };
 
-export default nextConfig
+export default nextConfig;
