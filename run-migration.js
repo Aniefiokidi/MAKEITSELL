@@ -79,7 +79,7 @@ async function testEmail() {
     const success = await emailService.sendEmailVerification({
       email: testEmail,
       name: 'Test User',
-      verificationUrl: 'http://localhost:3000/verify-email?token=test-token'
+      verificationUrl: 'https://www.makeitsell.org/verify-email?token=test-token'
     });
 
     if (success) {

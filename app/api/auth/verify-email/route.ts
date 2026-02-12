@@ -34,13 +34,32 @@ export async function GET(request: NextRequest) {
     user.emailVerificationToken = undefined
     user.emailVerificationTokenExpiry = undefined
     user.updatedAt = new Date()
+
+    // Generate new session token
+    const crypto = require('crypto')
+    const sessionToken = crypto.randomBytes(32).toString('hex')
+    user.sessionToken = sessionToken
     await user.save()
 
     console.log(`[verify-email] Email verified for user: ${user.email}`)
 
-    return NextResponse.json({
+    // Set session cookie
+    const { serialize } = require('cookie')
+    const cookie = serialize('sessionToken', sessionToken, {
+      httpOnly: true,
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30, // 30 days
+      sameSite: 'lax',
+      secure: true,
+    })
+
+    return new NextResponse(JSON.stringify({
       success: true,
-      message: 'Email verified successfully'
+      message: 'Email verified successfully',
+      redirectUrl: '/stores'
+    }), {
+      status: 200,
+      headers: { 'Set-Cookie': cookie, 'Content-Type': 'application/json' },
     })
 
   } catch (error: any) {
@@ -94,7 +113,7 @@ export async function POST(request: NextRequest) {
 
     // Send verification email
     const { emailService } = require('@/lib/email')
-    const baseUrl = 'https://www.makeitsell.org';
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://www.makeitsell.org';
     const verificationUrl = `${baseUrl}/verify-email?token=${verificationToken}`
     
     const emailSent = await emailService.sendEmailVerification({

@@ -127,7 +127,7 @@ async function handleMigration(emailFilter?: string) {
         await user.save()
 
         // Send verification email
-        const verificationUrl = `${process.env.NEXTAUTH_URL || 'https://www.makeitsell.org'}/verify-email?token=${emailVerificationToken}`
+        const verificationUrl = `https://www.makeitsell.org/verify-email?token=${emailVerificationToken}`
         
         const emailSent = await emailService.sendEmailVerification({
           email: user.email,

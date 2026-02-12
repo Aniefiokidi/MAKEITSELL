@@ -35,10 +35,10 @@ export default function VerifyEmailPage() {
       if (result.success) {
         setStatus("success")
         setMessage("Your email has been verified successfully!")
-        
-        // Redirect to login after 3 seconds
+
+        // Redirect to stores page after 3 seconds
         setTimeout(() => {
-          router.push("/login?verified=true")
+          router.push(result.redirectUrl || "/stores")
         }, 3000)
       } else {
         setStatus("error")
@@ -119,7 +119,7 @@ export default function VerifyEmailPage() {
             {status === "success" && (
               <div className="space-y-4">
                 <div className="text-center text-sm text-gray-600">
-                  <p>You will be redirected to the login page in a few seconds...</p>
+                  <p>You will be redirected to the stores page in a few seconds...</p>
                 </div>
                 <div className="space-y-2">
                   <Button asChild className="w-full">
