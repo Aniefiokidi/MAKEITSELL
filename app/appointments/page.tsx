@@ -149,7 +149,7 @@ export default function AppointmentsPage() {
               <Calendar className="h-16 w-16 text-muted-foreground mb-4 opacity-50" />
               <h3 className="text-2xl font-bold mb-2">No Appointments Yet</h3>
               <p className="text-muted-foreground mb-6 text-center max-w-md">
-                {filter === "upcoming"
+                {filter === "upcoming" 
                   ? "You don't have any upcoming appointments. Browse services and book one today!"
                   : `You don't have any ${filter} appointments.`}
               </p>
