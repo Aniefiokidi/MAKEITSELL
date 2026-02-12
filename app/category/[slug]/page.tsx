@@ -12,6 +12,7 @@ import { Slider } from "@/components/ui/slider"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Search, ShoppingCart, Heart, ArrowLeft, Filter, Star, X, ChevronDown, ChevronUp, Clock } from "lucide-react"
 import { useCart } from "@/contexts/CartContext"
+import { ProductQuickView } from "@/components/ui/product-quick-view"
 import Link from "next/link"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
@@ -44,6 +45,8 @@ const fashionSubcategories = [
 ]
 
 export default function CategoryPage() {
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [quickViewOpen, setQuickViewOpen] = useState(false);
   const params = useParams()
   const router = useRouter()
   const categorySlug = params.slug as string
@@ -107,14 +110,19 @@ export default function CategoryPage() {
           }
           
           const mappedProducts = result.data.map((p: any) => {
-            const storeName = storeNamesMap[p.vendorId] || "Store"
+            const storeName = storeNamesMap[p.vendorId] || "Store";
             return {
               id: p.id || p._id,
               name: p.name || p.title,
+              title: p.title || p.name,
               price: p.price,
+              images: Array.isArray(p.images) ? p.images : (p.image ? [p.image] : ["/placeholder.svg"]),
               image: Array.isArray(p.images) ? p.images[0] : p.image || "/placeholder.svg",
               storeName: storeName,
+              vendorName: p.vendorName || storeName,
+              vendorId: p.vendorId,
               inStock: typeof p.stock === "number" ? p.stock > 0 : true,
+              stock: typeof p.stock === "number" ? p.stock : 99,
               rating: p.rating || 5,
               reviews: p.reviews || 0,
               originalPrice: p.originalPrice || null,
@@ -122,9 +130,19 @@ export default function CategoryPage() {
               vendorCategory: p.category || "",
               category: p.category || "",
               description: p.description || "",
-              subcategory: p.subcategory || ""
-            }
-          })
+              subcategory: p.subcategory || "",
+              featured: p.featured || false,
+              status: p.status || (typeof p.stock === "number" && p.stock === 0 ? "out_of_stock" : "active"),
+              hasColorOptions: p.hasColorOptions || (Array.isArray(p.colors) && p.colors.length > 0),
+              hasSizeOptions: p.hasSizeOptions || (Array.isArray(p.sizes) && p.sizes.length > 0),
+              colors: p.colors || [],
+              sizes: p.sizes || [],
+              colorImages: p.colorImages || {},
+              sales: p.sales || 0,
+              createdAt: p.createdAt || "",
+              updatedAt: p.updatedAt || ""
+            };
+          });
           setProducts(mappedProducts)
           
           // Set available brands and price range
@@ -662,23 +680,15 @@ export default function CategoryPage() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4 md:gap-6 auto-rows-max">
             {filteredProducts.map((product) => (
-              <Link
+              <Card
                 key={product.id}
-                href={`/products/${product.id}`}
-                onClick={() => addToRecentlyViewed(product)}
-                className="block"
-                style={{ textDecoration: 'none', color: 'inherit' }}
+                className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100 cursor-pointer"
+                onClick={() => {
+                  setSelectedProduct(product);
+                  setQuickViewOpen(true);
+                  addToRecentlyViewed(product);
+                }}
               >
-                <Card
-                  className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100 cursor-pointer"
-                  onClick={(e) => {
-                    // Prevent navigation if clicking on a button or badge
-                    const tag = (e.target as HTMLElement).tagName.toLowerCase()
-                    if (tag === 'button' || tag === 'svg' || tag === 'img' || tag === 'span' || tag === 'input' || tag === 'a') {
-                      return
-                    }
-                  }}
-                >
                   {/* Image Container with Group Hover */}
                   <div className="group absolute inset-0 overflow-hidden">
                     {/* Full Card Image Background */}
@@ -742,11 +752,6 @@ export default function CategoryPage() {
                       variant="outline"
                       role="button"
                       className="inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow cursor-pointer hover:opacity-90 transition min-h-5 sm:min-h-6 items-center justify-center text-center leading-tight bg-accent text-white"
-                      onClick={e => {
-                        e.preventDefault()
-                        window.location.href = `/products/${product.id}`
-                        addToRecentlyViewed(product)
-                      }}
                       style={{
                         whiteSpace: 'normal',
                         wordBreak: 'break-word',
@@ -783,12 +788,20 @@ export default function CategoryPage() {
                     </Button>
                   </div>
                 </Card>
-              </Link>
             ))}
           </div>
         )}
       </div>
       </div>
+      <ProductQuickView
+        product={selectedProduct}
+        open={quickViewOpen}
+        onClose={() => {
+          setQuickViewOpen(false);
+          setSelectedProduct(null);
+        }}
+        onAddToCart={handleAddToCart}
+      />
       <Footer />
     </>
   )
