@@ -153,7 +153,7 @@ class EmailService {
                   <h2 style="margin: 0 0 10px 0; color: #333; font-size: 18px;">Make It Sell</h2>
                   <div style="color: #666; font-size: 14px; line-height: 1.5;">
                     Lagos, Nigeria<br>
-                    support@makeitsell.com
+                    noreply@makeitsell.org
                   </div>
                 </div>
               </td>
@@ -310,7 +310,7 @@ class EmailService {
           <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">If you have any questions about your order, please don't hesitate to contact us.</p>
           
           <div style="margin: 20px 0;">
-            <a href="mailto:support@makeitsell.com" 
+            <a href="mailto:noreply@makeitsell.org" 
                style="background: #667eea; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 600; margin-right: 10px;">
               Contact Support
             </a>
@@ -469,7 +469,7 @@ class EmailService {
         
         <div style="text-align: center; color: #666; font-size: 14px;">
           <p style="margin: 0 0 10px 0;">Thank you for choosing Make It Sell!</p>
-          <p style="margin: 0;">Questions? Contact us at <a href="mailto:support@makeitsell.com" style="color: #667eea;">support@makeitsell.com</a></p>
+          <p style="margin: 0;">Questions? Contact us at <a href="mailto:noreply@makeitsell.org" style="color: #667eea;">noreply@makeitsell.org</a></p>
         </div>
       </div>
     `
@@ -577,9 +577,9 @@ class EmailService {
             <p style="color: #6b7280; margin: 0 0 15px 0; font-size: 14px; line-height: 1.6;">
               Having trouble with your password reset? Our support team is ready to help.
             </p>
-            <a href="mailto:support@makeitsell.com" 
+            <a href="mailto:noreply@makeitsell.org" 
                style="color: oklch(0.35 0.15 15); text-decoration: none; font-weight: 600; font-size: 15px; display: inline-flex; align-items: center; background: #f8fafc; padding: 10px 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
-               📧 support@makeitsell.com
+               📧 noreply@makeitsell.org
             </a>
           </div>
         </div>
@@ -686,7 +686,7 @@ class EmailService {
             Having trouble? We're here to help!
           </p>
           <p style="margin: 0;">
-            Contact us at <a href="mailto:support@makeitsell.com" style="color: oklch(0.35 0.15 15); text-decoration: none; font-weight: 600;">support@makeitsell.com</a>
+            Contact us at <a href="mailto:noreply@makeitsell.org" style="color: oklch(0.35 0.15 15); text-decoration: none; font-weight: 600;">noreply@makeitsell.org</a>
           </p>
         </div>
 

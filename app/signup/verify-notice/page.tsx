@@ -142,8 +142,8 @@ export default function VerifyNoticePage() {
         <div className="text-center text-sm text-muted-foreground">
           <p>
             Need help? Contact us at{" "}
-            <a href="mailto:support@makeitsell.com" className="text-accent hover:underline font-medium">
-              support@makeitsell.com
+            <a href="mailto:noreply@makeitsell.org" className="text-accent hover:underline font-medium">
+              noreply@makeitsell.org
             </a>
           </p>
         </div>

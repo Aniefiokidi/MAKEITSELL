@@ -380,7 +380,7 @@ export default function ShopPage() {
             </p>
             <Button onClick={handleRefresh} size="sm" className="bg-linear-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-black text-xs sm:text-xl px-4 sm:px-8 py-2 sm:py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all uppercase tracking-wider">
               <RefreshCw className="h-3 w-3 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">REFRESH FR</span>
+              <span className="hidden sm:inline">REFRESH</span>
               <span className="sm:hidden">REFRESH</span>
             </Button>
           </div>

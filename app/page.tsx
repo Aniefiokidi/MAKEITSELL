@@ -117,7 +117,7 @@ function TrendingProducts() {
             <div className="group absolute inset-0 overflow-hidden">
               <img 
                 src={product.images?.[0] || "/placeholder.png"} 
-                alt={product.title || product.name || "Product"} 
+                alt={product.title ? `Product: ${product.title}` : product.name ? `Product: ${product.name}` : "Product image"} 
                 className={`absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${product.stock === 0 ? 'grayscale' : ''}`}
               />
               
@@ -216,7 +216,7 @@ function TrendingProducts() {
                 disabled={product.stock === 0}
                 className="w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black"
               >
-                <img src="/images/logo3.png" alt="Add" className="w-6 sm:w-7 md:w-8 h-6 sm:h-7 md:h-8 -mt-1 sm:-mt-2" />
+                <img src="/images/logo3.png" alt="Add to cart icon" className="w-6 sm:w-7 md:w-8 h-6 sm:h-7 md:h-8 -mt-1 sm:-mt-2" />
                 <span className="leading-none hidden sm:inline">Add</span>
               </Button>
             </div>

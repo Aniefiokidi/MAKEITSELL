@@ -69,7 +69,7 @@ export default function AboutPage() {
               <div className="relative">
                 <div className="absolute -inset-4 bg-linear-to-r from-accent/20 to-accent/10 rounded-3xl blur-xl"></div>
                 <div className="relative bg-card border border-border/50 rounded-3xl p-4 sm:p-8 shadow-2xl">
-                  <img src="/heroimg8.jpg" alt="Make It Sell team" className="w-full h-40 sm:h-60 md:h-80 object-cover rounded-2xl" />
+                  <img src="/heroimg8.jpg" alt="Make It Sell Marketplace team group photo" className="w-full h-40 sm:h-60 md:h-80 object-cover rounded-2xl" />
                   <div className="absolute -bottom-4 -right-4 sm:-bottom-6 sm:-right-6 bg-accent text-accent-foreground w-10 h-10 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center shadow-lg">
                     <svg className="w-8 h-8 animate-pulse" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>

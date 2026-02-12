@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Clock, ShoppingCart, Heart, Zap } from "lucide-react"
 import { useCart } from "@/contexts/CartContext"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 // All product fetching must be done via API route only. Do not import getProducts or any database logic directly in client components.
 
 export default function DealsPage() {
@@ -141,24 +140,24 @@ export default function DealsPage() {
           </div>
 
           {/* Flash Deals Banner */}
-          <div className="bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-lg p-6 mb-8 animate-scale-in" style={{ animationDelay: '0.2s' }}>
-            <div className="flex items-center justify-between">
+          <div className="bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-lg p-4 sm:p-6 mb-8 animate-scale-in" style={{ animationDelay: '0.2s' }}>
+            <div className="flex flex-col sm:flex-row items-center sm:justify-between gap-4 sm:gap-0">
               <div className="flex items-center space-x-3">
                 <Zap className="w-8 h-8 animate-pulse-glow" />
                 <div>
-                  <h2 className="text-2xl font-bold">Flash Deals</h2>
-                  <p className="opacity-90">Limited time offers - Act fast!</p>
+                  <h2 className="text-lg sm:text-2xl font-bold">Flash Deals</h2>
+                  <p className="opacity-90 text-xs sm:text-base">Limited time offers - Act fast!</p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-sm opacity-90">Ends in</p>
-                <p className="text-xl font-bold">23:45:12</p>
+              <div className="text-left sm:text-right">
+                <p className="text-xs sm:text-sm opacity-90">Ends in</p>
+                <p className="text-lg sm:text-xl font-bold">23:45:12</p>
               </div>
             </div>
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
             <div className="bg-muted/50 rounded-lg p-4 text-center">
               <p className="text-2xl font-bold text-primary">{filteredProducts.length}</p>
               <p className="text-sm text-muted-foreground">Active Deals</p>
@@ -179,7 +178,7 @@ export default function DealsPage() {
               <Card key={product.id} className="group hover:shadow-lg transition-shadow relative overflow-hidden animate-scale-in hover-lift" style={{ animationDelay: `${index * 0.05}s` }}>
                 <CardContent className="p-4">
                   {/* Deal Badge */}
-                  <div className="absolute top-2 left-2 z-10">
+                  <div className="absolute top-2 left-2 z-20">
                     <Badge variant="destructive" className="font-bold">
                       -{product.discount}%
                     </Badge>
@@ -187,7 +186,7 @@ export default function DealsPage() {
                   
                   {/* Flash Deal Badge */}
                   {product.isFlashDeal && (
-                    <div className="absolute top-2 right-2 z-10">
+                    <div className="absolute top-2 right-2 z-20">
                       <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black">
                         <Zap className="w-3 h-3 mr-1" />
                         Flash
@@ -258,7 +257,7 @@ export default function DealsPage() {
                     </div>
 
                     <Button 
-                      className="w-full" 
+                      className="w-full bg-accent text-accent-foreground font-bold rounded-lg py-2 hover:bg-accent/90 hover:scale-105 transition-all duration-200 shadow-md flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed" 
                       onClick={() => handleAddToCart(product)}
                       disabled={!product.inStock}
                     >
@@ -279,7 +278,6 @@ export default function DealsPage() {
           )}
         </div>
       </div>
-      <Footer />
     </>
   )
 }

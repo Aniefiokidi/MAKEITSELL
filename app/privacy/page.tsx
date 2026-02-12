@@ -2,36 +2,35 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Shield, Eye, Lock, UserCheck, Database, Globe } from "lucide-react"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 
 export default function PrivacyPage() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-4xl">
+      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
+        <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-10 max-w-4xl">
           {/* Header */}
-          <div className="mb-6 sm:mb-8">
-            <nav className="text-[9px] xs:text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4">
-              <Link href="/" className="hover:text-primary">Home</Link>
+          <div className="mb-6 sm:mb-8 animate-fade-in-up">
+            <nav className="text-[9px] xs:text-xs sm:text-sm text-accent font-semibold mb-3 sm:mb-4 tracking-wide animate-fade-in-up">
+              <Link href="/" className="hover:text-primary transition-colors">Home</Link>
               <span className="mx-1.5 sm:mx-2">/</span>
               <span>Privacy Policy</span>
             </nav>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 sm:mb-4">Privacy Policy</h1>
-            <p className="text-muted-foreground text-[9px] xs:text-xs sm:text-sm">
-              Last updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold mb-2 sm:mb-4 text-transparent bg-clip-text bg-gradient-to-r from-accent to-primary animate-fade-in-up">Privacy Policy</h1>
+            <p className="text-muted-foreground text-[9px] xs:text-xs sm:text-sm animate-fade-in-up">
+              Last updated: <span className="bg-primary/10 text-primary px-2 py-1 rounded shadow animate-pulse">{new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
             </p>
           </div>
 
           {/* Privacy Overview */}
-          <Card className="mb-6 sm:mb-8 border-primary/20 bg-primary/5">
+          <Card className="mb-6 sm:mb-8 border border-accent/10 bg-white/90 dark:bg-neutral-800 shadow-lg animate-fade-in-up">
             <CardContent className="p-3 sm:p-6">
-              <div className="flex items-start gap-2 sm:gap-4">
-                <Shield className="w-5 h-5 sm:w-8 sm:h-8 text-primary mt-1 shrink-0" />
+              <div className="flex items-start gap-2 sm:gap-4 animate-fade-in-up">
+                <Shield className="w-5 h-5 sm:w-8 sm:h-8 text-primary mt-1 shrink-0 animate-bounce" />
                 <div className="min-w-0">
-                  <h2 className="text-sm sm:text-lg md:text-xl font-semibold mb-1 sm:mb-2">Your Privacy Matters</h2>
+                  <h2 className="text-sm sm:text-lg md:text-xl font-semibold mb-1 sm:mb-2 text-accent">Your Privacy Matters</h2>
                   <p className="text-muted-foreground text-[10px] xs:text-xs sm:text-sm leading-relaxed">
-                    At Make It Sell Marketplace, we are committed to protecting your privacy and ensuring the security of your personal information. 
+                    At <span className="font-bold text-accent">Make It Sell Marketplace</span>, we are committed to protecting your privacy and ensuring the security of your personal information. 
                     This policy explains how we collect, use, and safeguard your data when you use our platform.
                   </p>
                 </div>
@@ -40,34 +39,34 @@ export default function PrivacyPage() {
           </Card>
 
           {/* Quick Navigation */}
-          <Card className="mb-6 sm:mb-8">
+          <Card className="mb-6 sm:mb-8 bg-white/90 dark:bg-neutral-800 border border-accent/10 shadow-lg animate-fade-in-up">
             <CardHeader className="p-3 sm:p-6">
-              <CardTitle className="text-base sm:text-xl">Quick Navigation</CardTitle>
+              <CardTitle className="text-base sm:text-xl text-accent font-bold animate-fade-in-up">Quick Navigation</CardTitle>
             </CardHeader>
             <CardContent className="p-3 sm:p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4">
-                <Link href="#information-collection" className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                  <Database className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
+                <Link href="#information-collection" className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-accent/10 transition-all duration-200 shadow-sm animate-fade-in-up">
+                  <Database className="w-3 h-3 sm:w-4 sm:h-4 shrink-0 animate-bounce" />
                   <span className="text-[8px] xs:text-[9px] sm:text-xs line-clamp-2">Information We Collect</span>
                 </Link>
-                <Link href="#information-use" className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                  <Eye className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
+                <Link href="#information-use" className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-accent/10 transition-all duration-200 shadow-sm animate-fade-in-up">
+                  <Eye className="w-3 h-3 sm:w-4 sm:h-4 shrink-0 animate-bounce" />
                   <span className="text-[8px] xs:text-[9px] sm:text-xs line-clamp-2">How We Use Your Data</span>
                 </Link>
-                <Link href="#information-sharing" className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                  <Globe className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
+                <Link href="#information-sharing" className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-accent/10 transition-all duration-200 shadow-sm animate-fade-in-up">
+                  <Globe className="w-3 h-3 sm:w-4 sm:h-4 shrink-0 animate-bounce" />
                   <span className="text-[8px] xs:text-[9px] sm:text-xs line-clamp-2">Information Sharing</span>
                 </Link>
-                <Link href="#data-security" className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                  <Lock className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
+                <Link href="#data-security" className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-accent/10 transition-all duration-200 shadow-sm animate-fade-in-up">
+                  <Lock className="w-3 h-3 sm:w-4 sm:h-4 shrink-0 animate-bounce" />
                   <span className="text-[8px] xs:text-[9px] sm:text-xs line-clamp-2">Data Security</span>
                 </Link>
-                <Link href="#user-rights" className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                  <UserCheck className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
+                <Link href="#user-rights" className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-accent/10 transition-all duration-200 shadow-sm animate-fade-in-up">
+                  <UserCheck className="w-3 h-3 sm:w-4 sm:h-4 shrink-0 animate-bounce" />
                   <span className="text-[8px] xs:text-[9px] sm:text-xs line-clamp-2">Your Rights</span>
                 </Link>
-                <Link href="#contact" className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                  <Shield className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
+                <Link href="#contact" className="flex items-center gap-1.5 sm:gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-accent/10 transition-all duration-200 shadow-sm animate-fade-in-up">
+                  <Shield className="w-3 h-3 sm:w-4 sm:h-4 shrink-0 animate-bounce" />
                   <span className="text-[8px] xs:text-[9px] sm:text-xs line-clamp-2">Contact Us</span>
                 </Link>
               </div>
@@ -298,7 +297,7 @@ export default function PrivacyPage() {
                 please contact us:
               </p>
               <div className="space-y-1.5 sm:space-y-2 text-[9px] xs:text-[10px] sm:text-xs md:text-sm">
-                <p><strong>Email:</strong> <span className="truncate">privacy@makeitsell.com</span></p>
+                <p><strong>Email:</strong> <span className="truncate">noreply@makeitsell.org</span></p>
                 <p><strong>Address:</strong> <span className="break-words">123 Allen Avenue, Privacy Department, Lagos, Nigeria</span></p>
                 <p><strong>Phone:</strong> <span className="truncate">+234 812 9380 869</span></p>
               </div>
@@ -311,7 +310,6 @@ export default function PrivacyPage() {
           </Card>
         </div>
       </div>
-      <Footer />
     </>
   )
 }

@@ -86,7 +86,7 @@ export const SubscriptionEmailService = {
         daysRemaining: data.daysRemaining.toString(),
         amount: `₦2,500`,
         renewalLink: `${process.env.NEXT_PUBLIC_APP_URL}/vendor/subscription`,
-        supportEmail: 'support@makeitsell.com'
+        supportEmail: 'noreply@makeitsell.org'
       }
     )
   },
@@ -105,7 +105,7 @@ export const SubscriptionEmailService = {
         storeName: data.storeName,
         amount: `₦2,500`,
         renewalLink: `${process.env.NEXT_PUBLIC_APP_URL}/vendor/subscription`,
-        supportEmail: 'support@makeitsell.com',
+        supportEmail: 'noreply@makeitsell.org',
         message: 'Your store has been frozen due to overdue subscription payments. Customers cannot view or purchase from your store until payment is made.'
       }
     )
