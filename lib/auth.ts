@@ -34,15 +34,14 @@ export async function signUp({ email, password, name, role, vendorInfo }: { emai
   // Send verification email
   try {
     const { emailService } = require('./email');
-    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://www.makeitsell.org';
+    // Use SITE_URL or NEXT_PUBLIC_SITE_URL, fallback to makeitsell.org, never VERCEL_URL
+    const baseUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://www.makeitsell.org';
     const verificationUrl = `${baseUrl}/verify-email?token=${emailVerificationToken}`;
-    
     await emailService.sendEmailVerification({
       email: user.email,
       name: user.name || 'User',
       verificationUrl
     });
-    
     console.log(`[auth.signUp] Verification email sent to: ${user.email}`);
   } catch (emailError) {
     console.error('[auth.signUp] Failed to send verification email:', emailError);
