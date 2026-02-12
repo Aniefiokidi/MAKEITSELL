@@ -664,7 +664,7 @@ export default function CategoryPage() {
             {filteredProducts.map((product) => (
               <Link
                 key={product.id}
-                href={`/product/${product.id}`}
+                href={`/products/${product.id}`}
                 onClick={() => addToRecentlyViewed(product)}
                 className="block"
                 style={{ textDecoration: 'none', color: 'inherit' }}
@@ -685,15 +685,18 @@ export default function CategoryPage() {
                     <img
                       src={product.image || "/placeholder.svg"}
                       alt={product.name}
-                      className={`absolute inset-0 w-full h-full ${categorySlug === 'electronics' ? 'object-contain bg-white' : 'object-cover'} group-hover:scale-105 transition-transform duration-500`}
+                      className={`absolute inset-0 w-full h-full ${categorySlug === 'electronics' ? 'object-contain bg-white' : 'object-cover'} group-hover:scale-105 transition-transform duration-500 ${!product.inStock ? 'opacity-50 grayscale' : ''}`}
                     />
-                    {/* Out of Stock Red Tape Overlay */}
+                    {/* Out of Stock Overlay */}
                     {!product.inStock && (
-                      <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
-                        <div className="bg-red-600 text-white px-4 sm:px-8 py-1 sm:py-2 transform -rotate-45 font-bold text-xs sm:text-sm shadow-lg">
-                          OUT OF STOCK
+                      <>
+                        <div className="absolute inset-0 bg-black/50 z-20 rounded-2xl sm:rounded-3xl" />
+                        <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
+                          <div className="bg-red-600 text-white px-4 sm:px-8 py-1 sm:py-2 transform -rotate-45 font-bold text-xs sm:text-sm shadow-lg rounded">
+                            OUT OF STOCK
+                          </div>
                         </div>
-                      </div>
+                      </>
                     )}
                     {/* Product Badges */}
                     <div className="absolute top-2 sm:top-3 left-2 sm:left-3 flex flex-col gap-1 z-10">
@@ -741,7 +744,7 @@ export default function CategoryPage() {
                       className="inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow cursor-pointer hover:opacity-90 transition min-h-5 sm:min-h-6 items-center justify-center text-center leading-tight bg-accent text-white"
                       onClick={e => {
                         e.preventDefault()
-                        window.location.href = `/product/${product.id}`
+                        window.location.href = `/products/${product.id}`
                         addToRecentlyViewed(product)
                       }}
                       style={{
