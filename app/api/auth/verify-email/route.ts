@@ -113,9 +113,10 @@ export async function POST(request: NextRequest) {
 
     // Send verification email
     const { emailService } = require('@/lib/email')
-    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://www.makeitsell.org';
-    const verificationUrl = `${baseUrl}/verify-email?token=${verificationToken}`
-    
+    // Use SITE_URL or NEXT_PUBLIC_SITE_URL, fallback to makeitsell.org, never VERCEL_URL
+    const baseUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://makeitsell.org';
+    const verificationUrl = `${baseUrl}/verify-email?token=${verificationToken}`;
+
     const emailSent = await emailService.sendEmailVerification({
       email: user.email,
       name: user.name || user.displayName || 'User',
