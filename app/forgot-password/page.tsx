@@ -321,8 +321,8 @@ export default function ForgotPasswordPage() {
               <div className="text-center space-y-2">
                 <p className="text-xs text-muted-foreground">
                   Need help? Contact{" "}
-                  <a href="mailto:support@makeitsell.com" className="text-accent hover:underline font-semibold">
-                    support@makeitsell.com
+                  <a href="mailto:noreply@makeitsell.org" className="text-accent hover:underline font-semibold">
+                    noreply@makeitsell.org
                   </a>
                 </p>
                 

@@ -17,7 +17,6 @@ import { ArrowLeft, CreditCard, Truck, Shield, Loader2 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 import ProtectedRoute from "@/components/auth/ProtectedRoute"
 
 export default function CheckoutPage() {
@@ -422,7 +421,6 @@ export default function CheckoutPage() {
             </form>
           </div>
         </main>
-        <Footer />
       </div>
     </ProtectedRoute>
   )

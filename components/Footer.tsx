@@ -77,7 +77,7 @@ export default function Footer() {
         {/* Bottom Section */}
         <div className="border-t mt-10 pt-6 flex flex-col md:flex-row justify-between items-center text-center md:text-left gap-3">
           <p className="text-muted-foreground text-sm">
-            © 2026 Make It Sell Marketplace. All rights reserved.
+            © {new Date().getFullYear()} Make It Sell Marketplace. All rights reserved.
           </p>
           <div className="flex flex-wrap justify-center md:justify-end gap-x-6 gap-y-2 text-sm">
             <Link href="/privacy" className="text-muted-foreground hover:text-accent transition-colors">

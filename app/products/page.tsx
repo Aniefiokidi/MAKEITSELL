@@ -8,7 +8,6 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Search, RefreshCw, ShoppingCart, Heart, Package, TrendingUp, Eye, ArrowLeft } from "lucide-react"
-import Footer from "@/components/Footer"
 import { Skeleton } from "@/components/ui/skeleton"
 import Header from "@/components/Header"
 import { useCart } from "@/contexts/CartContext"
@@ -622,7 +621,6 @@ export default function AllProductsPage() {
         onAddToCart={handleAddToCart}
       />
 
-      <Footer />
     </div>
   )
 }

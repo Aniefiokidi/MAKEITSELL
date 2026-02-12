@@ -187,8 +187,8 @@ export default function VerifyEmailPage() {
         <div className="text-center text-sm text-gray-500">
           <p>
             Need help? Contact us at{" "}
-            <a href="mailto:support@makeitsell.com" className="text-blue-600 hover:underline">
-              support@makeitsell.com
+            <a href="mailto:noreply@makeitsell.org" className="text-blue-600 hover:underline">
+              noreply@makeitsell.org
             </a>
           </p>
         </div>
