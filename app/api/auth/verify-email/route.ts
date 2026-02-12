@@ -3,6 +3,14 @@ import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 
 export async function GET(request: NextRequest) {
+    // Redirect any Vercel domain to www.makeitsell.org
+    const host = request.headers.get('host') || '';
+    if (host.endsWith('.vercel.app')) {
+      const { searchParams } = new URL(request.url);
+      const token = searchParams.get('token');
+      const redirectUrl = `https://www.makeitsell.org/verify-email?token=${token || ''}`;
+      return NextResponse.redirect(redirectUrl, 308);
+    }
   try {
     const { searchParams } = new URL(request.url)
     const token = searchParams.get('token')
