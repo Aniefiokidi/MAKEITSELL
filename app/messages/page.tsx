@@ -362,7 +362,7 @@ export default function MessagesPage() {
           )}
         </Card>
       </main>
-      <Footer />
+      
     </div>
   )
 }
