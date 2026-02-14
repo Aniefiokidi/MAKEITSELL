@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from "lucide-react"
 import { useNotification, type Notification, type NotificationType } from "@/contexts/NotificationContext"
 import { cn } from "@/lib/utils"
@@ -41,6 +42,7 @@ const notificationStyles: Record<
 }
 
 function NotificationItem({ notification }: { notification: Notification }) {
+  const router = useRouter()
   const { removeNotification } = useNotification()
   const [isExiting, setIsExiting] = useState(false)
   const styles = notificationStyles[notification.type]
@@ -60,6 +62,14 @@ function NotificationItem({ notification }: { notification: Notification }) {
     return () => clearTimeout(timer)
   }, [])
 
+  // Only make message notifications clickable
+  const isMessageNotification = notification.type === "info" && notification.title === "New Message"
+  const handleNotificationClick = () => {
+    if (isMessageNotification) {
+      router.push("/messages")
+      handleClose()
+    }
+  }
   return (
     <div
       className={cn(
@@ -68,8 +78,12 @@ function NotificationItem({ notification }: { notification: Notification }) {
         styles.borderColor,
         isExiting
           ? "translate-x-[120%] opacity-0"
-          : "translate-x-0 opacity-100 animate-in slide-in-from-right"
+          : "translate-x-0 opacity-100 animate-in slide-in-from-right",
+        isMessageNotification ? "cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/40" : ""
       )}
+      onClick={isMessageNotification ? handleNotificationClick : undefined}
+      role={isMessageNotification ? "button" : undefined}
+      tabIndex={isMessageNotification ? 0 : undefined}
     >
       <div className="flex-shrink-0 mt-0.5">{styles.icon}</div>
       <div className="flex-1 min-w-0">
@@ -81,7 +95,7 @@ function NotificationItem({ notification }: { notification: Notification }) {
         <p className={cn("text-sm", styles.textColor)}>{notification.message}</p>
       </div>
       <button
-        onClick={handleClose}
+        onClick={e => { e.stopPropagation(); handleClose(); }}
         className={cn(
           "flex-shrink-0 p-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 transition-colors",
           styles.textColor

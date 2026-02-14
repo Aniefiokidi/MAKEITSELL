@@ -1,12 +1,12 @@
 import type React from "react"
+import dynamic from "next/dynamic"
 import type { Metadata } from "next"
 import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
 import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/contexts/AuthContext"
 import { CartProvider } from "@/contexts/CartContext"
-import { NotificationProvider } from "@/contexts/NotificationContext"
-import { NotificationBox } from "@/components/NotificationBox"
+import GlobalClientProviders from "@/components/GlobalClientProviders"
 import { Suspense } from "react"
 import Footer from "@/components/Footer"
 import "./globals.css"
@@ -69,13 +69,12 @@ export default function RootLayout({
           <Suspense fallback={null}>
             <AuthProvider>
               <CartProvider>
-                <NotificationProvider>
-                  <NotificationBox />
+                <GlobalClientProviders>
                   <div className="flex flex-col min-h-screen">
                     <main className="flex-1 flex flex-col">{children}</main>
                     <Footer />
                   </div>
-                </NotificationProvider>
+                </GlobalClientProviders>
               </CartProvider>
             </AuthProvider>
           </Suspense>

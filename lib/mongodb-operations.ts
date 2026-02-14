@@ -457,8 +457,18 @@ export const getChatMessages = async (conversationId: string, limitCount?: numbe
   if (userId && userRole) {
     if (userRole === 'customer') {
       await ConversationModel.findByIdAndUpdate(conversationId, { customerUnreadCount: 0 });
+      console.log(`[getChatMessages] Reset customerUnreadCount for conversation ${conversationId} by user ${userId}`);
     } else if (userRole === 'provider') {
       await ConversationModel.findByIdAndUpdate(conversationId, { providerUnreadCount: 0 });
+      console.log(`[getChatMessages] Reset providerUnreadCount for conversation ${conversationId} by user ${userId}`);
+    }
+    // Log the updated conversation
+    const updatedConv = await ConversationModel.findById(conversationId);
+    if (updatedConv) {
+      console.log('[getChatMessages] Updated conversation unread counts:', {
+        customerUnreadCount: updatedConv.customerUnreadCount,
+        providerUnreadCount: updatedConv.providerUnreadCount
+      });
     }
   }
   return messages.map((m: any) => ({ ...m, id: m._id.toString() }));
