@@ -484,6 +484,12 @@ export const createChatMessage = async (data: any) => {
       customerUnreadCount: isCustomerSender ? 0 : 1,
       providerUnreadCount: isCustomerSender ? 1 : 0,
     });
+    console.log('[createChatMessage] New conversation created:', {
+      customerId: conversation.customerId,
+      providerId: conversation.providerId,
+      customerUnreadCount: conversation.customerUnreadCount,
+      providerUnreadCount: conversation.providerUnreadCount
+    });
   } else {
     // Update conversation preview
     conversation.lastMessage = data.message;
@@ -491,10 +497,18 @@ export const createChatMessage = async (data: any) => {
     // Increment unreadCount for the recipient only
     if (data.senderRole === 'customer') {
       conversation.providerUnreadCount = (conversation.providerUnreadCount || 0) + 1;
+      console.log('[createChatMessage] Incremented providerUnreadCount:', conversation.providerUnreadCount);
     } else {
       conversation.customerUnreadCount = (conversation.customerUnreadCount || 0) + 1;
+      console.log('[createChatMessage] Incremented customerUnreadCount:', conversation.customerUnreadCount);
     }
     await conversation.save();
+    console.log('[createChatMessage] After save:', {
+      customerId: conversation.customerId,
+      providerId: conversation.providerId,
+      customerUnreadCount: conversation.customerUnreadCount,
+      providerUnreadCount: conversation.providerUnreadCount
+    });
   }
   // Save message
   const message = await MessageModel.create({
