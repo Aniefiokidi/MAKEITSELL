@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getConversations } from '@/lib/mongodb-operations'
+import { getConversations, createConversation } from '@/lib/mongodb-operations'
 
 // GET /api/database/conversations?userId=...&role=...
 export async function GET(request: NextRequest) {
@@ -20,8 +20,12 @@ export async function GET(request: NextRequest) {
 
 // POST /api/database/conversations
 export async function POST(request: NextRequest) {
-  return NextResponse.json(
-    { success: false, error: 'Conversation creation not implemented in this deployment' },
-    { status: 501 }
-  )
+  try {
+    const data = await request.json()
+    const conversation = await createConversation(data)
+    return NextResponse.json({ success: true, data: { id: conversation._id.toString(), ...conversation.toObject?.() } })
+  } catch (error: any) {
+    console.error('Create conversation error:', error)
+    return NextResponse.json({ success: false, error: error?.message || error }, { status: 500 })
+  }
 }

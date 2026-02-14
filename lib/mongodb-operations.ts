@@ -1,4 +1,6 @@
 import { Order as OrderModel } from './models/Order';
+import ConversationModel, { IConversation } from './models/Conversation';
+import MessageModel, { IMessage } from './models/Message';
 export const createOrder = async (orderData: any): Promise<string> => {
   await connectToDatabase();
   const order: any = await OrderModel.create(orderData as any);
@@ -434,8 +436,77 @@ export const createBooking = async (bookingData: any) => {
 };
 
 export const getConversations = async (userId: string, role: 'customer' | 'provider') => {
-  // TODO: Implement conversations from MongoDB when Conversation model is created
-  return [];
+  await connectToDatabase();
+  // Fetch conversations where user is either customer or provider
+  const conversations = await ConversationModel.find({
+    $or: [
+      { customerId: userId },
+      { providerId: userId }
+    ]
+  }).sort({ lastMessageTime: -1 }).lean();
+  return conversations.map((c: any) => ({ ...c, id: c._id.toString() }));
+};
+
+export const getChatMessages = async (conversationId: string, limitCount?: number) => {
+  await connectToDatabase();
+  const filter = { conversationId };
+  let query = MessageModel.find(filter).sort({ createdAt: 1 });
+  if (limitCount) query = query.limit(limitCount);
+  const messages = await query.lean();
+  // Reset unreadCount to 0 for this conversation (messages are being read)
+  await ConversationModel.findByIdAndUpdate(conversationId, { unreadCount: 0 });
+  return messages.map((m: any) => ({ ...m, id: m._id.toString() }));
+};
+
+export const createChatMessage = async (data: any) => {
+  await connectToDatabase();
+  // Find or create conversation
+  let conversation = null;
+  if (data.conversationId) {
+    conversation = await ConversationModel.findById(data.conversationId);
+  }
+  if (!conversation) {
+    // If conversationId is not found, create a new conversation
+    conversation = await ConversationModel.create({
+      customerId: data.senderRole === 'customer' ? data.senderId : data.receiverId,
+      customerName: data.senderRole === 'customer' ? data.senderName : data.receiverName || '',
+      providerId: data.senderRole === 'provider' ? data.senderId : data.receiverId,
+      providerName: data.senderRole === 'provider' ? data.senderName : data.receiverName || '',
+      lastMessage: data.message,
+      lastMessageTime: new Date(),
+      unreadCount: 1,
+    });
+  } else {
+    // Update conversation preview
+    conversation.lastMessage = data.message;
+    conversation.lastMessageTime = new Date();
+    // Increment unreadCount for the recipient
+    conversation.unreadCount = (conversation.unreadCount || 0) + 1;
+    await conversation.save();
+  }
+  // Save message
+  const message = await MessageModel.create({
+    ...data,
+    conversationId: conversation._id,
+    createdAt: new Date(),
+  });
+  return message._id.toString();
+};
+
+export const createConversation = async (data: any) => {
+  await connectToDatabase();
+  const conversation = await ConversationModel.create({
+    customerId: data.customerId,
+    customerName: data.customerName,
+    providerId: data.providerId,
+    providerName: data.providerName,
+    storeImage: data.storeImage,
+    storeName: data.storeName,
+    lastMessage: data.lastMessage,
+    lastMessageTime: data.lastMessageTime ? new Date(data.lastMessageTime) : new Date(),
+    unreadCount: data.unreadCount || 0,
+  });
+  return conversation;
 };
 
 export const deleteBookingsByVendor = () => { throw new Error("Server-only: deleteBookingsByVendor is not available on client."); };
@@ -443,3 +514,5 @@ export const deleteUserCartItemsByVendor = () => { throw new Error("Server-only:
 export const deleteConversationsByVendor = () => { throw new Error("Server-only: deleteConversationsByVendor is not available on client."); };
 export const deleteUser = () => { throw new Error("Server-only: deleteUser is not available on client."); };
 export const deleteSessions = () => { throw new Error("Server-only: deleteSessions is not available on client."); };
+
+export { createChatMessage, getChatMessages, getConversations };

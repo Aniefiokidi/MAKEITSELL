@@ -42,7 +42,7 @@ interface Message {
 }
 
 export default function MessagesPage() {
-  const { user, userProfile } = useAuth()
+  const { user, userProfile, loading: authLoading } = useAuth()
   const router = useRouter()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
@@ -63,6 +63,7 @@ export default function MessagesPage() {
   }, [messages])
 
   useEffect(() => {
+    if (authLoading) return;
     if (!user) {
       router.push("/login")
       return
@@ -76,7 +77,7 @@ export default function MessagesPage() {
       }
     }, 30000)
     return () => clearInterval(interval)
-  }, [user, selectedConversation])
+  }, [user, selectedConversation, authLoading])
 
   useEffect(() => {
     if (selectedConversation) {
@@ -127,6 +128,7 @@ export default function MessagesPage() {
         senderName: userProfile.displayName,
         senderRole: isProvider ? "provider" : "customer",
         receiverId: isProvider ? selectedConversation.customerId : selectedConversation.providerId,
+        receiverName: isProvider ? selectedConversation.customerName : selectedConversation.providerName,
         message: newMessage.trim(),
         read: false,
       }
@@ -136,16 +138,10 @@ export default function MessagesPage() {
         body: JSON.stringify(messageData),
       })
       setNewMessage("")
-      fetchMessages(selectedConversation.id!)
-      // Optimistically update conversation preview and re-sort
-      setConversations(prev => {
-        const updated = prev.map(conv =>
-          conv.id === selectedConversation.id
-            ? { ...conv, lastMessage: newMessage.trim(), lastMessageTime: new Date().toISOString() }
-            : conv
-        )
-        return updated.sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime())
-      })
+      await fetchConversations() // Refetch conversations after sending
+      if (selectedConversation) {
+        await fetchMessages(selectedConversation.id!)
+      }
     } catch (error) {
       console.error("Error sending message:", error)
     } finally {
@@ -192,13 +188,14 @@ export default function MessagesPage() {
                       ? conv.customerName 
                       : conv.providerName
                     const unreadCount = conv.unreadCount || 0
+                    const isUnread = unreadCount > 0
                     return (
                       <button
                         key={conv.id}
                         onClick={() => setSelectedConversation(conv)}
                         className={`w-full text-left p-4 hover:bg-muted/50 transition-colors ${
                           selectedConversation?.id === conv.id ? "bg-muted" : ""
-                        }`}
+                        } ${isUnread ? "border-l-4 border-accent bg-accent/10" : "border-l-4 border-transparent"}`}
                       >
                         <div className="flex items-center gap-3">
                           <Avatar className="h-12 w-12">
@@ -209,16 +206,16 @@ export default function MessagesPage() {
                           </Avatar>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-1">
-                              <p className="font-semibold truncate">{otherPersonName}</p>
+                              <p className={`truncate ${isUnread ? "font-bold" : "font-semibold"}`}>{otherPersonName}</p>
                               <div className="text-xs text-muted-foreground">
                                 {format(new Date(conv.lastMessageTime), isToday(new Date(conv.lastMessageTime)) ? "h:mm a" : "MMM d")}
                               </div>
                             </div>
                             <div className="flex items-center justify-between">
-                              <p className="text-sm text-muted-foreground truncate flex-1">
+                              <p className={`text-sm truncate flex-1 ${isUnread ? "font-bold text-foreground" : "text-muted-foreground"}`}>
                                 {conv.lastMessage || "No messages yet"}
                               </p>
-                              {unreadCount > 0 && (
+                              {isUnread && (
                                 <Badge variant="default" className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
                                   {unreadCount}
                                 </Badge>

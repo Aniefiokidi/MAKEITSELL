@@ -2,6 +2,7 @@
 // This file provides the same interface as firestore.ts but uses API routes
 
 // Store operations
+const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 export const getStores = async (filters?: {
   category?: string
   isOpen?: boolean
@@ -286,11 +287,28 @@ export const setUserCart = async (userId: string, items: any[]) => {
     return false
   }
 }
-export const getConversations = async () => []
-export const createConversation = async () => 'temp-id'
-export const updateConversation = async () => {}
 export const getChatMessages = async () => []
-export const createChatMessage = async () => 'temp-id'
+
+// Create a new chat message
+export const createChatMessage = async (messageData: { senderId: string; recipientId: string; content: string }) => {
+  try {
+    const response = await fetch(`${baseUrl}/api/database/chat-messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(messageData),
+    });
+    const result = await response.json();
+    if (result.success) {
+      return result.data;
+    }
+    throw new Error(result.error || 'Failed to create chat message');
+  } catch (error) {
+    console.error('Network error:', error);
+    return null;
+  }
+}
 export const markMessagesAsRead = async () => {}
 export const getBookings = async (providerId?: string) => {
   try {
