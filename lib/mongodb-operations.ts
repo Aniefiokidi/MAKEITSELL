@@ -447,14 +447,20 @@ export const getConversations = async (userId: string, role: 'customer' | 'provi
   return conversations.map((c: any) => ({ ...c, id: c._id.toString() }));
 };
 
-export const getChatMessages = async (conversationId: string, limitCount?: number) => {
+export const getChatMessages = async (conversationId: string, limitCount?: number, userId?: string, userRole?: string) => {
   await connectToDatabase();
   const filter = { conversationId };
   let query = MessageModel.find(filter).sort({ createdAt: 1 });
   if (limitCount) query = query.limit(limitCount);
   const messages = await query.lean();
-  // Reset unreadCount to 0 for this conversation (messages are being read)
-  await ConversationModel.findByIdAndUpdate(conversationId, { unreadCount: 0 });
+  // Only reset unreadCount for the recipient (userId and userRole must be provided)
+  if (userId && userRole) {
+    if (userRole === 'customer') {
+      await ConversationModel.findByIdAndUpdate(conversationId, { customerUnreadCount: 0 });
+    } else if (userRole === 'provider') {
+      await ConversationModel.findByIdAndUpdate(conversationId, { providerUnreadCount: 0 });
+    }
+  }
   return messages.map((m: any) => ({ ...m, id: m._id.toString() }));
 };
 
@@ -467,21 +473,27 @@ export const createChatMessage = async (data: any) => {
   }
   if (!conversation) {
     // If conversationId is not found, create a new conversation
+    const isCustomerSender = data.senderRole === 'customer';
     conversation = await ConversationModel.create({
-      customerId: data.senderRole === 'customer' ? data.senderId : data.receiverId,
-      customerName: data.senderRole === 'customer' ? data.senderName : data.receiverName || '',
-      providerId: data.senderRole === 'provider' ? data.senderId : data.receiverId,
-      providerName: data.senderRole === 'provider' ? data.senderName : data.receiverName || '',
+      customerId: isCustomerSender ? data.senderId : data.receiverId,
+      customerName: isCustomerSender ? data.senderName : data.receiverName || '',
+      providerId: isCustomerSender ? data.receiverId : data.senderId,
+      providerName: isCustomerSender ? data.receiverName : data.senderName || '',
       lastMessage: data.message,
       lastMessageTime: new Date(),
-      unreadCount: 1,
+      customerUnreadCount: isCustomerSender ? 0 : 1,
+      providerUnreadCount: isCustomerSender ? 1 : 0,
     });
   } else {
     // Update conversation preview
     conversation.lastMessage = data.message;
     conversation.lastMessageTime = new Date();
-    // Increment unreadCount for the recipient
-    conversation.unreadCount = (conversation.unreadCount || 0) + 1;
+    // Increment unreadCount for the recipient only
+    if (data.senderRole === 'customer') {
+      conversation.providerUnreadCount = (conversation.providerUnreadCount || 0) + 1;
+    } else {
+      conversation.customerUnreadCount = (conversation.customerUnreadCount || 0) + 1;
+    }
     await conversation.save();
   }
   // Save message

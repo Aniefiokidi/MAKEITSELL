@@ -26,7 +26,8 @@ interface Conversation {
   storeName?: string
   lastMessage: string
   lastMessageTime: string
-  unreadCount?: number
+  customerUnreadCount?: number
+  providerUnreadCount?: number
 }
 
 interface Message {
@@ -107,7 +108,9 @@ export default function MessagesPage() {
 
   const fetchMessages = async (conversationId: string) => {
     try {
-      const res = await fetch(`/api/messages/messages?conversationId=${conversationId}`)
+      // Only reset unread count if the user is actively viewing the conversation
+      const role = userProfile?.role === "vendor" ? "provider" : "customer"
+      const res = await fetch(`/api/messages/messages?conversationId=${conversationId}&userId=${user?.uid || ''}&userRole=${role}`)
       const result = await res.json()
       setMessages(result.messages || [])
     } catch (error) {
@@ -187,7 +190,10 @@ export default function MessagesPage() {
                     const otherPersonName = userProfile?.role === "vendor" 
                       ? conv.customerName 
                       : conv.providerName
-                    const unreadCount = conv.unreadCount || 0
+                    // Show unread count for the current user only
+                    const unreadCount = userProfile?.role === "vendor"
+                      ? conv.providerUnreadCount || 0
+                      : conv.customerUnreadCount || 0
                     const isUnread = unreadCount > 0
                     return (
                       <button

@@ -9,7 +9,8 @@ export interface IConversation extends Document {
   storeName?: string;
   lastMessage: string;
   lastMessageTime: Date;
-  unreadCount?: number;
+  customerUnreadCount?: number;
+  providerUnreadCount?: number;
 }
 
 const ConversationSchema = new Schema<IConversation>({
@@ -21,7 +22,8 @@ const ConversationSchema = new Schema<IConversation>({
   storeName: { type: String },
   lastMessage: { type: String, default: '' },
   lastMessageTime: { type: Date, default: Date.now },
-  unreadCount: { type: Number, default: 0 },
+  customerUnreadCount: { type: Number, default: 0 },
+  providerUnreadCount: { type: Number, default: 0 },
 });
 
 export default mongoose.models.Conversation || mongoose.model<IConversation>('Conversation', ConversationSchema);
