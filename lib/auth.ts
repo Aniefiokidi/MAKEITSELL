@@ -15,10 +15,11 @@ export async function signUp({ email, password, name, role, vendorInfo }: { emai
   const passwordHash = hashPassword(password);
   const sessionToken = crypto.randomBytes(32).toString('hex');
   
-  // Generate email verification token
-  const emailVerificationToken = crypto.randomBytes(32).toString('hex');
-  const emailVerificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-  
+
+  // Generate numeric verification code (6 digits)
+  const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const verificationCodeExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
   const user = await User.create({
     email,
     passwordHash,
@@ -27,24 +28,21 @@ export async function signUp({ email, password, name, role, vendorInfo }: { emai
     vendorInfo,
     sessionToken,
     isEmailVerified: false,
-    emailVerificationToken,
-    emailVerificationTokenExpiry,
+    verificationCode,
+    verificationCodeExpiry,
   });
 
-  // Send verification email
+  // Send verification code email
   try {
     const { emailService } = require('./email');
-    // Use SITE_URL or NEXT_PUBLIC_SITE_URL, fallback to makeitsell.org, never VERCEL_URL
-    const baseUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://www.makeitsell.org';
-    const verificationUrl = `${baseUrl}/verify-email?token=${emailVerificationToken}`;
-    await emailService.sendEmailVerification({
+    await emailService.sendEmailVerificationCode({
       email: user.email,
       name: user.name || 'User',
-      verificationUrl
+      code: verificationCode
     });
-    console.log(`[auth.signUp] Verification email sent to: ${user.email}`);
+    console.log(`[auth.signUp] Verification code sent to: ${user.email}`);
   } catch (emailError) {
-    console.error('[auth.signUp] Failed to send verification email:', emailError);
+    console.error('[auth.signUp] Failed to send verification code:', emailError);
     // Don't fail signup if email fails - user can request resend
   }
 

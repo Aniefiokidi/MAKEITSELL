@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -9,34 +9,31 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle, XCircle, Loader2, Mail, RefreshCw } from "lucide-react"
 
 export default function VerifyEmailPage() {
-  const searchParams = useSearchParams()
   const router = useRouter()
-  const token = searchParams.get("token")
-
-  const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [message, setMessage] = useState("")
   const [email, setEmail] = useState("")
+  const [code, setCode] = useState("")
   const [resendLoading, setResendLoading] = useState(false)
 
-  useEffect(() => {
-    if (token) {
-      verifyEmail(token)
-    } else {
+  const handleVerifyCode = async () => {
+    if (!email || !code) {
       setStatus("error")
-      setMessage("No verification token provided")
+      setMessage("Please enter your email and the code you received.")
+      return
     }
-  }, [token])
-
-  const verifyEmail = async (verificationToken: string) => {
+    setStatus("loading")
+    setMessage("")
     try {
-      const response = await fetch(`/api/auth/verify-email?token=${verificationToken}`)
+      const response = await fetch("/api/auth/verify-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code })
+      })
       const result = await response.json()
-
       if (result.success) {
         setStatus("success")
         setMessage("Your email has been verified successfully!")
-
-        // Redirect to stores page after 3 seconds
         setTimeout(() => {
           router.push(result.redirectUrl || "/stores")
         }, 3000)
@@ -55,7 +52,6 @@ export default function VerifyEmailPage() {
       alert("Please enter your email address")
       return
     }
-
     setResendLoading(true)
     try {
       const response = await fetch("/api/auth/verify-email", {
@@ -64,14 +60,13 @@ export default function VerifyEmailPage() {
         body: JSON.stringify({ email })
       })
       const result = await response.json()
-
       if (result.success) {
-        alert("Verification email sent! Please check your inbox.")
+        alert("Verification code sent! Please check your inbox.")
       } else {
-        alert(result.error || "Failed to send verification email")
+        alert(result.error || "Failed to send verification code")
       }
     } catch (error) {
-      alert("An error occurred while sending the email")
+      alert("An error occurred while sending the code")
     } finally {
       setResendLoading(false)
     }
@@ -87,35 +82,67 @@ export default function VerifyEmailPage() {
               {status === "success" && <CheckCircle className="h-8 w-8 text-green-500" />}
               {status === "error" && <XCircle className="h-8 w-8 text-red-500" />}
             </div>
-            
             <CardTitle className="text-2xl">
-              {status === "loading" && "Verifying Email..."}
+              {status === "loading" && "Verifying..."}
               {status === "success" && "Email Verified!"}
               {status === "error" && "Verification Failed"}
+              {status === "idle" && "Verify Your Email"}
             </CardTitle>
-            
             <CardDescription>
-              {status === "loading" && "Please wait while we verify your email address"}
+              {status === "loading" && "Please wait while we verify your code"}
               {status === "success" && "Your account is now active"}
-              {status === "error" && "There was a problem verifying your email"}
+              {status === "error" && message}
+              {status === "idle" && "Enter the code sent to your email address"}
             </CardDescription>
           </CardHeader>
-
           <CardContent className="space-y-6">
-            <Alert className={`${
-              status === "success" ? "border-green-200 bg-green-50" : 
-              status === "error" ? "border-red-200 bg-red-50" : 
-              "border-blue-200 bg-blue-50"
-            }`}>
-              <AlertDescription className={`${
-                status === "success" ? "text-green-800" : 
-                status === "error" ? "text-red-800" : 
-                "text-blue-800"
-              }`}>
-                {message}
-              </AlertDescription>
-            </Alert>
-
+            {(status === "idle" || status === "error") && (
+              <form
+                onSubmit={e => {
+                  e.preventDefault();
+                  handleVerifyCode();
+                }}
+                className="space-y-4"
+              >
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
+                  <div className="relative mt-1">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      id="email"
+                      type="email"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      placeholder="your-email@example.com"
+                      className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="code" className="block text-sm font-medium text-gray-700">Verification Code</label>
+                  <input
+                    id="code"
+                    type="text"
+                    value={code}
+                    onChange={e => setCode(e.target.value)}
+                    placeholder="Enter the 6-digit code"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={status === "loading"}>
+                  {status === "loading" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Verify
+                </Button>
+                <div className="flex items-center justify-between mt-2">
+                  <Button type="button" variant="ghost" size="sm" onClick={resendVerificationEmail} disabled={resendLoading}>
+                    {resendLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {resendLoading ? "Sending..." : <RefreshCw className="h-4 w-4" />} Resend Code
+                  </Button>
+                </div>
+              </form>
+            )}
             {status === "success" && (
               <div className="space-y-4">
                 <div className="text-center text-sm text-gray-600">
@@ -135,55 +162,8 @@ export default function VerifyEmailPage() {
                 </div>
               </div>
             )}
-
-            {status === "error" && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label htmlFor="email" className="text-sm font-medium text-gray-700">
-                    Enter your email to resend verification:
-                  </label>
-                  <div className="flex space-x-2">
-                    <div className="flex-1 relative">
-                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <input
-                        id="email"
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="your-email@example.com"
-                        className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                    <Button
-                      onClick={resendVerificationEmail}
-                      disabled={resendLoading}
-                      size="sm"
-                    >
-                      {resendLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      {resendLoading ? "Sending..." : <RefreshCw className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t">
-                  <div className="space-y-2">
-                    <Button variant="outline" asChild className="w-full">
-                      <Link href="/login">
-                        Back to Login
-                      </Link>
-                    </Button>
-                    <Button variant="ghost" asChild className="w-full">
-                      <Link href="/">
-                        Go to Homepage
-                      </Link>
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
-
         <div className="text-center text-sm text-gray-500">
           <p>
             Need help? Contact us at{" "}

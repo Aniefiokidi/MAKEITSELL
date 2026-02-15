@@ -16,8 +16,13 @@ const UserSchema = new Schema({
   isEmailVerified: { type: Boolean, default: false },
   emailVerificationToken: { type: String },
   emailVerificationTokenExpiry: { type: Date },
+  verificationCode: { type: String },
+  verificationCodeExpiry: { type: Date },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
+
+// Compound index for fast verification lookups
+UserSchema.index({ emailVerificationToken: 1, emailVerificationTokenExpiry: 1 });
 
 export const User = models.User || model('User', UserSchema);
