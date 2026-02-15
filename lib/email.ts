@@ -640,7 +640,8 @@ class EmailService {
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
         <!-- Header -->
         <div style="text-align: center; margin-bottom: 30px; padding: 20px; background: linear-gradient(135deg, oklch(0.35 0.15 15) 0%, oklch(0.45 0.18 20) 100%); border-radius: 10px;">
-          <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700;">📧 Verify Your Email</h1>
+          <img src="https://makeitsell.org/images/logo%20(2).png" alt="Make It Sell Logo" style="height: 48px; width: auto; margin-bottom: 12px;" />
+          <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700;">Verify Your Email</h1>
           <p style="color: white; margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Complete your account setup</p>
         </div>
 
