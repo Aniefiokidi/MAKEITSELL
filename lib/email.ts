@@ -58,26 +58,6 @@ class EmailService {
     });
   }
 
-interface EmailData {
-  to: string
-  subject: string
-  html: string
-  attachments?: any[]
-}
-
-interface OrderEmailData {
-  customerEmail: string
-  vendorEmail: string
-  orderId: string
-  customerName: string
-  vendorName: string
-  items: any[]
-  total: number
-  shippingAddress: any
-  deliveryEstimate?: { min: number; max: number }
-  orderDate?: Date
-}
-
 class EmailService {
   private transporter: nodemailer.Transporter
 
