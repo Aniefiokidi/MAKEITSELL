@@ -1,3 +1,8 @@
+// ...existing code...
+
+class EmailService {
+  // ...existing code...
+
   /**
    * Send a verification code (not a link) to the user's email
    */
