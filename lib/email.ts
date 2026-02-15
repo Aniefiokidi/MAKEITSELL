@@ -1,4 +1,6 @@
 
+import nodemailer from 'nodemailer';
+
 class EmailService {
   private transporter: nodemailer.Transporter
 
