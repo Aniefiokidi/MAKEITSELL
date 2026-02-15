@@ -15,11 +15,10 @@ export async function signUp({ email, password, name, role, vendorInfo }: { emai
   const passwordHash = hashPassword(password);
   const sessionToken = crypto.randomBytes(32).toString('hex');
   
-
-  // Generate numeric verification code (6 digits)
-  const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-  const verificationCodeExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
-
+  // Generate email verification token
+  const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+  const emailVerificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  
   const user = await User.create({
     email,
     passwordHash,
@@ -28,23 +27,23 @@ export async function signUp({ email, password, name, role, vendorInfo }: { emai
     vendorInfo,
     sessionToken,
     isEmailVerified: false,
-    verificationCode,
-    verificationCodeExpiry,
+    emailVerificationToken,
+    emailVerificationTokenExpiry,
   });
 
-  // Send verification code email
-  try {
-    const { emailService } = require('./email');
-    await emailService.sendEmailVerificationCode({
-      email: user.email,
-      name: user.name || 'User',
-      code: verificationCode
-    });
-    console.log(`[auth.signUp] Verification code sent to: ${user.email}`);
-  } catch (emailError) {
-    console.error('[auth.signUp] Failed to send verification code:', emailError);
-    // Don't fail signup if email fails - user can request resend
-  }
+    // Send verification code email (code-based, not link)
+    try {
+      const { emailService } = require('./email');
+      await emailService.sendEmailVerificationCode({
+        email: user.email,
+        name: user.name || 'User',
+        code: emailVerificationToken // Use the token as the verification code
+      });
+      console.log(`[auth.signUp] Verification code sent to: ${user.email}`);
+    } catch (emailError) {
+      console.error('[auth.signUp] Failed to send verification code:', emailError);
+      // Don't fail signup if email fails - user can request resend
+    }
 
   return { success: true, user: { id: user._id, email: user.email, name: user.name, role: user.role }, sessionToken };
 }
