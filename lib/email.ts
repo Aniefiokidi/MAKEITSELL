@@ -57,7 +57,6 @@ class EmailService {
       html: emailHtml
     });
   }
-import nodemailer from 'nodemailer'
 
 interface EmailData {
   to: string
