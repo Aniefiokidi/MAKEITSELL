@@ -119,30 +119,26 @@ export async function POST(request: NextRequest) {
     user.updatedAt = new Date()
     await user.save()
 
-    // Send verification email
+    // Send verification code email (code-based)
     const { emailService } = require('@/lib/email')
-    // Use SITE_URL or NEXT_PUBLIC_SITE_URL, fallback to makeitsell.org, never VERCEL_URL
-    const baseUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://makeitsell.org';
-    const verificationUrl = `${baseUrl}/verify-email?token=${verificationToken}`;
-
-    const emailSent = await emailService.sendEmailVerification({
+    const emailSent = await emailService.sendEmailVerificationCode({
       email: user.email,
       name: user.name || user.displayName || 'User',
-      verificationUrl
+      code: verificationToken
     })
 
     if (!emailSent) {
       return NextResponse.json({
         success: false,
-        error: 'Failed to send verification email'
+        error: 'Failed to send verification code email'
       }, { status: 500 })
     }
 
-    console.log(`[verify-email] Verification email resent to: ${user.email}`)
+    console.log(`[verify-email] Verification code resent to: ${user.email}`)
 
     return NextResponse.json({
       success: true,
-      message: 'Verification email sent successfully'
+      message: 'Verification code sent successfully'
     })
 
   } catch (error: any) {
