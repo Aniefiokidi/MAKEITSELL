@@ -93,30 +93,26 @@ const categories = [
   }
 ]
 
+import { Skeleton } from "@/components/ui/skeleton"
+
 export default function CategoriesPage() {
   const [categoryImages, setCategoryImages] = useState<{ [key: string]: string }>({})
   const [categoryCounts, setCategoryCounts] = useState<{ [key: string]: number }>({})
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Fetch top selling products and counts for each category
     const fetchCategoryData = async () => {
       const imageMap: { [key: string]: string } = {}
       const countMap: { [key: string]: number } = {}
-      
       for (const category of categories) {
         try {
-          // Get products count for this category
           const countResponse = await fetch(`/api/database/products?category=${category.slug}&count=true`)
           const countResult = await countResponse.json()
-          
           if (countResult.success) {
             countMap[category.slug] = countResult.data?.length || countResult.count || 0
           }
-          
-          // Get top selling product image
           const response = await fetch(`/api/database/products?category=${category.slug}&limit=1&sortBy=popular`)
           const result = await response.json()
-          
           if (result.success && result.data && result.data.length > 0) {
             const topProduct = result.data[0]
             const productImage = Array.isArray(topProduct.images) ? topProduct.images[0] : topProduct.image
@@ -128,11 +124,10 @@ export default function CategoriesPage() {
           console.error(`Error fetching data for ${category.slug}:`, error)
         }
       }
-      
       setCategoryImages(imageMap)
       setCategoryCounts(countMap)
+      setLoading(false)
     }
-
     fetchCategoryData()
   }, [])
 
@@ -151,9 +146,9 @@ export default function CategoriesPage() {
                 <span className="mx-2">/</span>
                 <span>Categories</span>
               </nav>
-              <h1 className="text-xl sm:text-3xl font-bold mb-2 sm:mb-4 text-accent dark:text-white" style={{ 
-                fontFamily: '"Bebas Neue", "Impact", sans-serif',
-                textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))' 
+              <h1 className="text-xl sm:text-3xl font-extrabold mb-2 sm:mb-4 text-accent dark:text-white tracking-tight" style={{
+                fontFamily: 'Inter, Poppins, Arial, Helvetica, sans-serif',
+                textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))'
               }}>SHOP BY CATEGORY</h1>
               <p className="text-accent dark:text-white text-xs sm:text-base">
                 Discover thousands of products across our diverse categories
@@ -161,90 +156,96 @@ export default function CategoriesPage() {
             </div>
           </div>
 
-          {/* Categories Grid */}
+          {/* Categories Grid with Loading Skeleton */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
-            {categories.map((category, index) => {
-              const IconComponent = category.icon
-              const categoryImage = categoryImages[category.slug]
-              
-              return (
-                <Link key={category.slug} href={`/category/${category.slug}`}>
-                  <Card className={`h-full hover:shadow-2xl hover:shadow-accent/40 transition-all duration-300 group overflow-hidden border-none rounded-2xl sm:rounded-3xl relative ${category.slug === 'electronics' ? '' : 'hover:scale-[1.01]'}`} style={{ animationDelay: `${index * 0.05}s` }}>
-                    {/* Full Background with Product Image or Gradient */}
+            {loading
+              ? Array.from({ length: 10 }).map((_, idx) => (
+                  <div key={idx} className="h-full">
                     <div className="aspect-[9/16] relative overflow-hidden rounded-2xl sm:rounded-3xl">
-                      {categoryImage ? (
-                        <>
-                          {/* Product Image Background */}
-                          <Image
-                            src={categoryImage}
-                            alt={`Top product in ${category.name}`}
-                            fill
-                            className={`${category.slug === 'electronics' ? 'object-contain' : 'object-cover'} ${category.slug === 'electronics' ? '' : 'group-hover:scale-105'} transition-transform duration-500`}
-                          />
-                          {/* Darker overlay for better text readability on images */}
-                          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent via-40% to-black/80" />
-                        </>
-                      ) : (
-                        <>
-                          {/* Gradient Background for categories without products */}
-                          <div className={`flex items-center justify-center h-full ${category.color} bg-gradient-to-br from-current via-current to-black/20`}>
-                            {/* Background pattern overlay */}
-                            <div className="absolute inset-0 opacity-10">
-                              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1)_1px,transparent_1px)] bg-[length:20px_20px]"></div>
+                      <Skeleton className="absolute inset-0 w-full h-full rounded-2xl sm:rounded-3xl" />
+                    </div>
+                    <div className="mt-2 space-y-2">
+                      <Skeleton className="h-4 w-2/3 rounded-full" />
+                      <Skeleton className="h-3 w-1/2 rounded-full" />
+                    </div>
+                  </div>
+                ))
+              : categories.map((category, index) => {
+                  const IconComponent = category.icon
+                  const categoryImage = categoryImages[category.slug]
+                  return (
+                    <Link key={category.slug} href={`/category/${category.slug}`}>
+                      <Card className={`h-full hover:shadow-2xl hover:shadow-accent/40 transition-all duration-300 group overflow-hidden border-none rounded-2xl sm:rounded-3xl relative ${category.slug === 'electronics' ? '' : 'hover:scale-[1.01]'}`} style={{ animationDelay: `${index * 0.05}s` }}>
+                        {/* Full Background with Product Image or Gradient */}
+                        <div className="aspect-[9/16] relative overflow-hidden rounded-2xl sm:rounded-3xl">
+                          {categoryImage ? (
+                            <>
+                              {/* Product Image Background */}
+                              <Image
+                                src={categoryImage}
+                                alt={`Top product in ${category.name}`}
+                                fill
+                                className={`${category.slug === 'electronics' ? 'object-contain' : 'object-cover'} ${category.slug === 'electronics' ? '' : 'group-hover:scale-105'} transition-transform duration-500`}
+                              />
+                              {/* Darker overlay for better text readability on images */}
+                              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent via-40% to-black/80" />
+                            </>
+                          ) : (
+                            <>
+                              {/* Gradient Background for categories without products */}
+                              <div className={`flex items-center justify-center h-full ${category.color} bg-gradient-to-br from-current via-current to-black/20`}>
+                                {/* Background pattern overlay */}
+                                <div className="absolute inset-0 opacity-10">
+                                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1)_1px,transparent_1px)] bg-[length:20px_20px]" />
+                                </div>
+                              </div>
+                              {/* Lighter overlay for gradient backgrounds */}
+                              <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent via-50% to-black/60" />
+                            </>
+                          )}
+                          {/* Icon/Logo in Center Top */}
+                          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
+                            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-white border-4 border-white overflow-hidden shadow-2xl ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110 flex items-center justify-center">
+                              <IconComponent className="h-6 w-6 sm:h-8 sm:w-8 text-gray-700" />
                             </div>
                           </div>
-                          {/* Lighter overlay for gradient backgrounds */}
-                          <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent via-50% to-black/60" />
-                        </>
-                      )}
-                      
-                      {/* Icon/Logo in Center Top */}
-                      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
-                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-white border-4 border-white overflow-hidden shadow-2xl ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110 flex items-center justify-center">
-                          <IconComponent className="h-6 w-6 sm:h-8 sm:w-8 text-gray-700" />
-                        </div>
-                      </div>
-
-                      {/* Frosted Glass Bubble Content - Store Style */}
-                      <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-2.5 md:p-3 backdrop-blur-xl bg-accent/10 border border-white/30 rounded-2xl sm:rounded-3xl z-30 space-y-1 gap-1 sm:gap-2">
-                        <Badge
-                          variant="outline"
-                          role="button"
-                          className="inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow cursor-pointer hover:opacity-90 transition min-h-[20px] sm:min-h-[24px] items-center justify-center text-center leading-tight bg-accent text-white"
-                          style={{
-                            whiteSpace: 'normal',
-                            wordBreak: 'break-word',
-                            hyphens: 'auto',
-                            lineHeight: '1.2'
-                          }}
-                        >
-                          <span className="line-clamp-1">
-                            {category.name}
-                          </span>
-                        </Badge>
-                        
-                        <div className="flex items-center justify-between gap-1 sm:gap-2">
-                          <Badge variant="outline" className="text-[9px] sm:text-[10px] md:text-xs backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 text-white bg-accent">
-                            {categoryCounts[category.slug] ? `${categoryCounts[category.slug]} items` : 'No items yet'}
-                          </Badge>
-                          
-                          <div className="flex-shrink-0 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/70 flex items-center justify-center shadow hover:scale-110 active:scale-95 hover:bg-white transition-all duration-200 cursor-pointer group/arrow">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent group-hover/arrow:translate-x-0.5 transition-transform">
-                              <path d="M5 12h14"/>
-                              <path d="m12 5 7 7-7 7"/>
-                            </svg>
+                          {/* Frosted Glass Bubble Content - Store Style */}
+                          <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-2.5 md:p-3 backdrop-blur-xl bg-accent/10 border border-white/30 rounded-2xl sm:rounded-3xl z-30 space-y-1 gap-1 sm:gap-2">
+                            <Badge
+                              variant="outline"
+                              role="button"
+                              className="inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow cursor-pointer hover:opacity-90 transition min-h-[20px] sm:min-h-[24px] items-center justify-center text-center leading-tight bg-accent text-white"
+                              style={{
+                                whiteSpace: 'normal',
+                                wordBreak: 'break-word',
+                                hyphens: 'auto',
+                                lineHeight: '1.2'
+                              }}
+                            >
+                              <span className="line-clamp-1">
+                                {category.name}
+                              </span>
+                            </Badge>
+                            <div className="flex items-center justify-between gap-1 sm:gap-2">
+                              <Badge variant="outline" className="text-[9px] sm:text-[10px] md:text-xs backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 text-white bg-accent">
+                                {categoryCounts[category.slug] ? `${categoryCounts[category.slug]} items` : 'No items yet'}
+                              </Badge>
+                              <div className="flex-shrink-0 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/70 flex items-center justify-center shadow hover:scale-110 active:scale-95 hover:bg-white transition-all duration-200 cursor-pointer group/arrow">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent group-hover/arrow:translate-x-0.5 transition-transform">
+                                  <path d="M5 12h14" />
+                                  <path d="m12 5 7 7-7 7" />
+                                </svg>
+                              </div>
+                            </div>
+                            <p className="text-[9px] sm:text-[10px] text-white/90 line-clamp-2 leading-tight">
+                              {category.description}
+                            </p>
                           </div>
                         </div>
-                        
-                        <p className="text-[9px] sm:text-[10px] text-white/90 line-clamp-2 leading-tight">
-                          {category.description}
-                        </p>
-                      </div>
-                    </div>
-                  </Card>
-                </Link>
-              )
-            })}
+                      </Card>
+                    </Link>
+                  )
+                })}
           </div>
 
           {/* Popular Categories */}
@@ -272,7 +273,7 @@ export default function CategoriesPage() {
           </div>
         </div>
       </div>
-      <Footer />
+      
     </>
   )
 }

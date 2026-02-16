@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -52,6 +53,7 @@ export default function CategoryPage() {
   const categorySlug = params.slug as string
   const [products, setProducts] = useState<any[]>([])
   const [filteredProducts, setFilteredProducts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState("featured")
   const [fashionSubcategory, setFashionSubcategory] = useState("All Fashion")
@@ -70,6 +72,8 @@ export default function CategoryPage() {
   
   // Recently viewed products
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([])
+  // Placeholder: Customer's last 5 purchases (should be fetched from backend in real app)
+  const [lastPurchases, setLastPurchases] = useState<any[]>([])
   
   const { addToCart } = useCart()
 
@@ -83,18 +87,19 @@ export default function CategoryPage() {
         console.error('Error loading recently viewed:', e)
       }
     }
-  }, [])
+    // Placeholder: simulate last 5 purchases (should be replaced with real API call)
+    // For demo, use first 5 products in this category
+    setLastPurchases(products.slice(0, 5))
+  }, [products])
 
   useEffect(() => {
     async function fetchProducts() {
       try {
         const response = await fetch(`/api/database/products?category=${categorySlug}`)
         const result = await response.json()
-        
         if (result.success && result.data) {
           // Get unique vendor IDs
           const vendorIds = [...new Set(result.data.map((p: any) => p.vendorId))]
-          
           // Fetch store names for all vendors
           const storeNamesMap: { [key: string]: string } = {}
           for (const vendorId of vendorIds) {
@@ -108,7 +113,6 @@ export default function CategoryPage() {
               console.error('Error fetching store:', err)
             }
           }
-          
           const mappedProducts = result.data.map((p: any) => {
             const storeName = storeNamesMap[p.vendorId] || "Store";
             return {
@@ -144,11 +148,9 @@ export default function CategoryPage() {
             };
           });
           setProducts(mappedProducts)
-          
           // Set available brands and price range
           const brands = [...new Set(mappedProducts.map((p: any) => p.storeName))]
           setAvailableBrands(brands)
-          
           const prices = mappedProducts.map((p: any) => p.price).filter(Boolean)
           if (prices.length > 0) {
             const minPrice = Math.min(...prices)
@@ -160,6 +162,8 @@ export default function CategoryPage() {
         }
       } catch (error) {
         console.error('Error fetching products:', error)
+      } finally {
+        setLoading(false)
       }
     }
     fetchProducts()
@@ -266,8 +270,10 @@ export default function CategoryPage() {
     let recent = [...recentlyViewed]
     // Remove if already exists
     recent = recent.filter(p => p.id !== product.id)
+    // Ensure product has correct category for filtering
+    const productWithCategory = { ...product, category: product.category || categorySlug, categorySlug: categorySlug };
     // Add to beginning
-    recent.unshift(product)
+    recent.unshift(productWithCategory)
     // Keep only last 6 items
     recent = recent.slice(0, 6)
     setRecentlyViewed(recent)
@@ -322,11 +328,17 @@ export default function CategoryPage() {
                 <span className="mx-2">/</span>
                 <span>{categoryName}</span>
               </nav>
-              <h1 className="text-xl sm:text-3xl font-bold mb-2 sm:mb-4 text-accent dark:text-white" style={{ 
-                fontFamily: '"Bebas Neue", "Impact", sans-serif',
-                textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))' 
-              }}>{categoryName}</h1>
-              {filteredProducts.length === 0 ? (
+              <h1
+                className="text-xl sm:text-3xl font-extrabold mb-2 sm:mb-4 text-accent dark:text-white tracking-tight"
+                style={{
+                  fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif',
+                  letterSpacing: '-0.03em',
+                  textShadow: '0 2px 16px rgba(0,0,0,0.18)'
+                }}
+              >
+                {categoryName}
+              </h1>
+              {loading ? null : filteredProducts.length === 0 ? (
                 <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg p-4">
                   <p className="text-accent dark:text-white">
                     Sorry, we do not have products in "{categoryName}" yet.<br />
@@ -399,56 +411,60 @@ export default function CategoryPage() {
             <CollapsibleContent className="space-y-6">
               <Card className="p-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {/* Price Range */}
+                  {/* Price Range Dropdown */}
                   <div className="space-y-3">
                     <label className="text-sm font-medium">Price Range</label>
-                    <Slider
-                      value={priceRange}
-                      onValueChange={setPriceRange}
-                      max={Math.max(...products.map(p => p.price).filter(Boolean), 100000)}
-                      min={Math.min(...products.map(p => p.price).filter(Boolean), 0)}
-                      step={1000}
-                      className="w-full"
-                    />
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>₦{priceRange[0].toLocaleString()}</span>
-                      <span>₦{priceRange[1].toLocaleString()}</span>
-                    </div>
-                  </div>
-
-                  {/* Brand/Store Filter */}
-                  <div className="space-y-3">
-                    <label className="text-sm font-medium">Stores</label>
-                    <div className="max-h-32 overflow-y-auto space-y-2">
-                      {availableBrands.slice(0, 8).map((brand) => (
-                        <div key={brand} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={brand}
-                            checked={selectedBrands.includes(brand)}
-                            onCheckedChange={() => handleBrandToggle(brand)}
-                          />
-                          <label htmlFor={brand} className="text-sm cursor-pointer">
-                            {brand}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Rating Filter */}
-                  <div className="space-y-3">
-                    <label className="text-sm font-medium">Minimum Rating</label>
-                    <Select value={minRating.toString()} onValueChange={(value) => setMinRating(Number(value))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Any rating" />
+                    <Select
+                      value={priceRange[1].toString()}
+                      onValueChange={val => {
+                        const max = Number(val);
+                        setPriceRange([0, max]);
+                      }}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select price range" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="0">Any rating</SelectItem>
-                        <SelectItem value="1">⭐ 1 & up</SelectItem>
-                        <SelectItem value="2">⭐ 2 & up</SelectItem>
-                        <SelectItem value="3">⭐ 3 & up</SelectItem>
-                        <SelectItem value="4">⭐ 4 & up</SelectItem>
-                        <SelectItem value="5">⭐ 5 stars</SelectItem>
+                        <SelectItem value="5000">Under ₦5,000</SelectItem>
+                        <SelectItem value="10000">Under ₦10,000</SelectItem>
+                        <SelectItem value="50000">Under ₦50,000</SelectItem>
+                        <SelectItem value="100000">Under ₦100,000</SelectItem>
+                        <SelectItem value="1000000">Under ₦1,000,000</SelectItem>
+                        <SelectItem value="10000000">Any Price</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {/* All Fashion Dropdown */}
+                  {categorySlug === "fashion" && (
+                    <div className="space-y-3">
+                      <label className="text-sm font-medium">Fashion</label>
+                      <Select value={fashionSubcategory} onValueChange={setFashionSubcategory}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="All Fashion" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {fashionSubcategories.map((sub) => (
+                            <SelectItem key={sub} value={sub}>
+                              {sub}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  {/* Featured Dropdown */}
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium">Sort By</label>
+                    <Select value={sortBy} onValueChange={setSortBy}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Featured" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="featured">Featured</SelectItem>
+                        <SelectItem value="newest">Newest</SelectItem>
+                        <SelectItem value="price-low">Price: Low to High</SelectItem>
+                        <SelectItem value="price-high">Price: High to Low</SelectItem>
+                        <SelectItem value="rating">Highest Rated</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -470,69 +486,10 @@ export default function CategoryPage() {
             </CollapsibleContent>
           </Collapsible>
 
-          {/* Fashion subcategory and Sort */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            {categorySlug === "fashion" && (
-              <Select value={fashionSubcategory} onValueChange={setFashionSubcategory}>
-                <SelectTrigger className="w-full sm:w-48">
-                  <SelectValue placeholder="Subcategory" />
-                </SelectTrigger>
-                <SelectContent>
-                  {fashionSubcategories.map((sub) => (
-                    <SelectItem key={sub} value={sub}>
-                      {sub}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="featured">Featured</SelectItem>
-                <SelectItem value="newest">Newest</SelectItem>
-                <SelectItem value="price-low">Price: Low to High</SelectItem>
-                <SelectItem value="price-high">Price: High to Low</SelectItem>
-                <SelectItem value="rating">Highest Rated</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Fashion subcategory and Sort moved to filters above */}
         </div>
 
-        {/* Recently Viewed Products */}
-        {recentlyViewed.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <Clock className="w-5 h-5 text-muted-foreground" />
-              <h2 className="text-lg font-semibold">Recently Viewed</h2>
-            </div>
-            <div className="flex gap-4 overflow-x-auto pb-4">
-              {recentlyViewed.map((product) => (
-                <Card key={product.id} className="min-w-[200px] border-0 shadow-md overflow-hidden relative h-[280px] hover:shadow-xl transition-all duration-500 hover:-translate-y-1 rounded-2xl">
-                  <div className="group absolute inset-0 overflow-hidden">
-                    <img
-                      src={product.image || "/placeholder.svg"}
-                      alt={product.name}
-                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute bottom-0 left-0 right-0 p-3 backdrop-blur-xl bg-white/20 dark:bg-black/20 border-t border-white/30 rounded-t-2xl z-30">
-                      <Link href={`/product/${product.id}`} onClick={() => addToRecentlyViewed(product)}>
-                        <h3 className="font-semibold text-xs line-clamp-1 text-white drop-shadow-lg cursor-pointer hover:text-blue-200 transition-colors">
-                          {product.name}
-                        </h3>
-                      </Link>
-                      <div className="font-bold text-sm text-white drop-shadow-lg mt-1">
-                        ₦{product.price}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
+       
 
         {/* Products Grid */}
         <div className="mb-6">
@@ -542,7 +499,19 @@ export default function CategoryPage() {
           </p>
         </div>
 
-        {filteredProducts.length === 0 ? (
+        {loading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+            {Array.from({ length: 10 }).map((_, idx) => (
+              <div key={idx} className="h-[280px] sm:h-[350px] md:h-[380px] rounded-2xl sm:rounded-3xl">
+                <Skeleton className="w-full h-full rounded-2xl sm:rounded-3xl" />
+                <div className="mt-2 space-y-2">
+                  <Skeleton className="h-4 w-2/3 rounded-full" />
+                  <Skeleton className="h-3 w-1/2 rounded-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredProducts.length === 0 ? (
           <>
             {/* Improved No Results Section */}
             <Card className="p-8 text-center">
@@ -558,12 +527,11 @@ export default function CategoryPage() {
                     <>No products match your current filters in {categoryName}.</>
                   )}
                 </p>
-                
                 <div className="space-y-2">
                   <p className="text-sm text-muted-foreground">Try:</p>
                   <div className="flex flex-wrap gap-2 justify-center">
                     {searchQuery && (
-                      <Button variant="outline" size="sm" onClick={() => setSearchQuery("")}>
+                      <Button variant="outline" size="sm" onClick={() => setSearchQuery("")}> 
                         Clear search
                       </Button>
                     )}
@@ -582,7 +550,6 @@ export default function CategoryPage() {
                     </Button>
                   </div>
                 </div>
-                
                 {/* Alternative categories */}
                 <div className="pt-4">
                   <p className="text-sm text-muted-foreground mb-3">Or explore these categories:</p>
@@ -618,7 +585,6 @@ export default function CategoryPage() {
                       alt={product.name}
                       className={`absolute inset-0 w-full h-full ${categorySlug === 'electronics' ? 'object-contain bg-white' : 'object-cover'} group-hover:scale-110 transition-transform duration-500`}
                     />
-                    
                     {/* Product Badges */}
                     <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
                       {!product.inStock && (
@@ -626,13 +592,18 @@ export default function CategoryPage() {
                           Out of Stock
                         </Badge>
                       )}
-                      {product.category !== categorySlug && (
-                        <Badge className="bg-blue-500 text-white font-semibold">
-                          Suggested
-                        </Badge>
-                      )}
+                      {/* Show 'Suggested' only if product matches last 5 purchases (by subcategory or vendor) and is not in the main category list */}
+                      {lastPurchases.length > 0 &&
+                        product.category !== categorySlug &&
+                        lastPurchases.some(p =>
+                          (p.subcategory && product.subcategory && p.subcategory === product.subcategory) ||
+                          (p.vendorId && product.vendorId && p.vendorId === product.vendorId)
+                        ) && (
+                          <Badge className="bg-blue-500 text-white font-semibold">
+                            Suggested
+                          </Badge>
+                        )}
                     </div>
-                    
                     {/* Action Buttons */}
                     <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
                       <Button
@@ -644,7 +615,6 @@ export default function CategoryPage() {
                       </Button>
                     </div>
                   </div>
-                  
                   {/* Frosted Glass Bubble Content */}
                   <div className="absolute bottom-0 left-0 right-0 p-2.5 sm:p-3 backdrop-blur-xl bg-white/20 dark:bg-black/20 border-t border-white/30 rounded-t-3xl z-30 space-y-1.5">
                     <Link href={`/product/${product.id}`} onClick={() => addToRecentlyViewed(product)}>
@@ -652,17 +622,14 @@ export default function CategoryPage() {
                         {product.name}
                       </h3>
                     </Link>
-                    
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-white text-[11px] sm:text-xs font-medium px-2 py-1 bg-accent/80 backdrop-blur-sm rounded-full border border-white/50">
                         {product.storeName}
                       </span>
-                      
                       <div className="font-bold text-sm text-white drop-shadow-lg">
                         ₦{product.price}
                       </div>
                     </div>
-                    
                     <Button 
                       size="sm"
                       onClick={() => handleAddToCart(product)}
@@ -728,11 +695,17 @@ export default function CategoryPage() {
                           Out of Stock
                         </Badge>
                       )}
-                      {product.category !== categorySlug && (
-                        <Badge className="bg-blue-500 text-white font-semibold text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
-                          Suggested
-                        </Badge>
-                      )}
+                      {/* Show 'Suggested' only if product matches last 5 purchases (by subcategory or vendor) and is not in the main category list */}
+                      {lastPurchases.length > 0 &&
+                        product.category !== categorySlug &&
+                        lastPurchases.some(p =>
+                          (p.subcategory && product.subcategory && p.subcategory === product.subcategory) ||
+                          (p.vendorId && product.vendorId && p.vendorId === product.vendorId)
+                        ) && (
+                          <Badge className="bg-blue-500 text-white font-semibold text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
+                            Suggested
+                          </Badge>
+                        )}
                     </div>
                     {/* Action Buttons */}
                     <div className="absolute top-2 sm:top-3 right-2 sm:right-3 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 flex gap-1 sm:gap-2">
@@ -792,6 +765,51 @@ export default function CategoryPage() {
           </div>
         )}
       </div>
+       {/* Product Cards Grid and Recently Viewed */}
+        {/* ...existing code for product grid... */}
+        {(() => {
+          // Fallback: show recently viewed if category matches or if product was viewed in this session
+          const filteredRecentlyViewed = recentlyViewed.filter(
+            (product) => product.category === categorySlug || product.categorySlug === categorySlug
+          );
+          return filteredRecentlyViewed.length > 0 ? (
+            <div className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <Clock className="w-5 h-5 text-muted-foreground" />
+                <h2 className="text-lg font-semibold">Recently Viewed</h2>
+              </div>
+              <div className="flex gap-4 overflow-x-auto pb-4">
+                {filteredRecentlyViewed.map((product) => (
+                  <Card
+                    key={product.id}
+                    className="min-w-[200px] border-0 shadow-md overflow-hidden relative h-[280px] hover:shadow-xl transition-all duration-500 hover:-translate-y-1 rounded-2xl cursor-pointer"
+                    onClick={() => {
+                      setSelectedProduct(product);
+                      setQuickViewOpen(true);
+                      addToRecentlyViewed(product);
+                    }}
+                  >
+                    <div className="group absolute inset-0 overflow-hidden">
+                      <img
+                        src={product.image || "/placeholder.svg"}
+                        alt={product.name}
+                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute bottom-0 left-0 right-0 p-3 backdrop-blur-xl bg-white/20 dark:bg-black/20 border-t border-white/30 rounded-t-2xl z-30">
+                        <h3 className="font-semibold text-xs line-clamp-1 text-white drop-shadow-lg cursor-pointer hover:text-blue-200 transition-colors">
+                          {product.name}
+                        </h3>
+                        <div className="font-bold text-sm text-white drop-shadow-lg mt-1">
+                          ₦{product.price}
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ) : null;
+        })()}
       </div>
       <ProductQuickView
         product={selectedProduct}
@@ -802,7 +820,7 @@ export default function CategoryPage() {
         }}
         onAddToCart={handleAddToCart}
       />
-      <Footer />
+     
     </>
   )
 }

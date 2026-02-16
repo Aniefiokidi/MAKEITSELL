@@ -21,6 +21,7 @@ interface CartContextType {
   totalItems: number
   totalPrice: number
   addItem: (item: Omit<CartItem, "quantity"> & { title: string }) => void // Ensure title is present
+  addToCart: (item: Omit<CartItem, "quantity"> & { title: string }) => void // Alias for legacy usage
   removeItem: (productId: string) => void
   updateQuantity: (productId: string, quantity: number) => void
   clearCart: () => Promise<void>
@@ -204,6 +205,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         totalItems: mounted ? totalItems : 0,
         totalPrice: mounted ? totalPrice : 0,
         addItem: mounted ? addItem : () => {},
+        addToCart: mounted ? addItem : () => {},
         removeItem: mounted ? removeItem : () => {},
         updateQuantity: mounted ? updateQuantity : () => {},
         clearCart: mounted ? clearCart : async () => {},
