@@ -119,27 +119,24 @@ export async function POST(request: NextRequest) {
     user.updatedAt = new Date()
     await user.save()
 
-    // Send verification code email (code-based)
-    const { emailService } = require('@/lib/email')
-    const emailSent = await emailService.sendEmailVerificationCode({
-      email: user.email,
-      name: user.name || user.displayName || 'User',
-      code: verificationToken
-    })
 
-    if (!emailSent) {
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to send verification code email'
-      }, { status: 500 })
-    }
-
-    console.log(`[verify-email] Verification code resent to: ${user.email}`)
-
-    return NextResponse.json({
+    // Respond to the user immediately for faster feedback
+    const response = NextResponse.json({
       success: true,
       message: 'Verification code sent successfully'
     })
+
+    // Send verification email in the background (no await)
+    import('@/lib/email').then(({ emailService }) => {
+      emailService.sendEmailVerification({
+        email: user.email,
+        name: user.name || user.displayName || 'User',
+        verificationUrl: `https://www.makeitsell.org/verify-email?token=${verificationToken}`
+      })
+    })
+
+    console.log(`[verify-email] Verification code resent to: ${user.email}`)
+    return response
 
   } catch (error: any) {
     console.error('[verify-email] Error:', error)

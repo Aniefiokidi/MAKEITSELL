@@ -1,5 +1,24 @@
+import nodemailer from 'nodemailer'
 
-import nodemailer from 'nodemailer';
+interface EmailData {
+  to: string
+  subject: string
+  html: string
+  attachments?: any[]
+}
+
+interface OrderEmailData {
+  customerEmail: string
+  vendorEmail: string
+  orderId: string
+  customerName: string
+  vendorName: string
+  items: any[]
+  total: number
+  shippingAddress: any
+  deliveryEstimate?: { min: number; max: number }
+  orderDate?: Date
+}
 
 class EmailService {
   private transporter: nodemailer.Transporter
@@ -702,66 +721,7 @@ class EmailService {
   }
 }
 
-
 export const emailService = new EmailService()
-
-// Send a code-based email verification (for signup/resend)
-export const sendEmailVerificationCode = async ({ email, name, code }: {
-  email: string
-  name: string
-  code: string
-}): Promise<boolean> => {
-  // Compose a beautiful HTML email for code-based verification
-  const emailHtml = `
-    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
-      <!-- Header -->
-      <div style="text-align: center; margin-bottom: 30px; padding: 20px; background: linear-gradient(135deg, oklch(0.35 0.15 15) 0%, oklch(0.45 0.18 20) 100%); border-radius: 10px;">
-        <img src="https://makeitsell.org/images/logo%20(2).png" alt="Make It Sell Logo" style="height: 48px; width: auto; margin-bottom: 12px;" />
-        <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700;">Verify Your Email</h1>
-        <p style="color: white; margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Complete your account setup</p>
-      </div>
-
-      <!-- Welcome Message -->
-      <div style="text-align: center; margin-bottom: 30px;">
-        <h2 style="color: oklch(0.295 0.014 258.338); margin: 0 0 10px 0; font-size: 24px;">Welcome to Make It Sell, ${name}!</h2>
-        <p style="color: oklch(0.631 0 0); margin: 0; font-size: 16px; line-height: 1.5;">
-          Thanks for joining our marketplace! To get started, please verify your email address.
-        </p>
-      </div>
-
-      <!-- Verification Code -->
-      <div style="background-color: oklch(0.976 0 0); padding: 25px; border-radius: 10px; margin-bottom: 25px; border: 1px solid oklch(0.898 0 0); text-align: center;">
-        <h3 style="color: oklch(0.295 0.014 258.338); margin: 0 0 15px 0; font-size: 18px;">Your Verification Code</h3>
-        <div style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: oklch(0.35 0.15 15); background: oklch(0.898 0 0); padding: 18px 0; border-radius: 8px; margin: 0 auto 18px auto; width: 220px;">${code}</div>
-        <p style="color: oklch(0.631 0 0); margin: 0 0 10px 0; font-size: 15px;">Enter this code on the verification page to activate your account.</p>
-        <p style="color: oklch(0.631 0 0); margin: 0; font-size: 13px;">This code will expire in 24 hours for security reasons.</p>
-      </div>
-
-      <!-- Support -->
-      <div style="text-align: center; color: oklch(0.631 0 0); font-size: 14px; padding-top: 20px; border-top: 1px solid oklch(0.898 0 0);">
-        <p style="margin: 0 0 10px 0;">
-          Having trouble? We're here to help!
-        </p>
-        <p style="margin: 0;">
-          Contact us at <a href="mailto:noreply@makeitsell.org" style="color: oklch(0.35 0.15 15); text-decoration: none; font-weight: 600;">noreply@makeitsell.org</a>
-        </p>
-      </div>
-
-      <!-- Footer -->
-      <div style="text-align: center; color: oklch(0.631 0 0); font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid oklch(0.898 0 0);">
-        <p style="margin: 0;">
-          This email was sent to ${email}. If you didn't create an account, you can safely ignore this email.
-        </p>
-      </div>
-    </div>
-  `
-
-  return await emailService.sendEmail({
-    to: email,
-    subject: 'Your verification code - Make It Sell',
-    html: emailHtml
-  })
-}
 
 // Export convenience functions
 export const sendEmail = async (to: string, subject: string, template: string, data: any) => {
