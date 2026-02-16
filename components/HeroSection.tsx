@@ -107,17 +107,31 @@ function HeroSection() {
             </Button>
           </form>
 
-          {/* CTA button */}
-          <Button
-            asChild
-            size="lg"
-            className="group bg-accent hover:bg-accent/90 text-white px-8 py-3 text-lg font-semibold rounded-full shadow-2xl hover:shadow-accent/25 transition-all duration-300 transform hover:scale-105 mt-2"
-          >
-            <Link href="/stores" className="flex items-center justify-center">
-              Start Shopping
-              <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform duration-200" />
-            </Link>
-          </Button>
+
+          {/* CTA buttons */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center mt-2">
+            <Button
+              asChild
+              size="lg"
+              className="group bg-accent hover:bg-accent/90 text-white px-8 py-3 text-lg font-semibold rounded-full shadow-2xl hover:shadow-accent/25 transition-all duration-300 transform hover:scale-105"
+            >
+              <Link href="/stores" className="flex items-center justify-center">
+                Start Shopping
+                <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform duration-200" />
+              </Link>
+            </Button>
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="group border-accent text-accent px-8 py-3 text-lg font-semibold rounded-full shadow-2xl hover:bg-accent/10 hover:shadow-accent/25 transition-all duration-300 transform hover:scale-105"
+            >
+              <Link href="/services" className="flex items-center justify-center">
+                Explore Services
+                <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform duration-200" />
+              </Link>
+            </Button>
+          </div>
 
           {/* Features section */}
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">

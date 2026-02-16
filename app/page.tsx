@@ -292,7 +292,10 @@ export default function HomePage() {
                 <input type="text" placeholder="What are you looking for today?" className="flex-1 px-4 py-2 text-neutral-900 dark:text-white bg-transparent outline-none placeholder:text-neutral-500 dark:placeholder:text-gray-300" aria-label="Search products" />
                 <button type="submit" className="rounded-none rounded-r-full bg-accent hover:bg-accent/90 text-white px-4">Search</button>
               </form>
-              <a href="/stores" className="inline-block mt-2 px-8 py-3 text-lg font-semibold rounded-full shadow-2xl bg-accent hover:bg-accent/90 text-white transition-all duration-300">Start Shopping</a>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center mt-2">
+                <a href="/stores" className="inline-block px-8 py-3 text-lg font-semibold rounded-full shadow-2xl bg-accent text-white border-2 border-accent transition-all duration-300 hover:bg-accent/10 hover:text-accent hover:border-accent">Start Shopping</a>
+                <a href="/services" className="inline-block px-8 py-3 text-lg font-semibold rounded-full shadow-2xl border-2 border-accent text-accent bg-white hover:bg-accent/10 transition-all duration-300">Browse Services</a>
+              </div>
             </div>
           </section>
 
