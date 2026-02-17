@@ -506,17 +506,15 @@ export default function StorePage() {
             opacity: 1;
           }
           to {
-            transform: translateX(100%);
-            opacity: 0;
+            transform: translateX(100vw);
+            opacity: 0.7;
           }
         }
-        
-        .page-slide-transition {
-          animation: slideOutRight 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        .page-slide-transition-right {
+          animation: slideOutRight 0.6s cubic-bezier(.7,1.7,.7,1) forwards;
         }
       `}</style>
-      
-      <div className={isTransitioning ? 'page-slide-transition' : ''}>
+      <div className={isTransitioning ? 'page-slide-transition-right' : ''}>
       <Header />
       
       {/* Store Header with Modern Design */}

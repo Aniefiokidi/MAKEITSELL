@@ -55,6 +55,31 @@ const SERVICE_CATEGORIES = [
 ]
 
 export default function ServicesPage() {
+    // Slide-out state for page transition
+    const [slideOut, setSlideOut] = useState(false);
+    const [slideTarget, setSlideTarget] = useState('');
+
+    // Listen for slide trigger (e.g. from arrow button or programmatic navigation)
+    useEffect(() => {
+      const handler = (e) => {
+        if (e.detail && e.detail.target) {
+          setSlideTarget(e.detail.target);
+          setSlideOut(true);
+        }
+      };
+      window.addEventListener('slideOutNavigate', handler);
+      return () => window.removeEventListener('slideOutNavigate', handler);
+    }, []);
+
+    // Navigate after animation
+    useEffect(() => {
+      if (slideOut && slideTarget) {
+        const timer = setTimeout(() => {
+          window.location.href = slideTarget;
+        }, 600);
+        return () => clearTimeout(timer);
+      }
+    }, [slideOut, slideTarget]);
   const [services, setServices] = useState<Service[]>([])
   const [filteredServices, setFilteredServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
@@ -170,6 +195,16 @@ export default function ServicesPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      <style jsx global>{`
+        .main-slide-anim {
+          transition: transform 0.6s cubic-bezier(.7,1.7,.7,1), opacity 0.6s;
+        }
+        .slide-out-right {
+          transform: translateX(100vw);
+          opacity: 0.7;
+        }
+      `}</style>
+      <div className={`main-slide-anim${slideOut ? ' slide-out-right' : ''}`}> 
       <Header />
       
       <main className="flex-1 container mx-auto px-2 sm:px-4 py-3 sm:py-4">
@@ -380,14 +415,17 @@ export default function ServicesPage() {
                         </div>
 
                         {/* Arrow Button */}
-                        <Link href={`/service/${service.id}`}>
-                          <div className="shrink-0 w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-xl hover:scale-110 hover:bg-accent hover:text-white transition-all cursor-pointer group/arrow">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent group-hover/arrow:text-white">
-                              <path d="M5 12h14"/>
-                              <path d="m12 5 7 7-7 7"/>
-                            </svg>
-                          </div>
-                        </Link>
+                        <div
+                          onClick={() => {
+                            window.dispatchEvent(new CustomEvent('slideOutNavigate', { detail: { target: `/service/${service.id}` } }));
+                          }}
+                          className="shrink-0 w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-xl hover:scale-110 hover:bg-accent hover:text-white transition-all cursor-pointer group/arrow"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent group-hover/arrow:text-white">
+                            <path d="M5 12h14"/>
+                            <path d="m12 5 7 7-7 7"/>
+                          </svg>
+                        </div>
                       </div>
 
                       {/* Stats */}
@@ -409,7 +447,7 @@ export default function ServicesPage() {
           </div>
         )}
       </main>
-
+ </div> 
     </div>
   )
 }

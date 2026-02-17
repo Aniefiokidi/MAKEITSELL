@@ -1,6 +1,20 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useState, useRef } from "react"
+// Utility for delaying navigation
+function useFlyNavigate() {
+  const [fly, setFly] = useState(false);
+  const timeoutRef = useRef<any>(null);
+  const trigger = (cb: () => void) => {
+    setFly(true);
+    timeoutRef.current = setTimeout(() => {
+      cb();
+      setFly(false);
+    }, 600); // match animation duration
+  };
+  useEffect(() => () => clearTimeout(timeoutRef.current), []);
+  return [fly, trigger] as const;
+}
 import { ProductQuickView } from "@/components/ui/product-quick-view"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -477,6 +491,66 @@ function TrendingProducts() {
   )
 }
 
+// Move HeroButtons here, above HomePage
+function HeroButtons() {
+  // Instead of local state, dispatch a custom event to parent
+  return (
+    <>
+      <div className="flex flex-col sm:flex-row gap-3 justify-center mt-2">
+        <button
+          className="inline-block px-8 py-3 text-lg font-semibold rounded-full shadow-2xl bg-accent text-white border-2 border-accent transition-all duration-300 hover:bg-accent/10 hover:text-accent hover:border-accent flex items-center gap-2 group overflow-hidden relative"
+          onClick={e => {
+            e.preventDefault();
+            window.dispatchEvent(new CustomEvent('slideOutNavigate', { detail: { target: '/stores' } }));
+          }}
+          style={{ minWidth: 200 }}
+        >
+          Start Shopping
+          <span
+            className={
+              "inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none animate-bounce-x relative"
+            }
+            style={{ top: '4px' }}
+          >
+            <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" className="text-white group-hover:text-accent">
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </span>
+        </button>
+        <button
+          className="inline-block px-8 py-3 text-lg font-semibold rounded-full shadow-2xl border-2 border-accent text-accent bg-white hover:bg-accent/10 transition-all duration-300 flex items-center gap-2 group overflow-hidden relative"
+          onClick={e => {
+            e.preventDefault();
+            window.dispatchEvent(new CustomEvent('slideOutNavigate', { detail: { target: '/services' } }));
+          }}
+          style={{ minWidth: 200 }}
+        >
+          Browse Services
+          <span
+            className={
+              "inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none animate-bounce-x relative"
+            }
+            style={{ top: '4px' }}
+          >
+            <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" className="text-accent group-hover:text-white">
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </span>
+        </button>
+      </div>
+      <style jsx global>{`
+        @keyframes bounce-x {
+          0%, 100% { transform: translateX(0); }
+          50% { transform: translateX(6px); }
+        }
+        .animate-bounce-x {
+          animation: bounce-x 1s infinite;
+        }
+      `}</style>
+    </>
+  );
+}
+
 export default function HomePage() {
   const searchParams = useSearchParams()
   const [showDeletedMessage, setShowDeletedMessage] = useState(false)
@@ -496,10 +570,38 @@ export default function HomePage() {
     return () => clearTimeout(timer)
   }, [])
 
+  // Slide-out state for page transition
+  const [slideOut, setSlideOut] = useState(false);
+  const [slideTarget, setSlideTarget] = useState('');
+
+  // Listen for slide trigger from HeroButtons
+  useEffect(() => {
+    const handler = (e: any) => {
+      if (e.detail && e.detail.target) {
+        setSlideTarget(e.detail.target);
+        setSlideOut(true);
+      }
+    };
+    window.addEventListener('slideOutNavigate', handler);
+    return () => window.removeEventListener('slideOutNavigate', handler);
+  }, []);
+
+  // Navigate after animation
+  useEffect(() => {
+    if (slideOut && slideTarget) {
+      const timer = setTimeout(() => {
+        window.location.href = slideTarget;
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [slideOut, slideTarget]);
+
   return (
     <div className="min-h-screen flex flex-col relative">
-      <div className={`min-h-screen flex flex-col transition-opacity duration-1000 ${fadeIn ? 'opacity-100' : 'opacity-0'} bg-gradient-to-br from-accent/30 via-white to-accent/20 dark:from-black dark:via-gray-900 dark:to-black relative overflow-hidden`}>
-       
+      <div
+        className={`min-h-screen flex flex-col transition-opacity duration-1000 ${fadeIn ? 'opacity-100' : 'opacity-0'} bg-gradient-to-br from-accent/30 via-white to-accent/20 dark:from-black dark:via-gray-900 dark:to-black relative overflow-hidden main-slide-anim${slideOut ? ' slide-out-right' : ''}`}
+        style={{ willChange: 'transform, opacity' }}
+      >
         <Header />
         <main className="flex-1 relative z-20">
           {showDeletedMessage && (
@@ -515,228 +617,65 @@ export default function HomePage() {
           {/* HERO SECTION */}
           <section className="relative min-h-screen flex items-center justify-center pt-0">
             <div className="container mx-auto px-4 sm:px-8 flex flex-col items-center justify-center text-center gap-4 sm:gap-6">
-                <img src="/images/Home.png" alt="MakeItSell Logo" className="mx-auto mb-2 h-28 w-28 sm:h-36 sm:w-36 rounded-xl shadow-lg bg-white/80 p-2" />
-              <span className="text-accent font-bold text-lg sm:text-xl tracking-wide">WHERE EVERYTHING SELLS!</span>
-              <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold text-neutral-900 dark:text-white mb-2">Find What You Love,<br /><span className="text-accent">From Real People</span></h1>
-              <p className="text-base sm:text-lg md:text-xl text-neutral-700 dark:text-gray-200 max-w-2xl mx-auto mb-2">Nigeria’s most trusted marketplace for unique products, unbeatable prices, and real customer support.</p>
+              <img
+                src="/images/Home.png"
+                alt="MakeItSell Logo"
+                className="mx-auto mb-2 h-28 w-28 sm:h-36 sm:w-36 rounded-xl shadow-lg bg-white/80 p-2"
+              />
+              <span className="text-accent font-bold text-lg sm:text-xl tracking-wide">
+                WHERE EVERYTHING SELLS!
+              </span>
+              <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold text-neutral-900 dark:text-white mb-2">
+                Find What You Love,
+                <br />
+                <span className="text-accent">From Real People</span>
+              </h1>
+              <p className="text-base sm:text-lg md:text-xl text-neutral-700 dark:text-gray-200 max-w-2xl mx-auto mb-2">
+                Nigeria’s most trusted marketplace for unique products, unbeatable prices, and real customer support.
+              </p>
               <form className="flex w-full max-w-md mx-auto bg-white/90 dark:bg-white/20 rounded-full shadow-lg overflow-hidden border border-accent/30 focus-within:ring-2 focus-within:ring-accent">
-                <input type="text" placeholder="What are you looking for today?" className="flex-1 px-4 py-2 text-neutral-900 dark:text-white bg-transparent outline-none placeholder:text-neutral-500 dark:placeholder:text-gray-300" aria-label="Search products" />
-                <button type="submit" className="rounded-none rounded-r-full bg-accent hover:bg-accent/90 text-white px-4">Search</button>
+                <input
+                  type="text"
+                  placeholder="What are you looking for today?"
+                  className="flex-1 px-4 py-2 text-neutral-900 dark:text-white bg-transparent outline-none placeholder:text-neutral-500 dark:placeholder:text-gray-300"
+                  aria-label="Search products"
+                />
+                <button
+                  type="submit"
+                  className="rounded-none rounded-r-full bg-accent hover:bg-accent/90 text-white px-4"
+                >
+                  Search
+                </button>
               </form>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center mt-2">
-                <a href="/stores" className="inline-block px-8 py-3 text-lg font-semibold rounded-full shadow-2xl bg-accent text-white border-2 border-accent transition-all duration-300 hover:bg-accent/10 hover:text-accent hover:border-accent">Start Shopping</a>
-                <a href="/services" className="inline-block px-8 py-3 text-lg font-semibold rounded-full shadow-2xl border-2 border-accent text-accent bg-white hover:bg-accent/10 transition-all duration-300">Browse Services</a>
-              </div>
+              <HeroButtons />
             </div>
           </section>
-
+          {/* ...existing code for other sections... */}
           {/* FEATURES SECTION */}
           <section className="py-10 sm:py-14">
             <div className="container mx-auto px-2 sm:px-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 max-w-5xl mx-auto">
                 <div className="flex flex-col items-center text-center p-6 rounded-xl bg-white/60 dark:bg-white/10 shadow border border-white/10">
                   <Shield className="h-8 w-8 text-accent mb-2" />
-                  <h3 className="font-semibold text-neutral-900 dark:text-white mb-1">Secure Payment</h3>
-                  <p className="text-neutral-700 dark:text-gray-300 text-xs">Protected transactions</p>
+                  {/* ... */}
                 </div>
                 <div className="flex flex-col items-center text-center p-6 rounded-xl bg-white/60 dark:bg-white/10 shadow border border-white/10">
                   <Users className="h-8 w-8 text-accent mb-2" />
-                  <h3 className="font-semibold text-neutral-900 dark:text-white mb-1">Trusted Vendors</h3>
-                  <p className="text-neutral-700 dark:text-gray-300 text-xs">Verified sellers nationwide</p>
+                  {/* ... */}
                 </div>
                 <div className="flex flex-col items-center text-center p-6 rounded-xl bg-white/60 dark:bg-white/10 shadow border border-white/10">
                   <Truck className="h-8 w-8 text-accent mb-2" />
-                  <h3 className="font-semibold text-neutral-900 dark:text-white mb-1">Fast Delivery</h3>
-                  <p className="text-neutral-700 dark:text-gray-300 text-xs">Nationwide shipping</p>
+                  {/* ... */}
                 </div>
                 <div className="flex flex-col items-center text-center p-6 rounded-xl bg-white/60 dark:bg-white/10 shadow border border-white/10">
                   <Sparkles className="h-8 w-8 text-accent mb-2" />
-                  <h3 className="font-semibold text-neutral-900 dark:text-white mb-1">24/7 Support</h3>
-                  <p className="text-neutral-700 dark:text-gray-300 text-xs">Intelligent customer assistance</p>
+                  {/* ... */}
                 </div>
               </div>
             </div>
           </section>
-
-          {/* CATEGORY SECTION */}
-          <section className="py-8 sm:py-12">
-            <div className="container mx-auto px-2 sm:px-4">
-              <div className="text-center mb-6 sm:mb-8 animate-fade-in">
-                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-balance text-accent">Shop by Category</h2>
-                <p className="text-muted-foreground mt-1 sm:mt-2 text-xs sm:text-sm">Find exactly what you're looking for</p>
-              </div>
-              <div className="relative overflow-hidden py-4">
-                <div 
-                  className="flex gap-4 animate-scroll-x overflow-x-auto scrollbar-hide cursor-grab active:cursor-grabbing select-none scroll-smooth" 
-                  style={{
-                    scrollSnapType: 'x mandatory',
-                    WebkitOverflowScrolling: 'touch',
-                    width: 'calc(200% + 1rem)'
-                  }}
-                  onTouchStart={(e) => {
-                    const container = e.currentTarget;
-                    container.style.animationPlayState = 'paused';
-                    container.dataset.isInteracting = 'true';
-                  }}
-                  onTouchEnd={(e) => {
-                    const container = e.currentTarget;
-                    container.dataset.isInteracting = 'false';
-                    setTimeout(() => {
-                      if (container.dataset.isInteracting === 'false') {
-                        container.style.animationPlayState = 'running';
-                      }
-                    }, 2000);
-                  }}
-                  onScroll={(e) => {
-                    const container = e.currentTarget;
-                    container.style.animationPlayState = 'paused';
-                    clearTimeout(parseInt(container.dataset.scrollTimeout || '0'));
-                    container.dataset.scrollTimeout = setTimeout(() => {
-                      if (container.dataset.isInteracting !== 'true') {
-                        container.style.animationPlayState = 'running';
-                      }
-                    }, 3000).toString();
-                  }}
-                  onMouseDown={(e) => {
-                    const container = e.currentTarget;
-                    container.style.animationPlayState = 'paused';
-                    container.dataset.isDown = 'true';
-                    container.dataset.startX = (e.pageX - container.offsetLeft).toString();
-                    container.dataset.scrollLeft = container.scrollLeft.toString();
-                    container.dataset.isInteracting = 'true';
-                  }}
-                  onMouseMove={(e) => {
-                    const container = e.currentTarget;
-                    if (container.dataset.isDown !== 'true') return;
-                    e.preventDefault();
-                    const x = e.pageX - container.offsetLeft;
-                    const startX = parseFloat(container.dataset.startX || '0');
-                    const walk = (x - startX) * 2;
-                    container.scrollLeft = parseFloat(container.dataset.scrollLeft || '0') - walk;
-                  }}
-                  onMouseUp={(e) => {
-                    const container = e.currentTarget;
-                    container.dataset.isDown = 'false';
-                    container.dataset.isInteracting = 'false';
-                    setTimeout(() => {
-                      if (container.dataset.isInteracting === 'false') {
-                        container.style.animationPlayState = 'running';
-                      }
-                    }, 2000);
-                  }}
-                  onMouseLeave={(e) => {
-                    const container = e.currentTarget;
-                    container.dataset.isDown = 'false';
-                    container.dataset.isInteracting = 'false';
-                    setTimeout(() => {
-                      if (container.dataset.isInteracting === 'false') {
-                        container.style.animationPlayState = 'running';
-                      }
-                    }, 2000);
-                  }}
-                >
-                                    <a href="/category/electronics" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}>
-                    <Shield className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="font-medium text-neutral-900 dark:text-white text-sm">Electronics</span>
-                  </a>
-                  <a href="/category/fashion" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}>
-                    <Users className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="font-medium text-neutral-900 dark:text-white text-sm">Fashion</span>
-                  </a>
-                  <a href="/category/home-garden" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}>
-                    <Truck className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="font-medium text-neutral-900 dark:text-white text-sm">Home & Garden</span>
-                  </a>
-                  <a href="/category/sports-outdoors" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}>
-                    <Sparkles className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="font-medium text-neutral-900 dark:text-white text-sm">Sports & Outdoors</span>
-                  </a>
-                  <a href="/category/books" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}>
-                    <Shield className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="font-medium text-neutral-900 dark:text-white text-sm">Books</span>
-                  </a>
-                  <a href="/category/toys-games" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}>
-                    <Users className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="font-medium text-neutral-900 dark:text-white text-sm">Toys & Games</span>
-                  </a>
-                  <a href="/category/health-beauty" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}>
-                    <Truck className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="font-medium text-neutral-900 dark:text-white text-sm">Health & Beauty</span>
-                  </a>
-                  <a href="/category/automotive" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}>
-                    <Sparkles className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="font-medium text-neutral-900 dark:text-white text-sm">Automotive</span>
-                  </a>
-                  <a href="/category/tools" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}>
-                    <Shield className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="font-medium text-neutral-900 dark:text-white text-sm">Tools</span>
-                  </a>
-                  <a href="/category/food-beverages" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}>
-                    <Users className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="font-medium text-neutral-900 dark:text-white text-sm">Food & Beverages</span>
-                  </a>
-                  {/* Duplicate set for infinite scroll */}
-                  <a href="/category/electronics" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}>
-                    <Shield className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="font-medium text-neutral-900 dark:text-white text-sm">Electronics</span>
-                  </a>
-                  <a href="/category/fashion" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}>
-                    <Users className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="font-medium text-neutral-900 dark:text-white text-sm">Fashion</span>
-                  </a>
-                  <a href="/category/home-garden" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}>
-                    <Truck className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="font-medium text-neutral-900 dark:text-white text-sm">Home & Garden</span>
-                  </a>
-                  <a href="/category/sports-outdoors" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}>
-                    <Sparkles className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="font-medium text-neutral-900 dark:text-white text-sm">Sports & Outdoors</span>
-                  </a>
-                  <a href="/category/books" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}>
-                    <Shield className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="font-medium text-neutral-900 dark:text-white text-sm">Books</span>
-                  </a>
-                  <a href="/category/toys-games" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}>
-                    <Users className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="font-medium text-neutral-900 dark:text-white text-sm">Toys & Games</span>
-                  </a>
-                  <a href="/category/health-beauty" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}>
-                    <Truck className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="font-medium text-neutral-900 dark:text-white text-sm">Health & Beauty</span>
-                  </a>
-                  <a href="/category/automotive" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}>
-                    <Sparkles className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="font-medium text-neutral-900 dark:text-white text-sm">Automotive</span>
-                  </a>
-                  <a href="/category/tools" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}>
-                    <Shield className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="font-medium text-neutral-900 dark:text-white text-sm">Tools</span>
-                  </a>
-                  <a href="/category/food-beverages" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}>
-                    <Users className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="font-medium text-neutral-900 dark:text-white text-sm">Food & Beverages</span>
-                  </a>
-                  <a href="/category/toys" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0">
-                    <Sparkles className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="font-medium text-neutral-900 dark:text-white text-sm">Toys</span>
-                  </a>
-                  <a href="/category/music" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0">
-                    <Truck className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" />
-                    <span className="font-medium text-neutral-900 dark:text-white text-sm">Music</span>
-                  </a>
-                </div>
-              </div>
-              <div className="text-center mt-6 sm:mt-8">
-                <Link href="/categories">
-                  <Button className="group bg-gradient-to-r from-accent to-accent/80 hover:from-accent/90 hover:to-accent/70 text-white px-6 py-3 rounded-lg transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl">
-                    View All Categories
-                    <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </section>
-
+          {/* ...existing code for other sections... */}
+         {/* CATEGORY SECTION */} <section className="py-8 sm:py-12"> <div className="container mx-auto px-2 sm:px-4"> <div className="text-center mb-6 sm:mb-8 animate-fade-in"> <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-balance text-accent">Shop by Category</h2> <p className="text-muted-foreground mt-1 sm:mt-2 text-xs sm:text-sm">Find exactly what you're looking for</p> </div> <div className="relative overflow-hidden py-4"> <div className="flex gap-4 animate-scroll-x overflow-x-auto scrollbar-hide cursor-grab active:cursor-grabbing select-none scroll-smooth" style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch', width: 'calc(200% + 1rem)' }} onTouchStart={(e) => { const container = e.currentTarget; container.style.animationPlayState = 'paused'; container.dataset.isInteracting = 'true'; }} onTouchEnd={(e) => { const container = e.currentTarget; container.dataset.isInteracting = 'false'; setTimeout(() => { if (container.dataset.isInteracting === 'false') { container.style.animationPlayState = 'running'; } }, 2000); }} onScroll={(e) => { const container = e.currentTarget; container.style.animationPlayState = 'paused'; clearTimeout(parseInt(container.dataset.scrollTimeout || '0')); container.dataset.scrollTimeout = setTimeout(() => { if (container.dataset.isInteracting !== 'true') { container.style.animationPlayState = 'running'; } }, 3000).toString(); }} onMouseDown={(e) => { const container = e.currentTarget; container.style.animationPlayState = 'paused'; container.dataset.isDown = 'true'; container.dataset.startX = (e.pageX - container.offsetLeft).toString(); container.dataset.scrollLeft = container.scrollLeft.toString(); container.dataset.isInteracting = 'true'; }} onMouseMove={(e) => { const container = e.currentTarget; if (container.dataset.isDown !== 'true') return; e.preventDefault(); const x = e.pageX - container.offsetLeft; const startX = parseFloat(container.dataset.startX || '0'); const walk = (x - startX) * 2; container.scrollLeft = parseFloat(container.dataset.scrollLeft || '0') - walk; }} onMouseUp={(e) => { const container = e.currentTarget; container.dataset.isDown = 'false'; container.dataset.isInteracting = 'false'; setTimeout(() => { if (container.dataset.isInteracting === 'false') { container.style.animationPlayState = 'running'; } }, 2000); }} onMouseLeave={(e) => { const container = e.currentTarget; container.dataset.isDown = 'false'; container.dataset.isInteracting = 'false'; setTimeout(() => { if (container.dataset.isInteracting === 'false') { container.style.animationPlayState = 'running'; } }, 2000); }} > <a href="/category/electronics" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Shield className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Electronics</span> </a> <a href="/category/fashion" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Users className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Fashion</span> </a> <a href="/category/home-garden" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Truck className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Home & Garden</span> </a> <a href="/category/sports-outdoors" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Sparkles className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Sports & Outdoors</span> </a> <a href="/category/books" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Shield className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Books</span> </a> <a href="/category/toys-games" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Users className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Toys & Games</span> </a> <a href="/category/health-beauty" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Truck className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Health & Beauty</span> </a> <a href="/category/automotive" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Sparkles className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Automotive</span> </a> <a href="/category/tools" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Shield className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Tools</span> </a> <a href="/category/food-beverages" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Users className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Food & Beverages</span> </a> {/* Duplicate set for infinite scroll */} <a href="/category/electronics" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Shield className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Electronics</span> </a> <a href="/category/fashion" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Users className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Fashion</span> </a> <a href="/category/home-garden" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Truck className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Home & Garden</span> </a> <a href="/category/sports-outdoors" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Sparkles className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Sports & Outdoors</span> </a> <a href="/category/books" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Shield className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Books</span> </a> <a href="/category/toys-games" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Users className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Toys & Games</span> </a> <a href="/category/health-beauty" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Truck className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Health & Beauty</span> </a> <a href="/category/automotive" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Sparkles className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Automotive</span> </a> <a href="/category/tools" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Shield className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Tools</span> </a> <a href="/category/food-beverages" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Users className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Food & Beverages</span> </a> <a href="/category/toys" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0"> <Sparkles className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Toys</span> </a> <a href="/category/music" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0"> <Truck className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Music</span> </a> </div> </div> <div className="text-center mt-6 sm:mt-8"> <Link href="/categories"> <Button className="group bg-gradient-to-r from-accent to-accent/80 hover:from-accent/90 hover:to-accent/70 text-white px-6 py-3 rounded-lg transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl"> View All Categories <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" /> </Button> </Link> </div> </div> </section>
           {/* TRENDING PRODUCTS SECTION */}
           <section className="py-10 sm:py-14">
             <div className="container mx-auto px-2 sm:px-4">
@@ -747,11 +686,17 @@ export default function HomePage() {
               <TrendingProducts />
             </div>
           </section>
-      
-
         </main>
-       
       </div>
+      <style jsx global>{`
+        .main-slide-anim {
+          transition: transform 0.6s cubic-bezier(.7,1.7,.7,1), opacity 0.6s;
+        }
+        .slide-out-right {
+          transform: translateX(100vw);
+          opacity: 0.7;
+        }
+      `}</style>
     </div>
-  )
+  );
 }

@@ -19,6 +19,16 @@ import BookingModal from "@/components/services/BookingModal"
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 
 export default function ServiceDetailPage() {
+    // Slide-out state for page transition
+    const [slideOut, setSlideOut] = useState(false);
+
+    // Back to services with slide right
+    const handleBackToServices = () => {
+      setSlideOut(true);
+      setTimeout(() => {
+        router.push('/services');
+      }, 600);
+    };
   const params = useParams()
   const router = useRouter()
   const { user, userProfile } = useAuth()
@@ -178,7 +188,16 @@ export default function ServiceDetailPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className={`min-h-screen flex flex-col bg-background main-slide-anim${slideOut ? ' slide-out-right' : ''}`}>
+      <style jsx global>{`
+        .main-slide-anim {
+          transition: transform 0.6s cubic-bezier(.7,1.7,.7,1), opacity 0.6s;
+        }
+        .slide-out-right {
+          transform: translateX(100vw);
+          opacity: 0.7;
+        }
+      `}</style>
       <Header />
       
       {/* Full Width Banner Section - matching store style */}
@@ -203,7 +222,7 @@ export default function ServiceDetailPage() {
             <Button
               variant="ghost"
               className="mb-4 text-white hover:bg-white/20 hover:scale-105 backdrop-blur-sm transition-all"
-              onClick={() => router.push("/services")}
+              onClick={handleBackToServices}
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Services
