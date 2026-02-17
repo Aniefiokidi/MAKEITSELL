@@ -103,13 +103,247 @@ function TrendingProducts() {
   }
   return (
     <>
-      {/* Triangle formation for mobile: 2 cards in first row, 1 centered in second row */}
+      {/* Responsive: triangle only on mobile, grid on sm+ */}
       <div className="max-w-5xl mx-auto">
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 md:gap-4">
-          {products.slice(0, 2).map((product: any) => (
+        {/* Mobile: triangle layout */}
+        <div className="block sm:hidden">
+          <div className="grid grid-cols-2 gap-2">
+            {products.slice(0, 2).map((product: any) => (
+              <Card 
+                key={product.id} 
+                className="border-0 shadow-md overflow-hidden relative h-[280px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl active:scale-95 cursor-pointer"
+                onClick={() => {
+                  setSelectedProduct(product)
+                  setQuickViewOpen(true)
+                }}
+              >
+                {/* ...existing code for card content... */}
+                <div className="group absolute inset-0 overflow-hidden">
+                  <img 
+                    src={product.images?.[0] || "/placeholder.png"} 
+                    alt={product.title ? `Product: ${product.title}` : product.name ? `Product: ${product.name}` : "Product image"} 
+                    className={`absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${product.stock === 0 ? 'grayscale' : ''}`}
+                  />
+                  {/* ...existing code for overlays and badges... */}
+                  {/* Out of Stock Red Tape Overlay */}
+                  {product.stock === 0 && (
+                    <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
+                      <div className="bg-red-600 text-white px-4 py-1 transform -rotate-45 font-bold text-xs shadow-lg">
+                        OUT OF STOCK
+                      </div>
+                    </div>
+                  )}
+                  {/* Product Badges */}
+                  <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
+                    {product.featured && (
+                      <Badge className="bg-yellow-500 text-black font-semibold text-[10px] px-1.5 py-0.5">
+                        <svg className="inline w-3 h-3 text-yellow-400 fill-current animate-pulse mr-0.5" viewBox="0 0 24 24">
+                          <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
+                        </svg> 
+                        Featured
+                      </Badge>
+                    )}
+                    {(product.stock ?? 0) < 10 && (product.stock ?? 0) > 0 && (
+                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5">
+                        Only {product.stock} left
+                      </Badge>
+                    )}
+                    {product.stock === 0 && (
+                      <Badge variant="secondary" className="bg-gray-600 text-[10px] px-1.5 py-0.5">
+                        Out of Stock
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                {/* Frosted Glass Bubble Content */}
+                <div className="absolute bottom-0 left-0 right-0 p-2 backdrop-blur-xl bg-accent/10 border-t border-white/30 rounded-t-2xl z-30 space-y-1 gap-1">
+                  <Badge
+                    variant="outline"
+                    className="inline-flex w-full text-[10px] font-semibold px-2 py-1 rounded-full border-white/40 shadow bg-accent text-white hover:opacity-90 transition min-h-[20px] items-center justify-center text-center leading-tight"
+                    style={{
+                      whiteSpace: 'normal',
+                      wordBreak: 'break-word',
+                      hyphens: 'auto',
+                      lineHeight: '1.2'
+                    }}
+                  >
+                    <span className="line-clamp-2">
+                      {product.title || product.name}
+                    </span>
+                  </Badge>
+                  <div className="flex items-center justify-between gap-1">
+                    <Badge variant="outline" className="text-[9px] backdrop-blur-sm border-white/50 px-1 py-0 text-white bg-accent">
+                      {product.storeName || product.vendorName || 'Store'}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className="text-[9px] font-semibold px-2 py-1 rounded-full border-white/40 backdrop-blur-sm bg-white/70 text-accent"
+                    >
+                      ₦{product.price?.toLocaleString?.() || product.price}
+                    </Badge>
+                  </div>
+                  {/* Sizes Display */}
+                  {product.hasSizeOptions && product.sizes && product.sizes.length > 0 && (
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {product.sizes.slice(0, 5).map((size: string, idx: number) => (
+                        <Badge
+                          key={idx}
+                          variant="outline"
+                          className="text-[8px] px-1 py-0 border-white/40 bg-white/50 text-accent"
+                        >
+                          {size}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  <Button 
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      addItem({
+                        productId: product.id,
+                        id: product.id,
+                        title: product.title || product.name || '',
+                        price: product.price,
+                        image: product.images?.[0] || '',
+                        maxStock: product.stock || 100,
+                        vendorId: product.vendorId,
+                        vendorName: product.storeName || product.vendorName || 'Unknown Vendor'
+                      })
+                    }}
+                    disabled={product.stock === 0}
+                    className="w-full h-6 text-[10px] backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black"
+                  >
+                    <img src="/images/logo3.png" alt="Add to cart icon" className="w-6 h-6 -mt-1" />
+                    <span className="leading-none hidden sm:inline">Add</span>
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+          {products[2] && (
+            <div className="flex justify-center mt-2">
+              <div className="w-1/2">
+                <Card 
+                  key={products[2].id} 
+                  className="border-0 shadow-md overflow-hidden relative h-[280px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl active:scale-95 cursor-pointer mx-auto"
+                  onClick={() => {
+                    setSelectedProduct(products[2])
+                    setQuickViewOpen(true)
+                  }}
+                >
+                  {/* ...existing code for card content... */}
+                  <div className="group absolute inset-0 overflow-hidden">
+                    <img 
+                      src={products[2].images?.[0] || "/placeholder.png"} 
+                      alt={products[2].title ? `Product: ${products[2].title}` : products[2].name ? `Product: ${products[2].name}` : "Product image"} 
+                      className={`absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${products[2].stock === 0 ? 'grayscale' : ''}`}
+                    />
+                    {/* ...existing code for overlays and badges... */}
+                    {/* Out of Stock Red Tape Overlay */}
+                    {products[2].stock === 0 && (
+                      <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
+                        <div className="bg-red-600 text-white px-4 py-1 transform -rotate-45 font-bold text-xs shadow-lg">
+                          OUT OF STOCK
+                        </div>
+                      </div>
+                    )}
+                    {/* Product Badges */}
+                    <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
+                      {products[2].featured && (
+                        <Badge className="bg-yellow-500 text-black font-semibold text-[10px] px-1.5 py-0.5">
+                          <svg className="inline w-3 h-3 text-yellow-400 fill-current animate-pulse mr-0.5" viewBox="0 0 24 24">
+                            <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
+                          </svg> 
+                          Featured
+                        </Badge>
+                      )}
+                      {(products[2].stock ?? 0) < 10 && (products[2].stock ?? 0) > 0 && (
+                        <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5">
+                          Only {products[2].stock} left
+                        </Badge>
+                      )}
+                      {products[2].stock === 0 && (
+                        <Badge variant="secondary" className="bg-gray-600 text-[10px] px-1.5 py-0.5">
+                          Out of Stock
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  {/* Frosted Glass Bubble Content */}
+                  <div className="absolute bottom-0 left-0 right-0 p-2 backdrop-blur-xl bg-accent/10 border-t border-white/30 rounded-t-2xl z-30 space-y-1 gap-1">
+                    <Badge
+                      variant="outline"
+                      className="inline-flex w-full text-[10px] font-semibold px-2 py-1 rounded-full border-white/40 shadow bg-accent text-white hover:opacity-90 transition min-h-[20px] items-center justify-center text-center leading-tight"
+                      style={{
+                        whiteSpace: 'normal',
+                        wordBreak: 'break-word',
+                        hyphens: 'auto',
+                        lineHeight: '1.2'
+                      }}
+                    >
+                      <span className="line-clamp-2">
+                        {products[2].title || products[2].name}
+                      </span>
+                    </Badge>
+                    <div className="flex items-center justify-between gap-1">
+                      <Badge variant="outline" className="text-[9px] backdrop-blur-sm border-white/50 px-1 py-0 text-white bg-accent">
+                        {products[2].storeName || products[2].vendorName || 'Store'}
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className="text-[9px] font-semibold px-2 py-1 rounded-full border-white/40 backdrop-blur-sm bg-white/70 text-accent"
+                      >
+                        ₦{products[2].price?.toLocaleString?.() || products[2].price}
+                      </Badge>
+                    </div>
+                    {/* Sizes Display */}
+                    {products[2].hasSizeOptions && products[2].sizes && products[2].sizes.length > 0 && (
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {products[2].sizes.slice(0, 5).map((size: string, idx: number) => (
+                          <Badge
+                            key={idx}
+                            variant="outline"
+                            className="text-[8px] px-1 py-0 border-white/40 bg-white/50 text-accent"
+                          >
+                            {size}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    <Button 
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        addItem({
+                          productId: products[2].id,
+                          id: products[2].id,
+                          title: products[2].title || products[2].name || '',
+                          price: products[2].price,
+                          image: products[2].images?.[0] || '',
+                          maxStock: products[2].stock || 100,
+                          vendorId: products[2].vendorId,
+                          vendorName: products[2].storeName || products[2].vendorName || 'Unknown Vendor'
+                        })
+                      }}
+                      disabled={products[2].stock === 0}
+                      className="w-full h-6 text-[10px] backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black"
+                    >
+                      <img src="/images/logo3.png" alt="Add to cart icon" className="w-6 h-6 -mt-1" />
+                      <span className="leading-none hidden sm:inline">Add</span>
+                    </Button>
+                  </div>
+                </Card>
+              </div>
+            </div>
+          )}
+        </div>
+        {/* Desktop/tablet: normal grid */}
+        <div className="hidden sm:grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+          {products.map((product: any) => (
             <Card 
               key={product.id} 
-              className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100 cursor-pointer"
+              className="border-0 shadow-md overflow-hidden relative h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100 cursor-pointer"
               onClick={() => {
                 setSelectedProduct(product)
                 setQuickViewOpen(true)
@@ -126,38 +360,38 @@ function TrendingProducts() {
                 {/* Out of Stock Red Tape Overlay */}
                 {product.stock === 0 && (
                   <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
-                    <div className="bg-red-600 text-white px-4 sm:px-8 py-1 sm:py-2 transform -rotate-45 font-bold text-xs sm:text-sm shadow-lg">
+                    <div className="bg-red-600 text-white px-4 md:px-8 py-1 md:py-2 transform -rotate-45 font-bold text-xs md:text-sm shadow-lg">
                       OUT OF STOCK
                     </div>
                   </div>
                 )}
                 {/* Product Badges */}
-                <div className="absolute top-2 sm:top-3 left-2 sm:left-3 flex flex-col gap-1 z-10">
+                <div className="absolute top-3 left-3 flex flex-col gap-1 z-10">
                   {product.featured && (
-                    <Badge className="bg-yellow-500 text-black font-semibold text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
-                      <svg className="inline w-3 h-3 sm:w-4 sm:h-4 text-yellow-400 fill-current animate-pulse mr-0.5 sm:mr-1" viewBox="0 0 24 24">
+                    <Badge className="bg-yellow-500 text-black font-semibold text-xs px-2 py-0.5">
+                      <svg className="inline w-4 h-4 text-yellow-400 fill-current animate-pulse mr-1" viewBox="0 0 24 24">
                         <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
                       </svg> 
                       Featured
                     </Badge>
                   )}
                   {(product.stock ?? 0) < 10 && (product.stock ?? 0) > 0 && (
-                    <Badge variant="destructive" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
+                    <Badge variant="destructive" className="text-xs px-2 py-0.5">
                       Only {product.stock} left
                     </Badge>
                   )}
                   {product.stock === 0 && (
-                    <Badge variant="secondary" className="bg-gray-600 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
+                    <Badge variant="secondary" className="bg-gray-600 text-xs px-2 py-0.5">
                       Out of Stock
                     </Badge>
                   )}
                 </div>
               </div>
               {/* Frosted Glass Bubble Content */}
-              <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-2.5 md:p-3 backdrop-blur-xl bg-accent/10 border-t border-white/30 rounded-t-2xl sm:rounded-t-3xl z-30 space-y-1 gap-1 sm:gap-2">
+              <div className="absolute bottom-0 left-0 right-0 p-2 md:p-3 backdrop-blur-xl bg-accent/10 border-t border-white/30 rounded-t-2xl sm:rounded-t-3xl z-30 space-y-1 gap-1 md:gap-2">
                 <Badge
                   variant="outline"
-                  className="inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow bg-accent text-white hover:opacity-90 transition min-h-[20px] sm:min-h-[24px] items-center justify-center text-center leading-tight"
+                  className="inline-flex w-full text-xs md:text-sm font-semibold px-2 md:px-2.5 py-1 rounded-full border-white/40 shadow bg-accent text-white hover:opacity-90 transition min-h-[24px] items-center justify-center text-center leading-tight"
                   style={{
                     whiteSpace: 'normal',
                     wordBreak: 'break-word',
@@ -165,17 +399,17 @@ function TrendingProducts() {
                     lineHeight: '1.2'
                   }}
                 >
-                  <span className="line-clamp-2 sm:line-clamp-1">
+                  <span className="line-clamp-1">
                     {product.title || product.name}
                   </span>
                 </Badge>
-                <div className="flex items-center justify-between gap-1 sm:gap-2">
-                  <Badge variant="outline" className="text-[9px] sm:text-[10px] md:text-xs backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 text-white bg-accent">
+                <div className="flex items-center justify-between gap-2">
+                  <Badge variant="outline" className="text-xs backdrop-blur-sm border-white/50 px-1.5 py-0 text-white bg-accent">
                     {product.storeName || product.vendorName || 'Store'}
                   </Badge>
                   <Badge
                     variant="outline"
-                    className="text-[9px] sm:text-[10px] md:text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 backdrop-blur-sm bg-white/70 text-accent"
+                    className="text-xs font-semibold px-2.5 py-1 rounded-full border-white/40 backdrop-blur-sm bg-white/70 text-accent"
                   >
                     ₦{product.price?.toLocaleString?.() || product.price}
                   </Badge>
@@ -187,7 +421,7 @@ function TrendingProducts() {
                       <Badge
                         key={idx}
                         variant="outline"
-                        className="text-[8px] sm:text-[9px] md:text-[10px] px-1 sm:px-1.5 py-0 border-white/40 bg-white/50 text-accent"
+                        className="text-[10px] px-1.5 py-0 border-white/40 bg-white/50 text-accent"
                       >
                         {size}
                       </Badge>
@@ -210,131 +444,15 @@ function TrendingProducts() {
                     })
                   }}
                   disabled={product.stock === 0}
-                  className="w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black"
+                  className="w-full h-7 md:h-8 text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black"
                 >
-                  <img src="/images/logo3.png" alt="Add to cart icon" className="w-6 sm:w-7 md:w-8 h-6 sm:h-7 md:h-8 -mt-1 sm:-mt-2" />
+                  <img src="/images/logo3.png" alt="Add to cart icon" className="w-7 md:w-8 h-7 md:h-8 -mt-2" />
                   <span className="leading-none hidden sm:inline">Add</span>
                 </Button>
               </div>
             </Card>
           ))}
         </div>
-        {products[2] && (
-          <div className="flex justify-center mt-2 sm:mt-0">
-            <div className="w-1/2">
-              <Card 
-                key={products[2].id} 
-                className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100 cursor-pointer mx-auto"
-                onClick={() => {
-                  setSelectedProduct(products[2])
-                  setQuickViewOpen(true)
-                }}
-              >
-                {/* ...existing code for card content... */}
-                <div className="group absolute inset-0 overflow-hidden">
-                  <img 
-                    src={products[2].images?.[0] || "/placeholder.png"} 
-                    alt={products[2].title ? `Product: ${products[2].title}` : products[2].name ? `Product: ${products[2].name}` : "Product image"} 
-                    className={`absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${products[2].stock === 0 ? 'grayscale' : ''}`}
-                  />
-                  {/* ...existing code for overlays and badges... */}
-                  {/* Out of Stock Red Tape Overlay */}
-                  {products[2].stock === 0 && (
-                    <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
-                      <div className="bg-red-600 text-white px-4 sm:px-8 py-1 sm:py-2 transform -rotate-45 font-bold text-xs sm:text-sm shadow-lg">
-                        OUT OF STOCK
-                      </div>
-                    </div>
-                  )}
-                  {/* Product Badges */}
-                  <div className="absolute top-2 sm:top-3 left-2 sm:left-3 flex flex-col gap-1 z-10">
-                    {products[2].featured && (
-                      <Badge className="bg-yellow-500 text-black font-semibold text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
-                        <svg className="inline w-3 h-3 sm:w-4 sm:h-4 text-yellow-400 fill-current animate-pulse mr-0.5 sm:mr-1" viewBox="0 0 24 24">
-                          <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
-                        </svg> 
-                        Featured
-                      </Badge>
-                    )}
-                    {(products[2].stock ?? 0) < 10 && (products[2].stock ?? 0) > 0 && (
-                      <Badge variant="destructive" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
-                        Only {products[2].stock} left
-                      </Badge>
-                    )}
-                    {products[2].stock === 0 && (
-                      <Badge variant="secondary" className="bg-gray-600 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
-                        Out of Stock
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-                {/* Frosted Glass Bubble Content */}
-                <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-2.5 md:p-3 backdrop-blur-xl bg-accent/10 border-t border-white/30 rounded-t-2xl sm:rounded-t-3xl z-30 space-y-1 gap-1 sm:gap-2">
-                  <Badge
-                    variant="outline"
-                    className="inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow bg-accent text-white hover:opacity-90 transition min-h-[20px] sm:min-h-[24px] items-center justify-center text-center leading-tight"
-                    style={{
-                      whiteSpace: 'normal',
-                      wordBreak: 'break-word',
-                      hyphens: 'auto',
-                      lineHeight: '1.2'
-                    }}
-                  >
-                    <span className="line-clamp-2 sm:line-clamp-1">
-                      {products[2].title || products[2].name}
-                    </span>
-                  </Badge>
-                  <div className="flex items-center justify-between gap-1 sm:gap-2">
-                    <Badge variant="outline" className="text-[9px] sm:text-[10px] md:text-xs backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 text-white bg-accent">
-                      {products[2].storeName || products[2].vendorName || 'Store'}
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className="text-[9px] sm:text-[10px] md:text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 backdrop-blur-sm bg-white/70 text-accent"
-                    >
-                      ₦{products[2].price?.toLocaleString?.() || products[2].price}
-                    </Badge>
-                  </div>
-                  {/* Sizes Display */}
-                  {products[2].hasSizeOptions && products[2].sizes && products[2].sizes.length > 0 && (
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {products[2].sizes.slice(0, 5).map((size: string, idx: number) => (
-                        <Badge
-                          key={idx}
-                          variant="outline"
-                          className="text-[8px] sm:text-[9px] md:text-[10px] px-1 sm:px-1.5 py-0 border-white/40 bg-white/50 text-accent"
-                        >
-                          {size}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                  <Button 
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      addItem({
-                        productId: products[2].id,
-                        id: products[2].id,
-                        title: products[2].title || products[2].name || '',
-                        price: products[2].price,
-                        image: products[2].images?.[0] || '',
-                        maxStock: products[2].stock || 100,
-                        vendorId: products[2].vendorId,
-                        vendorName: products[2].storeName || products[2].vendorName || 'Unknown Vendor'
-                      })
-                    }}
-                    disabled={products[2].stock === 0}
-                    className="w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black"
-                  >
-                    <img src="/images/logo3.png" alt="Add to cart icon" className="w-6 sm:w-7 md:w-8 h-6 sm:h-7 md:h-8 -mt-1 sm:-mt-2" />
-                    <span className="leading-none hidden sm:inline">Add</span>
-                  </Button>
-                </div>
-              </Card>
-            </div>
-          </div>
-        )}
       </div>
       <ProductQuickView
         product={selectedProduct}
