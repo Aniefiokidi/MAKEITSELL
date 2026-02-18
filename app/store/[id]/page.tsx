@@ -88,7 +88,14 @@ export default function StorePage() {
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [quickViewOpen, setQuickViewOpen] = useState(false)
+  const [selectedColor, setSelectedColor] = useState<string | null>(null)
+  const [selectedSize, setSelectedSize] = useState<string | null>(null)
   const [imageBrightness, setImageBrightness] = useState<{ [key: string]: 'light' | 'dark' }>({})
+    // Reset color and size selection when quick view opens or closes
+    useEffect(() => {
+      setSelectedColor(null)
+      setSelectedSize(null)
+    }, [quickViewOpen])
   const { addItem } = useCart()
   const { user } = useAuth()
   const { toast } = useToast()
@@ -513,8 +520,38 @@ export default function StorePage() {
         .page-slide-transition-right {
           animation: slideOutRight 0.6s cubic-bezier(.7,1.7,.7,1) forwards;
         }
+        .quick-view-modal {
+          min-height: 700px;
+          max-height: 100%;
+          height: 90vh;
+        }
+        .store-details-scroll {
+          scrollbar-width: thin;
+          scrollbar-color: var(--accent) var(--scroll-bg);
+        }
+        .store-details-scroll::-webkit-scrollbar {
+          width: 8px;
+        }
+        .store-details-scroll::-webkit-scrollbar-thumb {
+          background: var(--accent);
+          border-radius: 8px;
+        }
+        .store-details-scroll::-webkit-scrollbar-track {
+          background: var(--scroll-bg);
+          border-radius: 8px;
+        }
+        /* Light mode */
+        :root {
+          --scroll-bg: #fff;
+          --accent: oklch(0.35 0.15 15);
+        }
+        /* Dark mode */
+        [data-theme="dark"] {
+          --scroll-bg: #1a2236;
+          --accent: oklch(0.35 0.15 15);
+        }
       `}</style>
-      <div className={isTransitioning ? 'page-slide-transition-right' : ''}>
+      <div className={isTransitioning ? 'page-slide-transition-right store-details-scroll' : 'store-details-scroll'}>
       <Header />
       
       {/* Store Header with Modern Design */}
@@ -974,9 +1011,12 @@ export default function StorePage() {
         onClose={() => {
           setQuickViewOpen(false)
           setSelectedProduct(null)
+          setSelectedColor(null)
+          setSelectedSize(null)
         }}
         onAddToCart={handleAddToCart}
         storeName={store?.storeName}
+        className="quick-view-modal"
       />
       </div>
     </div>

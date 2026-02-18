@@ -37,6 +37,7 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --scroll-bg: #fff;
 }
 
 .dark {
@@ -122,4 +123,67 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Stronger custom scrollbar styles */
+body, *,
+.overflow-auto,
+.overflow-scroll,
+.overflow-y-auto,
+.overflow-x-auto {
+  scrollbar-width: thin !important;
+  scrollbar-color: var(--accent) var(--scroll-bg) !important;
+}
+body::-webkit-scrollbar, *::-webkit-scrollbar,
+.overflow-auto::-webkit-scrollbar,
+.overflow-scroll::-webkit-scrollbar,
+.overflow-y-auto::-webkit-scrollbar,
+.overflow-x-auto::-webkit-scrollbar {
+  width: 8px !important;
+}
+body::-webkit-scrollbar-thumb, *::-webkit-scrollbar-thumb,
+.overflow-auto::-webkit-scrollbar-thumb,
+.overflow-scroll::-webkit-scrollbar-thumb,
+.overflow-y-auto::-webkit-scrollbar-thumb,
+.overflow-x-auto::-webkit-scrollbar-thumb {
+  background: var(--accent) !important;
+  border-radius: 8px !important;
+}
+body::-webkit-scrollbar-thumb:hover, *::-webkit-scrollbar-thumb:hover,
+.overflow-auto::-webkit-scrollbar-thumb:hover,
+.overflow-scroll::-webkit-scrollbar-thumb:hover,
+.overflow-y-auto::-webkit-scrollbar-thumb:hover,
+.overflow-x-auto::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-foreground) !important;
+}
+body::-webkit-scrollbar-track, *::-webkit-scrollbar-track,
+.overflow-auto::-webkit-scrollbar-track,
+.overflow-scroll::-webkit-scrollbar-track,
+.overflow-y-auto::-webkit-scrollbar-track,
+.overflow-x-auto::-webkit-scrollbar-track {
+  background: var(--scroll-bg) !important;
+  border-radius: 8px !important;
+}
+:root {
+  --scroll-bg: #fff;
+}
+.dark {
+  --scroll-bg: #1a2236;
+}
+/* Remove scrollbar-hide class override */
+.scrollbar-hide {
+  scrollbar-width: thin !important;
+  scrollbar-color: var(--accent) var(--scroll-bg) !important;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  width: 8px !important;
+  display: block !important;
+}
+.scrollbar-hide::-webkit-scrollbar-thumb {
+  background: var(--accent) !important;
+  border-radius: 8px !important;
+}
+.scrollbar-hide::-webkit-scrollbar-track {
+  background: var(--scroll-bg) !important;
+  border-radius: 8px !important;
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -57,6 +57,13 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
   const [selectedColor, setSelectedColor] = useState<string>("")
   const [selectedSize, setSelectedSize] = useState<string>("")
 
+  // Reset color, size, and main image when modal opens or closes
+  useEffect(() => {
+    setSelectedColor("")
+    setSelectedSize("")
+    setMainImage("")
+  }, [open, product])
+
   if (!product) return null
 
   // Update main image when color is selected
@@ -72,7 +79,19 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <style>{cursorStyle}</style>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto product-quick-view-modal bg-white/30 backdrop-blur-xl border border-white/20 shadow-2xl shadow-accent/10 rounded-2xl">
+      <DialogContent className="max-w-4xl product-quick-view-modal bg-white/30 backdrop-blur-xl border border-white/20 shadow-2xl shadow-accent/10 rounded-2xl">
+        <style>{`
+          .product-quick-view-modal {
+            min-height: 700px;
+            max-height: 900px;
+            height: 90vh;
+            overflow-y: auto;
+            scrollbar-width: none;
+          }
+          .product-quick-view-modal::-webkit-scrollbar {
+            display: none;
+          }
+        `}</style>
         <VisuallyHidden>
           <DialogTitle>Product Details</DialogTitle>
         </VisuallyHidden>
