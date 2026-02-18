@@ -603,7 +603,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen flex flex-col relative">
       <div
-        className={`min-h-screen flex flex-col transition-opacity duration-1000 ${fadeIn ? 'opacity-100' : 'opacity-0'} bg-gradient-to-br from-accent/30 via-white to-accent/20 dark:from-black dark:via-gray-900 dark:to-black relative overflow-hidden main-slide-anim${slideOut ? ' slide-out-right' : ''}`}
+        className={`min-h-screen flex flex-col transition-opacity duration-1000 ${fadeIn ? 'opacity-100' : 'opacity-0'} animated-gradient-bg main-slide-anim${slideOut ? ' slide-out-right' : ''}`}
         style={{ willChange: 'transform, opacity' }}
       >
         <Header />
@@ -761,6 +761,22 @@ export default function HomePage() {
         }
         .feature-card:not(.feature-animate) {
           animation-play-state: paused !important;
+        }
+        .animated-gradient-bg {
+          position: relative;
+          background: linear-gradient(120deg, var(--accent) 0%, #fff 50%, var(--accent) 100%);
+          background-size: 200% 200%;
+          animation: gradientWave 12s ease-in-out infinite;
+        }
+        .dark .animated-gradient-bg {
+          background: linear-gradient(120deg, #000 0%, #1a2236 60%, #000 100%);
+          background-size: 200% 200%;
+          animation: gradientWave 12s ease-in-out infinite;
+        }
+        @keyframes gradientWave {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
         }
       `}</style>
     </div>
