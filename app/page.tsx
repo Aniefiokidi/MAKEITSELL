@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useState, useRef } from "react"
+import { useRouter } from "next/navigation"
 // Utility for delaying navigation
 function useFlyNavigate() {
   const [fly, setFly] = useState(false);
@@ -552,6 +553,8 @@ function HeroButtons() {
 }
 
 export default function HomePage() {
+  const [searchValue, setSearchValue] = useState("");
+  const router = useRouter();
   const searchParams = useSearchParams()
   const [showDeletedMessage, setShowDeletedMessage] = useState(false)
   const [fadeIn, setFadeIn] = useState(false)
@@ -606,7 +609,7 @@ export default function HomePage() {
         className={`min-h-screen flex flex-col transition-opacity duration-1000 ${fadeIn ? 'opacity-100' : 'opacity-0'} animated-gradient-bg main-slide-anim${slideOut ? ' slide-out-right' : ''}`}
         style={{ willChange: 'transform, opacity' }}
       >
-        <Header />
+        <Header homeBg={true} />
         <main className="flex-1 relative z-20">
           {showDeletedMessage && (
             <div className="container mx-auto px-4 pt-4">
@@ -620,38 +623,57 @@ export default function HomePage() {
           )}
           {/* HERO SECTION */}
           <section className="relative min-h-screen flex items-center justify-center pt-0">
-            <div className="container mx-auto px-4 sm:px-8 flex flex-col items-center justify-center text-center gap-4 sm:gap-6">
-              <img
-                src="/images/Home.png"
-                alt="MakeItSell Logo"
-                className="mx-auto mb-2 h-28 w-28 sm:h-36 sm:w-36 rounded-xl shadow-lg bg-white/80 p-2"
-              />
-              <span className="text-accent font-bold text-lg sm:text-xl tracking-wide">
-                WHERE EVERYTHING SELLS!
-              </span>
-              <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold text-neutral-900 dark:text-white mb-2">
-                Find What You Love,
-                <br />
-                <span className="text-accent">From Real People</span>
-              </h1>
-              <p className="text-base sm:text-lg md:text-xl text-neutral-700 dark:text-gray-200 max-w-2xl mx-auto mb-2">
-                Nigeria’s most trusted marketplace for unique products, unbeatable prices, and real customer support.
-              </p>
-              <form className="flex w-full max-w-md mx-auto bg-white/90 dark:bg-white/20 rounded-full shadow-lg overflow-hidden border border-accent/30 focus-within:ring-2 focus-within:ring-accent">
-                <input
-                  type="text"
-                  placeholder="What are you looking for today?"
-                  className="flex-1 px-4 py-2 text-neutral-900 dark:text-white bg-transparent outline-none placeholder:text-neutral-500 dark:placeholder:text-gray-300"
-                  aria-label="Search products"
-                />
-                <button
-                  type="submit"
-                  className="rounded-none rounded-r-full bg-accent hover:bg-accent/90 text-white px-4"
-                >
-                  Search
-                </button>
-              </form>
-              <HeroButtons />
+            <div className="container mx-auto px-4 sm:px-8">
+              <div className="flex flex-col-reverse items-center justify-center text-center gap-4 sm:gap-6 md:flex-row md:text-left md:items-stretch md:gap-0">
+                {/* Left: Texts */}
+                <div className="flex-1 flex flex-col justify-center md:justify-center md:items-start md:text-left gap-4 sm:gap-6 md:pr-8 lg:pr-16">
+                  <span className="text-accent font-bold text-lg sm:text-xl tracking-wide">
+                    WHERE EVERYTHING SELLS!
+                  </span>
+                  <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold text-neutral-900 dark:text-white mb-2">
+                    Find What You Love,
+                    <br />
+                    <span className="text-accent">From Real People</span>
+                  </h1>
+                  <p className="text-base sm:text-lg md:text-xl text-neutral-700 dark:text-gray-200 max-w-2xl mb-2">
+                    Nigeria’s most trusted marketplace for unique products, unbeatable prices, and real customer support.
+                  </p>
+                  <form
+                    className="flex w-full max-w-md bg-white/90 dark:bg-white/20 rounded-full shadow-lg overflow-hidden border border-accent/30 focus-within:ring-2 focus-within:ring-accent"
+                    onSubmit={e => {
+                      e.preventDefault();
+                      if (searchValue.trim()) {
+                        router.push(`/search?query=${encodeURIComponent(searchValue.trim())}`);
+                      }
+                    }}
+                  >
+                    <input
+                      type="text"
+                      value={searchValue}
+                      onChange={e => setSearchValue(e.target.value)}
+                      placeholder="What are you looking for today?"
+                      className="flex-1 px-4 py-2 text-neutral-900 dark:text-white bg-transparent outline-none placeholder:text-neutral-500 dark:placeholder:text-gray-300"
+                      aria-label="Search products"
+                    />
+                    <button
+                      type="submit"
+                      className="rounded-none rounded-r-full bg-accent hover:bg-accent/90 text-white px-4"
+                    >
+                      Search
+                    </button>
+                  </form>
+                  <HeroButtons />
+                </div>
+                {/* Right: Image */}
+                <div className="flex-1 flex items-center justify-center md:justify-end md:items-center">
+                  <img
+                    src="/hp.png"
+                    alt="MakeItSell Logo"
+                    className="h-80 w-80 sm:h-96 sm:w-96 md:h-[420px] md:w-[420px] lg:h-[520px] lg:w-[520px] xl:h-[600px] xl:w-[600px] rounded-xl p-2 object-cover"
+                    style={{ maxWidth: '100%', height: 'auto' }}
+                  />
+                </div>
+              </div>
             </div>
           </section>
           {/* FEATURES SECTION */}

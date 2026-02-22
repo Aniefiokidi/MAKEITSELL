@@ -1,5 +1,6 @@
 "use client"
 
+
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -11,7 +12,7 @@ import UserMenu from "@/components/auth/UserMenu"
 import CartSidebar from "@/components/cart/CartSidebar"
 import { useAuth } from "@/contexts/AuthContext"
 
-export default function Header() {
+export default function Header({ homeBg = false }: { homeBg?: boolean }) {
   const { user, userProfile, loading } = useAuth()
   const pathname = usePathname()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -29,8 +30,36 @@ export default function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-white/95 dark:bg-background dark:text-foreground backdrop-blur-md shadow-sm">
+    <header
+      className={
+        `sticky top-0 z-50 w-full ${homeBg
+          ? 'bg-transparent' 
+          : 'bg-white/95 dark:bg-background dark:text-foreground backdrop-blur-md shadow-sm'}
+        `
+      }
+      style={homeBg ? {} : {}}
+    >
       <div className="w-full px-2 sm:px-4 lg:px-10">
+              {/* Gradient animation styles for homeBg */}
+              {homeBg && (
+                <style jsx global>{`
+                  .animated-gradient-bg {
+                    background: linear-gradient(120deg, var(--accent) 0%, #fff 50%, var(--accent) 100%);
+                    background-size: 200% 200%;
+                    animation: gradientWave 12s ease-in-out infinite;
+                  }
+                  .dark .animated-gradient-bg {
+                    background: linear-gradient(120deg, #000 0%, #1a2236 60%, #000 100%);
+                    background-size: 200% 200%;
+                    animation: gradientWave 12s ease-in-out infinite;
+                  }
+                  @keyframes gradientWave {
+                    0% { background-position: 0% 50%; }
+                    50% { background-position: 100% 50%; }
+                    100% { background-position: 0% 50%; }
+                  }
+                `}</style>
+              )}
         <div className="flex h-10 md:h-14 lg:h-16 items-center justify-between gap-1">
           {/* Logo */}
           <Link href="/" className="flex items-center shrink-0">
@@ -46,16 +75,15 @@ export default function Header() {
               }}
             />
             <span 
-              className="text-lg sm:text-2xl lg:text-3xl font-bold text-[oklch(0.21_0.194_29.234)] dark:text-foreground hidden"
+              className="text-lg sm:text-2xl lg:text-3xl font-bold text-[oklch(0.21_0.194_29.234)] dark:text-foreground hidden uppercase"
               style={{ fontFamily: 'serif' }}
             >
-              Make It Sell
+              MAKE IT SELL
             </span>
           </Link>
 
-          {/* Desktop Nav */}
-          <div className="flex-1"></div>
-          <nav className="hidden xl:flex items-center space-x-2">
+          {/* Centralized Desktop Nav */}
+          <nav className="hidden xl:flex flex-1 justify-center items-center space-x-2 uppercase">
             {["Stores", "Services", "About", "Contact", "Support"].map((link) => {
               const isActive = pathname === `/${link.toLowerCase()}` || 
                 (link === "Stores" && pathname === "/stores")
@@ -90,7 +118,7 @@ export default function Header() {
                       />
                     </>
                   )}
-                  <span className="relative z-10">{link}</span>
+                  <span className="relative z-10">{link.toUpperCase()}</span>
                   {!isActive && (
                     <span className="absolute bottom-1 left-0 w-0 h-0.5 bg-[oklch(0.21_0.194_29.234)] dark:bg-accent transition-all duration-300 group-hover:w-full"></span>
                   )}
@@ -123,7 +151,7 @@ export default function Header() {
                         size="sm"
                         className="border-2 border-[oklch(0.21_0.194_29.234)] text-[oklch(0.21_0.194_29.234)] dark:border-accent dark:text-accent hover:bg-[oklch(0.21_0.194_29.234)] dark:hover:bg-accent hover:text-white dark:hover:text-background font-semibold transition-all duration-300 shadow-sm hover:shadow-md"
                       >
-                        Sign In
+                        SIGN IN
                       </Button>
                     </Link>
                     <Link href="/signup">
@@ -131,7 +159,7 @@ export default function Header() {
                         size="sm"
                         className="bg-white dark:bg-background text-[oklch(0.21_0.194_29.234)] dark:text-accent border-2 border-[oklch(0.21_0.194_29.234)] dark:border-accent hover:bg-[oklch(0.21_0.194_29.234)] dark:hover:bg-accent hover:text-white dark:hover:text-background font-semibold transition-all duration-300 shadow-md hover:shadow-lg"
                       >
-                        Join Us
+                        JOIN US
                       </Button>
                     </Link>
                   </>
