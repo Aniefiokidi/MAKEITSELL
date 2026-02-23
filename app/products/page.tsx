@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef, useLayoutEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,7 +11,7 @@ import { Search, RefreshCw, ShoppingCart, Heart, Package, TrendingUp, Eye, Arrow
 import { Skeleton } from "@/components/ui/skeleton"
 import Header from "@/components/Header"
 import { useCart } from "@/contexts/CartContext"
-import { useToast } from "@/hooks/use-toast"
+import { useNotification } from "@/contexts/NotificationContext"
 import { ProductQuickView } from "@/components/ui/product-quick-view"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useRouter } from "next/navigation"
@@ -65,7 +65,7 @@ export default function AllProductsPage() {
   const [imageBrightness, setImageBrightness] = useState<{ [key: string]: 'light' | 'dark' }>({})
   const [isTransitioning, setIsTransitioning] = useState(false)
   const { addItem } = useCart()
-  const { toast } = useToast()
+  const notification = useNotification()
   const isMobile = useIsMobile()
   const router = useRouter()
 
@@ -106,7 +106,13 @@ export default function AllProductsPage() {
     setRefreshing(false)
   }
 
+  // --- Scroll position preservation ---
+  const lastScrollY = useRef<number | null>(null)
+
   const handleAddToCart = (product: Product) => {
+    if (typeof window !== 'undefined') {
+      lastScrollY.current = window.scrollY
+    }
     addItem({
       id: product.id,
       productId: product.id,
@@ -117,13 +123,19 @@ export default function AllProductsPage() {
       vendorName: product.vendorName || "Unknown Vendor",
       maxStock: product.stock || 100,
     })
-
-    toast({
-      title: "Added to Cart!",
-      description: `${product.title || product.name} has been added to your cart.`,
-      variant: "default"
-    })
+    notification.success(
+      'Product added to cart',
+      product.title || product.name || 'Added to cart',
+      3000
+    )
   }
+
+  useLayoutEffect(() => {
+    if (typeof window !== 'undefined' && lastScrollY.current !== null) {
+      window.scrollTo({ top: lastScrollY.current, behavior: 'auto' })
+      lastScrollY.current = null
+    }
+  })
 
   // Filter products
   const filteredProducts = products.filter((product) => {
@@ -262,7 +274,7 @@ export default function AllProductsPage() {
     )
   }
 
-  const ProductCard = ({ product }: { product: Product }) => {
+  const ProductCard = React.memo(({ product }: { product: Product }) => {
     const isElectronics = product.category?.toLowerCase().includes('electronics')
     const productBrightness = imageBrightness[product.id] || 'dark'
 
@@ -420,10 +432,12 @@ export default function AllProductsPage() {
           </div>
           
           <Button 
+            type="button"
             size="sm"
             onClick={(e) => {
-              e.stopPropagation()
-              handleAddToCart(product)
+              e.preventDefault();
+              e.stopPropagation();
+              handleAddToCart(product);
             }}
             disabled={(product.stock ?? 0) === 0}
             className={`w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 ${
@@ -438,7 +452,7 @@ export default function AllProductsPage() {
         </div>
       </Card>
     )
-  }
+  })
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -464,7 +478,7 @@ export default function AllProductsPage() {
       <div className={isTransitioning ? 'page-slide-transition' : ''}>
         <main className="flex-1 container mx-auto px-4 py-8">
           {/* Combined Glass Pane: Back Button, Header, and Filters */}
-          <div className="mb-8 p-6 md:p-8 bg-gradient-to-br from-accent/5 via-accent/15 to-accent/50 backdrop-blur-2xl rounded-3xl border border-accent/30 shadow-2xl shadow-accent/20 hover:shadow-3xl hover:shadow-accent/30 transition-all duration-500">
+          <div className="mb-8 p-6 md:p-8 bg-linear-to-br from-accent/5 via-accent/15 to-accent/50 backdrop-blur-2xl rounded-3xl border border-accent/30 shadow-2xl shadow-accent/20 hover:shadow-3xl hover:shadow-accent/30 transition-all duration-500">
             
             {/* Back to Stores Button */}
             <div className="mb-6">

@@ -13,6 +13,7 @@ import { Slider } from "@/components/ui/slider"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Search, ShoppingCart, Heart, ArrowLeft, Filter, Star, X, ChevronDown, ChevronUp, Clock } from "lucide-react"
 import { useCart } from "@/contexts/CartContext"
+import { useNotification } from "@/contexts/NotificationContext"
 import { ProductQuickView } from "@/components/ui/product-quick-view"
 import Link from "next/link"
 import Header from "@/components/Header"
@@ -76,6 +77,7 @@ export default function CategoryPage() {
   const [lastPurchases, setLastPurchases] = useState<any[]>([])
   
   const { addToCart } = useCart()
+  const notification = useNotification()
 
   // Load recently viewed products from localStorage
   useEffect(() => {
@@ -292,6 +294,11 @@ export default function CategoryPage() {
       maxStock: product.inStock ? 999 : 0,
       id: product
     })
+    notification.success(
+      'Product added to cart',
+      product.title || product.name || 'Added to cart',
+      3000
+    )
   }
 
   const categoryProducts = products.filter((p) => p.category === categorySlug)

@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Service, createBooking } from "@/lib/database-client"
 import { useAuth } from "@/contexts/AuthContext"
 import { useToast } from "@/hooks/use-toast"
+import { useNotification } from "@/contexts/NotificationContext"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 
@@ -23,6 +24,7 @@ interface BookingModalProps {
 export default function BookingModal({ service, isOpen, onClose }: BookingModalProps) {
   const { user, userProfile } = useAuth()
   const { toast } = useToast()
+  const notification = useNotification()
   const router = useRouter()
   
   const [selectedDate, setSelectedDate] = useState<Date>()
@@ -105,10 +107,11 @@ export default function BookingModal({ service, isOpen, onClose }: BookingModalP
 
       await createBooking(bookingData)
 
-      toast({
-        title: "Booking Confirmed!",
-        description: "Your appointment has been booked successfully. The provider will confirm shortly. You'll receive email confirmation.",
-      })
+      notification.success(
+        'Booking Confirmed!',
+        "Your appointment has been booked successfully. The provider will confirm shortly. You'll receive email confirmation.",
+        4000
+      )
 
       onClose()
       router.push("/appointments") // Redirect to appointments page

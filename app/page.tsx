@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { useCart } from "@/contexts/CartContext"
+import { useNotification } from "@/contexts/NotificationContext"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Header from "@/components/Header"
@@ -35,6 +36,8 @@ function TrendingProducts() {
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null)
   const [quickViewOpen, setQuickViewOpen] = useState(false)
   const { addItem } = useCart ? useCart() : { addItem: () => {} }
+  const notification = useNotification ? useNotification() : null
+  
 
   useEffect(() => {
     async function fetchTrendingWithStoreNames() {
@@ -225,6 +228,13 @@ function TrendingProducts() {
                         vendorId: product.vendorId,
                         vendorName: product.storeName || product.vendorName || 'Unknown Vendor'
                       })
+                      if (notification) {
+                        notification.success(
+                          'Product added to cart',
+                          product.title || product.name || 'Added to cart',
+                          3000
+                        )
+                      }
                     }}
                     disabled={product.stock === 0}
                     className="w-full h-6 text-[10px] backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black"
@@ -340,6 +350,13 @@ function TrendingProducts() {
                           vendorId: products[2].vendorId,
                           vendorName: products[2].storeName || products[2].vendorName || 'Unknown Vendor'
                         })
+                        if (notification) {
+                          notification.success(
+                            'Product added to cart',
+                            products[2].title || products[2].name || 'Added to cart',
+                            3000
+                          )
+                        }
                       }}
                       disabled={products[2].stock === 0}
                       className="w-full h-7 md:h-8 text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black"
@@ -476,16 +493,25 @@ function TrendingProducts() {
           setQuickViewOpen(false)
           setSelectedProduct(null)
         }}
-        onAddToCart={p => addItem({
-          productId: p.id,
-          id: p.id,
-          title: p.title || p.name || '',
-          price: p.price,
-          image: p.images?.[0] || '',
-          maxStock: p.stock || 100,
-          vendorId: p.vendorId,
-          vendorName: p.storeName || p.vendorName || (p.vendor?.name ?? 'Unknown Vendor')
-        })}
+        onAddToCart={p => {
+          addItem({
+            productId: p.id,
+            id: p.id,
+            title: p.title || p.name || '',
+            price: p.price,
+            image: p.images?.[0] || '',
+            maxStock: p.stock || 100,
+            vendorId: p.vendorId,
+            vendorName: (p as any).storeName || p.vendorName || 'Unknown Vendor'
+          })
+          if (notification) {
+            notification.success(
+              'Product added to cart',
+              p.title || p.name || 'Added to cart',
+              3000
+            )
+          }
+        }}
         storeName={selectedProduct?.storeName || selectedProduct?.vendorName || selectedProduct?.vendor?.name || 'Unknown Vendor'}
       />
     </>

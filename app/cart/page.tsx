@@ -11,16 +11,47 @@ import Link from "next/link"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
 import { useState, useEffect } from "react"
+// For fetching store names
+import { useCallback } from "react"
+
 
 export default function CartPage() {
   const { items, totalItems, totalPrice, updateQuantity, removeItem } = useCart()
   const [isLoading, setIsLoading] = useState(true)
+  const [storeNames, setStoreNames] = useState<{ [vendorId: string]: string }>({})
+
+  // Fetch store names for all vendorIds in cart
+  const fetchStoreNames = useCallback(async () => {
+    const vendorIds = Array.from(new Set(items.map(item => item.vendorId).filter(Boolean)))
+    const names: { [vendorId: string]: string } = {}
+    await Promise.all(
+      vendorIds.map(async (vendorId) => {
+        try {
+          const res = await fetch(`/api/database/stores?vendorId=${vendorId}`)
+          const json = await res.json()
+          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+            names[vendorId] = json.data[0].storeName || json.data[0].name || "Store"
+          } else {
+            names[vendorId] = "Store"
+          }
+        } catch {
+          names[vendorId] = "Store"
+        }
+      })
+    )
+    setStoreNames(names)
+  }, [items])
 
   useEffect(() => {
     // Cart should be loaded by now, but give it a moment
     const timer = setTimeout(() => setIsLoading(false), 1000)
     return () => clearTimeout(timer)
   }, [])
+
+  useEffect(() => {
+    if (items.length > 0) fetchStoreNames()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items])
 
   if (isLoading) {
     return (
@@ -90,8 +121,8 @@ export default function CartPage() {
                       </div>
                       <div className="flex-1 space-y-2">
                         <h3 className="text-lg font-semibold">{item.title}</h3>
-                        <p className="text-sm text-muted-foreground">Sold by {item.vendorName}</p>
-                        <p className="text-lg font-bold text-accent">₦{item.price.toFixed(2)}</p>
+                        <p className="text-sm text-muted-foreground">Sold by {storeNames[item.vendorId] || item.vendorName || 'Store'}</p>
+                        <p className="text-lg font-bold text-accent">₦{item.price.toLocaleString('en-NG', {minimumFractionDigits: 2})}</p>
                         {item.quantity >= item.maxStock && (
                           <p className="text-xs text-destructive">Maximum quantity reached</p>
                         )}
@@ -150,21 +181,24 @@ export default function CartPage() {
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span>Subtotal ({totalItems} items)</span>
-                      <span>₦{totalPrice.toFixed(2)}</span>
+                      <span>₦{totalPrice.toLocaleString('en-NG', {minimumFractionDigits: 2})}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Shipping</span>
-                      <span className="text-green-600">Free</span>
+                      <span className="text-muted-foreground">TBD</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      *Rider will inform you of delivery cost
                     </div>
                     <div className="flex justify-between">
                       <span>Tax</span>
-                      <span>₦{(totalPrice * 0.08).toFixed(2)}</span>
+                      <span>₦{(totalPrice * 0.08).toLocaleString('en-NG', {minimumFractionDigits: 2})}</span>
                     </div>
                   </div>
                   <Separator />
                   <div className="flex justify-between text-lg font-semibold">
                     <span>Total</span>
-                    <span>₦{(totalPrice * 1.08).toFixed(2)}</span>
+                    <span>₦{(totalPrice * 1.08).toLocaleString('en-NG', {minimumFractionDigits: 2})}</span>
                   </div>
                   <Button asChild className="w-full hover:bg-accent/80 hover:scale-105 transition-all hover:shadow-lg" size="lg">
                     <Link href="/checkout">Proceed to Checkout</Link>

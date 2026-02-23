@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Star, ShoppingCart } from "lucide-react"
 import { useCart } from "@/contexts/CartContext"
 import { useAuth } from "@/contexts/AuthContext"
+import { useNotification } from "@/contexts/NotificationContext"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
@@ -123,6 +124,7 @@ export default function FeaturedProducts() {
   const [products, setProducts] = useState(mockProducts)
   const { addItem } = useCart()
   const { user } = useAuth()
+  const notification = useNotification()
   const router = useRouter()
 
   // Image Cycler Component for Product Cards
@@ -196,7 +198,6 @@ export default function FeaturedProducts() {
       router.push("/login")
       return
     }
-
     addItem({
       id: `cart_${product.id}`,
       productId: product.id,
@@ -207,6 +208,11 @@ export default function FeaturedProducts() {
       vendorName: product.vendorName,
       maxStock: 50, // Mock stock
     })
+    notification.success(
+      'Product added to cart',
+      product.title || product.name || 'Added to cart',
+      3000
+    )
   }
 
   return (

@@ -75,7 +75,7 @@ export default function CartSidebar() {
           </div>
         ) : (
           <div className="flex flex-col h-full">
-            <ScrollArea className="flex-1 -mx-6 px-6">
+            <ScrollArea className="flex-1 -mx-6 px-6 max-h-[70vh] overflow-y-auto">
               <div className="space-y-4 py-4">
                 {items.map((item, index) => (
                   <div key={item.productId} className="flex items-center space-x-4 animate-slide-in-left" style={{ animationDelay: `${index * 0.05}s` }}>

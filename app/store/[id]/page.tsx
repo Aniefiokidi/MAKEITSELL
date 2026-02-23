@@ -16,7 +16,7 @@ import { Clock, Truck, MapPin, Search, Heart, ShoppingCart, ArrowLeft, Shield, U
 import Link from "next/link"
 import { useCart } from "@/contexts/CartContext"
 import { useAuth } from "@/contexts/AuthContext"
-import { useToast } from "@/hooks/use-toast"
+import { useNotification } from "@/contexts/NotificationContext"
 import { ProductQuickView } from "@/components/ui/product-quick-view"
 
 interface Product {
@@ -98,7 +98,7 @@ export default function StorePage() {
     }, [quickViewOpen])
   const { addItem } = useCart()
   const { user } = useAuth()
-  const { toast } = useToast()
+  const notification = useNotification()
 
   // Function to detect image brightness - focuses on bottom portion where frosted glass is
   const detectImageBrightness = (imageUrl: string, productId: string) => {
@@ -358,12 +358,10 @@ export default function StorePage() {
   }, [products, searchQuery, sortBy, categoryFilter, priceRange])
 
   const handleAddToCart = (product: Product) => {
-    // Safety check to ensure product has required fields (id and title or name)
     if (!product || !product.id || !(product.title || product.name)) {
       console.error('Cannot add invalid product to cart:', product)
       return
     }
-
     addItem({
       productId: product.id,
       id: product.id,
@@ -374,6 +372,11 @@ export default function StorePage() {
       vendorId: product.vendorId,
       vendorName: product.vendorName || (product as any).vendor?.name || 'Unknown Vendor'
     })
+    notification.success(
+      'Product added to cart',
+      product.title || product.name || 'Added to cart',
+      3000
+    )
   }
 
   const formatCurrency = (price: number) => {
