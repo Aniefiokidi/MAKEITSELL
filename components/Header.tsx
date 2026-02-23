@@ -37,7 +37,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
           : 'bg-white/95 dark:bg-background dark:text-foreground backdrop-blur-md shadow-sm'}
         `
       }
-      style={homeBg ? {} : {}}
+      style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
       <div className="w-full px-2 sm:px-4 lg:px-10">
               {/* Gradient animation styles for homeBg */}
