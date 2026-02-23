@@ -240,7 +240,7 @@ function TrendingProducts() {
                     className="w-full h-6 text-[10px] backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black"
                   >
                     <img src="/images/logo3.png" alt="Add to cart icon" className="w-6 h-6 -mt-1" />
-                    <span className="leading-none hidden sm:inline">Add</span>
+                    <span className="leading-none text-accent">Add to cart</span>
                   </Button>
                 </div>
               </Card>

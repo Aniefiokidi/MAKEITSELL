@@ -644,7 +644,7 @@ export default function CategoryPage() {
                       className="w-full h-7 text-xs bg-white/90 hover:bg-white text-black backdrop-blur-sm hover:scale-105 transition-all hover:shadow-lg flex items-center justify-center gap-0"
                     >
                       <img src="/images/logo3.png" alt="Add" className="w-8 h-8 -mt-2" />
-                      <span className="leading-none text-accent">Add</span>
+                      <span className="leading-none text-accent">Add to cart</span>
                     </Button>
                   </div>
                 </Card>
@@ -764,7 +764,7 @@ export default function CategoryPage() {
                       className="w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black"
                     >
                       <img src="/images/logo3.png" alt="Add" className="w-6 sm:w-7 md:w-8 h-6 sm:h-7 md:h-8 -mt-1 sm:-mt-2" />
-                      <span className="leading-none hidden sm:inline">Add</span>
+                      <span className="leading-none text-accent">Add to cart</span>
                     </Button>
                   </div>
                 </Card>

@@ -447,7 +447,7 @@ export default function AllProductsPage() {
             }`}
           >
             <img src="/images/logo3.png" alt="Add" className="w-6 sm:w-7 md:w-8 h-6 sm:h-7 md:h-8 -mt-1 sm:-mt-2" />
-            <span className="leading-none hidden sm:inline">Add</span>
+            <span className="leading-none text-accent">Add to cart</span>
           </Button>
         </div>
       </Card>
