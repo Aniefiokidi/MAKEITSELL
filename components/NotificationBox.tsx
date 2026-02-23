@@ -113,7 +113,7 @@ export function NotificationBox() {
   if (notifications.length === 0) return null
 
   return (
-    <div className="fixed top-4 right-4 z-[100] flex flex-col gap-3 pointer-events-none">
+    <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-3 pointer-events-none">
       {notifications.map((notification) => (
         <div key={notification.id} className="pointer-events-auto">
           <NotificationItem notification={notification} />

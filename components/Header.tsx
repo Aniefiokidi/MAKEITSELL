@@ -32,7 +32,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
   return (
     <header
       className={
-        `sticky top-0 z-50 w-full pt-4 ${homeBg
+        `sticky top-0 z-50 w-full pt-1.5 ${homeBg
           ? 'bg-transparent' 
           : 'bg-white/95 dark:bg-background dark:text-foreground backdrop-blur-md shadow-sm'}
         `
@@ -65,7 +65,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
             <img
               src="/images/logo (2).png"
               alt="Make It Sell"
-              className="h-3 sm:h-4 lg:h-8 w-auto object-contain transition-all duration-300 hover:scale-105"
+              className="h-5 sm:h-6 lg:h-8 w-auto object-contain transition-all duration-300 hover:scale-105"
               onError={(e) => {
                 // Fallback to text logo if image fails
                 e.currentTarget.style.display = 'none'

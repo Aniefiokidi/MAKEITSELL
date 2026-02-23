@@ -656,8 +656,11 @@ export default function CategoryPage() {
             {filteredProducts.map((product) => (
               <Card
                 key={product.id}
-                className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100 cursor-pointer"
-                onClick={() => {
+                className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100"
+                // Only open quick view if not clicking Add to Cart
+                onClick={e => {
+                  // Prevent quick view if clicking Add to Cart
+                  if (e.target.closest('.add-to-cart-btn')) return;
                   setSelectedProduct(product);
                   setQuickViewOpen(true);
                   addToRecentlyViewed(product);
@@ -761,7 +764,7 @@ export default function CategoryPage() {
                         handleAddToCart(product)
                       }}
                       disabled={!product.inStock}
-                      className="w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black"
+                      className="add-to-cart-btn w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black"
                     >
                       <img src="/images/logo3.png" alt="Add" className="w-6 sm:w-7 md:w-8 h-6 sm:h-7 md:h-8 -mt-1 sm:-mt-2" />
                       <span className="leading-none text-accent">Add to cart</span>
