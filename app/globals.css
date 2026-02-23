@@ -1,3 +1,6 @@
+html, body, #__next, main, .safe-area, .header, .navbar {
+  padding-top: env(safe-area-inset-top);
+}
 @import "tailwindcss";
 @import "tw-animate-css";
 
