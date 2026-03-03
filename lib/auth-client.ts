@@ -7,6 +7,7 @@ export interface UserProfile {
   displayName: string
   role: "customer" | "vendor" | "admin" | "csa"
   vendorType?: "goods" | "services" | "both"
+  walletBalance?: number
   createdAt: Date
   updatedAt: Date
 }
@@ -48,6 +49,7 @@ export const signUp = async (
           displayName: result.user.name,
           role: result.user.role,
           vendorType: result.user.role === 'vendor' ? (vendorType || 'both') : undefined,
+          walletBalance: result.user.role === 'customer' ? (typeof result.user.walletBalance === 'number' ? result.user.walletBalance : 0) : undefined,
           createdAt: new Date(),
           updatedAt: new Date()
         }
@@ -95,6 +97,7 @@ export const signIn = async (email: string, password: string) => {
           displayName: result.user.name,
           role: result.user.role,
           vendorType: result.user.role === 'vendor' ? 'both' : undefined,
+          walletBalance: result.user.role === 'customer' ? (typeof result.user.walletBalance === 'number' ? result.user.walletBalance : 0) : undefined,
           createdAt: new Date(),
           updatedAt: new Date()
         }
@@ -151,6 +154,7 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
           displayName: currentUser.name,
           role: currentUser.role || 'customer',
           vendorType: currentUser.role === 'vendor' ? 'both' : undefined,
+          walletBalance: currentUser.role === 'customer' ? 0 : undefined,
           createdAt: new Date(),
           updatedAt: new Date()
         }
@@ -168,6 +172,7 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
         displayName: currentUser.name,
         role: currentUser.role || 'customer',
         vendorType: currentUser.role === 'vendor' ? 'both' : undefined,
+        walletBalance: currentUser.role === 'customer' ? 0 : undefined,
         createdAt: new Date(),
         updatedAt: new Date()
       }

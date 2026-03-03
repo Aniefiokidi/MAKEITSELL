@@ -5,18 +5,246 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { Search, Menu, X } from "lucide-react"
+import { Wallet, Menu, X, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import SmartSearch from "@/components/search/SmartSearch"
 import UserMenu from "@/components/auth/UserMenu"
 import CartSidebar from "@/components/cart/CartSidebar"
 import { useAuth } from "@/contexts/AuthContext"
+import { useNotification } from "@/contexts/NotificationContext"
 
 export default function Header({ homeBg = false }: { homeBg?: boolean }) {
   const { user, userProfile, loading } = useAuth()
+  const notification = useNotification()
   const pathname = usePathname()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [walletModalOpen, setWalletModalOpen] = useState(false)
+  const [activeWalletView, setActiveWalletView] = useState<"menu" | "topup" | "withdraw">("menu")
+  const [walletAmount, setWalletAmount] = useState("")
+  const [walletLoading, setWalletLoading] = useState(false)
+  const [withdrawAmount, setWithdrawAmount] = useState("")
+  const [bankName, setBankName] = useState("")
+  const [accountNumber, setAccountNumber] = useState("")
+  const [accountName, setAccountName] = useState("")
+  const [withdrawalPin, setWithdrawalPin] = useState("")
+  const [newPin, setNewPin] = useState("")
+  const [confirmNewPin, setConfirmNewPin] = useState("")
+  const [currentPin, setCurrentPin] = useState("")
+  const [hasWithdrawalPin, setHasWithdrawalPin] = useState(false)
+  const [pinLoading, setPinLoading] = useState(false)
+  const [withdrawLoading, setWithdrawLoading] = useState(false)
+  const [showCurrentPin, setShowCurrentPin] = useState(false)
+  const [showNewPin, setShowNewPin] = useState(false)
+  const [showConfirmNewPin, setShowConfirmNewPin] = useState(false)
+  const [showWithdrawalPin, setShowWithdrawalPin] = useState(false)
+
+  const profileWalletBalance =
+    userProfile?.role === "customer"
+      ? (typeof userProfile.walletBalance === "number" ? userProfile.walletBalance : 0)
+      : null
+
+  const [walletBalance, setWalletBalance] = useState<number | null>(profileWalletBalance)
+
+  useEffect(() => {
+    setWalletBalance(profileWalletBalance)
+  }, [profileWalletBalance])
+
+  useEffect(() => {
+    const fetchPinStatus = async () => {
+      if (!walletModalOpen || userProfile?.role !== "customer") {
+        return
+      }
+
+      // Reset to menu view when modal opens
+      setActiveWalletView("menu")
+
+      try {
+        const response = await fetch("/api/wallet/pin/status", {
+          method: "GET",
+          credentials: "include",
+        })
+        const result = await response.json()
+        if (response.ok && result?.success) {
+          setHasWithdrawalPin(!!result.hasWithdrawalPin)
+        }
+      } catch {
+      }
+    }
+
+    fetchPinStatus()
+  }, [walletModalOpen, userProfile?.role])
+
+  useEffect(() => {
+    if (!walletModalOpen) {
+      // Clear form fields when modal closes
+      setWalletAmount("")
+      setWithdrawAmount("")
+      setBankName("")
+      setAccountName("")
+      setAccountNumber("")
+      setWithdrawalPin("")
+      setCurrentPin("")
+      setNewPin("")
+      setConfirmNewPin("")
+      setShowCurrentPin(false)
+      setShowNewPin(false)
+      setShowConfirmNewPin(false)
+      setShowWithdrawalPin(false)
+    }
+  }, [walletModalOpen])
+
+  const currencyFormatter = new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency: "NGN",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+
+  const formattedWalletBalance =
+    walletBalance !== null
+      ? currencyFormatter.format(walletBalance)
+      : null
+
+  const handleWalletTopUp = async () => {
+    const amount = Number(walletAmount)
+    if (!Number.isFinite(amount) || amount <= 0) {
+      notification.error("Please enter a valid amount greater than zero", "Invalid amount", 3000)
+      return
+    }
+
+    try {
+      setWalletLoading(true)
+      const response = await fetch("/api/wallet/topup", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount }),
+      })
+
+      const result = await response.json()
+      if (!response.ok || !result?.success) {
+        notification.error(result?.error || "Unable to top up wallet", "Top up failed", 3000)
+        return
+      }
+
+      if (!result.authorization_url) {
+        notification.error("Payment URL not returned", "Top up failed", 3000)
+        return
+      }
+
+      notification.info("Redirecting to secure payment...", "Wallet top up", 2000)
+      window.location.href = result.authorization_url
+    } catch (error) {
+      notification.error("Network error while topping up wallet", "Top up failed", 3000)
+    } finally {
+      setWalletLoading(false)
+    }
+  }
+
+  const handleWalletWithdraw = async () => {
+    const amount = Number(withdrawAmount)
+    if (!Number.isFinite(amount) || amount <= 0) {
+      notification.error("Please enter a valid withdrawal amount", "Invalid amount", 3000)
+      return
+    }
+
+    if (!bankName.trim() || !accountName.trim() || !accountNumber.trim()) {
+      notification.error("Enter bank name, account number and account name", "Missing details", 3000)
+      return
+    }
+
+    if (!/^\d{4}$/.test(withdrawalPin.trim())) {
+      notification.error("Enter your 4-digit withdrawal PIN", "Invalid PIN", 3000)
+      return
+    }
+
+    try {
+      setWithdrawLoading(true)
+      const response = await fetch("/api/wallet/withdraw", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount,
+          bankName: bankName.trim(),
+          accountNumber: accountNumber.trim(),
+          accountName: accountName.trim(),
+          withdrawalPin: withdrawalPin.trim(),
+        }),
+      })
+
+      const result = await response.json()
+      if (!response.ok || !result?.success) {
+        notification.error(result?.error || "Unable to request withdrawal", "Withdrawal failed", 3000)
+        return
+      }
+
+      if (typeof result.balance === "number") {
+        setWalletBalance(result.balance)
+      }
+
+      notification.success("Withdrawal request submitted", result.reference || "Pending processing", 3000)
+      setWithdrawAmount("")
+      setBankName("")
+      setAccountName("")
+      setAccountNumber("")
+      setWithdrawalPin("")
+      setWalletModalOpen(false)
+    } catch (error) {
+      notification.error("Network error while requesting withdrawal", "Withdrawal failed", 3000)
+    } finally {
+      setWithdrawLoading(false)
+    }
+  }
+
+  const handleSetWithdrawalPin = async () => {
+    if (!/^\d{4}$/.test(newPin.trim())) {
+      notification.error("PIN must be exactly 4 digits", "Invalid PIN", 3000)
+      return
+    }
+
+    if (newPin.trim() !== confirmNewPin.trim()) {
+      notification.error("PIN confirmation does not match", "Invalid PIN", 3000)
+      return
+    }
+
+    if (hasWithdrawalPin && !/^\d{4}$/.test(currentPin.trim())) {
+      notification.error("Enter your current 4-digit PIN to change it", "Current PIN required", 3000)
+      return
+    }
+
+    try {
+      setPinLoading(true)
+      const response = await fetch("/api/wallet/pin/set", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pin: newPin.trim(),
+          currentPin: currentPin.trim() || undefined,
+        }),
+      })
+
+      const result = await response.json()
+      if (!response.ok || !result?.success) {
+        notification.error(result?.error || "Unable to set withdrawal PIN", "PIN update failed", 3000)
+        return
+      }
+
+      setHasWithdrawalPin(true)
+      setNewPin("")
+      setConfirmNewPin("")
+      setCurrentPin("")
+      notification.success(result.message || "Withdrawal PIN saved", "PIN updated", 3000)
+    } catch {
+      notification.error("Network error while setting PIN", "PIN update failed", 3000)
+    } finally {
+      setPinLoading(false)
+    }
+  }
 
   // Prevent body scroll when mobile menu is open
   useEffect(() => {
@@ -128,6 +356,17 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
 
           {/* Right Icons */}
           <div className="flex items-center gap-2">
+            {formattedWalletBalance && (
+              <button
+                type="button"
+                onClick={() => setWalletModalOpen(true)}
+                className="flex items-center gap-1 rounded-full border border-[oklch(0.21_0.194_29.234)]/25 bg-white/90 dark:bg-background/90 px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-medium text-[oklch(0.21_0.194_29.234)] dark:text-accent hover:bg-accent/10 dark:hover:bg-accent/20 transition-colors"
+              >
+                <Wallet className="h-3.5 w-3.5" />
+                <span>{formattedWalletBalance}</span>
+              </button>
+            )}
+
             {/* Cart */}
             <CartSidebar />
 
@@ -180,6 +419,306 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
       </div>
 
       {/* Mobile Drawer */}
+      <Dialog open={walletModalOpen} onOpenChange={setWalletModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          {/* MENU VIEW */}
+          {activeWalletView === "menu" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>My wallet</DialogTitle>
+                <DialogDescription>
+                  Manage your wallet balance and withdrawals.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Current balance: <span className="font-semibold text-foreground">{formattedWalletBalance || currencyFormatter.format(0)}</span>
+                </p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    onClick={() => setActiveWalletView("topup")}
+                    className="h-24 flex flex-col items-center justify-center"
+                  >
+                    <div className="text-2xl mb-1">💰</div>
+                    <span>Top up</span>
+                  </Button>
+                  <Button
+                    onClick={() => setActiveWalletView("withdraw")}
+                    variant="outline"
+                    className="h-24 flex flex-col items-center justify-center"
+                  >
+                    <div className="text-2xl mb-1">💳</div>
+                    <span>Withdraw</span>
+                  </Button>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setWalletModalOpen(false)}>
+                  Close
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+
+          {/* TOP UP VIEW */}
+          {activeWalletView === "topup" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Top up wallet</DialogTitle>
+                <DialogDescription>
+                  Add funds to your wallet via Paystack.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Current balance: <span className="font-semibold text-foreground">{formattedWalletBalance || currencyFormatter.format(0)}</span>
+                </p>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Amount to top up</label>
+                  <Input
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    inputMode="decimal"
+                    value={walletAmount}
+                    onChange={(e) => setWalletAmount(e.target.value)}
+                    placeholder="Enter amount"
+                  />
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setActiveWalletView("menu")} disabled={walletLoading}>
+                  Back
+                </Button>
+                <Button onClick={handleWalletTopUp} disabled={walletLoading}>
+                  {walletLoading ? "Redirecting..." : "Continue to payment"}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+
+          {/* WITHDRAW VIEW */}
+          {activeWalletView === "withdraw" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Request withdrawal</DialogTitle>
+                <DialogDescription>
+                  Withdraw funds to your bank account.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-5 max-h-96 overflow-y-auto">
+                <p className="text-sm text-muted-foreground">
+                  Current balance: <span className="font-semibold text-foreground">{formattedWalletBalance || currencyFormatter.format(0)}</span>
+                </p>
+
+                {/* PIN SETUP SECTION */}
+                {!hasWithdrawalPin && (
+                  <div className="space-y-3 rounded-md bg-blue-50 dark:bg-blue-950 p-3 border border-blue-200 dark:border-blue-800">
+                    <p className="text-sm font-medium">Set your Withdrawal PIN</p>
+                    <p className="text-xs text-muted-foreground">You must set a 4-digit PIN before you can withdraw funds.</p>
+
+                    <div className="relative">
+                      <Input
+                        type={showNewPin ? "text" : "password"}
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={4}
+                        value={newPin}
+                        onChange={(e) => setNewPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                        placeholder="4-digit PIN"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPin(!showNewPin)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showNewPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+
+                    <div className="relative">
+                      <Input
+                        type={showConfirmNewPin ? "text" : "password"}
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={4}
+                        value={confirmNewPin}
+                        onChange={(e) => setConfirmNewPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                        placeholder="Confirm PIN"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmNewPin(!showConfirmNewPin)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showConfirmNewPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+
+                    <Button onClick={handleSetWithdrawalPin} disabled={pinLoading} className="w-full">
+                      {pinLoading ? "Setting PIN..." : "Set PIN"}
+                    </Button>
+                  </div>
+                )}
+
+                {/* PIN CHANGE SECTION */}
+                {hasWithdrawalPin && (
+                  <div className="space-y-2">
+                    <details className="rounded-md border p-3">
+                      <summary className="cursor-pointer text-sm font-medium">Change your PIN</summary>
+                      <div className="space-y-2 mt-3">
+                        <div className="relative">
+                          <Input
+                            type={showCurrentPin ? "text" : "password"}
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={4}
+                            value={currentPin}
+                            onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                            placeholder="Current PIN"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowCurrentPin(!showCurrentPin)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          >
+                            {showCurrentPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <Input
+                            type={showNewPin ? "text" : "password"}
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={4}
+                            value={newPin}
+                            onChange={(e) => setNewPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                            placeholder="New PIN"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewPin(!showNewPin)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          >
+                            {showNewPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <Input
+                            type={showConfirmNewPin ? "text" : "password"}
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={4}
+                            value={confirmNewPin}
+                            onChange={(e) => setConfirmNewPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                            placeholder="Confirm new PIN"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmNewPin(!showConfirmNewPin)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          >
+                            {showConfirmNewPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                        <Button onClick={handleSetWithdrawalPin} disabled={pinLoading} variant="outline" className="w-full">
+                          {pinLoading ? "Updating PIN..." : "Update PIN"}
+                        </Button>
+                      </div>
+                    </details>
+                  </div>
+                )}
+
+                {/* WITHDRAWAL REQUEST FORM */}
+                {hasWithdrawalPin && (
+                  <div className="space-y-3 rounded-md border p-3">
+                    <p className="text-sm font-medium">Withdrawal details</p>
+
+                    <div>
+                      <label className="text-xs font-medium">Amount</label>
+                      <Input
+                        type="number"
+                        min="1"
+                        step="0.01"
+                        inputMode="decimal"
+                        value={withdrawAmount}
+                        onChange={(e) => setWithdrawAmount(e.target.value)}
+                        placeholder="Withdrawal amount"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-medium">Bank name</label>
+                      <Input
+                        value={bankName}
+                        onChange={(e) => setBankName(e.target.value)}
+                        placeholder="Bank name"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-medium">Account number</label>
+                      <Input
+                        value={accountNumber}
+                        onChange={(e) => setAccountNumber(e.target.value)}
+                        placeholder="10-digit account number"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-medium">Account name</label>
+                      <Input
+                        value={accountName}
+                        onChange={(e) => setAccountName(e.target.value)}
+                        placeholder="Account name"
+                      />
+                    </div>
+
+                    <div className="relative">
+                      <label className="text-xs font-medium block mb-1">Withdrawal PIN</label>
+                      <Input
+                        type={showWithdrawalPin ? "text" : "password"}
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={4}
+                        value={withdrawalPin}
+                        onChange={(e) => setWithdrawalPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                        placeholder="Enter PIN"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowWithdrawalPin(!showWithdrawalPin)}
+                        className="absolute right-3 top-10 text-muted-foreground hover:text-foreground"
+                      >
+                        {showWithdrawalPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setActiveWalletView("menu")} disabled={withdrawLoading || pinLoading}>
+                  Back
+                </Button>
+                {hasWithdrawalPin && (
+                  <Button onClick={handleWalletWithdraw} disabled={withdrawLoading}>
+                    {withdrawLoading ? "Submitting..." : "Request withdrawal"}
+                  </Button>
+                )}
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <AnimatePresence>
         {isMenuOpen && (
           <>

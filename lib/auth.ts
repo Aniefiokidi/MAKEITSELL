@@ -24,6 +24,7 @@ export async function signUp({ email, password, name, role, vendorInfo }: { emai
     passwordHash,
     name,
     role: role || 'customer',
+    walletBalance: (role || 'customer') === 'customer' ? 0 : undefined,
     vendorInfo,
     sessionToken,
     isEmailVerified: false,
@@ -48,7 +49,17 @@ export async function signUp({ email, password, name, role, vendorInfo }: { emai
     // Don't fail signup if email fails - user can request resend
   }
 
-  return { success: true, user: { id: user._id, email: user.email, name: user.name, role: user.role }, sessionToken };
+  return {
+    success: true,
+    user: {
+      id: user._id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      walletBalance: user.role === 'customer' ? (typeof user.walletBalance === 'number' ? user.walletBalance : 0) : undefined
+    },
+    sessionToken
+  };
 }
 
 export async function signIn({ email, password }: { email: string, password: string }) {
@@ -94,6 +105,11 @@ export async function signIn({ email, password }: { email: string, password: str
   // Generate new session token
   const newSessionToken = crypto.randomBytes(32).toString('hex');
   console.log('[auth.signIn] Generated sessionToken:', newSessionToken);
+
+  let walletBalance = typeof (user as any).walletBalance === 'number' ? (user as any).walletBalance : undefined;
+  if (user.role === 'customer' && walletBalance === undefined) {
+    walletBalance = 0;
+  }
   
   // Use direct database update instead of Mongoose save to avoid document issues
   const mongoose = require('mongoose');
@@ -105,6 +121,7 @@ export async function signIn({ email, password }: { email: string, password: str
       $set: { 
         sessionToken: newSessionToken,
         passwordHash: inputPasswordHash, // Ensure passwordHash is always set
+        ...(user.role === 'customer' ? { walletBalance } : {}),
         updatedAt: new Date()
       } 
     }
@@ -118,7 +135,8 @@ export async function signIn({ email, password }: { email: string, password: str
       id: user._id, 
       email: user.email, 
       name: user.name, 
-      role: user.role 
+      role: user.role,
+      walletBalance
     }, 
     sessionToken: newSessionToken 
   };
@@ -130,11 +148,27 @@ export async function getUserBySessionToken(sessionToken: string) {
   const user = await User.findOne({ sessionToken });
   console.log('[auth.getUserBySessionToken] User found:', user ? 'YES' : 'NO');
   if (!user) return null;
+
+  let walletBalance = typeof (user as any).walletBalance === 'number' ? (user as any).walletBalance : undefined;
+  if (user.role === 'customer' && walletBalance === undefined) {
+    walletBalance = 0;
+    await User.updateOne(
+      { _id: user._id },
+      {
+        $set: {
+          walletBalance,
+          updatedAt: new Date()
+        }
+      }
+    );
+  }
+
   return { 
     id: user._id, 
     email: user.email, 
     name: user.name, 
     role: user.role,
-    isEmailVerified: user.isEmailVerified || false
+    isEmailVerified: user.isEmailVerified || false,
+    walletBalance
   };
 }
