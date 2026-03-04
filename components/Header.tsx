@@ -85,6 +85,17 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
     if (userProfile?.role !== "vendor" || !user?.uid) return
 
     try {
+      const transactionsResponse = await fetch("/api/vendor/wallet/transactions", {
+        method: "GET",
+        credentials: "include",
+      })
+      const transactionsResult = await transactionsResponse.json()
+
+      if (transactionsResponse.ok && transactionsResult?.success && typeof transactionsResult.walletBalance === "number") {
+        setVendorWalletBalance(transactionsResult.walletBalance)
+        return
+      }
+
       const response = await fetch(`/api/vendor/dashboard?vendorId=${encodeURIComponent(user.uid)}`, {
         method: "GET",
         credentials: "include",

@@ -3,6 +3,7 @@ import { paystackService } from '@/lib/payment'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { User } from '@/lib/models/User'
 import { connectToDatabase } from '@/lib/mongodb'
+import mongoose from 'mongoose'
 
 export async function GET(request: NextRequest) {
   try {
@@ -63,8 +64,12 @@ export async function GET(request: NextRequest) {
     )
 
     if (completeUpdate.modifiedCount > 0) {
+      const userIdObject = mongoose.Types.ObjectId.isValid(transaction.userId)
+        ? new mongoose.Types.ObjectId(transaction.userId)
+        : transaction.userId
+      
       await User.updateOne(
-        { _id: transaction.userId, role: 'customer' },
+        { _id: userIdObject, role: 'customer' },
         {
           $inc: { walletBalance: transaction.amount },
           $set: { updatedAt: new Date() },

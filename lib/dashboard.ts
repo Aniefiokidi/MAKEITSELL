@@ -7,7 +7,8 @@ export async function getVendorDashboard(vendorId: string) {
   const services = await getServices({ providerId: vendorId });
   const bookings = await getBookingsByProvider(vendorId);
   const store: any = await getStoreByVendorId(vendorId);
-  const vendorAccount: any = await User.findById(vendorId).lean();
+  // Use findOne instead of findById to handle string _id values
+  const vendorAccount: any = await User.findOne({ _id: vendorId }).lean();
 
   // Dates for analytics
   const now = new Date();

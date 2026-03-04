@@ -76,6 +76,9 @@ export function VendorWalletModal({
       const result = await response.json()
       if (response.ok && result?.success && Array.isArray(result.transactions)) {
         setWalletTransactions(result.transactions)
+        if (typeof result.walletBalance === 'number') {
+          onBalanceUpdated?.(result.walletBalance)
+        }
       }
     } catch {
       // ignore

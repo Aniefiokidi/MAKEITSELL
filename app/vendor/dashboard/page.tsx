@@ -136,15 +136,33 @@ export default function VendorDashboardPage() {
     return amount.toLocaleString('en-NG')
   }
 
+  const refreshCombinedWalletBalance = async () => {
+    try {
+      const response = await fetch('/api/vendor/wallet/transactions', {
+        method: 'GET',
+        credentials: 'include',
+      })
+      const result = await response.json()
+      if (response.ok && result?.success && typeof result.walletBalance === 'number') {
+        setWalletBalance(result.walletBalance)
+      }
+    } catch {
+      // keep last known wallet balance
+    }
+  }
+
   const loadDashboard = async () => {
     if (!user) return;
     setDataLoading(true);
     try {
-      const res = await fetch(`/api/vendor/dashboard?vendorId=${encodeURIComponent(user.uid)}`);
+      const res = await fetch(`/api/vendor/dashboard?vendorId=${encodeURIComponent(user.uid)}`, {
+        credentials: 'include',
+      });
       const data = await res.json();
       if (data.success) {
         setDashboard(data.data);
         setWalletBalance(data.data?.vendorWalletBalance || 0);
+        await refreshCombinedWalletBalance();
       }
     } catch (error) {
       console.error("Error loading dashboard data:", error);
@@ -166,6 +184,12 @@ export default function VendorDashboardPage() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [user]);
+
+  useEffect(() => {
+    if (walletModalOpen) {
+      refreshCombinedWalletBalance()
+    }
+  }, [walletModalOpen])
 
   // Show loading while authentication is being checked or userProfile is loading
   if (loading || (user && !userProfile)) {
@@ -396,6 +420,7 @@ export default function VendorDashboardPage() {
         open={walletModalOpen}
         onOpenChange={setWalletModalOpen}
         walletBalance={walletBalance}
+        onBalanceUpdated={setWalletBalance}
       />
     </VendorLayout>
   )
