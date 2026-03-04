@@ -24,7 +24,7 @@ export async function signUp({ email, password, name, role, vendorInfo }: { emai
     passwordHash,
     name,
     role: role || 'customer',
-    walletBalance: (role || 'customer') === 'customer' ? 0 : undefined,
+    walletBalance: 0,
     vendorInfo,
     sessionToken,
     isEmailVerified: false,
@@ -56,7 +56,7 @@ export async function signUp({ email, password, name, role, vendorInfo }: { emai
       email: user.email,
       name: user.name,
       role: user.role,
-      walletBalance: user.role === 'customer' ? (typeof user.walletBalance === 'number' ? user.walletBalance : 0) : undefined
+      walletBalance: typeof user.walletBalance === 'number' ? user.walletBalance : 0
     },
     sessionToken
   };
@@ -106,10 +106,7 @@ export async function signIn({ email, password }: { email: string, password: str
   const newSessionToken = crypto.randomBytes(32).toString('hex');
   console.log('[auth.signIn] Generated sessionToken:', newSessionToken);
 
-  let walletBalance = typeof (user as any).walletBalance === 'number' ? (user as any).walletBalance : undefined;
-  if (user.role === 'customer' && walletBalance === undefined) {
-    walletBalance = 0;
-  }
+  let walletBalance = typeof (user as any).walletBalance === 'number' ? (user as any).walletBalance : 0;
   
   // Use direct database update instead of Mongoose save to avoid document issues
   const mongoose = require('mongoose');
@@ -121,7 +118,7 @@ export async function signIn({ email, password }: { email: string, password: str
       $set: { 
         sessionToken: newSessionToken,
         passwordHash: inputPasswordHash, // Ensure passwordHash is always set
-        ...(user.role === 'customer' ? { walletBalance } : {}),
+        walletBalance,
         updatedAt: new Date()
       } 
     }
@@ -150,7 +147,7 @@ export async function getUserBySessionToken(sessionToken: string) {
   if (!user) return null;
 
   let walletBalance = typeof (user as any).walletBalance === 'number' ? (user as any).walletBalance : undefined;
-  if (user.role === 'customer' && walletBalance === undefined) {
+  if (walletBalance === undefined) {
     walletBalance = 0;
     await User.updateOne(
       { _id: user._id },

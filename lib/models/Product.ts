@@ -7,6 +7,7 @@ export interface IProduct extends Document {
   images: string[];
   vendorId: string;
   vendorName?: string;
+  storeId?: string;
   category?: string;
   subcategory?: string;
   stock?: number;
@@ -30,6 +31,7 @@ const ProductSchema = new Schema<IProduct>({
   images: { type: [String], default: [] },
   vendorId: { type: String, required: true },
   vendorName: { type: String },
+  storeId: { type: String },
   category: { type: String },
   subcategory: { type: String },
   stock: { type: Number, default: 0 },

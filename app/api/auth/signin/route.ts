@@ -27,11 +27,20 @@ export async function POST(request: NextRequest) {
       }
       return NextResponse.json(result)
     } catch (mongoError: any) {
-      console.log('[/api/auth/signin] Auth error:', mongoError.message);
+      const message = mongoError?.message || 'Authentication failed'
+      console.log('[/api/auth/signin] Auth error:', message);
+
+      const isDbConnectivityError =
+        message.includes('querySrv ECONNREFUSED') ||
+        message.includes('ENOTFOUND') ||
+        message.includes('ECONNREFUSED') ||
+        message.includes('MongoServerSelectionError') ||
+        message.includes('MongooseServerSelectionError')
+
       return NextResponse.json({
         success: false,
-        error: mongoError.message || 'Authentication failed'
-      }, { status: 401 })
+        error: message
+      }, { status: isDbConnectivityError ? 503 : 401 })
     }
   } catch (error: any) {
     return NextResponse.json({

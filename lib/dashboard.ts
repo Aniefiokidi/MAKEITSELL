@@ -1,4 +1,4 @@
-import { getOrdersByVendor, getVendorProducts, getServices, getBookingsByProvider, getProductById } from "./mongodb-operations";
+import { getOrdersByVendor, getVendorProducts, getServices, getBookingsByProvider, getProductById, getStoreByVendorId } from "./mongodb-operations";
 import { User } from "./models/User";
 
 export async function getVendorDashboard(vendorId: string) {
@@ -6,6 +6,8 @@ export async function getVendorDashboard(vendorId: string) {
   const products = await getVendorProducts(vendorId);
   const services = await getServices({ providerId: vendorId });
   const bookings = await getBookingsByProvider(vendorId);
+  const store: any = await getStoreByVendorId(vendorId);
+  const vendorAccount: any = await User.findById(vendorId).lean();
 
   // Dates for analytics
   const now = new Date();
@@ -151,5 +153,10 @@ export async function getVendorDashboard(vendorId: string) {
     totalBookings: bookings.length,
     pendingBookings: bookings.filter((b: any) => b.status === 'pending').length,
     recentBookings: bookings.slice(0, 5),
+    vendorWalletBalance: (typeof vendorAccount?.walletBalance === 'number' ? vendorAccount.walletBalance : 0)
+      + (typeof store?.walletBalance === 'number' ? store.walletBalance : 0),
+    storeWalletBalance: (typeof vendorAccount?.walletBalance === 'number' ? vendorAccount.walletBalance : 0)
+      + (typeof store?.walletBalance === 'number' ? store.walletBalance : 0),
+    linkedWalletUserId: store?.linkedWalletUserId || vendorId,
   };
 }

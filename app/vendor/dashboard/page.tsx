@@ -22,6 +22,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { getSessionToken } from "@/lib/auth-client"
 import Link from "next/link"
 import VendorLayout from "@/components/vendor/VendorLayout"
+import { VendorWalletModal } from "@/components/vendor/VendorWalletModal"
 
 
 export default function VendorDashboardPage() {
@@ -37,6 +38,8 @@ export default function VendorDashboardPage() {
   // Popup for new vendors
   const [showSetupPopup, setShowSetupPopup] = useState(false);
   const [storeData, setStoreData] = useState<any>(null);
+  const [walletModalOpen, setWalletModalOpen] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0);
 
   // Check if store setup is actually complete
   const isStoreSetupComplete = (store: any) => {
@@ -141,6 +144,7 @@ export default function VendorDashboardPage() {
       const data = await res.json();
       if (data.success) {
         setDashboard(data.data);
+        setWalletBalance(data.data?.vendorWalletBalance || 0);
       }
     } catch (error) {
       console.error("Error loading dashboard data:", error);
@@ -386,6 +390,13 @@ export default function VendorDashboardPage() {
           renderServicesDashboard(serviceRevenue, totalServices, totalBookings, pendingBookings, activeServices, recentBookings)
         )}
       </div>
+
+      {/* Vendor Wallet Modal */}
+      <VendorWalletModal
+        open={walletModalOpen}
+        onOpenChange={setWalletModalOpen}
+        walletBalance={walletBalance}
+      />
     </VendorLayout>
   )
 
@@ -419,7 +430,7 @@ export default function VendorDashboardPage() {
                     {`${safeRevenueChange >= 0 ? "+" : ""}${safeRevenueChange.toFixed(1)}% from last month`}
                   </p>
                 </div>
-                <Banknote className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow flex-shrink-0" />
+                <Banknote className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow shrink-0" />
               </div>
             </CardContent>
           </Card>
@@ -435,7 +446,7 @@ export default function VendorDashboardPage() {
                     {` (${safeProductsChange >= 0 ? "+" : ""}${safeProductsChange.toFixed(1)}% vs last week)`}
                   </p>
                 </div>
-                <Package className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow flex-shrink-0" style={{ animationDelay: '0.2s' }} />
+                <Package className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow shrink-0" style={{ animationDelay: '0.2s' }} />
               </div>
             </CardContent>
           </Card>
@@ -450,7 +461,7 @@ export default function VendorDashboardPage() {
                     {`${safeOrdersChange >= 0 ? "+" : ""}${safeOrdersChange.toFixed(1)}% from last month`}
                   </p>
                 </div>
-                <ShoppingCart className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow flex-shrink-0" style={{ animationDelay: '0.4s' }} />
+                <ShoppingCart className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow shrink-0" style={{ animationDelay: '0.4s' }} />
               </div>
             </CardContent>
           </Card>
@@ -465,7 +476,20 @@ export default function VendorDashboardPage() {
                     {`${safeConversionRateChange >= 0 ? "+" : ""}${safeConversionRateChange.toFixed(1)}% from last month`}
                   </p>
                 </div>
-                <TrendingUp className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow flex-shrink-0" style={{ animationDelay: '0.6s' }} />
+                <TrendingUp className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow shrink-0" style={{ animationDelay: '0.6s' }} />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="animate-scale-in hover-lift cursor-pointer" style={{ animationDelay: '0.5s' }} onClick={() => setWalletModalOpen(true)}>
+            <CardContent className="p-4 lg:p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex-1 min-w-0">
+                  <p className="text-lg lg:text-xl font-bold truncate">₦{formatCurrency(walletBalance)}</p>
+                  <p className="text-xs text-gray-600">Wallet Balance</p>
+                  <p className="text-xs text-blue-600">Click to manage</p>
+                </div>
+                <CreditCard className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow shrink-0" style={{ animationDelay: '0.5s' }} />
               </div>
             </CardContent>
           </Card>
@@ -608,7 +632,7 @@ export default function VendorDashboardPage() {
                   <p className="text-xs text-gray-600">Service Revenue</p>
                   <p className="text-xs text-green-600">Completed bookings</p>
                 </div>
-                <Banknote className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow flex-shrink-0" />
+                <Banknote className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow shrink-0" />
               </div>
             </CardContent>
           </Card>
@@ -621,7 +645,7 @@ export default function VendorDashboardPage() {
                   <p className="text-xs text-gray-600">Services Offered</p>
                   <p className="text-xs text-blue-600">{active} active</p>
                 </div>
-                <Wrench className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow flex-shrink-0" style={{ animationDelay: '0.2s' }} />
+                <Wrench className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow shrink-0" style={{ animationDelay: '0.2s' }} />
               </div>
             </CardContent>
           </Card>
@@ -634,7 +658,7 @@ export default function VendorDashboardPage() {
                   <p className="text-xs text-gray-600">Total Bookings</p>
                   <p className="text-xs text-amber-600">{pending} pending</p>
                 </div>
-                <Calendar className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow flex-shrink-0" style={{ animationDelay: '0.4s' }} />
+                <Calendar className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow shrink-0" style={{ animationDelay: '0.4s' }} />
               </div>
             </CardContent>
           </Card>

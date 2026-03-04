@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getStores as mongoGetStores } from '@/lib/mongodb-operations'
 import { getProducts } from '@/lib/mongodb-operations'
+import { getUserBySessionToken } from '@/lib/auth'
+import { cookies } from 'next/headers'
 
 export async function GET(request: NextRequest) {
   try {
@@ -67,6 +69,8 @@ export async function GET(request: NextRequest) {
         accountNumber: store.accountNumber || '',
         accountName: store.accountName || '',
         accountVerified: !!store.accountVerified,
+        walletBalance: typeof store.walletBalance === 'number' ? store.walletBalance : 0,
+        linkedWalletUserId: store.linkedWalletUserId || store.vendorId,
       }
     }))
 
@@ -86,6 +90,23 @@ export async function POST(request: NextRequest) {
     const storeData = await request.json()
     console.log('Creating store with data:', storeData)
     
+    // Get authenticated user to link wallet
+    const cookieStore = await cookies()
+    const sessionToken = cookieStore.get('sessionToken')?.value || request.headers.get('X-Session-Token')
+    let walletUserId = storeData.linkedWalletUserId || storeData.vendorId
+    
+    if (sessionToken) {
+      try {
+        const currentUser = await getUserBySessionToken(sessionToken)
+        if (currentUser && currentUser.role === 'vendor') {
+          walletUserId = currentUser.id
+          console.log('Auto-linked store to vendor user wallet:', walletUserId)
+        }
+      } catch (authError) {
+        console.warn('Could not auto-link store to user wallet:', authError)
+      }
+    }
+    
     // Map the data from signup form to the MongoDB store schema
     const mappedStoreData = {
       vendorId: storeData.vendorId,
@@ -102,7 +123,9 @@ export async function POST(request: NextRequest) {
       minimumOrder: storeData.minimumOrder || 2000,
       address: storeData.address || storeData.location || '',
       phone: storeData.phone || storeData.storePhone,
-      email: storeData.email
+      email: storeData.email,
+      walletBalance: typeof storeData.walletBalance === 'number' ? storeData.walletBalance : 0,
+      linkedWalletUserId: walletUserId,
     }
 
     console.log('Mapped store data:', mappedStoreData)

@@ -138,7 +138,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             displayName: data.user.name,
             role: data.user.role,
             vendorType: data.user.role === 'vendor' ? 'both' : undefined,
-            walletBalance: data.user.role === 'customer' ? (typeof data.user.walletBalance === 'number' ? data.user.walletBalance : 0) : undefined,
+            walletBalance: typeof data.user.walletBalance === 'number' ? data.user.walletBalance : 0,
             createdAt: new Date(),
             updatedAt: new Date()
           }

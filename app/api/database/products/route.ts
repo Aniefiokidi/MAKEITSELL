@@ -49,6 +49,20 @@ export async function POST(request: NextRequest) {
     const productData = await request.json()
     console.log('Creating product with data:', productData)
 
+    // Auto-populate storeId if vendorId is provided
+    if (productData.vendorId && !productData.storeId) {
+      try {
+        const { getStoreByVendorId } = await import('@/lib/mongodb-operations')
+        const store = await getStoreByVendorId(productData.vendorId)
+        if (store) {
+          productData.storeId = store._id.toString()
+          console.log('Auto-populated storeId:', productData.storeId)
+        }
+      } catch (storeError) {
+        console.warn('Could not auto-populate storeId:', storeError)
+      }
+    }
+
     const productId = await createProduct(productData)
 
     return NextResponse.json({

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { paystackService } from '@/lib/payment'
 import { emailService } from '@/lib/email'
-import { updateOrder, getOrderById } from '@/lib/database'
+import { updateOrder, getOrderById, creditVendorWalletsForOrder } from '@/lib/mongodb-operations'
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,6 +61,8 @@ async function handleSuccessfulPayment(data: any) {
       paymentData: data,
       paidAt: new Date()
     })
+
+    await creditVendorWalletsForOrder(orderId, { paymentReference: data.reference })
 
     // Get order details for email notifications
     const order = await getOrderById(orderId)

@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ArrowLeft, CreditCard, Truck, Shield, Loader2 } from "lucide-react"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import Image from "next/image"
 import Link from "next/link"
 import Header from "@/components/Header"
@@ -25,7 +26,7 @@ export default function CheckoutPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [paymentMethod] = useState("paystack") // Default to Paystack for Nigerian marketplace
+  const [paymentMethod, setPaymentMethod] = useState("paystack") // Default to Paystack for Nigerian marketplace
 
   const [shippingInfo, setShippingInfo] = useState({
     firstName: "",
@@ -133,16 +134,46 @@ export default function CheckoutPage() {
         body: JSON.stringify(orderData),
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        console.error('API Error Response:', errorData)
-        throw new Error(errorData.error || 'Failed to initialize payment')
+      const rawResult = await response.text()
+      let result: any = {}
+
+      if (rawResult) {
+        try {
+          result = JSON.parse(rawResult)
+        } catch {
+          result = { message: rawResult }
+        }
       }
 
-      const result = await response.json()
-      console.log('Payment initialization result:', result)
-      console.log('Authorization URL:', result.authorization_url)
+      console.log('Payment initialization result:', {
+        status: response.status,
+        ok: response.ok,
+        result,
+      })
+
+      if (!response.ok) {
+        console.error('API Error Response:', {
+          status: response.status,
+          statusText: response.statusText,
+          result,
+        })
+
+        const fallbackMessage = `Failed to initialize payment (HTTP ${response.status})`
+        throw new Error(result.error || result.message || fallbackMessage)
+      }
       
+      if (paymentMethod === 'wallet') {
+        if (!result.success) {
+          throw new Error(result.error || 'Wallet payment failed')
+        }
+
+        await clearCart()
+        router.push('/order-confirmation?orderId=' + encodeURIComponent(result.orderId || ''))
+        return
+      }
+
+      console.log('Authorization URL:', result.authorization_url)
+
       if (!result.authorization_url) {
         throw new Error('No authorization URL received from payment service')
       }
@@ -333,13 +364,44 @@ export default function CheckoutPage() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg">
-                        <Shield className="h-4 w-4 text-green-600" />
-                        <div className="text-center">
-                          <p className="font-medium text-foreground">Secure Payment with Paystack</p>
-                          <p className="text-xs">You will be redirected to complete your payment securely</p>
+                      <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="space-y-3">
+                        <div className="flex items-start space-x-2 rounded-md border p-3">
+                          <RadioGroupItem value="paystack" id="paystack" className="mt-1" />
+                          <div>
+                            <Label htmlFor="paystack" className="font-medium text-foreground">Paystack (Card/Bank)</Label>
+                            <p className="text-xs text-muted-foreground">You will be redirected to Paystack to complete payment</p>
+                          </div>
                         </div>
-                      </div>
+
+                        <div className="flex items-start space-x-2 rounded-md border p-3">
+                          <RadioGroupItem value="wallet" id="wallet" className="mt-1" />
+                          <div>
+                            <Label htmlFor="wallet" className="font-medium text-foreground">Wallet Balance</Label>
+                            <p className="text-xs text-muted-foreground">
+                              Available: ₦{formatCurrency(Number(userProfile?.walletBalance || 0))}
+                            </p>
+                          </div>
+                        </div>
+                      </RadioGroup>
+
+                      {paymentMethod === "paystack" && (
+                        <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg">
+                          <Shield className="h-4 w-4 text-green-600" />
+                          <div className="text-center">
+                            <p className="font-medium text-foreground">Secure Payment with Paystack</p>
+                            <p className="text-xs">You will be redirected to complete your payment securely</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {paymentMethod === "wallet" && (
+                        <div className="rounded-lg border p-3 bg-accent/5 text-sm">
+                          <p className="font-medium text-foreground">Pay directly from your wallet</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Your wallet will be debited immediately after order placement.
+                          </p>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </div>
@@ -406,7 +468,11 @@ export default function CheckoutPage() {
                       <div className="pt-4">
                         <Button type="submit" className="w-full hover:bg-accent/80 hover:scale-105 transition-all hover:shadow-lg" size="lg" disabled={loading}>
                           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                          {loading ? "Processing..." : `Place Order - ₦${formatCurrency(total)}`}
+                          {loading
+                            ? "Processing..."
+                            : paymentMethod === "wallet"
+                            ? `Pay with Wallet - ₦${formatCurrency(total)}`
+                            : `Place Order - ₦${formatCurrency(total)}`}
                         </Button>
                       </div>
 

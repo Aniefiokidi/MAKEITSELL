@@ -12,8 +12,19 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import SmartSearch from "@/components/search/SmartSearch"
 import UserMenu from "@/components/auth/UserMenu"
 import CartSidebar from "@/components/cart/CartSidebar"
+import { VendorWalletModal } from "@/components/vendor/VendorWalletModal"
 import { useAuth } from "@/contexts/AuthContext"
 import { useNotification } from "@/contexts/NotificationContext"
+
+interface WalletTx {
+  id: string
+  type: string
+  amount: number
+  status: string
+  note?: string
+  createdAt?: string
+  direction?: "credit" | "debit" | "neutral"
+}
 
 export default function Header({ homeBg = false }: { homeBg?: boolean }) {
   const { user, userProfile, loading } = useAuth()
@@ -22,6 +33,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [walletModalOpen, setWalletModalOpen] = useState(false)
+  const [vendorWalletModalOpen, setVendorWalletModalOpen] = useState(false)
   const [activeWalletView, setActiveWalletView] = useState<"menu" | "topup" | "withdraw">("menu")
   const [walletAmount, setWalletAmount] = useState("")
   const [walletLoading, setWalletLoading] = useState(false)
@@ -40,6 +52,8 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
   const [showNewPin, setShowNewPin] = useState(false)
   const [showConfirmNewPin, setShowConfirmNewPin] = useState(false)
   const [showWithdrawalPin, setShowWithdrawalPin] = useState(false)
+  const [walletTransactions, setWalletTransactions] = useState<WalletTx[]>([])
+  const [walletTxLoading, setWalletTxLoading] = useState(false)
 
   const profileWalletBalance =
     userProfile?.role === "customer"
@@ -47,10 +61,99 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
       : null
 
   const [walletBalance, setWalletBalance] = useState<number | null>(profileWalletBalance)
+  const [vendorWalletBalance, setVendorWalletBalance] = useState<number | null>(null)
+
+  const refreshCustomerWalletBalance = async () => {
+    if (userProfile?.role !== "customer") return
+
+    try {
+      const response = await fetch("/api/auth/me", {
+        method: "GET",
+        credentials: "include",
+      })
+      const result = await response.json()
+      const nextBalance = result?.user?.walletBalance
+      if (response.ok && result?.success && typeof nextBalance === "number") {
+        setWalletBalance(nextBalance)
+      }
+    } catch {
+      // ignore transient refresh failures
+    }
+  }
+
+  const refreshVendorWalletBalance = async () => {
+    if (userProfile?.role !== "vendor" || !user?.uid) return
+
+    try {
+      const response = await fetch(`/api/vendor/dashboard?vendorId=${encodeURIComponent(user.uid)}`, {
+        method: "GET",
+        credentials: "include",
+      })
+      const result = await response.json()
+      if (response.ok && result?.success && typeof result.data?.vendorWalletBalance === "number") {
+        setVendorWalletBalance(result.data.vendorWalletBalance)
+      }
+    } catch {
+      // Silently fail if unable to fetch
+    }
+  }
 
   useEffect(() => {
-    setWalletBalance(profileWalletBalance)
-  }, [profileWalletBalance])
+    if (userProfile?.role === "customer") {
+      setWalletBalance(profileWalletBalance)
+    }
+  }, [profileWalletBalance, userProfile?.role])
+
+  useEffect(() => {
+    refreshVendorWalletBalance()
+  }, [user?.uid, userProfile?.role])
+
+  useEffect(() => {
+    if (walletModalOpen && userProfile?.role === "customer") {
+      refreshCustomerWalletBalance()
+    }
+  }, [walletModalOpen, userProfile?.role])
+
+  useEffect(() => {
+    if (vendorWalletModalOpen && userProfile?.role === "vendor") {
+      refreshVendorWalletBalance()
+    }
+  }, [vendorWalletModalOpen, userProfile?.role, user?.uid])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const params = new URLSearchParams(window.location.search)
+    const walletStatus = params.get("wallet")
+    const reason = params.get("reason")
+
+    if (!walletStatus) return
+
+    const handleWalletCallback = async () => {
+      if (walletStatus === "success") {
+        notification.success("Wallet top up completed successfully", "Wallet updated", 3000)
+
+        if (userProfile?.role === "customer") {
+          await refreshCustomerWalletBalance()
+          if (walletModalOpen) {
+            await fetchWalletTransactions()
+          }
+        } else if (userProfile?.role === "vendor") {
+          await refreshVendorWalletBalance()
+        }
+      } else if (walletStatus === "failed") {
+        notification.error("Wallet top up could not be completed", reason || "Try again", 3500)
+      }
+
+      params.delete("wallet")
+      params.delete("reason")
+      const nextQuery = params.toString()
+      const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash}`
+      window.history.replaceState({}, "", nextUrl)
+    }
+
+    handleWalletCallback()
+  }, [pathname, notification, userProfile?.role, walletModalOpen])
 
   useEffect(() => {
     const fetchPinStatus = async () => {
@@ -96,6 +199,12 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
     }
   }, [walletModalOpen])
 
+  useEffect(() => {
+    if (walletModalOpen && userProfile?.role === "customer") {
+      fetchWalletTransactions()
+    }
+  }, [walletModalOpen, userProfile?.role])
+
   const currencyFormatter = new Intl.NumberFormat("en-NG", {
     style: "currency",
     currency: "NGN",
@@ -103,10 +212,32 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
     maximumFractionDigits: 2,
   })
 
+  const displayWalletBalance = userProfile?.role === "vendor" ? vendorWalletBalance : walletBalance
   const formattedWalletBalance =
-    walletBalance !== null
-      ? currencyFormatter.format(walletBalance)
+    displayWalletBalance !== null
+      ? currencyFormatter.format(displayWalletBalance)
       : null
+
+  const fetchWalletTransactions = async () => {
+    if (userProfile?.role !== "customer") {
+      return
+    }
+
+    try {
+      setWalletTxLoading(true)
+      const response = await fetch("/api/wallet/transactions", {
+        method: "GET",
+        credentials: "include",
+      })
+      const result = await response.json()
+      if (response.ok && result?.success && Array.isArray(result.transactions)) {
+        setWalletTransactions(result.transactions)
+      }
+    } catch {
+    } finally {
+      setWalletTxLoading(false)
+    }
+  }
 
   const handleWalletTopUp = async () => {
     const amount = Number(walletAmount)
@@ -185,6 +316,10 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
       if (typeof result.balance === "number") {
         setWalletBalance(result.balance)
       }
+
+      await refreshCustomerWalletBalance()
+
+      await fetchWalletTransactions()
 
       notification.success("Withdrawal request submitted", result.reference || "Pending processing", 3000)
       setWithdrawAmount("")
@@ -329,7 +464,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                     <>
                       <motion.div
                         layoutId="activeNav"
-                        className="absolute inset-0 bg-gradient-to-r from-accent/10 to-transparent rounded-full -z-10"
+                        className="absolute inset-0 bg-linear-to-r from-accent/10 to-transparent rounded-full -z-10"
                         transition={{ type: "spring", stiffness: 380, damping: 30 }}
                       />
                       {/* Connecting tail */}
@@ -338,7 +473,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                         animate={{ opacity: 1, scaleY: 1 }}
                         exit={{ opacity: 0, scaleY: 0 }}
                         transition={{ duration: 0.3 }}
-                        className="absolute left-1/2 -translate-x-1/2 top-full w-12 h-6 bg-gradient-to-b from-white/20 to-transparent backdrop-blur-sm border-x border-white/20 rounded-b-2xl"
+                        className="absolute left-1/2 -translate-x-1/2 top-full w-12 h-6 bg-linear-to-b from-white/20 to-transparent backdrop-blur-sm border-x border-white/20 rounded-b-2xl"
                         style={{
                           clipPath: "polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%)"
                         }}
@@ -359,8 +494,15 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
             {formattedWalletBalance && (
               <button
                 type="button"
-                onClick={() => setWalletModalOpen(true)}
-                className="flex items-center gap-1 rounded-full border border-[oklch(0.21_0.194_29.234)]/25 bg-white/90 dark:bg-background/90 px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-medium text-[oklch(0.21_0.194_29.234)] dark:text-accent hover:bg-accent/10 dark:hover:bg-accent/20 transition-colors"
+                onClick={() => {
+                  if (userProfile?.role === "customer") {
+                    setWalletModalOpen(true)
+                  } else if (userProfile?.role === "vendor") {
+                    setVendorWalletModalOpen(true)
+                  }
+                }}
+                title={userProfile?.role === "vendor" ? "Click to manage vendor wallet" : "Open wallet"}
+                className="flex items-center gap-1 rounded-full border border-[oklch(0.21_0.194_29.234)]/25 bg-white/90 dark:bg-background/90 px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-medium text-[oklch(0.21_0.194_29.234)] dark:text-accent hover:bg-accent/10 dark:hover:bg-accent/20 transition-colors cursor-pointer"
               >
                 <Wallet className="h-3.5 w-3.5" />
                 <span>{formattedWalletBalance}</span>
@@ -418,7 +560,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
         </div>
       </div>
 
-      {/* Mobile Drawer */}
+      {/* Customer Wallet Modal */}
       <Dialog open={walletModalOpen} onOpenChange={setWalletModalOpen}>
         <DialogContent className="sm:max-w-md">
           {/* MENU VIEW */}
@@ -453,9 +595,39 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                     <span>Withdraw</span>
                   </Button>
                 </div>
+
+                <div className="rounded-md border p-3">
+                  <p className="text-xs font-medium mb-2">Recent wallet activity</p>
+                  {walletTxLoading ? (
+                    <p className="text-xs text-muted-foreground">Loading transactions...</p>
+                  ) : walletTransactions.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No transactions yet.</p>
+                  ) : (
+                    <div className="space-y-2 max-h-44 overflow-y-auto">
+                      {walletTransactions.slice(0, 8).map((tx) => (
+                        <div key={tx.id} className="flex items-start justify-between gap-3 text-xs">
+                          <div>
+                            <p className="font-medium text-foreground">{tx.note || tx.type.replace(/_/g, " ")}</p>
+                            <p className="text-muted-foreground">{tx.createdAt ? new Date(tx.createdAt).toLocaleString() : ""}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className={tx.direction === "credit" ? "font-semibold text-green-600" : tx.direction === "debit" ? "font-semibold text-red-600" : "font-semibold"}>
+                              {tx.direction === "credit" ? "+" : tx.direction === "debit" ? "-" : ""}
+                              {currencyFormatter.format(Number(tx.amount || 0))}
+                            </p>
+                            <p className="text-muted-foreground">{tx.status}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <DialogFooter>
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                <Button variant="ghost" size="sm" asChild className="w-full sm:w-auto">
+                  <Link href="/wallet/transactions">View all transactions</Link>
+                </Button>
                 <Button variant="outline" onClick={() => setWalletModalOpen(false)}>
                   Close
                 </Button>
@@ -719,6 +891,14 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
         </DialogContent>
       </Dialog>
 
+      {/* Vendor Wallet Modal */}
+      <VendorWalletModal
+        open={vendorWalletModalOpen}
+        onOpenChange={setVendorWalletModalOpen}
+        walletBalance={vendorWalletBalance ?? 0}
+        onBalanceUpdated={setVendorWalletBalance}
+      />
+
       <AnimatePresence>
         {isMenuOpen && (
           <>
@@ -728,7 +908,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
               animate={{ opacity: 0.5 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="fixed inset-0 bg-black z-[90]"
+              className="fixed inset-0 bg-black z-90"
               onClick={() => setIsMenuOpen(false)}
             />
 
@@ -738,7 +918,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", stiffness: 120, damping: 15 }}
-              className="fixed top-0 right-0 w-[85vw] max-w-xs h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 shadow-2xl z-[100] flex flex-col overflow-hidden"
+              className="fixed top-0 right-0 w-[85vw] max-w-xs h-screen bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 shadow-2xl z-100 flex flex-col overflow-hidden"
             >
               {/* Header */}
               <div className="flex items-center justify-between p-3 sm:p-6 border-b border-gray-200 dark:border-gray-700">

@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { paystackService } from '@/lib/payment'
-import { createOrder } from '@/lib/mongodb-operations'
+import { createOrder, updateOrder, creditVendorWalletsForOrder } from '@/lib/mongodb-operations'
 import { v4 as uuidv4 } from 'uuid'
+import { connectToDatabase } from '@/lib/mongodb'
+import { User } from '@/lib/models/User'
+import { WalletTransaction } from '@/lib/models/WalletTransaction'
+import crypto from 'crypto'
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,7 +30,7 @@ export async function POST(request: NextRequest) {
         email: shippingInfo?.email
       })
       return NextResponse.json(
-        { error: 'Missing required fields (items, shippingInfo, customerId, totalAmount, email)' },
+        { success: false, error: 'Missing required fields (items, shippingInfo, customerId, totalAmount, email)' },
         { status: 400 }
       )
     }
@@ -130,9 +134,126 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json(
-        { error: paymentResult.message || 'Payment initialization failed', paystack: paymentResult },
+        { success: false, error: paymentResult.message || 'Payment initialization failed', paystack: paymentResult },
         { status: 400 }
       )
+    }
+
+    if (paymentMethod === 'wallet') {
+      console.log('[WALLET] Processing wallet payment for order:', orderId)
+      console.log('[WALLET] Customer ID:', customerId)
+      console.log('[WALLET] Total amount:', totalAmount)
+      
+      const normalizedAmount = Math.round(Number(totalAmount) * 100) / 100
+      if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+        console.error('[WALLET] Invalid amount:', normalizedAmount)
+        return NextResponse.json({ success: false, error: 'Invalid total amount' }, { status: 400 })
+      }
+
+      console.log('[WALLET] Normalized amount:', normalizedAmount)
+
+      await connectToDatabase()
+      console.log('[WALLET] Database connected')
+
+      // Check current wallet balance first
+      const currentUser = await User.findOne({ _id: customerId, role: 'customer' })
+      console.log('[WALLET] Current user found:', !!currentUser)
+      console.log('[WALLET] Current wallet balance:', currentUser?.walletBalance)
+
+      if (!currentUser) {
+        console.error('[WALLET] User not found:', customerId)
+        return NextResponse.json(
+          { success: false, error: 'User not found' },
+          { status: 404 }
+        )
+      }
+
+      if (typeof currentUser.walletBalance !== 'number' || currentUser.walletBalance < normalizedAmount) {
+        console.error('[WALLET] Insufficient balance. Required:', normalizedAmount, 'Available:', currentUser.walletBalance)
+        return NextResponse.json(
+          { success: false, error: `Insufficient wallet balance. You have ₦${currentUser.walletBalance.toFixed(2)} but need ₦${normalizedAmount.toFixed(2)}` },
+          { status: 400 }
+        )
+      }
+
+      const walletDebitResult = await User.updateOne(
+        {
+          _id: customerId,
+          role: 'customer',
+          walletBalance: { $gte: normalizedAmount },
+        },
+        {
+          $inc: { walletBalance: -normalizedAmount },
+          $set: { updatedAt: new Date() },
+        }
+      )
+
+      console.log('[WALLET] Debit result:', { 
+        matchedCount: walletDebitResult.matchedCount, 
+        modifiedCount: walletDebitResult.modifiedCount 
+      })
+
+      if (walletDebitResult.modifiedCount === 0) {
+        console.error('[WALLET] Failed to debit wallet - race condition or balance changed')
+        return NextResponse.json(
+          { success: false, error: 'Failed to debit wallet. Please try again.' },
+          { status: 400 }
+        )
+      }
+
+      console.log('[WALLET] Wallet debited successfully')
+      console.log('[WALLET] Wallet debited successfully')
+
+      const walletPaymentReference = `wallet_order_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`
+      console.log('[WALLET] Creating transaction with reference:', walletPaymentReference)
+
+      await WalletTransaction.create({
+        userId: String(customerId),
+        type: 'purchase_debit',
+        amount: normalizedAmount,
+        status: 'completed',
+        reference: walletPaymentReference,
+        paymentReference: walletPaymentReference,
+        provider: 'wallet',
+        note: `Wallet payment for order ${orderId}`,
+        metadata: {
+          source: 'wallet_checkout',
+          orderId,
+          debit: true,
+        },
+        orderId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+
+      console.log('[WALLET] Transaction created')
+
+      await updateOrder(orderId, {
+        status: 'confirmed',
+        paymentStatus: 'completed',
+        paymentReference: walletPaymentReference,
+        paymentData: {
+          provider: 'wallet',
+          reference: walletPaymentReference,
+        },
+        paidAt: new Date(),
+      })
+
+      console.log('[WALLET] Order updated to confirmed')
+
+      const vendorCreditResult = await creditVendorWalletsForOrder(orderId, {
+        paymentReference: walletPaymentReference,
+      })
+
+      console.log('[WALLET] Vendor credit summary:', vendorCreditResult)
+
+      return NextResponse.json({
+        success: true,
+        orderId,
+        paymentMethod: 'wallet',
+        reference: walletPaymentReference,
+        message: 'Order paid successfully with wallet',
+      })
     }
 
     // For other payment methods (can be extended)
@@ -143,13 +264,13 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Payment initialization error:', error)
-    console.error('Error details:', {
+    console.error('[PAYMENT INIT] Payment initialization error:', error)
+    console.error('[PAYMENT INIT] Error details:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : 'No stack trace'
     })
     return NextResponse.json(
-      { error: 'Failed to initialize payment' },
+      { success: false, error: error instanceof Error ? error.message : 'Failed to initialize payment' },
       { status: 500 }
     )
   }

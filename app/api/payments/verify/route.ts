@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { paystackService } from '@/lib/payment'
 import { emailService } from '@/lib/email'
-import { updateOrder, getOrderById, getUserById, getStores } from '@/lib/mongodb-operations'
+import { updateOrder, getOrderById, getUserById, getStores, creditVendorWalletsForOrder } from '@/lib/mongodb-operations'
 import connectToDatabase from '@/lib/mongodb'
 import mongoose from 'mongoose'
 
@@ -43,6 +43,9 @@ export async function GET(request: NextRequest) {
       paymentData: paymentData,
       paidAt: new Date()
     })
+
+    // Credit vendor and linked store wallets (idempotent)
+    await creditVendorWalletsForOrder(orderId, { paymentReference: reference })
 
     // Update product stock and sales (supports both top-level items and vendor items)
     if (order && (order.items || order.vendors)) {
@@ -199,6 +202,9 @@ export async function POST(request: NextRequest) {
         paymentData: paymentData,
         paidAt: new Date()
       })
+
+      // Credit vendor and linked store wallets (idempotent)
+      await creditVendorWalletsForOrder(orderId, { paymentReference: reference })
 
       // Update product stock and sales (supports both top-level items and vendor items)
       if (order && (order.items || order.vendors)) {

@@ -44,6 +44,178 @@ import { Product as ProductModel } from './models/Product';
 import { Store as StoreModel } from './models/Store';
 // @ts-ignore
 import { User as UserModel } from './models/User';
+import { WalletTransaction } from './models/WalletTransaction';
+
+export const creditVendorWalletsForOrder = async (
+  orderId: string,
+  options?: { paymentReference?: string; provider?: string; source?: string }
+) => {
+  await connectToDatabase();
+
+  const order: any = await OrderModel.findOne({ orderId }).lean();
+  if (!order) {
+    return { success: false, reason: 'order_not_found', creditedVendors: 0, creditedStores: 0, totalCredited: 0 };
+  }
+
+  if (order.paymentStatus !== 'completed') {
+    return { success: false, reason: 'order_not_paid', creditedVendors: 0, creditedStores: 0, totalCredited: 0 };
+  }
+
+  const vendors = Array.isArray(order.vendors) ? order.vendors : [];
+  let creditedVendors = 0;
+  let creditedStores = 0;
+  let totalCredited = 0;
+  let skippedVendors = 0;
+
+  for (const vendorEntry of vendors) {
+    try {
+      const vendorId = String(vendorEntry?.vendorId || '').trim();
+      if (!vendorId) {
+        skippedVendors += 1;
+        continue;
+      }
+
+      const items = Array.isArray(vendorEntry?.items) ? vendorEntry.items : [];
+      const entryTotal = typeof vendorEntry?.total === 'number'
+        ? vendorEntry.total
+        : items.reduce((sum: number, item: any) => {
+            const unitPrice = Number(item?.price || 0);
+            const quantity = Number(item?.quantity || 1);
+            return sum + unitPrice * quantity;
+          }, 0);
+
+      const amount = Math.round(entryTotal * 100) / 100;
+      if (!Number.isFinite(amount) || amount <= 0) {
+        skippedVendors += 1;
+        continue;
+      }
+
+      const storeIdFromEntry = vendorEntry?.storeId || items.find((item: any) => item?.storeId)?.storeId;
+      let storeIdToCredit = storeIdFromEntry ? String(storeIdFromEntry) : '';
+
+      let vendorStore: any = null;
+      if (storeIdToCredit && mongoose.Types.ObjectId.isValid(storeIdToCredit)) {
+        vendorStore = await StoreModel.findById(storeIdToCredit)
+          .select('_id vendorId linkedWalletUserId')
+          .lean();
+      }
+
+      if (!vendorStore) {
+        vendorStore = await StoreModel.findOne({ vendorId })
+          .sort({ createdAt: -1 })
+          .select('_id vendorId linkedWalletUserId')
+          .lean();
+      }
+
+      if (!storeIdToCredit && vendorStore?._id) {
+        storeIdToCredit = String(vendorStore._id);
+      }
+
+      const walletUserIdCandidate = String(
+        vendorStore?.linkedWalletUserId || vendorStore?.vendorId || vendorId || ''
+      ).trim();
+      const hasValidWalletUserId = mongoose.Types.ObjectId.isValid(walletUserIdCandidate);
+      const walletUserId = hasValidWalletUserId ? walletUserIdCandidate : '';
+
+      const reference = `vendor_order_credit_${orderId}_${vendorId}`;
+      const paymentReference = options?.paymentReference || order.paymentReference;
+      const provider = options?.provider || order?.paymentMethod || 'paystack';
+      const source = options?.source || 'order_payment';
+
+      const creditTx = await WalletTransaction.updateOne(
+        { reference },
+        {
+          $setOnInsert: {
+            userId: walletUserId || vendorId,
+            type: 'vendor_credit',
+            amount,
+            status: 'completed',
+            reference,
+            paymentReference,
+            provider,
+            note: `Order payout for ${orderId}`,
+            metadata: {
+              source,
+              orderId,
+              vendorId,
+              walletUserId: walletUserId || undefined,
+            },
+            orderId,
+            storeId: storeIdToCredit || undefined,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        },
+        { upsert: true }
+      );
+
+      if ((creditTx as any).upsertedCount === 0) {
+        continue;
+      }
+
+      let creditedAny = false;
+
+      if (walletUserId) {
+        const vendorCreditResult = await UserModel.updateOne(
+          { _id: walletUserId, role: 'vendor' },
+          {
+            $inc: { walletBalance: amount },
+            $set: { updatedAt: new Date() },
+          }
+        );
+
+        if (vendorCreditResult.modifiedCount > 0) {
+          creditedVendors += 1;
+          creditedAny = true;
+        } else {
+          console.warn('[wallet-credit] Vendor wallet user not updated for order:', orderId, 'vendorId:', vendorId, 'walletUserId:', walletUserId);
+        }
+      } else {
+        console.warn('[wallet-credit] Skipping vendor wallet update due to invalid vendor ID for order:', orderId, 'vendorId:', vendorId);
+      }
+
+      if (storeIdToCredit && mongoose.Types.ObjectId.isValid(storeIdToCredit)) {
+        const storeQuery: any = { _id: storeIdToCredit };
+        if (vendorStore?.vendorId) {
+          storeQuery.vendorId = String(vendorStore.vendorId);
+        }
+
+        const storeUpdateSet: any = { updatedAt: new Date() };
+        if (walletUserId) {
+          storeUpdateSet.linkedWalletUserId = walletUserId;
+        }
+
+        const storeResult = await StoreModel.updateOne(
+          storeQuery,
+          {
+            $inc: { walletBalance: amount },
+            $set: storeUpdateSet,
+          }
+        );
+
+        if (storeResult.modifiedCount > 0) {
+          creditedStores += 1;
+          creditedAny = true;
+        }
+      }
+
+      if (creditedAny) {
+        totalCredited += amount;
+      }
+    } catch (vendorCreditError) {
+      skippedVendors += 1;
+      console.error('[wallet-credit] Failed to credit vendor entry for order:', orderId, vendorCreditError);
+    }
+  }
+
+  return {
+    success: true,
+    creditedVendors,
+    creditedStores,
+    totalCredited,
+    skippedVendors,
+  };
+};
 
 export const getAllUsers = async () => {
   await connectToDatabase();
@@ -525,8 +697,8 @@ export const createChatMessage = async (data: any) => {
     ...data,
     conversationId: conversation._id,
     createdAt: new Date(),
-  });
-  return message._id.toString();
+  }) as any;
+  return (message as any)._id.toString();
 };
 
 export const createConversation = async (data: any) => {
@@ -550,5 +722,3 @@ export const deleteUserCartItemsByVendor = () => { throw new Error("Server-only:
 export const deleteConversationsByVendor = () => { throw new Error("Server-only: deleteConversationsByVendor is not available on client."); };
 export const deleteUser = () => { throw new Error("Server-only: deleteUser is not available on client."); };
 export const deleteSessions = () => { throw new Error("Server-only: deleteSessions is not available on client."); };
-
-export { createChatMessage, getChatMessages, getConversations };

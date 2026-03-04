@@ -26,7 +26,9 @@ const StoreSchema = new Schema({
   bankCode: { type: String },
   accountNumber: { type: String },
   accountName: { type: String },
-  accountVerified: { type: Boolean, default: false }
+  accountVerified: { type: Boolean, default: false },
+  walletBalance: { type: Number, default: 0 },
+  linkedWalletUserId: { type: String }
 }, { timestamps: true });
 
 export const Store = models.Store || model('Store', StoreSchema);
