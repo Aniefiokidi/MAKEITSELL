@@ -36,14 +36,14 @@ export async function POST(request: NextRequest) {
     // Initialize Paystack payment
     const paymentResult = await paystackService.initializePayment({
       email: email,
-      amount: 2500, // ₦2,500
+      amount: 2000, // ₦2,000
       orderId: subscriptionId,
       customerId: vendorId,
       items: [{
         productId: 'vendor-subscription',
         title: 'Monthly Vendor Subscription',
         quantity: 1,
-        price: 2500,
+        price: 2000,
         vendorId: 'makeitsell',
         vendorName: 'Make It Sell'
       }]
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
         subscriptionId,
         vendorId,
         email,
-        amount: 2500,
+        amount: 2000,
         status: 'pending',
         reference: paymentResult.data?.reference,
         createdAt: new Date()

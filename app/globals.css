@@ -306,3 +306,14 @@ html, body, #__next, main, .safe-area, .header, .navbar {
 .hyphens-auto {
   hyphens: auto;
 }
+
+/* Cursor pointer for all buttons */
+button,
+a[role="button"],
+[role="button"],
+.cursor-pointer,
+input[type="button"],
+input[type="submit"],
+input[type="reset"] {
+  cursor: pointer !important;
+}

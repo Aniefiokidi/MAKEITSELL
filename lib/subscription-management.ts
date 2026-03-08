@@ -69,7 +69,7 @@ export const SubscriptionManagementService = {
         vendorName: vendor.displayName || vendor.name,
         storeName: store.storeName,
         subscriptionExpiry: newExpiryDate,
-        amount: 2500,
+        amount: 2000,
         reference: paymentData.reference
       })
 
@@ -80,7 +80,7 @@ export const SubscriptionManagementService = {
           vendorName: vendor.displayName || vendor.name,
           storeName: store.storeName,
           subscriptionExpiry: newExpiryDate,
-          amount: 2500
+          amount: 2000
         })
       }
     }
@@ -124,7 +124,7 @@ export const SubscriptionManagementService = {
         vendorName: vendor.displayName || vendor.name,
         storeName: store.storeName,
         subscriptionExpiry: store.subscriptionExpiry,
-        amount: 2500,
+        amount: 2000,
         reason: reason
       })
     }
@@ -271,7 +271,7 @@ export const SubscriptionManagementService = {
             vendorName: vendor.displayName || vendor.name,
             storeName: store.storeName,
             subscriptionExpiry: store.subscriptionExpiry,
-            amount: 2500,
+            amount: 2000,
             daysRemaining
           })
 

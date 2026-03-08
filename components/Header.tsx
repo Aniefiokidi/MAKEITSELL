@@ -407,8 +407,8 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
     <header
       className={
         `sticky top-0 z-50 w-full pt-1.5 ${homeBg
-          ? 'bg-transparent' 
-          : 'bg-white/95 dark:bg-background dark:text-foreground backdrop-blur-md shadow-sm'}
+          ? 'bg-white/45 dark:bg-black/35 supports-[backdrop-filter]:bg-white/30 dark:supports-[backdrop-filter]:bg-black/25 backdrop-blur-xl border-b border-white/40 dark:border-white/10' 
+          : 'bg-white/95 dark:bg-background dark:text-foreground backdrop-blur-md'}
         `
       }
     >

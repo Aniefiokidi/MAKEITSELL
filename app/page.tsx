@@ -26,27 +26,138 @@ import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
-import { Shield, Users, Truck, Sparkles, ArrowRight } from "lucide-react"
+import { Shield, Users, Truck, Sparkles, ArrowRight, Smartphone, ShoppingBag, Sparkles as Beauty, HomeIcon, Settings, CarFront, UserCheck, Coffee, Verified, Clock, Banknote, Camera, Briefcase, Wrench, Palette, Dumbbell, GraduationCap, Scissors, Laptop } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle2 } from "lucide-react"
 
 function TrendingProducts() {
   const [products, setProducts] = useState<any[]>([])
+  const [services, setServices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null)
   const [quickViewOpen, setQuickViewOpen] = useState(false)
   const { addItem } = useCart ? useCart() : { addItem: () => {} }
   const notification = useNotification ? useNotification() : null
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 0,
+    }).format(amount)
+  }
+
+  const getCategoryIcon = (category: string) => {
+    switch ((category || '').toLowerCase()) {
+      case "photography":
+        return <Camera className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+      case "consulting":
+        return <Briefcase className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+      case "repairs":
+        return <Wrench className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+      case "design":
+        return <Palette className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+      case "fitness":
+        return <Dumbbell className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+      case "education":
+        return <GraduationCap className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+      case "beauty":
+        return <Scissors className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+      case "cleaning":
+        return <Sparkles className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+      case "tech":
+        return <Laptop className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+      default:
+        return <Settings className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+    }
+  }
+
+  // Image Cycler Component for Product Cards
+  const ImageCycler = ({ product }: { product: any }) => {
+    const [currentImageIndex, setCurrentImageIndex] = useState(0)
+    const [isHovered, setIsHovered] = useState(false)
+
+    useEffect(() => {
+      if (!isHovered || !product.images || product.images.length <= 1) {
+        return
+      }
+
+      const interval = setInterval(() => {
+        setCurrentImageIndex((prevIndex) => {
+          return prevIndex + 1 >= product.images.length ? 0 : prevIndex + 1
+        })
+      }, 2000) // Change image every 2 seconds
+
+      return () => clearInterval(interval)
+    }, [isHovered, product.images])
+
+    // Reset to first image when hover ends
+    useEffect(() => {
+      if (!isHovered) {
+        setCurrentImageIndex(0)
+      }
+    }, [isHovered])
+
+    if (!product.images || product.images.length === 0) {
+      return (
+        <img
+          src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"
+          alt={product.title ? `Product: ${product.title}` : product.name ? `Product: ${product.name}` : "Product image"}
+          className={`absolute inset-0 w-full h-full ${product.category?.toLowerCase() === 'electronics' ? 'object-contain bg-white' : 'object-cover'} group-hover:scale-110 transition-transform duration-500 ${product.stock === 0 ? 'grayscale' : ''}`}
+        />
+      )
+    }
+
+    return (
+      <div 
+        className="absolute inset-0 w-full h-full"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        {/* Show only one image at a time with multiple layers for fade effect */}
+        {product.images.map((image: string, index: number) => (
+          <img
+            key={index}
+            src={image || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"}
+            alt={product.title ? `Product: ${product.title}` : product.name ? `Product: ${product.name}` : "Product image"}
+            className={`absolute inset-0 w-full h-full ${product.category?.toLowerCase() === 'electronics' ? 'object-contain bg-white' : 'object-cover'} group-hover:scale-110 transition-all duration-500 ${product.stock === 0 ? 'grayscale' : ''} ${
+              index === currentImageIndex 
+                ? 'opacity-100' 
+                : 'opacity-0'
+            }`}
+            style={{ 
+              transitionProperty: 'opacity, transform', 
+              transitionDuration: '500ms, 500ms',
+              transitionTimingFunction: 'ease-in-out, ease-out'
+            }}
+          />
+        ))}
+      </div>
+    )
+  }
   
 
   useEffect(() => {
     async function fetchTrendingWithStoreNames() {
       try {
-        const res = await fetch("/api/database/products?limit=100")
-        const data = await res.json()
-        if (data.success && Array.isArray(data.data)) {
-          // Sort by sales descending, take top 3
-          const sorted = [...data.data].sort((a, b) => (b.sales || 0) - (a.sales || 0)).slice(0, 3)
+        const [productsRes, servicesRes, bookingsRes] = await Promise.all([
+          fetch("/api/database/products?limit=100"),
+          fetch("/api/database/services?limit=100"),
+          fetch("/api/database/bookings")
+        ])
+
+        const [productsData, servicesData, bookingsData] = await Promise.all([
+          productsRes.json(),
+          servicesRes.json(),
+          bookingsRes.json()
+        ])
+
+        if (productsData.success && Array.isArray(productsData.data)) {
+          // Keep only in-stock products with stock > 1, then take top 5 by sales.
+          const sorted = [...productsData.data]
+            .filter((product: any) => (product?.stock ?? 0) > 1)
+            .sort((a, b) => (b.sales || 0) - (a.sales || 0))
+            .slice(0, 5)
           // Fetch store for each product
           const withStoreNames = await Promise.all(sorted.map(async (product) => {
             let storeName = ''
@@ -98,8 +209,36 @@ function TrendingProducts() {
         } else {
           setProducts([])
         }
+
+        if (servicesData.success && Array.isArray(servicesData.data)) {
+          const bookings = Array.isArray(bookingsData?.data) ? bookingsData.data : []
+          const bookingCountMap = bookings.reduce((acc: Record<string, number>, booking: any) => {
+            if (!booking || booking.status === 'cancelled') return acc
+            const serviceId = booking.serviceId || booking.service?.id || booking.service?._id
+            if (!serviceId) return acc
+            const key = String(serviceId)
+            acc[key] = (acc[key] || 0) + 1
+            return acc
+          }, {})
+
+          const topServices = [...servicesData.data]
+            .map((service: any) => {
+              const serviceKey = String(service.id || service._id || '')
+              return {
+                ...service,
+                bookingCount: bookingCountMap[serviceKey] || 0
+              }
+            })
+            .sort((a: any, b: any) => (b.bookingCount || 0) - (a.bookingCount || 0))
+            .slice(0, 5)
+
+          setServices(topServices)
+        } else {
+          setServices([])
+        }
       } catch {
         setProducts([])
+        setServices([])
       } finally {
         setLoading(false)
       }
@@ -109,381 +248,242 @@ function TrendingProducts() {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 md:gap-4 max-w-5xl mx-auto">
-        {[1, 2, 3, 4].map(i => (
-          <div key={i} className="animate-pulse bg-white/60 dark:bg-white/10 rounded-2xl sm:rounded-3xl h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px]" />
-        ))}
+      <div className="space-y-6 sm:space-y-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4 md:gap-6">
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={`product-${i}`} className="animate-pulse bg-white/60 dark:bg-white/10 rounded-2xl sm:rounded-3xl h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px]" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={`service-${i}`} className="animate-pulse bg-white/60 dark:bg-white/10 rounded-2xl h-[160px]" />
+          ))}
+        </div>
       </div>
     )
   }
-  if (!products.length) {
-    return <div className="text-center text-muted-foreground">No trending products found.</div>
+  if (!products.length && !services.length) {
+    return <div className="text-center text-muted-foreground">No trending items found.</div>
   }
   return (
     <>
-      {/* Responsive: triangle only on mobile, grid on sm+ */}
-      <div className="max-w-5xl mx-auto">
-        {/* Mobile: triangle layout */}
-        <div className="block sm:hidden">
-          <div className="grid grid-cols-2 gap-2">
-            {products.slice(0, 2).map((product: any) => (
-              <Card 
-                key={product.id} 
-                className="border-0 shadow-md overflow-hidden relative h-[280px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl active:scale-95 cursor-pointer"
-                onClick={() => {
-                  setSelectedProduct(product)
-                  setQuickViewOpen(true)
-                }}
-              >
-                {/* ...existing code for card content... */}
-                <div className="group absolute inset-0 overflow-hidden">
-                  <img 
-                    src={product.images?.[0] || "/placeholder.png"} 
-                    alt={product.title ? `Product: ${product.title}` : product.name ? `Product: ${product.name}` : "Product image"} 
-                    className={`absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${product.stock === 0 ? 'grayscale' : ''}`}
-                  />
-                  {/* ...existing code for overlays and badges... */}
-                  {/* Out of Stock Red Tape Overlay */}
-                  {product.stock === 0 && (
-                    <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
-                      <div className="bg-red-600 text-white px-4 py-1 transform -rotate-45 font-bold text-xs shadow-lg">
-                        OUT OF STOCK
-                      </div>
-                    </div>
-                  )}
-                  {/* Product Badges */}
-                  <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
-                    {product.featured && (
-                      <Badge className="bg-yellow-500 text-black font-semibold text-[10px] px-1.5 py-0.5">
-                        <svg className="inline w-3 h-3 text-yellow-400 fill-current animate-pulse mr-0.5" viewBox="0 0 24 24">
-                          <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
-                        </svg> 
-                        Featured
-                      </Badge>
-                    )}
-                    {(product.stock ?? 0) < 10 && (product.stock ?? 0) > 0 && (
-                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5">
-                        Only {product.stock} left
-                      </Badge>
-                    )}
-                    {product.stock === 0 && (
-                      <Badge variant="secondary" className="bg-gray-600 text-[10px] px-1.5 py-0.5">
-                        Out of Stock
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-                {/* Frosted Glass Bubble Content */}
-                <div className="absolute bottom-0 left-0 right-0 p-2 backdrop-blur-xl bg-accent/10 border-t border-white/30 rounded-t-2xl z-30 space-y-1 gap-1">
-                  <Badge
-                    variant="outline"
-                    className="inline-flex w-full text-[10px] font-semibold px-2 py-1 rounded-full border-white/40 shadow bg-accent text-white hover:opacity-90 transition min-h-[20px] items-center justify-center text-center leading-tight"
-                    style={{
-                      whiteSpace: 'normal',
-                      wordBreak: 'break-word',
-                      hyphens: 'auto',
-                      lineHeight: '1.2'
-                    }}
-                  >
-                    <span className="line-clamp-2">
-                      {product.title || product.name}
-                    </span>
-                  </Badge>
-                  <div className="flex items-center justify-between gap-1">
-                    <Badge variant="outline" className="text-[9px] backdrop-blur-sm border-white/50 px-1 py-0 text-white bg-accent">
-                      {product.storeName || product.vendorName || 'Store'}
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className="text-[9px] font-semibold px-2 py-1 rounded-full border-white/40 backdrop-blur-sm bg-white/70 text-accent"
-                    >
-                      ₦{product.price?.toLocaleString?.() || product.price}
-                    </Badge>
-                  </div>
-                  {/* Sizes Display */}
-                  {product.hasSizeOptions && product.sizes && product.sizes.length > 0 && (
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {product.sizes.slice(0, 5).map((size: string, idx: number) => (
-                        <Badge
-                          key={idx}
-                          variant="outline"
-                          className="text-[8px] px-1.5 py-0 border-white/40 bg-white/50 text-accent"
-                        >
-                          {size}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                  <Button 
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      addItem({
-                        productId: product.id,
-                        id: product.id,
-                        title: product.title || product.name || '',
-                        price: product.price,
-                        image: product.images?.[0] || '',
-                        maxStock: product.stock || 100,
-                        vendorId: product.vendorId,
-                        vendorName: product.storeName || product.vendorName || 'Unknown Vendor'
-                      })
-                      if (notification) {
-                        notification.success(
-                          'Product added to cart',
-                          product.title || product.name || 'Added to cart',
-                          3000
-                        )
-                      }
-                    }}
-                    disabled={product.stock === 0}
-                    className="w-full h-6 text-[10px] backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black"
-                  >
-                    <img src="/images/logo3.png" alt="Add to cart icon" className="w-6 h-6 -mt-1" />
-                    <span className="leading-none text-accent">Add to cart</span>
-                  </Button>
-                </div>
-              </Card>
-            ))}
+      <div className="space-y-8 sm:space-y-10">
+        <div>
+          <div className="mb-3 sm:mb-4">
+            <h3 className="text-base sm:text-lg md:text-xl font-bold text-neutral-900 dark:text-white">Top 5 Products</h3>
           </div>
-          {products[2] && (
-            <div className="flex justify-center mt-2">
-              <div className="w-1/2">
-                <Card 
-                  key={products[2].id} 
-                  className="border-0 shadow-md overflow-hidden relative h-[280px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl active:scale-95 cursor-pointer mx-auto"
-                  onClick={() => {
-                    setSelectedProduct(products[2])
-                    setQuickViewOpen(true)
-                  }}
-                >
-                  {/* ...existing code for card content... */}
-                  <div className="group absolute inset-0 overflow-hidden">
-                    <img 
-                      src={products[2].images?.[0] || "/placeholder.png"} 
-                      alt={products[2].title ? `Product: ${products[2].title}` : products[2].name ? `Product: ${products[2].name}` : "Product image"} 
-                      className={`absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${products[2].stock === 0 ? 'grayscale' : ''}`}
-                    />
-                    {/* ...existing code for overlays and badges... */}
-                    {/* Out of Stock Red Tape Overlay */}
-                    {products[2].stock === 0 && (
-                      <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
-                        <div className="bg-red-600 text-white px-4 md:px-8 py-1 md:py-2 transform -rotate-45 font-bold text-xs md:text-sm shadow-lg">
-                          OUT OF STOCK
-                        </div>
-                      </div>
-                    )}
-                    {/* Product Badges */}
-                    <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
-                      {products[2].featured && (
-                        <Badge className="bg-yellow-500 text-black font-semibold text-[10px] px-1.5 py-0.5">
-                          <svg className="inline w-3 h-3 text-yellow-400 fill-current animate-pulse mr-1" viewBox="0 0 24 24">
-                            <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
-                          </svg> 
-                          Featured
-                        </Badge>
-                      )}
-                      {(products[2].stock ?? 0) < 10 && (products[2].stock ?? 0) > 0 && (
-                        <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5">
-                          Only {products[2].stock} left
-                        </Badge>
-                      )}
-                      {products[2].stock === 0 && (
-                        <Badge variant="secondary" className="bg-gray-600 text-[10px] px-1.5 py-0.5">
-                          Out of Stock
-                        </Badge>
-                      )}
-                    </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4 md:gap-6">
+            {products.map((product: any) => (
+          <Card 
+            key={product.id} 
+            className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100 cursor-pointer"
+            onClick={() => {
+              setSelectedProduct(product)
+              setQuickViewOpen(true)
+            }}
+          >
+            <div className="group absolute inset-0 overflow-hidden">
+              {/* Full Card Image Background with Cycling Animation */}
+              <ImageCycler product={product} />
+              
+              {/* Out of Stock Red Tape Overlay */}
+              {product.stock === 0 && (
+                <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
+                  <div className="bg-red-600 text-white px-4 py-1 transform -rotate-45 font-bold text-xs shadow-lg">
+                    OUT OF STOCK
                   </div>
-                  {/* Frosted Glass Bubble Content */}
-                  <div className="absolute bottom-0 left-0 right-0 p-2 backdrop-blur-xl bg-accent/10 border-t border-white/30 rounded-t-2xl z-30 space-y-1 gap-1">
-                    <Badge
-                      variant="outline"
-                      className="inline-flex w-full text-[10px] font-semibold px-2 py-1 rounded-full border-white/40 shadow bg-accent text-white hover:opacity-90 transition min-h-[24px] items-center justify-center text-center leading-tight"
-                      style={{
-                        whiteSpace: 'normal',
-                        wordBreak: 'break-word',
-                        hyphens: 'auto',
-                        lineHeight: '1.2'
-                      }}
-                    >
-                      <span className="line-clamp-1">
-                        {products[2].title || products[2].name}
-                      </span>
-                    </Badge>
-                    <div className="flex items-center justify-between gap-1">
-                      <Badge variant="outline" className="text-[9px] backdrop-blur-sm border-white/50 px-1 py-0 text-white bg-accent">
-                        {products[2].storeName || products[2].vendorName || 'Store'}
-                      </Badge>
-                      <Badge
-                        variant="outline"
-                        className="text-[9px] font-semibold px-2.5 py-1 rounded-full border-white/40 backdrop-blur-sm bg-white/70 text-accent"
-                      >
-                        ₦{products[2].price?.toLocaleString?.() || products[2].price}
-                      </Badge>
-                    </div>
-                    {/* Sizes Display */}
-                    {products[2].hasSizeOptions && products[2].sizes && products[2].sizes.length > 0 && (
-                      <div className="flex items-center gap-1 flex-wrap">
-                        {products[2].sizes.slice(0, 5).map((size: string, idx: number) => (
-                          <Badge
-                            key={idx}
-                            variant="outline"
-                            className="text-[8px] px-1.5 py-0 border-white/40 bg-white/50 text-accent"
-                          >
-                            {size}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                    <Button 
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        addItem({
-                          productId: products[2].id,
-                          id: products[2].id,
-                          title: products[2].title || products[2].name || '',
-                          price: products[2].price,
-                          image: products[2].images?.[0] || '',
-                          maxStock: products[2].stock || 100,
-                          vendorId: products[2].vendorId,
-                          vendorName: products[2].storeName || products[2].vendorName || 'Unknown Vendor'
-                        })
-                        if (notification) {
-                          notification.success(
-                            'Product added to cart',
-                            products[2].title || products[2].name || 'Added to cart',
-                            3000
-                          )
-                        }
-                      }}
-                      disabled={products[2].stock === 0}
-                      className="w-full h-7 md:h-8 text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black"
-                    >
-                      <img src="/images/logo3.png" alt="Add to cart icon" className="w-7 md:w-8 h-7 md:h-8 -mt-2" />
-                      <span className="leading-none hidden sm:inline">Add</span>
-                    </Button>
-                  </div>
-                </Card>
+                </div>
+              )}
+              {/* Product Badges */}
+              <div className="absolute top-2 sm:top-3 left-2 sm:left-3 flex flex-col gap-1 z-10">
+                {product.featured && (
+                  <Badge className="bg-yellow-500 text-black font-semibold text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
+                    <svg className="inline w-3 h-3 sm:w-4 sm:h-4 text-yellow-400 fill-current animate-pulse mr-0.5 sm:mr-1" viewBox="0 0 24 24">
+                      <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
+                    </svg> 
+                    Featured
+                  </Badge>
+                )}
+                {(product.stock ?? 0) < 10 && (product.stock ?? 0) > 0 && (
+                  <Badge variant="destructive" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
+                    Only {product.stock} left
+                  </Badge>
+                )}
+                {product.stock === 0 && (
+                  <Badge variant="secondary" className="bg-gray-600 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
+                    Out of Stock
+                  </Badge>
+                )}
               </div>
             </div>
-          )}
-        </div>
-        {/* Desktop/tablet: normal grid */}
-        <div className="hidden sm:grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-          {products.map((product: any) => (
-            <Card 
-              key={product.id} 
-              className="border-0 shadow-md overflow-hidden relative h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100 cursor-pointer"
-              onClick={() => {
-                setSelectedProduct(product)
-                setQuickViewOpen(true)
-              }}
-            >
-              {/* ...existing code for card content... */}
-              <div className="group absolute inset-0 overflow-hidden">
-                <img 
-                  src={product.images?.[0] || "/placeholder.png"} 
-                  alt={product.title ? `Product: ${product.title}` : product.name ? `Product: ${product.name}` : "Product image"} 
-                  className={`absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${product.stock === 0 ? 'grayscale' : ''}`}
-                />
-                {/* ...existing code for overlays and badges... */}
-                {/* Out of Stock Red Tape Overlay */}
-                {product.stock === 0 && (
-                  <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
-                    <div className="bg-red-600 text-white px-4 md:px-8 py-1 md:py-2 transform -rotate-45 font-bold text-xs md:text-sm shadow-lg">
-                      OUT OF STOCK
-                    </div>
-                  </div>
-                )}
-                {/* Product Badges */}
-                <div className="absolute top-3 left-3 flex flex-col gap-1 z-10">
-                  {product.featured && (
-                    <Badge className="bg-yellow-500 text-black font-semibold text-xs px-2 py-0.5">
-                      <svg className="inline w-4 h-4 text-yellow-400 fill-current animate-pulse mr-1" viewBox="0 0 24 24">
-                        <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
-                      </svg> 
-                      Featured
-                    </Badge>
-                  )}
-                  {(product.stock ?? 0) < 10 && (product.stock ?? 0) > 0 && (
-                    <Badge variant="destructive" className="text-xs px-2 py-0.5">
-                      Only {product.stock} left
-                    </Badge>
-                  )}
-                  {product.stock === 0 && (
-                    <Badge variant="secondary" className="bg-gray-600 text-xs px-2 py-0.5">
-                      Out of Stock
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              {/* Frosted Glass Bubble Content */}
-              <div className="absolute bottom-0 left-0 right-0 p-2 md:p-3 backdrop-blur-xl bg-accent/10 border-t border-white/30 rounded-t-2xl sm:rounded-t-3xl z-30 space-y-1 gap-1 md:gap-2">
+            {/* Frosted Glass Bubble Content */}
+            <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-2.5 md:p-3 backdrop-blur-xl bg-accent/10 border-t border-white/30 rounded-t-2xl sm:rounded-t-3xl z-30 space-y-1 gap-1 sm:gap-2">
+              <Badge
+                variant="outline"
+                className="inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow bg-accent text-white hover:opacity-90 transition min-h-[20px] sm:min-h-[24px] items-center justify-center text-center leading-tight"
+                style={{
+                  whiteSpace: 'normal',
+                  wordBreak: 'break-word',
+                  hyphens: 'auto',
+                  lineHeight: '1.2'
+                }}
+              >
+                <span className="line-clamp-2 sm:line-clamp-1">
+                  {product.title || product.name}
+                </span>
+              </Badge>
+              <div className="flex items-center justify-between gap-1 sm:gap-2">
+                <Badge variant="outline" className="text-[9px] sm:text-[10px] md:text-xs backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 text-white bg-accent">
+                  {product.storeName || product.vendorName || 'Store'}
+                </Badge>
                 <Badge
                   variant="outline"
-                  className="inline-flex w-full text-xs md:text-sm font-semibold px-2 md:px-2.5 py-1 rounded-full border-white/40 shadow bg-accent text-white hover:opacity-90 transition min-h-[24px] items-center justify-center text-center leading-tight"
-                  style={{
-                    whiteSpace: 'normal',
-                    wordBreak: 'break-word',
-                    hyphens: 'auto',
-                    lineHeight: '1.2'
-                  }}
+                  className="text-[9px] sm:text-[10px] md:text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 backdrop-blur-sm bg-white/70 text-accent"
                 >
-                  <span className="line-clamp-1">
-                    {product.title || product.name}
-                  </span>
+                  ₦{product.price?.toLocaleString?.() || product.price}
                 </Badge>
-                <div className="flex items-center justify-between gap-2">
-                  <Badge variant="outline" className="text-xs backdrop-blur-sm border-white/50 px-1.5 py-0 text-white bg-accent">
-                    {product.storeName || product.vendorName || 'Store'}
-                  </Badge>
-                  <Badge
-                    variant="outline"
-                    className="text-xs font-semibold px-2.5 py-1 rounded-full border-white/40 backdrop-blur-sm bg-white/70 text-accent"
-                  >
-                    ₦{product.price?.toLocaleString?.() || product.price}
-                  </Badge>
-                </div>
-                {/* Sizes Display */}
-                {product.hasSizeOptions && product.sizes && product.sizes.length > 0 && (
-                  <div className="flex items-center gap-1 flex-wrap">
-                    {product.sizes.slice(0, 5).map((size: string, idx: number) => (
-                      <Badge
-                        key={idx}
-                        variant="outline"
-                        className="text-[10px] px-1.5 py-0 border-white/40 bg-white/50 text-accent"
-                      >
-                        {size}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-                <Button 
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    addItem({
-                      productId: product.id,
-                      id: product.id,
-                      title: product.title || product.name || '',
-                      price: product.price,
-                      image: product.images?.[0] || '',
-                      maxStock: product.stock || 100,
-                      vendorId: product.vendorId,
-                      vendorName: product.storeName || product.vendorName || 'Unknown Vendor'
-                    })
-                  }}
-                  disabled={product.stock === 0}
-                  className="w-full h-7 md:h-8 text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black"
-                >
-                  <img src="/images/logo3.png" alt="Add to cart icon" className="w-7 md:w-8 h-7 md:h-8 -mt-2" />
-                  <span className="leading-none hidden sm:inline">Add</span>
-                </Button>
               </div>
-            </Card>
-          ))}
+              {/* Sizes Display */}
+              {product.hasSizeOptions && product.sizes && product.sizes.length > 0 && (
+                <div className="flex items-center gap-1 flex-wrap">
+                  {product.sizes.slice(0, 5).map((size: string, idx: number) => (
+                    <Badge
+                      key={idx}
+                      variant="outline"
+                      className="text-[8px] sm:text-[9px] md:text-[10px] px-1 sm:px-1.5 py-0 border-white/40 bg-white/50 text-accent"
+                    >
+                      {size}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              <Button 
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  addItem({
+                    productId: product.id,
+                    id: product.id,
+                    title: product.title || product.name || '',
+                    price: product.price,
+                    image: product.images?.[0] || '',
+                    maxStock: product.stock || 100,
+                    vendorId: product.vendorId,
+                    vendorName: product.storeName || product.vendorName || 'Unknown Vendor'
+                  })
+                  if (notification) {
+                    notification.success(
+                      'Product added to cart',
+                      product.title || product.name || 'Added to cart',
+                      3000
+                    )
+                  }
+                }}
+                disabled={product.stock === 0}
+                className="w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black"
+              >
+                <img src="/images/logo3.png" alt="Add to cart icon" className="w-6 sm:w-7 md:w-8 h-6 sm:h-7 md:h-8 -mt-1 sm:-mt-2" />
+                <span className="leading-none text-accent">Add to cart</span>
+              </Button>
+            </div>
+          </Card>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-3 sm:mb-4">
+            <h3 className="text-base sm:text-lg md:text-xl font-bold text-neutral-900 dark:text-white">Top 5 Services Booked</h3>
+          </div>
+          {services.length ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
+              {services.map((service: any) => {
+                const serviceName = service.title || service.name || service.serviceTitle || 'Service'
+                const serviceId = service.id || service._id
+
+                return (
+                <Card
+                  key={serviceId || serviceName}
+                  className="h-full p-0 gap-0 hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02] transition-all duration-300 group overflow-hidden border-none rounded-[2.25rem] relative"
+                  style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}
+                >
+                  <div className="aspect-[9/16] relative overflow-hidden rounded-[2.25rem]">
+                    {service.images && service.images.length > 0 ? (
+                      <img
+                        src={service.images[0]}
+                        alt={serviceName}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full bg-linear-to-br from-accent/90 via-orange-500/90 to-red-600/90">
+                        <svg className="h-12 w-12 sm:h-20 sm:w-20 text-white drop-shadow-lg animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                      </div>
+                    )}
+
+                    <div className="absolute inset-0 bg-linear-to-b rounded-[2.25rem] from-black/20 via-transparent via-50% to-black/90" />
+
+                    <div className="absolute top-3 sm:top-4 left-1/2 -translate-x-1/2 z-20">
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-white/20 backdrop-blur-md border-3 sm:border-4 border-white overflow-hidden shadow-2xl ring-3 sm:ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110">
+                        <div className="w-full h-full flex items-center justify-center">
+                          {getCategoryIcon(service.category || '')}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-[2.25rem] border-t border-white/10 p-2 sm:p-4">
+                      <div className="flex items-start justify-between gap-2 sm:gap-3 mb-1 sm:mb-2">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-xs sm:text-lg md:text-xl font-bold tracking-tight mb-0.5 sm:mb-1 text-white drop-shadow-lg truncate">
+                            {serviceName}
+                          </h3>
+                          {(service.providerName || service.vendorName) && (
+                            <div className="flex items-center gap-0.5 text-[7px] sm:text-xs font-medium text-white/90 tracking-wide mb-1 sm:mb-2">
+                              <Verified className="h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0" />
+                              <span className="truncate">{service.providerName || service.vendorName}</span>
+                            </div>
+                          )}
+
+                          <Badge variant="outline" className="w-fit text-[7px] sm:text-[10px] font-semibold py-0.5 px-1.5 sm:px-2 h-4 sm:h-5 tracking-wide border-2 border-white/40 bg-white/10 text-white backdrop-blur-sm">
+                            {service.category || 'Service'}
+                          </Badge>
+                        </div>
+
+                        <div
+                          onClick={() => {
+                            if (!serviceId) return
+                            window.dispatchEvent(new CustomEvent('slideOutNavigate', { detail: { target: `/service/${serviceId}` } }))
+                          }}
+                          className="shrink-0 w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-xl hover:scale-110 hover:bg-accent hover:text-white transition-all cursor-pointer group/arrow"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent group-hover/arrow:text-white">
+                            <path d="M5 12h14"/>
+                            <path d="m12 5 7 7-7 7"/>
+                          </svg>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 text-[11px] font-medium text-white/80 tracking-wide">
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          <span>{service.duration || 'Flexible'}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Banknote className="h-3 w-3" />
+                          <span>{formatCurrency(Number(service.price || 0))}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No service booking data available yet.</p>
+          )}
         </div>
       </div>
       <ProductQuickView
@@ -548,11 +548,11 @@ function HeroButtons() {
           className="inline-block px-8 py-3 text-lg font-semibold rounded-full shadow-2xl border-2 border-accent text-accent bg-white hover:bg-accent/10 transition-all duration-300 flex items-center gap-2 group overflow-hidden relative"
           onClick={e => {
             e.preventDefault();
-            window.dispatchEvent(new CustomEvent('slideOutNavigate', { detail: { target: '/services' } }));
+            window.dispatchEvent(new CustomEvent('slideOutNavigate', { detail: { target: '/signup?type=vendor' } }));
           }}
           style={{ minWidth: 200 }}
         >
-          Browse Services
+          Become a Seller
           <span
             className={
               "inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none animate-bounce-x relative"
@@ -648,11 +648,11 @@ export default function HomePage() {
             </div>
           )}
           {/* HERO SECTION */}
-          <section className="relative min-h-screen flex items-center justify-center pt-0">
-            <div className="container mx-auto px-4 sm:px-8">
-              <div className="flex flex-col-reverse items-center justify-center text-center gap-4 sm:gap-6 md:flex-row md:text-left md:items-stretch md:gap-0">
+          <section className="relative min-h-screen flex items-center justify-center pt-0 overflow-hidden">
+            <div className="container mx-auto px-4 sm:px-8 max-w-[1600px]">
+              <div className="flex flex-col-reverse items-center justify-center text-center gap-1 sm:gap-4 md:flex-row md:text-left md:items-center md:gap-0">
                 {/* Left: Texts */}
-                <div className="flex-1 flex flex-col justify-center md:justify-center md:items-start md:text-left gap-4 sm:gap-6 md:pr-8 lg:pr-16">
+                <div className="w-full md:w-[40%] flex flex-col justify-center md:justify-center md:items-start md:text-left gap-4 sm:gap-6 -mt-4 sm:-mt-2 md:mt-0">
                   <span className="text-accent font-bold text-lg sm:text-xl tracking-wide">
                     WHERE EVERYTHING SELLS!
                   </span>
@@ -691,89 +691,140 @@ export default function HomePage() {
                   <HeroButtons />
                 </div>
                 {/* Right: Image */}
-                <div className="flex-1 flex items-center justify-center md:justify-end md:items-center">
+                <div className="w-full md:w-[60%] flex items-center justify-center md:justify-start md:items-center">
                   <img
-                    src="/hp.png"
+                    src="/MISHG.png"
                     alt="MakeItSell Logo"
-                    className="h-80 w-80 sm:h-96 sm:w-96 md:h-[420px] md:w-[420px] lg:h-[520px] lg:w-[520px] xl:h-[600px] xl:w-[600px] rounded-xl p-2 object-cover"
-                    style={{ maxWidth: '100%', height: 'auto' }}
+                    className="w-[82vw] h-[86vw] sm:w-[76vw] sm:h-[80vw] md:w-[108%] md:h-auto lg:w-[112%] xl:w-[115%] md:max-w-none rounded-xl object-contain md:p-0 p-1 md:-ml-8 lg:-ml-12 xl:-ml-14"
                   />
-                </div>
+                </div> 
               </div>
             </div>
           </section>
+          {/* CATEGORY SECTION */}
+          <section className="py-8 sm:py-12 bg-gray-50 dark:bg-gray-900/30"> 
+            <div className="container mx-auto px-4 sm:px-8"> 
+              <div className="text-center mb-8 sm:mb-10"> 
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-2">Browse by Category</h2>
+                <p className="text-muted-foreground text-sm sm:text-base">Explore top categories of products and services</p>
+              </div>
+              
+              {/* Products Row */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-5 md:gap-6 mb-4 sm:mb-5 md:mb-6 max-w-6xl mx-auto">
+                <a href="/category/electronics" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                  <Smartphone className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-semibold text-neutral-900 dark:text-white text-sm sm:text-base mb-1">Electronics</h3>
+                  <p className="text-xs text-muted-foreground">Phones, laptops, gadgets & more</p>
+                </a>
+                
+                <a href="/category/fashion" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                  <ShoppingBag className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-semibold text-neutral-900 dark:text-white text-sm sm:text-base mb-1">Fashion</h3>
+                  <p className="text-xs text-muted-foreground">Clothing, shoes & accessories</p>
+                </a>
+                
+                <a href="/category/health-beauty" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                  <Beauty className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-semibold text-neutral-900 dark:text-white text-sm sm:text-base mb-1">Health & Beauty</h3>
+                  <p className="text-xs text-muted-foreground">Personal care & wellness products</p>
+                </a>
+                
+                <a href="/category/home-garden" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                  <HomeIcon className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-semibold text-neutral-900 dark:text-white text-sm sm:text-base mb-1">Home Services</h3>
+                  <p className="text-xs text-muted-foreground">Professional home improvement</p>
+                </a>
+              </div>
+              
+              {/* Services Row */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-5 md:gap-6 max-w-6xl mx-auto">
+                <a href="/services?category=repairs" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                  <Settings className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-semibold text-neutral-900 dark:text-white text-sm sm:text-base mb-1">Repairs</h3>
+                  <p className="text-xs text-muted-foreground">Expert repair & maintenance</p>
+                </a>
+                
+                <a href="/services?category=automotive" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                  <CarFront className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-semibold text-neutral-900 dark:text-white text-sm sm:text-base mb-1">Automotive</h3>
+                  <p className="text-xs text-muted-foreground">Car services & maintenance</p>
+                </a>
+                
+                <a href="/services?category=freelancers" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                  <UserCheck className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-semibold text-neutral-900 dark:text-white text-sm sm:text-base mb-1">Freelancers</h3>
+                  <p className="text-xs text-muted-foreground">Professional freelance services</p>
+                </a>
+                
+                <a href="/services?category=food" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                  <Coffee className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
+                  <h3 className="font-semibold text-neutral-900 dark:text-white text-sm sm:text-base mb-1">Food & Drinks</h3>
+                  <p className="text-xs text-muted-foreground">Restaurants & catering services</p>
+                </a>
+              </div>
+              
+              <div className="text-center mt-8 sm:mt-10">
+                <Link href="/categories">
+                  <Button className="group bg-accent border-2 border-transparent hover:bg-transparent hover:border-accent hover:text-accent text-white px-6 py-3 rounded-lg transition-all duration-300 hover:scale-105">
+                    View All Categories
+                    <ArrowRight className="ml-2 h-4 w-4 inline group-hover:translate-x-1 transition-transform duration-300" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </section>
+
           {/* FEATURES SECTION */}
           <section className="py-10 sm:py-14">
-            <div className="container mx-auto px-2 sm:px-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 max-w-5xl mx-auto">
-                <div className="feature-card-loop flex flex-col items-center text-center p-6 rounded-xl bg-white/60 dark:bg-white/10 shadow border border-white/10" style={{ animationDelay: '0ms' }}>
-                  <Shield className="h-8 w-8 text-accent mb-2" />
-                  <h3 className="font-semibold text-neutral-900 dark:text-white mb-1">Secure Payment</h3>
-                  <p className="text-neutral-700 dark:text-gray-300 text-xs">Protected transactions</p>
+            <div className="container mx-auto px-4 sm:px-8">
+              <div className="text-center mb-8 sm:mb-10">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-2">Why Choose Make It Sell?</h2>
+                <p className="text-muted-foreground text-sm sm:text-base">Explore top categories of products and services</p>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-5 md:gap-6 max-w-6xl mx-auto">
+                <div className="feature-card-loop flex flex-col items-center text-center p-5 sm:p-6 rounded-xl bg-white dark:bg-white/10 shadow-md border border-gray-200 dark:border-white/20" style={{ animationDelay: '0ms' }}>
+                  <Shield className="h-12 w-12 sm:h-14 sm:w-14 text-accent mb-3" />
+                  <h3 className="font-semibold text-neutral-900 dark:text-white mb-2 text-sm sm:text-base">Secure Payments</h3>
+                  <p className="text-neutral-600 dark:text-gray-400 text-xs sm:text-sm">Your money is safe with us</p>
                 </div>
-                <div className="feature-card-loop flex flex-col items-center text-center p-6 rounded-xl bg-white/60 dark:bg-white/10 shadow border border-white/10" style={{ animationDelay: '200ms' }}>
-                  <Users className="h-8 w-8 text-accent mb-2" />
-                  <h3 className="font-semibold text-neutral-900 dark:text-white mb-1">Trusted Vendors</h3>
-                  <p className="text-neutral-700 dark:text-gray-300 text-xs">Verified sellers nationwide</p>
+                
+                <div className="feature-card-loop flex flex-col items-center text-center p-5 sm:p-6 rounded-xl bg-white dark:bg-white/10 shadow-md border border-gray-200 dark:border-white/20" style={{ animationDelay: '200ms' }}>
+                  <Users className="h-12 w-12 sm:h-14 sm:w-14 text-accent mb-3" />
+                  <h3 className="font-semibold text-neutral-900 dark:text-white mb-2 text-sm sm:text-base">Verified Sellers</h3>
+                  <p className="text-neutral-600 dark:text-gray-400 text-xs sm:text-sm">All vendors are thoroughly verified</p>
                 </div>
-                <div className="feature-card-loop flex flex-col items-center text-center p-6 rounded-xl bg-white/60 dark:bg-white/10 shadow border border-white/10" style={{ animationDelay: '400ms' }}>
-                  <Truck className="h-8 w-8 text-accent mb-2" />
-                  <h3 className="font-semibold text-neutral-900 dark:text-white mb-1">Fast Delivery</h3>
-                  <p className="text-neutral-700 dark:text-gray-300 text-xs">Nationwide shipping</p>
+                
+                <div className="feature-card-loop flex flex-col items-center text-center p-5 sm:p-6 rounded-xl bg-white dark:bg-white/10 shadow-md border border-gray-200 dark:border-white/20" style={{ animationDelay: '400ms' }}>
+                  <Shield className="h-12 w-12 sm:h-14 sm:w-14 text-accent mb-3" />
+                  <h3 className="font-semibold text-neutral-900 dark:text-white mb-2 text-sm sm:text-base">Buyer Protection</h3>
+                  <p className="text-neutral-600 dark:text-gray-400 text-xs sm:text-sm">Refund guarantee of undelivered orders</p>
                 </div>
-                <div className="feature-card-loop flex flex-col items-center text-center p-6 rounded-xl bg-white/60 dark:bg-white/10 shadow border border-white/10" style={{ animationDelay: '600ms' }}>
-                  <Sparkles className="h-8 w-8 text-accent mb-2" />
-                  <h3 className="font-semibold text-neutral-900 dark:text-white mb-1">24/7 Support</h3>
-                  <p className="text-neutral-700 dark:text-gray-300 text-xs">Intelligent customer assistance</p>
+                
+                <div className="feature-card-loop flex flex-col items-center text-center p-5 sm:p-6 rounded-xl bg-white dark:bg-white/10 shadow-md border border-gray-200 dark:border-white/20" style={{ animationDelay: '600ms' }}>
+                  <Truck className="h-12 w-12 sm:h-14 sm:w-14 text-accent mb-3" />
+                  <h3 className="font-semibold text-neutral-900 dark:text-white mb-2 text-sm sm:text-base">Nationwide Delivery</h3>
+                  <p className="text-neutral-600 dark:text-gray-400 text-xs sm:text-sm">Fast and reliable shipping</p>
                 </div>
+              </div>
+              
+              <div className="text-center mt-8 sm:mt-10">
+                <Link href="/stores">
+                  <Button className="bg-accent border-2 border-transparent hover:bg-transparent hover:border-accent hover:text-accent text-white px-8 py-3 rounded-lg transition-all duration-300 hover:scale-105 shadow-md">
+                    View All Products
+                    <ArrowRight className="ml-2 h-4 w-4 inline" />
+                  </Button>
+                </Link>
               </div>
             </div>
           </section>
-           {/* CATEGORY SECTION */} <section className="py-8 sm:py-12"> 
-            <div className="container mx-auto px-2 sm:px-4"> 
-              <div className="text-center mb-6 sm:mb-8 animate-fade-in"> 
-                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-balance text-accent">Shop by Category</h2>
-                 <p className="text-muted-foreground mt-1 sm:mt-2 text-xs sm:text-sm">Find exactly what you're looking for</p>
-                  </div>
-                   <div className="relative overflow-hidden py-4">
-                     <div className="flex gap-4 animate-scroll-x overflow-x-auto scrollbar-hide cursor-grab active:cursor-grabbing select-none scroll-smooth" 
-                     style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch', width: 'calc(200% + 1rem)' }} onTouchStart={(e) => { const container = e.currentTarget; container.style.animationPlayState = 'paused'; container.dataset.isInteracting = 'true'; }} 
-                     onTouchEnd={(e) => { const container = e.currentTarget; container.dataset.isInteracting = 'false'; setTimeout(() => { if (container.dataset.isInteracting === 'false') { container.style.animationPlayState = 'running'; } }, 2000); }} 
-                     onScroll={(e) => { const container = e.currentTarget; container.style.animationPlayState = 'paused'; clearTimeout(parseInt(container.dataset.scrollTimeout || '0')); 
-                      container.dataset.scrollTimeout = setTimeout(() => { if (container.dataset.isInteracting !== 'true') { container.style.animationPlayState = 'running'; } }, 3000).toString(); }} 
-                      onMouseDown={(e) => { const container = e.currentTarget; container.style.animationPlayState = 'paused'; container.dataset.isDown = 'true'; container.dataset.startX = (e.pageX - container.offsetLeft).toString();
-                         container.dataset.scrollLeft = container.scrollLeft.toString(); container.dataset.isInteracting = 'true'; }} onMouseMove={(e) => { const container = e.currentTarget; if (container.dataset.isDown !== 'true') return; e.preventDefault(); const x = e.pageX - container.offsetLeft; 
-                          const startX = parseFloat(container.dataset.startX || '0'); const walk = (x - startX) * 2; container.scrollLeft = parseFloat(container.dataset.scrollLeft || '0') - walk; }} onMouseUp={(e) => { const container = e.currentTarget; container.dataset.isDown = 'false'; container.dataset.isInteracting = 'false'; setTimeout(() => { 
-                            if (container.dataset.isInteracting === 'false') { container.style.animationPlayState = 'running'; } }, 2000); }} onMouseLeave={(e) => { const container = e.currentTarget; container.dataset.isDown = 'false'; container.dataset.isInteracting = 'false'; setTimeout(() => { 
-                              if (container.dataset.isInteracting === 'false') { container.style.animationPlayState = 'running'; } }, 2000); }} > <a href="/category/electronics" 
-                              className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0"
-                               style={{scrollSnapAlign: 'start'}}> <Shield className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> 
-                               <span className="font-medium text-neutral-900 dark:text-white text-sm">Electronics</span> </a> <a href="/category/fashion" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" 
-                               style={{scrollSnapAlign: 'start'}}> 
-                               <Users className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Fashion</span> </a> <a href="/category/home-garden" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" 
-                               style={{scrollSnapAlign: 'start'}}> <Truck className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Home & Garden</span> </a> <a href="/category/sports-outdoors" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" 
-                               style={{scrollSnapAlign: 'start'}}> <Sparkles className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Sports & Outdoors</span> </a> <a href="/category/books" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Shield className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Books</span> </a> <a href="/category/toys-games" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" 
-                               style={{scrollSnapAlign: 'start'}}> <Users className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Toys & Games</span> </a> <a href="/category/health-beauty" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Truck className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Health & Beauty</span> </a> <a href="/category/automotive" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" 
-                               style={{scrollSnapAlign: 'start'}}> <Sparkles className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Automotive</span> </a> <a href="/category/tools" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Shield className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Tools</span> </a> <a href="/category/food-beverages" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Users className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Food & Beverages</span> </a> {/* Duplicate set for infinite scroll */} <a href="/category/electronics" 
-                                className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" 
-                                style={{scrollSnapAlign: 'start'}}> <Shield className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Electronics</span> </a> <a href="/category/fashion" 
-                                className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" 
-                                style={{scrollSnapAlign: 'start'}}> <Users className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Fashion</span> </a> <a href="/category/home-garden" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Truck className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Home & Garden</span> </a> <a href="/category/sports-outdoors" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Sparkles className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Sports & Outdoors</span> </a>
-                                 <a href="/category/books" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Shield className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Books</span> </a> <a href="/category/toys-games" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Users className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Toys & Games</span> </a> <a href="/category/health-beauty" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Truck className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> 
-                                 <span className="font-medium text-neutral-900 dark:text-white text-sm">Health & Beauty</span> </a> <a href="/category/automotive" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Sparkles className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Automotive</span> </a> <a href="/category/tools" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Shield className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Tools</span> </a> <a href="/category/food-beverages" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0" style={{scrollSnapAlign: 'start'}}> <Users 
-                                 className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Food & Beverages</span> </a> <a href="/category/toys" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0"> <Sparkles className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Toys</span> </a> <a href="/category/music" className="group hover:shadow-2xl hover:shadow-accent/30 shadow-xl shadow-accent/20 hover:-translate-y-2 transition-all duration-300 hover:scale-105 animate-scale-in hover-lift bg-white/80 dark:bg-white/10 rounded-xl p-6 flex flex-col items-center text-center border border-white/20 backdrop-blur-sm min-w-36 h-28 flex-shrink-0"> <Truck className="h-6 w-6 text-accent mb-2 group-hover:scale-110 transition-transform duration-300" /> <span className="font-medium text-neutral-900 dark:text-white text-sm">Music</span> </a> </div> </div> <div className="text-center mt-6 sm:mt-8"> <Link href="/categories"> <Button className="group bg-gradient-to-r from-accent to-accent/80 hover:from-accent/90 hover:to-accent/70 text-white px-6 py-3 rounded-lg transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl"> View All Categories <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" /> 
-                                 </Button>
-                                  </Link>
-                                   </div>
-                                    </div>
-                                     </section>
     
           {/* TRENDING PRODUCTS SECTION */}
           <section className="py-10 sm:py-14">
-            <div className="container mx-auto px-2 sm:px-4">
+            <div className="w-full px-2 sm:px-4">
               <div className="text-center mb-6 sm:mb-8 animate-fade-in">
                 <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-balance text-accent">Trending Now</h2>
-                <p className="text-muted-foreground mt-1 sm:mt-2 text-xs sm:text-sm">Our highest sold products, loved by customers</p>
+                <p className="text-muted-foreground mt-1 sm:mt-2 text-xs sm:text-sm">Top products and most-booked services loved by customers</p>
               </div>
               <TrendingProducts />
             </div>
@@ -781,6 +832,9 @@ export default function HomePage() {
         </main>
       </div>
       <style jsx global>{`
+        button, .cursor-pointer, a[role="button"] {
+          cursor: pointer !important;
+        }
         .main-slide-anim {
           transition: transform 0.6s cubic-bezier(.7,1.7,.7,1), opacity 0.6s;
         }
@@ -812,9 +866,7 @@ export default function HomePage() {
         }
         .animated-gradient-bg {
           position: relative;
-          background: linear-gradient(120deg, var(--accent) 0%, #fff 50%, var(--accent) 100%);
-          background-size: 200% 200%;
-          animation: gradientWave 12s ease-in-out infinite;
+          background: #fff;
         }
         .dark .animated-gradient-bg {
           background: linear-gradient(120deg, #000 0%, #1a2236 60%, #000 100%);

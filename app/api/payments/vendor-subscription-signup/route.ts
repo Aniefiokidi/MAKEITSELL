@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       // Initialize subscription payment - this will automatically create a subscription after successful payment
       const paymentResult = await paystackService.initializeSubscriptionPayment({
       email: email,
-      amount: 2500, // ₦2,500
+      amount: 2000, // ₦2,000
       orderId: signupId,
         customerId: signupId,
         planCode: planCode, // Link to subscription plan
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
         productId: 'vendor-subscription-signup',
         title: 'Vendor Account Setup + Monthly Subscription',
         quantity: 1,
-        price: 2500,
+        price: 2000,
         vendorId: 'makeitsell',
         vendorName: 'Make It Sell'
       }]

@@ -33,10 +33,10 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     
-    // Default vendor subscription plan: ₦2,500/month
+    // Default vendor subscription plan: ₦2,000/month
     const planData = {
       name: body.name || 'Vendor Monthly Subscription',
-      amount: body.amount || 2500, // ₦2,500
+      amount: body.amount || 2000, // ₦2,000
       interval: 'monthly' as const,
       description: body.description || 'Monthly subscription for vendors on Make It Sell marketplace'
     }
