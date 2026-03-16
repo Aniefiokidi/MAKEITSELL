@@ -79,8 +79,8 @@ export default function LoginForm() {
         } else if (result.userProfile?.role === "admin") {
           router.push("/admin/dashboard")
         } else {
-          // Customers go to shop page
-          router.push("/stores")
+          // Customers go to home page
+          router.push("/")
         }
       }
     } catch (error: any) {

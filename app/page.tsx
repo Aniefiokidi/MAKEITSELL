@@ -20,6 +20,7 @@ import { ProductQuickView } from "@/components/ui/product-quick-view"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
+import { useAuth } from "@/contexts/AuthContext"
 import { useCart } from "@/contexts/CartContext"
 import { useNotification } from "@/contexts/NotificationContext"
 import { useSearchParams } from "next/navigation"
@@ -519,7 +520,7 @@ function TrendingProducts() {
 }
 
 // Move HeroButtons here, above HomePage
-function HeroButtons() {
+function HeroButtons({ isLoggedIn }: { isLoggedIn: boolean }) {
   // Instead of local state, dispatch a custom event to parent
   return (
     <>
@@ -532,7 +533,7 @@ function HeroButtons() {
           }}
           style={{ minWidth: 200 }}
         >
-          Start Shopping
+          {isLoggedIn ? 'Check out Stores' : 'Start Shopping'}
           <span
             className={
               "inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none animate-bounce-x relative"
@@ -548,11 +549,11 @@ function HeroButtons() {
           className="inline-block px-8 py-3 text-lg font-semibold rounded-full shadow-2xl border-2 border-accent text-accent bg-white hover:bg-accent/10 transition-all duration-300 flex items-center gap-2 group overflow-hidden relative"
           onClick={e => {
             e.preventDefault();
-            window.dispatchEvent(new CustomEvent('slideOutNavigate', { detail: { target: '/signup?type=vendor' } }));
+            window.dispatchEvent(new CustomEvent('slideOutNavigate', { detail: { target: isLoggedIn ? '/services' : '/signup?type=vendor' } }));
           }}
           style={{ minWidth: 200 }}
         >
-          Become a Seller
+          {isLoggedIn ? 'Check out Services' : 'Become a Seller'}
           <span
             className={
               "inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none animate-bounce-x relative"
@@ -579,6 +580,7 @@ function HeroButtons() {
 }
 
 export default function HomePage() {
+  const { user } = useAuth()
   const [searchValue, setSearchValue] = useState("");
   const router = useRouter();
   const searchParams = useSearchParams()
@@ -688,7 +690,7 @@ export default function HomePage() {
                       Search
                     </button>
                   </form>
-                  <HeroButtons />
+                  <HeroButtons isLoggedIn={!!user} />
                 </div>
                 {/* Right: Image */}
                 <div className="w-full md:w-[60%] flex items-center justify-center md:justify-start md:items-center">

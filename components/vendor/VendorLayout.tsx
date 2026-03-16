@@ -26,6 +26,7 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
   const routes = useRouter()
+  const isVendorDashboard = pathname === "/vendor/dashboard"
 
   const navigation = [
     { name: "Overview", href: "/vendor/dashboard", icon: LayoutDashboard },
@@ -101,6 +102,17 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
           <div className="flex-1" />
 
           <div className="flex items-center gap-2">
+            {isVendorDashboard && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="sm:hidden"
+                onClick={() => routes.push('/stores')}
+              >
+                <Store className="mr-1 h-4 w-4" />
+                Home
+              </Button>
+            )}
             <Button asChild variant="outline" size="sm" className="hover:bg-accent hover:scale-105 transition-all hover:shadow-lg">
               <Link href="/vendor/products/new">
                 <Plus className="h-4 w-4 lg:mr-2" />

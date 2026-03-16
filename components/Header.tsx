@@ -507,10 +507,11 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
   return (
     <header
       className={
-        `sticky top-0 z-50 w-full pt-1.5 ${homeBg
+        `sticky top-0 z-50 w-full pt-1.5 pb-2 ${homeBg
           ? 'bg-white/45 dark:bg-black/35 supports-[backdrop-filter]:bg-white/30 dark:supports-[backdrop-filter]:bg-black/25 backdrop-blur-xl border-b border-white/40 dark:border-white/10' 
           : 'bg-white/95 dark:bg-background dark:text-foreground backdrop-blur-md'}
         `
+        
       }
     >
       <div className="w-full px-2 sm:px-4 lg:px-10">

@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getServices, Service } from "@/lib/database-client"
-import { Search, MapPin, Clock, Banknote, Verified, RefreshCw, Camera, Briefcase, Wrench, Palette, Dumbbell, GraduationCap, Scissors, Sparkles, Laptop, Settings } from "lucide-react"
+import { Search, MapPin, Clock, Banknote, Verified, RefreshCw, Camera, Briefcase, Wrench, Palette, Dumbbell, GraduationCap, Scissors, Sparkles, Laptop, Settings, Store, ArrowRight } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import Image from "next/image"
 
@@ -58,12 +58,21 @@ export default function ServicesPage() {
     // Slide-out state for page transition
     const [slideOut, setSlideOut] = useState(false);
     const [slideTarget, setSlideTarget] = useState('');
+    const [slideDirection, setSlideDirection] = useState<"left" | "right">("right");
+
+    const handlePageSwitch = (target: string, direction: "left" | "right") => {
+      setSlideDirection(direction);
+      setSlideTarget(target);
+      setSlideOut(true);
+    }
 
     // Listen for slide trigger (e.g. from arrow button or programmatic navigation)
     useEffect(() => {
-      const handler = (e) => {
-        if (e.detail && e.detail.target) {
-          setSlideTarget(e.detail.target);
+      const handler = (event: Event) => {
+        const customEvent = event as CustomEvent<{ target?: string; direction?: "left" | "right" }>;
+        if (customEvent.detail && customEvent.detail.target) {
+          setSlideDirection(customEvent.detail.direction || "right");
+          setSlideTarget(customEvent.detail.target);
           setSlideOut(true);
         }
       };
@@ -199,17 +208,61 @@ export default function ServicesPage() {
         .main-slide-anim {
           transition: transform 0.6s cubic-bezier(.7,1.7,.7,1), opacity 0.6s;
         }
+        .main-fade-in {
+          animation: pageFadeIn 0.35s ease-out;
+        }
         .slide-out-right {
           transform: translateX(100vw);
           opacity: 0.7;
         }
+        .slide-out-left {
+          transform: translateX(-100vw);
+          opacity: 0.7;
+        }
+        @keyframes pageFadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        @keyframes ctaArrowNudge {
+          0%, 100% {
+            transform: translateX(0);
+          }
+          50% {
+            transform: translateX(5px);
+          }
+        }
       `}</style>
-      <div className={`main-slide-anim${slideOut ? ' slide-out-right' : ''}`}> 
+      <div className={`main-slide-anim main-fade-in${slideOut ? (slideDirection === 'left' ? ' slide-out-left' : ' slide-out-right') : ''}`}> 
       <Header />
       
-      <main className="flex-1 container mx-auto px-2 sm:px-4 py-3 sm:py-4">
+      <main className="flex-1 container mx-auto px-2 sm:px-4 pt-5 sm:pt-7 pb-3 sm:pb-4">
         {/* Unified Header Bar - Mobile Optimized */}
-        <div className="flex flex-col lg:flex-row items-start lg:items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+        <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
+          <div className="w-full lg:w-auto xl:hidden">
+            <Link
+              href="/stores"
+              className="inline-block w-full lg:w-auto shrink-0"
+              onClick={(e) => {
+                e.preventDefault()
+                handlePageSwitch('/stores', 'right')
+              }}
+            >
+              <Button
+                variant="outline"
+                className="group w-full lg:w-auto bg-white/10 hover:bg-white/20 backdrop-blur-xl border border-accent/30 text-accent font-bold text-[10px] sm:text-xs md:text-sm px-2 sm:px-3 md:px-4 h-8 sm:h-9 md:h-10 lg:h-12 rounded-full shadow-lg shadow-white/10 hover:shadow-xl hover:shadow-white/20 transition-all duration-200 active:scale-95 hover:border-white/40 flex items-center justify-center gap-1 sm:gap-2"
+              >
+                <Store className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span>Check out Stores</span>
+                <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4" style={{ animation: 'ctaArrowNudge 1s ease-in-out infinite' }} />
+              </Button>
+            </Link>
+          </div>
+
+          <div className="flex flex-col lg:flex-row items-start lg:items-center gap-2 sm:gap-3">
           {/* Desktop Search Bar - Hidden on mobile */}
           <div className="hidden lg:flex flex-1 relative group">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5 group-focus-within:text-primary transition-colors" />
@@ -270,6 +323,7 @@ export default function ServicesPage() {
             >
               <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 ${refreshing ? 'animate-spin' : ''}`} />
             </Button>
+          </div>
           </div>
         </div>
 

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Search, Store, RefreshCw, Filter, MapPin, Clock, Users, Package } from "lucide-react"
+import { Search, Store, RefreshCw, Filter, MapPin, Clock, Users, Package, Wrench, ArrowRight } from "lucide-react"
 import Link from "next/link"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
@@ -37,6 +37,7 @@ export default function ShopPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [showFilters, setShowFilters] = useState(true)
   const [isTransitioning, setIsTransitioning] = useState(false)
+  const [transitionDirection, setTransitionDirection] = useState<"left" | "right">("left")
   const [showMobileSearch, setShowMobileSearch] = useState(false)
 
   useEffect(() => {
@@ -87,10 +88,19 @@ export default function ShopPage() {
   })
 
   const handleStoreClick = (storeId: string) => {
+    setTransitionDirection("left")
     setIsTransitioning(true)
     setTimeout(() => {
       router.push(`/store/${storeId}`)
     }, 600) // Duration matches the CSS animation
+  }
+
+  const handlePageSwitch = (target: string, direction: "left" | "right") => {
+    setTransitionDirection(direction)
+    setIsTransitioning(true)
+    setTimeout(() => {
+      router.push(target)
+    }, 600)
   }
 
   const sortedStores = [...filteredStores].sort((a, b) => {
@@ -209,35 +219,85 @@ export default function ShopPage() {
             opacity: 0;
           }
         }
+
+        @keyframes slideOutRight {
+          from {
+            transform: translateX(0);
+            opacity: 1;
+          }
+          to {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+        }
+
+        @keyframes pageFadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        @keyframes ctaArrowNudge {
+          0%, 100% {
+            transform: translateX(0);
+          }
+          50% {
+            transform: translateX(5px);
+          }
+        }
         
         .page-slide-transition {
           animation: slideOutLeft 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
         }
+
+        .page-slide-transition-right {
+          animation: slideOutRight 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        .page-enter-fade {
+          animation: pageFadeIn 0.35s ease-out;
+        }
       `}</style>
       
-      <div className={isTransitioning ? 'page-slide-transition' : ''}>
-      <Header />
+      <div className={`${isTransitioning ? (transitionDirection === 'right' ? 'page-slide-transition-right' : 'page-slide-transition') : 'page-enter-fade'}`}>
+      <Header  />
       
-      <main className="flex-1 container mx-auto px-2 sm:px-4 py-4 sm:py-6">
+      <main className="flex-1 container mx-auto px-2 sm:px-4 pt-6 sm:pt-8 pb-4 sm:pb-6">
         {/* Unified Header Bar */}
         <div className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
           {/* First Row - Products Button */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-            {/* View All Products Button */}
-            <Link href="/products" className="inline-block sm:shrink-0">
-              <Button 
-                className="w-full sm:w-auto bg-white/10 hover:bg-white/20 backdrop-blur-xl border border-accent/30 text-accent font-bold text-xs sm:text-sm px-3 sm:px-6 py-3 sm:py-3 rounded-full shadow-lg shadow-white/10 hover:shadow-xl hover:shadow-white/20 transition-all duration-200 active:scale-95 hover:border-white/40 flex items-center justify-center gap-2"
+            <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+              {/* View All Products Button */}
+              <Link href="/products" className="inline-block sm:shrink-0 flex-1 sm:flex-none">
+                <Button 
+                  className="w-full sm:w-auto bg-white/10 hover:bg-white/20 backdrop-blur-xl border border-accent/30 text-accent font-bold text-xs sm:text-sm px-3 sm:px-6 py-3 sm:py-3 rounded-full shadow-lg shadow-white/10 hover:shadow-xl hover:shadow-white/20 transition-all duration-200 active:scale-95 hover:border-white/40 flex items-center justify-center gap-2"
+                  style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}
+                >
+                  <Package className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span>View All Products</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="hidden sm:inline">
+                    <path d="M5 12h14"/>
+                    <path d="m12 5 7 7-7 7"/>
+                  </svg>
+                </Button>
+              </Link>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handlePageSwitch("/services", "right")}
+                className="group inline-flex sm:shrink-0 flex-1 sm:flex-none xl:hidden w-full sm:w-auto h-full bg-white/10 hover:bg-white/20 backdrop-blur-xl border border-accent/30 text-accent font-bold text-xs sm:text-sm px-3 sm:px-5 py-3 rounded-full shadow-lg shadow-white/10 hover:shadow-xl hover:shadow-white/20 transition-all duration-200 active:scale-95 hover:border-white/40 items-center justify-center gap-2"
                 style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}
               >
-                <Package className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">View All Products</span>
-                <span className="sm:hidden">Products</span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="hidden sm:inline">
-                  <path d="M5 12h14"/>
-                  <path d="m12 5 7 7-7 7"/>
-                </svg>
+                <Wrench className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span>Check out Services</span>
+                <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4" style={{ animation: 'ctaArrowNudge 1s ease-in-out infinite' }} />
               </Button>
-            </Link>
+            </div>
 
             {/* Controls Row */}
             <div className="flex items-center gap-2 sm:gap-3 w-full sm:flex-1">
