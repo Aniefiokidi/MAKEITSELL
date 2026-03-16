@@ -16,19 +16,19 @@ export async function getGlobalDashboard() {
     return order.total || 0
   }
 
-  const totalRevenue = orders.reduce((sum, o) => sum + vendorTotalsByOrder(o), 0)
-  const totalOrders = orders.length
-  const totalProducts = products.length
-  const totalUsers = users.length
-  const vendorsCount = users.filter(u => u.role === 'vendor').length
-  const customersCount = users.filter(u => !u.role || u.role === 'customer').length
-
   const isPaymentConfirmed = (order: any) => {
     const paymentStatus = String(order?.paymentStatus || '').toLowerCase()
     return paymentStatus === 'completed' || paymentStatus === 'paid' || paymentStatus === 'confirmed' || paymentStatus === 'successful' || paymentStatus === 'success'
   }
 
   const paidOrders = orders.filter(isPaymentConfirmed)
+
+  const totalRevenue = paidOrders.reduce((sum, o) => sum + vendorTotalsByOrder(o), 0)
+  const totalOrders = orders.length
+  const totalProducts = products.length
+  const totalUsers = users.length
+  const vendorsCount = users.filter(u => u.role === 'vendor').length
+  const customersCount = users.filter(u => !u.role || u.role === 'customer').length
 
   // Top vendors by revenue
   const vendorRevenueMap = new Map<string, number>()
