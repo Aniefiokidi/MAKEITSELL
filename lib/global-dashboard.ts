@@ -28,10 +28,12 @@ export async function getGlobalDashboard() {
     return paymentStatus === 'completed' || paymentStatus === 'paid' || paymentStatus === 'confirmed' || paymentStatus === 'successful' || paymentStatus === 'success'
   }
 
+  const paidOrders = orders.filter(isPaymentConfirmed)
+
   // Top vendors by revenue
   const vendorRevenueMap = new Map<string, number>()
   const vendorSalesMap = new Map<string, number>()
-  orders.forEach(o => {
+  paidOrders.forEach(o => {
     if (Array.isArray(o.vendors)) {
       o.vendors.forEach((v: any) => {
         vendorRevenueMap.set(v.vendorId, (vendorRevenueMap.get(v.vendorId) || 0) + (v.total || 0))
@@ -55,7 +57,6 @@ export async function getGlobalDashboard() {
 
   // Top customers by spend
   const customerSpendMap = new Map<string, number>()
-  const paidOrders = orders.filter(isPaymentConfirmed)
   paidOrders.forEach(o => {
     const orderTotal = vendorTotalsByOrder(o)
     const customerId = o.customerId ? String(o.customerId) : ''
