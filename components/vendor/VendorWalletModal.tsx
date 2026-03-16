@@ -49,11 +49,17 @@ export function VendorWalletModal({
 
   // Withdrawal form states
   const [withdrawAmount, setWithdrawAmount] = useState('')
+  const [bankCode, setBankCode] = useState('')
   const [bankName, setBankName] = useState('')
   const [accountNumber, setAccountNumber] = useState('')
   const [accountName, setAccountName] = useState('')
+  const [accountVerified, setAccountVerified] = useState(false)
+  const [verifyLoading, setVerifyLoading] = useState(false)
+  const [banks, setBanks] = useState<{ name: string; code: string }[]>([])
+  const [accountError, setAccountError] = useState<string | null>(null)
   const [withdrawalPin, setWithdrawalPin] = useState('')
   const [showWithdrawalPin, setShowWithdrawalPin] = useState(false)
+
   const [walletTransactions, setWalletTransactions] = useState<WalletTx[]>([])
   const [walletTxLoading, setWalletTxLoading] = useState(false)
 
@@ -87,6 +93,36 @@ export function VendorWalletModal({
     }
   }
 
+  // Fetch bank list for withdrawal
+  useEffect(() => {
+    if (!open) return
+
+    const fetchBanks = async () => {
+      try {
+        const res = await fetch('/api/vendor/banks', {
+          method: 'GET',
+          credentials: 'include',
+        })
+        const data = await res.json()
+        if (res.ok && data?.success && Array.isArray(data.banks)) {
+          const uniqueByCode = new Map<string, { name: string; code: string }>()
+          data.banks.forEach((bank: any) => {
+            const code = String(bank?.code || '').trim()
+            const name = String(bank?.name || '').trim()
+            if (code && name && !uniqueByCode.has(code)) {
+              uniqueByCode.set(code, { name, code })
+            }
+          })
+          setBanks(Array.from(uniqueByCode.values()))
+        }
+      } catch {
+        setBanks([])
+      }
+    }
+
+    fetchBanks()
+  }, [open])
+
   useEffect(() => {
     const fetchPinStatus = async () => {
       if (!open) return
@@ -110,14 +146,60 @@ export function VendorWalletModal({
     fetchPinStatus()
   }, [open])
 
+  // Auto-resolve account name when bank and account number are ready
+  useEffect(() => {
+    const verify = async () => {
+      if (!open || !bankCode || accountNumber.length !== 10) {
+        setAccountVerified(false)
+        if (accountNumber.length !== 10) {
+          setAccountName('')
+        }
+        return
+      }
+
+      try {
+        setVerifyLoading(true)
+        setAccountError(null)
+        const response = await fetch('/api/vendor/resolve-account', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bankCode, accountNumber }),
+        })
+
+        const result = await response.json()
+        if (response.ok && result?.success && result?.accountName) {
+          setAccountName(String(result.accountName))
+          setAccountVerified(true)
+          setAccountError(null)
+        } else {
+          setAccountName('')
+          setAccountVerified(false)
+          setAccountError(result?.error || 'Unable to verify account')
+        }
+      } catch {
+        setAccountName('')
+        setAccountVerified(false)
+        setAccountError('Unable to verify account')
+      } finally {
+        setVerifyLoading(false)
+      }
+    }
+
+    verify()
+  }, [open, bankCode, accountNumber])
+
   useEffect(() => {
     if (!open) {
       // Clear form fields when modal closes
       setTopupAmount('')
       setWithdrawAmount('')
+      setBankCode('')
       setBankName('')
       setAccountName('')
       setAccountNumber('')
+      setAccountVerified(false)
+      setAccountError(null)
       setWithdrawalPin('')
       setCurrentPin('')
       setNewPin('')
@@ -169,7 +251,7 @@ export function VendorWalletModal({
       } else {
         notification.error(result?.error || 'Failed to set PIN', 'Error', 3000)
       }
-    } catch (error) {
+    } catch {
       notification.error('Network error while setting PIN', 'Error', 3000)
     } finally {
       setPinLoading(false)
@@ -219,8 +301,8 @@ export function VendorWalletModal({
       return
     }
 
-    if (!bankName.trim() || !accountName.trim() || !accountNumber.trim()) {
-      notification.error('Enter bank name, account number and account name', 'Missing details', 3000)
+    if (!bankCode || !bankName || !accountNumber || !accountName || !accountVerified) {
+      notification.error('Bank, account number, and verified account name are required', 'Missing details', 3000)
       return
     }
 
@@ -238,6 +320,7 @@ export function VendorWalletModal({
         body: JSON.stringify({
           amount,
           bankName: bankName.trim(),
+          bankCode: bankCode.trim(),
           accountNumber: accountNumber.trim(),
           accountName: accountName.trim(),
           withdrawalPin: withdrawalPin.trim(),
@@ -252,19 +335,32 @@ export function VendorWalletModal({
         }
         await fetchWalletTransactions()
         setWithdrawAmount('')
+        setBankCode('')
         setBankName('')
         setAccountName('')
         setAccountNumber('')
+        setAccountVerified(false)
+        setAccountError(null)
         setWithdrawalPin('')
         setActiveWalletView('menu')
       } else {
         notification.error(result?.error || 'Unable to process withdrawal', 'Withdrawal failed', 3000)
       }
-    } catch (error) {
+    } catch {
       notification.error('Network error while requesting withdrawal', 'Withdrawal failed', 3000)
     } finally {
       setWithdrawLoading(false)
     }
+  }
+
+  const handleBankChange = (code: string) => {
+    const selected = banks.find((bank) => bank.code === code)
+    setBankCode(code)
+    setBankName(selected?.name || '')
+    setAccountNumber('')
+    setAccountName('')
+    setAccountVerified(false)
+    setAccountError(null)
   }
 
   return (
@@ -289,14 +385,14 @@ export function VendorWalletModal({
                   onClick={() => setActiveWalletView('topup')}
                   className='h-20 flex flex-col items-center justify-center'
                 >
-                  <div className='text-2xl mb-1'>💰</div>
+                  <div className='text-2xl mb-1'>??</div>
                   <span className='text-xs'>Top up</span>
                 </Button>
                 <Button
                   onClick={() => setActiveWalletView('pin')}
                   className='h-20 flex flex-col items-center justify-center'
                 >
-                  <div className='text-2xl mb-1'>🔐</div>
+                  <div className='text-2xl mb-1'>??</div>
                   <span className='text-xs'>Manage PIN</span>
                 </Button>
                 <Button
@@ -304,7 +400,7 @@ export function VendorWalletModal({
                   variant='outline'
                   className='h-20 flex flex-col items-center justify-center'
                 >
-                  <div className='text-2xl mb-1'>💸</div>
+                  <div className='text-2xl mb-1'>??</div>
                   <span className='text-xs'>Withdraw</span>
                 </Button>
               </div>
@@ -522,20 +618,29 @@ export function VendorWalletModal({
                   </div>
 
                   <div>
-                    <label className='text-xs font-medium'>Bank Name</label>
-                    <Input
-                      value={bankName}
-                      onChange={(e) => setBankName(e.target.value)}
-                      placeholder='e.g., GTBank'
-                    />
+                    <label className='text-xs font-medium'>Bank</label>
+                    <select
+                      className='w-full border rounded px-3 py-2 text-sm bg-white dark:bg-neutral-900'
+                      value={bankCode}
+                      onChange={(e) => handleBankChange(e.target.value)}
+                      disabled={verifyLoading || banks.length === 0}
+                    >
+                      <option value=''>Select bank</option>
+                      {banks.map((bank) => (
+                        <option key={bank.code} value={bank.code}>{bank.name}</option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>
                     <label className='text-xs font-medium'>Account Number</label>
                     <Input
                       value={accountNumber}
-                      onChange={(e) => setAccountNumber(e.target.value)}
+                      onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
                       placeholder='10-digit account number'
+                      maxLength={10}
+                      inputMode='numeric'
+                      disabled={!bankCode || verifyLoading}
                     />
                   </div>
 
@@ -543,9 +648,13 @@ export function VendorWalletModal({
                     <label className='text-xs font-medium'>Account Name</label>
                     <Input
                       value={accountName}
-                      onChange={(e) => setAccountName(e.target.value)}
-                      placeholder='Account holder name'
+                      readOnly
+                      placeholder='Account name will be auto-filled'
+                      disabled
                     />
+                    {verifyLoading && <p className='text-xs text-muted-foreground mt-1'>Verifying account...</p>}
+                    {accountError && <p className='text-xs text-red-600 mt-1'>{accountError}</p>}
+                    {accountVerified && !accountError && <p className='text-xs text-green-600 mt-1'>Account verified</p>}
                   </div>
 
                   <div className='relative'>
@@ -580,8 +689,8 @@ export function VendorWalletModal({
                 Back
               </Button>
               {hasWithdrawalPin && (
-                <Button onClick={handleWithdraw} disabled={withdrawLoading}>
-                  {withdrawLoading ? 'Processing...' : 'Request Withdrawal'}
+                <Button onClick={handleWithdraw} disabled={withdrawLoading || !accountVerified || verifyLoading}>
+                  {withdrawLoading ? 'Processing...' : 'Request withdrawal'}
                 </Button>
               )}
             </DialogFooter>

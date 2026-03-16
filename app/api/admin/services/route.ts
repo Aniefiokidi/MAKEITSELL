@@ -1,8 +1,12 @@
 import { NextRequest } from 'next/server'
 import connectToDatabase from '@/lib/mongodb'
 import { getServices, updateService, getUserById } from '@/lib/mongodb-operations'
+import { requireAdminAccess } from '@/lib/server-route-auth'
 
 export async function GET(req: NextRequest) {
+  const unauthorized = await requireAdminAccess(req)
+  if (unauthorized) return unauthorized
+
   try {
     await connectToDatabase()
     
@@ -50,6 +54,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const unauthorized = await requireAdminAccess(req)
+  if (unauthorized) return unauthorized
+
   try {
     await connectToDatabase()
     

@@ -51,7 +51,6 @@ export async function GET(
         minimumOrder: 1000,
         phone: vendor.phone || '',
         email: vendor.email,
-        subscriptionStatus: 'active',
         isActive: true,
         accountStatus: 'active',
         createdAt: vendor.createdAt || new Date(),

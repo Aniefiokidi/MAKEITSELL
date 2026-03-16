@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getProducts, createProduct } from "@/lib/mongodb-operations"
+import { requireRoles } from '@/lib/server-route-auth'
 
 export async function GET(request: NextRequest) {
   try {
@@ -45,9 +46,15 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const { user, response } = await requireRoles(request, ['vendor', 'admin'])
+  if (response) return response
+
   try {
     const productData = await request.json()
-    console.log('Creating product with data:', productData)
+    // Prevent privilege escalation by enforcing vendor ownership from the session.
+    if (user?.role === 'vendor') {
+      productData.vendorId = user.id
+    }
 
     // Auto-populate storeId if vendorId is provided
     if (productData.vendorId && !productData.storeId) {

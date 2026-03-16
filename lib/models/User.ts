@@ -10,6 +10,7 @@ const UserSchema = new Schema({
   name: { type: String },
   displayName: { type: String },
   profileImage: { type: String },
+  phone: { type: String },
   role: { type: String, default: 'customer' },
   walletBalance: { type: Number, default: 0 },
   withdrawalPinHash: { type: String },

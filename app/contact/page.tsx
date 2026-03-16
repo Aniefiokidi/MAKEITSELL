@@ -197,7 +197,7 @@ export default function ContactPage() {
                   <div>
                     <h4 className="font-semibold text-xs sm:text-base mb-1 sm:mb-2">How do I become a seller?</h4>
                     <p className="text-muted-foreground text-[10px] sm:text-sm">
-                      Sign up for an account, then upgrade to a vendor account. You'll need to pay a monthly subscription to list products and start selling on our platform.
+                      Sign up for an account, then choose a vendor account to open your store and start listing products or services. Vendor registration is free.
                     </p>
                   </div>
                   <div>
@@ -213,9 +213,9 @@ export default function ContactPage() {
                     </p>
                   </div>
                   <div>
-                    <h4 className="font-semibold text-xs sm:text-base mb-1 sm:mb-2">Is there a subscription fee for sellers?</h4>
+                    <h4 className="font-semibold text-xs sm:text-base mb-1 sm:mb-2">Do sellers pay to use the platform?</h4>
                     <p className="text-muted-foreground text-[10px] sm:text-sm">
-                      Yes, vendors need an active monthly subscription to list products and receive orders. Contact us for current pricing.
+                      No. Vendor registration and access to sell on Make It Sell are now free.
                     </p>
                   </div>
                 </CardContent>

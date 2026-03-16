@@ -3,30 +3,16 @@ import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 import { emailService } from '@/lib/email'
 import crypto from 'crypto'
+import { requireAdminAccess } from '@/lib/server-route-auth'
 
 export async function POST(request: NextRequest) {
+  const unauthorized = await requireAdminAccess(request)
+  if (unauthorized) return unauthorized
+
   try {
-    console.log('[migrate-users] POST request received')
     const { action, emailFilter } = await request.json()
-    console.log('[migrate-users] Action:', action, 'Filter:', emailFilter)
 
-    // Basic admin check (you might want to add proper admin authentication)
-    const authHeader = request.headers.get('authorization')
-    const adminKey = process.env.ADMIN_API_KEY || 'admin123' // Set a secure key in production
-    
-    console.log('[migrate-users] Auth header present:', !!authHeader)
-    
-    if (authHeader !== `Bearer ${adminKey}`) {
-      console.log('[migrate-users] Auth failed - expected:', `Bearer ${adminKey}`, 'got:', authHeader)
-      return NextResponse.json({
-        success: false,
-        error: 'Unauthorized - Admin access required'
-      }, { status: 401 })
-    }
-
-    console.log('[migrate-users] Auth successful, connecting to database...')
     await connectToDatabase()
-    console.log('[migrate-users] Database connected')
 
     if (action === 'migrate') {
       return await handleMigration(emailFilter)
@@ -174,20 +160,12 @@ async function handleMigration(emailFilter?: string) {
 
 // GET endpoint for checking status
 export async function GET(request: NextRequest) {
+  const unauthorized = await requireAdminAccess(request)
+  if (unauthorized) return unauthorized
+
   try {
     const { searchParams } = new URL(request.url)
     const emailFilter = searchParams.get('filter') || undefined
-
-    // Basic admin check
-    const authHeader = request.headers.get('authorization')
-    const adminKey = process.env.ADMIN_API_KEY || 'admin123'
-    
-    if (authHeader !== `Bearer ${adminKey}`) {
-      return NextResponse.json({
-        success: false,
-        error: 'Unauthorized - Admin access required'
-      }, { status: 401 })
-    }
 
     await connectToDatabase()
     return await countUnverifiedUsers(emailFilter)

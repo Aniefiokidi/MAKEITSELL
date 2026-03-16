@@ -17,9 +17,8 @@ export async function POST(request: NextRequest) {
           path: '/',
           maxAge: 60 * 60 * 24 * 30, // 30 days
           sameSite: 'lax',
-          secure: false, // Always false in dev, true in prod
+          secure: process.env.NODE_ENV === 'production',
         })
-        console.log('[/api/auth/signin] Setting cookie with sessionToken');
         return new NextResponse(JSON.stringify(result), {
           status: 200,
           headers: { 'Set-Cookie': cookie, 'Content-Type': 'application/json' },

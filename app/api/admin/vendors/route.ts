@@ -1,49 +1,19 @@
 import { NextRequest } from 'next/server'
 import { getAllStores, getAllUsers } from '@/lib/mongodb-operations'
-import { MongoClient } from 'mongodb'
+import { requireAdminAccess } from '@/lib/server-route-auth'
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/test'
-let cachedClient: MongoClient | null = null
+export async function GET(req: NextRequest) {
+  const unauthorized = await requireAdminAccess(req)
+  if (unauthorized) return unauthorized
 
-async function connectToDatabase() {
-  if (cachedClient) {
-    return cachedClient.db('test')
-  }
-
-  const client = new MongoClient(MONGODB_URI)
-  await client.connect()
-  cachedClient = client
-  return client.db('test')
-}
-
-export async function GET(_req: NextRequest) {
   try {
-    const [users, stores, db] = await Promise.all([
-      getAllUsers(), 
+    const [users, stores] = await Promise.all([
+      getAllUsers(),
       getAllStores(),
-      connectToDatabase()
     ])
-    
-    // Get all subscription payments to map to vendors
-    const subscriptions = await db.collection('subscription_payments')
-      .find({ status: 'completed' })
-      .sort({ paymentDate: -1 })
-      .toArray()
-
-    // Group subscriptions by vendorId and get the most recent one
-    const latestSubscriptionByVendor: Record<string, any> = {}
-    subscriptions.forEach((sub: any) => {
-      if (!sub.vendorId) return
-      const vendorIdStr = sub.vendorId.toString()
-      if (!latestSubscriptionByVendor[vendorIdStr] || 
-          new Date(sub.paymentDate) > new Date(latestSubscriptionByVendor[vendorIdStr].paymentDate)) {
-        latestSubscriptionByVendor[vendorIdStr] = sub
-      }
-    })
 
     // Create vendor mapping from stores (store-centric approach)
     const storeByVendorDetailed: Record<string, any> = {}
-    const vendorIdToStore: Record<string, any> = {}
     
     stores.forEach((store: any) => {
       if (!store?.vendorId) return
@@ -51,35 +21,13 @@ export async function GET(_req: NextRequest) {
       // Convert ObjectId to string if needed
       const vendorIdStr = store.vendorId.toString()
       
-      // Get subscription data for this vendor
-      const subscription = latestSubscriptionByVendor[vendorIdStr]
-      let subscriptionStatus = 'inactive'
-      let subscriptionExpiry = null
-      let subscriptionAmount = null
-      
-      if (subscription) {
-        const now = new Date()
-        const expiryDate = new Date(subscription.subscriptionPeriod.end)
-        subscriptionExpiry = expiryDate.toISOString()
-        subscriptionAmount = subscription.amount
-        
-        if (expiryDate > now) {
-          subscriptionStatus = 'active'
-        } else {
-          subscriptionStatus = 'expired'
-        }
-      }
-      
       const storeData = {
         storeName: store.storeName,
         accountStatus: store.accountStatus || 'active', 
-        subscriptionExpiry,
-        subscriptionStatus,
-        subscriptionAmount
+        vendorAccess: 'free'
       }
       
       storeByVendorDetailed[vendorIdStr] = storeData
-      vendorIdToStore[vendorIdStr] = store
     })
 
     // Create vendor list from users but prioritize those with stores
@@ -100,9 +48,7 @@ export async function GET(_req: NextRequest) {
         vendorType: vendor.vendorInfo?.type || 'both',
         storeName: store?.storeName || vendor.vendorInfo?.storeName || 'N/A',
         status: store?.accountStatus || vendor.vendorInfo?.status || 'pending',
-        subscriptionExpiry: store?.subscriptionExpiry,
-        subscriptionStatus: store?.subscriptionStatus || 'unknown',
-        subscriptionAmount: store?.subscriptionAmount,
+        vendorAccess: 'free',
         createdAt: vendor.createdAt,
         hasStore: !!store
       }
@@ -117,16 +63,10 @@ export async function GET(_req: NextRequest) {
     // Return vendors with stores first, then those without
     const vendors = [...vendorsWithStores, ...vendorsWithoutStores]
     
-    // Calculate total revenue from all completed subscriptions
-    const totalRevenue = subscriptions.reduce((total: number, sub: any) => {
-      return total + (sub.amount || 0)
-    }, 0)
-
     return new Response(JSON.stringify({ 
       success: true, 
       vendors,
-      totalRevenue,
-      subscriptionCount: subscriptions.length
+      vendorCount: vendors.length
     }), { status: 200 })
   } catch (error: any) {
     return new Response(JSON.stringify({ success: false, error: error?.message || 'Unknown error' }), { status: 500 })

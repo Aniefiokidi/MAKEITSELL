@@ -42,7 +42,7 @@ export default function AdminReportsPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold">Reports</h1>
-          <p className="text-muted-foreground text-sm lg:text-base">Vendor revenue, subscriptions, and VAT overview.</p>
+          <p className="text-muted-foreground text-sm lg:text-base">Marketplace revenue and VAT overview.</p>
         </div>
 
         {loading ? (
@@ -65,26 +65,6 @@ export default function AdminReportsPage() {
               <CardContent>
                 <p className="text-xl lg:text-3xl font-bold">{data.vendorCount.toLocaleString()}</p>
                 <p className="text-muted-foreground text-xs lg:text-sm">Active vendors in the system</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm lg:text-base">Monthly Vendor Fee</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xl lg:text-3xl font-bold">₦{data.monthlyVendorFee.toLocaleString()}</p>
-                <p className="text-muted-foreground text-xs lg:text-sm">Rate: ₦{data.monthlyVendorFeeRate.toLocaleString()} / vendor</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm lg:text-base">Lifetime Vendor Fee</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xl lg:text-3xl font-bold">₦{data.lifetimeVendorFee.toLocaleString()}</p>
-                <p className="text-muted-foreground text-xs lg:text-sm">From vendors' active months</p>
               </CardContent>
             </Card>
 

@@ -15,7 +15,7 @@ export default function VendorSubscriptionSuccess() {
   const vendorId = searchParams.get('vendor')
 
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
-  const [message, setMessage] = useState('Processing your subscription...')
+  const [message, setMessage] = useState('Processing your vendor setup...')
 
   useEffect(() => {
     const completeVendorSetup = async () => {
@@ -45,9 +45,6 @@ export default function VendorSubscriptionSuccess() {
           address: pendingVendorData.storeAddress.trim(),
           phone: pendingVendorData.storePhone.trim(),
           email: pendingVendorData.email,
-          // Subscription tracking fields
-          subscriptionStatus: 'active',
-          subscriptionExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
           isActive: true,
           accountStatus: 'active'
         })
@@ -146,13 +143,13 @@ export default function VendorSubscriptionSuccess() {
                   <svg className="w-5 h-5 text-green-600 animate-bounce" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
                   </svg>
-                  Subscription Active!
+                  Setup Complete!
                 </p>
                 <p className="text-sm text-green-700">
-                  Your monthly subscription of ₦2,500 is now active.
+                  Your vendor account is ready.
                 </p>
                 <p className="text-xs text-green-600">
-                  You'll be automatically billed monthly. Redirecting to your dashboard...
+                  Redirecting to your dashboard...
                 </p>
               </div>
             </div>

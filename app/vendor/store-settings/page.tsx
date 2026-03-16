@@ -473,6 +473,16 @@ export default function VendorStoreSettingsPage() {
                   <Textarea id="storeDescription" value={settings.storeDescription} onChange={e => handleInputChange("storeDescription", e.target.value)} rows={2} />
                 </div>
                 <div>
+                  <Label htmlFor="contactPhone">Store Phone Number</Label>
+                  <Input
+                    id="contactPhone"
+                    type="tel"
+                    value={settings.contactPhone}
+                    onChange={e => handleInputChange("contactPhone", e.target.value)}
+                    placeholder="Enter store contact number"
+                  />
+                </div>
+                <div>
                   <Label htmlFor="minimumOrder">Minimum Order</Label>
                   <Input id="minimumOrder" type="number" value={settings.minimumOrder} onChange={e => handleInputChange("minimumOrder", Number(e.target.value))} />
                 </div>

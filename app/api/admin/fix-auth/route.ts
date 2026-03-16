@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { connectToDatabase } from '@/lib/mongodb'
 import mongoose from 'mongoose'
 import crypto from 'crypto'
+import { requireAdminAccess } from '@/lib/server-route-auth'
 
 // User schema (same as in auth.ts)
 const userSchema = new mongoose.Schema({
@@ -22,16 +23,10 @@ function hashPassword(password: string) {
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    // This is a dangerous endpoint - in production, verify admin access
-    const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.ADMIN_SECRET || 'dev-secret'}`) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
+  const unauthorized = await requireAdminAccess(request)
+  if (unauthorized) return unauthorized
 
+  try {
     await connectToDatabase()
 
     // Find all users with undefined or missing passwordHash
@@ -54,7 +49,6 @@ export async function POST(request: NextRequest) {
 
       results.push({
         email: user.email,
-        tempPassword,
         message: 'User can now sign in and should change password via "Forgot Password"',
       })
 

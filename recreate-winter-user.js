@@ -103,7 +103,7 @@ async function recreateWinterUser() {
           customerId: subscriptionId,
           items: JSON.stringify([{
             productId: 'vendor-subscription-signup',
-            title: 'Vendor Account Setup + Monthly Subscription',
+            title: 'Vendor Account Setup',
             quantity: 1,
             price: 2500,
             vendorId: 'makeitsell',

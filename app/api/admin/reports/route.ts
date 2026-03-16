@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAllUsers, getAllOrders } from '@/lib/mongodb-operations'
+import { requireAdminAccess } from '@/lib/server-route-auth'
 
 const MONTHLY_VENDOR_FEE = 2500
 const VAT_RATE = 0.075 // Adjust if your VAT rate differs
@@ -13,7 +14,10 @@ function monthsActive(start: Date, end: Date): number {
   return Math.max(total + 1, 1) // count the starting month
 }
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
+  const unauthorized = await requireAdminAccess(req)
+  if (unauthorized) return unauthorized
+
   try {
     const [users, orders] = await Promise.all([
       getAllUsers(),

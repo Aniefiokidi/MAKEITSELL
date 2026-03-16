@@ -38,9 +38,14 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
   const [walletAmount, setWalletAmount] = useState("")
   const [walletLoading, setWalletLoading] = useState(false)
   const [withdrawAmount, setWithdrawAmount] = useState("")
+  const [bankCode, setBankCode] = useState("")
   const [bankName, setBankName] = useState("")
   const [accountNumber, setAccountNumber] = useState("")
   const [accountName, setAccountName] = useState("")
+  const [accountVerified, setAccountVerified] = useState(false)
+  const [verifyLoading, setVerifyLoading] = useState(false)
+  const [accountError, setAccountError] = useState<string | null>(null)
+  const [banks, setBanks] = useState<{ name: string; code: string }[]>([])
   const [withdrawalPin, setWithdrawalPin] = useState("")
   const [newPin, setNewPin] = useState("")
   const [confirmNewPin, setConfirmNewPin] = useState("")
@@ -196,9 +201,13 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
       // Clear form fields when modal closes
       setWalletAmount("")
       setWithdrawAmount("")
+      setBankCode("")
       setBankName("")
       setAccountName("")
       setAccountNumber("")
+      setAccountVerified(false)
+      setVerifyLoading(false)
+      setAccountError(null)
       setWithdrawalPin("")
       setCurrentPin("")
       setNewPin("")
@@ -215,6 +224,84 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
       fetchWalletTransactions()
     }
   }, [walletModalOpen, userProfile?.role])
+
+  useEffect(() => {
+    const fetchBanks = async () => {
+      if (!walletModalOpen || userProfile?.role !== "customer") {
+        return
+      }
+
+      try {
+        const res = await fetch("/api/vendor/banks", {
+          method: "GET",
+          credentials: "include",
+        })
+        const data = await res.json()
+        if (res.ok && data?.success && Array.isArray(data.banks)) {
+          const uniqueByCode = new Map<string, { name: string; code: string }>()
+          data.banks.forEach((bank: any) => {
+            const code = String(bank?.code || "").trim()
+            const name = String(bank?.name || "").trim()
+            if (code && name && !uniqueByCode.has(code)) {
+              uniqueByCode.set(code, { name, code })
+            }
+          })
+          setBanks(Array.from(uniqueByCode.values()))
+        }
+      } catch {
+        setBanks([])
+      }
+    }
+
+    fetchBanks()
+  }, [walletModalOpen, userProfile?.role])
+
+  useEffect(() => {
+    const verifyAccount = async () => {
+      if (
+        !walletModalOpen
+        || userProfile?.role !== "customer"
+        || !bankCode
+        || accountNumber.length !== 10
+      ) {
+        setAccountVerified(false)
+        if (accountNumber.length !== 10) {
+          setAccountName("")
+        }
+        return
+      }
+
+      try {
+        setVerifyLoading(true)
+        setAccountError(null)
+        const response = await fetch("/api/vendor/resolve-account", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bankCode, accountNumber }),
+        })
+
+        const result = await response.json()
+        if (response.ok && result?.success && result?.accountName) {
+          setAccountName(String(result.accountName))
+          setAccountVerified(true)
+          setAccountError(null)
+        } else {
+          setAccountName("")
+          setAccountVerified(false)
+          setAccountError(result?.error || "Unable to verify account")
+        }
+      } catch {
+        setAccountName("")
+        setAccountVerified(false)
+        setAccountError("Unable to verify account")
+      } finally {
+        setVerifyLoading(false)
+      }
+    }
+
+    verifyAccount()
+  }, [walletModalOpen, userProfile?.role, bankCode, accountNumber])
 
   const currencyFormatter = new Intl.NumberFormat("en-NG", {
     style: "currency",
@@ -293,8 +380,8 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
       return
     }
 
-    if (!bankName.trim() || !accountName.trim() || !accountNumber.trim()) {
-      notification.error("Enter bank name, account number and account name", "Missing details", 3000)
+    if (!bankCode || !bankName || !accountNumber || !accountName || !accountVerified) {
+      notification.error("Select bank and verify account details before withdrawing", "Missing details", 3000)
       return
     }
 
@@ -311,6 +398,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount,
+          bankCode: bankCode.trim(),
           bankName: bankName.trim(),
           accountNumber: accountNumber.trim(),
           accountName: accountName.trim(),
@@ -334,9 +422,12 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
 
       notification.success("Withdrawal request submitted", result.reference || "Pending processing", 3000)
       setWithdrawAmount("")
+      setBankCode("")
       setBankName("")
       setAccountName("")
       setAccountNumber("")
+      setAccountVerified(false)
+      setAccountError(null)
       setWithdrawalPin("")
       setWalletModalOpen(false)
     } catch (error) {
@@ -390,6 +481,16 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
     } finally {
       setPinLoading(false)
     }
+  }
+
+  const handleBankChange = (code: string) => {
+    const selected = banks.find((bank) => bank.code === code)
+    setBankCode(code)
+    setBankName(selected?.name || "")
+    setAccountNumber("")
+    setAccountName("")
+    setAccountVerified(false)
+    setAccountError(null)
   }
 
   // Prevent body scroll when mobile menu is open
@@ -838,20 +939,29 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                     </div>
 
                     <div>
-                      <label className="text-xs font-medium">Bank name</label>
-                      <Input
-                        value={bankName}
-                        onChange={(e) => setBankName(e.target.value)}
-                        placeholder="Bank name"
-                      />
+                      <label className="text-xs font-medium">Bank</label>
+                      <select
+                        className="w-full border rounded px-3 py-2 text-sm bg-white dark:bg-neutral-900"
+                        value={bankCode}
+                        onChange={(e) => handleBankChange(e.target.value)}
+                        disabled={verifyLoading || banks.length === 0}
+                      >
+                        <option value="">Select bank</option>
+                        {banks.map((bank) => (
+                          <option key={bank.code} value={bank.code}>{bank.name}</option>
+                        ))}
+                      </select>
                     </div>
 
                     <div>
                       <label className="text-xs font-medium">Account number</label>
                       <Input
                         value={accountNumber}
-                        onChange={(e) => setAccountNumber(e.target.value)}
+                        onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
                         placeholder="10-digit account number"
+                        maxLength={10}
+                        inputMode="numeric"
+                        disabled={!bankCode || verifyLoading}
                       />
                     </div>
 
@@ -859,9 +969,13 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                       <label className="text-xs font-medium">Account name</label>
                       <Input
                         value={accountName}
-                        onChange={(e) => setAccountName(e.target.value)}
-                        placeholder="Account name"
+                        readOnly
+                        placeholder="Account name will be auto-filled"
+                        disabled
                       />
+                      {verifyLoading && <p className="text-xs text-muted-foreground mt-1">Verifying account...</p>}
+                      {accountError && <p className="text-xs text-red-600 mt-1">{accountError}</p>}
+                      {accountVerified && !accountError && <p className="text-xs text-green-600 mt-1">Account verified</p>}
                     </div>
 
                     <div className="relative">
@@ -892,7 +1006,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                   Back
                 </Button>
                 {hasWithdrawalPin && (
-                  <Button onClick={handleWalletWithdraw} disabled={withdrawLoading}>
+                  <Button onClick={handleWalletWithdraw} disabled={withdrawLoading || verifyLoading || !accountVerified}>
                     {withdrawLoading ? "Submitting..." : "Request withdrawal"}
                   </Button>
                 )}

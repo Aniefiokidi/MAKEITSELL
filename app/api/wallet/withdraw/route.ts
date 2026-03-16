@@ -4,6 +4,7 @@ import { getUserBySessionToken } from '@/lib/auth'
 import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
+import { createTransferRecipient, initiateTransfer } from '@/lib/paystack-transfer'
 import crypto from 'crypto'
 
 const hashWithdrawalPin = (pin: string, userId: string) => {
@@ -15,6 +16,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const amount = Number(body?.amount)
     const bankName = String(body?.bankName || '').trim()
+    const bankCode = String(body?.bankCode || '').trim()
     const accountNumber = String(body?.accountNumber || '').trim()
     const accountName = String(body?.accountName || '').trim()
     const withdrawalPin = String(body?.withdrawalPin || '').trim()
@@ -23,9 +25,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Amount must be greater than zero' }, { status: 400 })
     }
 
-    if (!bankName || !accountNumber || !accountName) {
+    if (!bankName || !bankCode || !accountNumber || !accountName) {
       return NextResponse.json(
-        { success: false, error: 'Bank name, account number and account name are required' },
+        { success: false, error: 'Bank, account number and account name are required' },
         { status: 400 }
       )
     }
@@ -106,18 +108,69 @@ export async function POST(request: NextRequest) {
 
     const reference = `wallet_withdraw_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`
 
+    const recipientResult = await createTransferRecipient({
+      name: accountName,
+      accountNumber,
+      bankCode,
+    })
+
+    if (!recipientResult.success || !recipientResult.recipientCode) {
+      await User.updateOne(
+        { _id: currentUser.id, role: 'customer' },
+        {
+          $inc: { walletBalance: normalizedAmount },
+          $set: { updatedAt: new Date() },
+        }
+      )
+
+      return NextResponse.json(
+        { success: false, error: recipientResult.message || 'Unable to set up bank transfer at the moment' },
+        { status: 400 }
+      )
+    }
+
+    const transferResult = await initiateTransfer({
+      amount: normalizedAmount,
+      recipientCode: recipientResult.recipientCode,
+      reference,
+      reason: `Customer wallet withdrawal to ${accountName}`,
+    })
+
+    if (!transferResult.success || !transferResult.transferCode || transferResult.status === 'otp') {
+      await User.updateOne(
+        { _id: currentUser.id, role: 'customer' },
+        {
+          $inc: { walletBalance: normalizedAmount },
+          $set: { updatedAt: new Date() },
+        }
+      )
+
+      const otpRequiredMessage = transferResult.status === 'otp'
+        ? 'Withdrawals are temporarily unavailable because transfer OTP is enabled on the payout account. Please disable transfer OTP in Paystack or finalize transfers manually.'
+        : null
+
+      return NextResponse.json(
+        { success: false, error: otpRequiredMessage || transferResult.message || 'Unable to initiate bank transfer right now' },
+        { status: 400 }
+      )
+    }
+
     await WalletTransaction.create({
       userId: String(currentUser.id),
       type: 'withdrawal',
       amount: normalizedAmount,
       status: 'pending',
       reference,
-      provider: 'manual',
-      note: 'Withdrawal request created',
+      provider: 'paystack_transfer',
+      note: `Customer withdrawal to ${accountName} (${bankName})`,
       metadata: {
         bankName,
+        bankCode,
         accountNumber,
         accountName,
+        transferCode: transferResult.transferCode,
+        transferStatus: transferResult.status || 'pending',
+        transferRecipientCode: recipientResult.recipientCode,
         requestedBy: currentUser.email,
       },
       createdAt: new Date(),
@@ -131,7 +184,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Withdrawal request created. Processing will begin shortly.',
+      message: 'Withdrawal request submitted. Transfer is being processed.',
       reference,
       balance: typeof refreshedUser?.walletBalance === 'number' ? refreshedUser.walletBalance : 0,
     })

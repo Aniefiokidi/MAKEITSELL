@@ -1,21 +1,17 @@
 "use client"
 
 import { useEffect, useState, Suspense } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { CheckCircle2, ArrowRight, Store, CreditCard } from 'lucide-react'
+import { CheckCircle2, ArrowRight, Store } from 'lucide-react'
 import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
-import { useAuth } from '@/contexts/AuthContext'
 
 function SignupSuccessContent() {
   const searchParams = useSearchParams()
-  const router = useRouter()
-  const { login } = useAuth()
   const isVendor = searchParams.get('vendor') === 'true'
-  const reference = searchParams.get('reference')
   const loginToken = searchParams.get('login_token')
   const [countdown, setCountdown] = useState(5)
   const [loggingIn, setLoggingIn] = useState(false)
@@ -133,7 +129,7 @@ function SignupSuccessContent() {
             
             <p className="text-lg text-gray-600 mb-6">
               {isVendor 
-                ? 'Your vendor account has been created and your subscription is active!'
+                ? 'Your vendor account has been created successfully. You can start setting up your store now.'
                 : 'Your account has been created successfully. Welcome to Make It Sell!'
               }
             </p>
@@ -171,31 +167,6 @@ function SignupSuccessContent() {
 
           {isVendor && (
             <div className="space-y-6">
-              <Card className="border-green-200 bg-green-50">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-green-800">
-                    <CreditCard className="w-5 h-5" />
-                    Payment Confirmed
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-green-700">Subscription Amount:</span>
-                    <span className="font-semibold text-green-800">₦2,500</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-green-700">Billing Period:</span>
-                    <span className="font-semibold text-green-800">Monthly</span>
-                  </div>
-                  {reference && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-green-700">Reference:</span>
-                      <span className="font-mono text-sm text-green-800">{reference}</span>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2">
@@ -206,7 +177,7 @@ function SignupSuccessContent() {
                 <CardContent>
                   <div className="space-y-4">
                     <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                      <div className="shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
                         <span className="text-blue-600 text-sm font-semibold">1</span>
                       </div>
                       <div>
@@ -216,7 +187,7 @@ function SignupSuccessContent() {
                     </div>
                     
                     <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                      <div className="shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
                         <span className="text-blue-600 text-sm font-semibold">2</span>
                       </div>
                       <div>
@@ -226,7 +197,7 @@ function SignupSuccessContent() {
                     </div>
                     
                     <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                      <div className="shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
                         <span className="text-blue-600 text-sm font-semibold">3</span>
                       </div>
                       <div>

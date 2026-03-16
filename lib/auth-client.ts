@@ -18,7 +18,8 @@ export const signUp = async (
   password: string,
   displayName: string,
   role: "customer" | "vendor" | "admin" = "customer",
-  vendorType?: "goods" | "services" | "both"
+  vendorType?: "goods" | "services" | "both",
+  phone?: string
 ) => {
   try {
     const response = await fetch('/api/auth/signup', {
@@ -29,6 +30,7 @@ export const signUp = async (
         email,
         password,
         name: displayName,
+        phone,
         role: role === "admin" ? "customer" : role,
         vendorType
       }),

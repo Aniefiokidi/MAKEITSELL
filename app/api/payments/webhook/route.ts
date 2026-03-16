@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { paystackService } from '@/lib/payment'
 import { emailService } from '@/lib/email'
 import { updateOrder, getOrderById, creditVendorWalletsForOrder } from '@/lib/mongodb-operations'
+import { WalletTransaction } from '@/lib/models/WalletTransaction'
+import { User } from '@/lib/models/User'
+import { connectToDatabase } from '@/lib/mongodb'
+import mongoose from 'mongoose'
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,6 +35,18 @@ export async function POST(request: NextRequest) {
       case 'charge.dispute':
         await handleDispute(data)
         break
+
+      case 'transfer.success':
+        await handleTransferSuccess(data)
+        break
+
+      case 'transfer.failed':
+        await handleTransferFailure(data)
+        break
+
+      case 'transfer.reversed':
+        await handleTransferFailure(data)
+        break
       
       default:
         console.log(`Unhandled webhook event: ${event}`)
@@ -46,6 +62,65 @@ export async function POST(request: NextRequest) {
 
 async function handleSuccessfulPayment(data: any) {
   try {
+    const metadataItemsRaw = data?.metadata?.items
+    const metadataItems = typeof metadataItemsRaw === 'string'
+      ? JSON.parse(metadataItemsRaw)
+      : metadataItemsRaw
+    const hasWalletTopupItem = Array.isArray(metadataItems)
+      && metadataItems.some((item: any) => item?.productId === 'wallet-topup' || item?.productId === 'vendor-wallet-topup')
+
+    if (hasWalletTopupItem) {
+      await connectToDatabase()
+
+      const paymentReference = data?.reference
+      const orderIdFromMeta = data?.metadata?.orderId || data?.metadata?.orderID
+
+      const transaction = await WalletTransaction.findOne({
+        type: 'topup',
+        $or: [
+          { paymentReference },
+          { reference: orderIdFromMeta },
+        ],
+      })
+
+      if (!transaction) {
+        console.error('Wallet top-up transaction not found for webhook reference:', paymentReference)
+        return
+      }
+
+      const completeUpdate = await WalletTransaction.updateOne(
+        { _id: transaction._id, status: 'pending' },
+        {
+          $set: {
+            status: 'completed',
+            paymentReference,
+            metadata: {
+              ...(transaction.metadata || {}),
+              paystackData: data,
+            },
+            updatedAt: new Date(),
+          },
+        }
+      )
+
+      if (completeUpdate.modifiedCount > 0) {
+        const userIdObject = mongoose.Types.ObjectId.isValid(transaction.userId)
+          ? new mongoose.Types.ObjectId(transaction.userId)
+          : transaction.userId
+
+        await User.updateOne(
+          { _id: userIdObject },
+          {
+            $inc: { walletBalance: transaction.amount },
+            $set: { updatedAt: new Date() },
+          }
+        )
+      }
+
+      console.log(`Wallet top-up successful: ${paymentReference}`)
+      return
+    }
+
     const orderId = data.metadata?.orderId
     
     if (!orderId) {
@@ -91,6 +166,44 @@ async function handleSuccessfulPayment(data: any) {
 
 async function handleFailedPayment(data: any) {
   try {
+    const metadataItemsRaw = data?.metadata?.items
+    const metadataItems = typeof metadataItemsRaw === 'string'
+      ? JSON.parse(metadataItemsRaw)
+      : metadataItemsRaw
+    const hasWalletTopupItem = Array.isArray(metadataItems)
+      && metadataItems.some((item: any) => item?.productId === 'wallet-topup' || item?.productId === 'vendor-wallet-topup')
+
+    if (hasWalletTopupItem) {
+      await connectToDatabase()
+
+      const paymentReference = data?.reference
+      const orderIdFromMeta = data?.metadata?.orderId || data?.metadata?.orderID
+
+      await WalletTransaction.updateOne(
+        {
+          type: 'topup',
+          status: 'pending',
+          $or: [
+            { paymentReference },
+            { reference: orderIdFromMeta },
+          ],
+        },
+        {
+          $set: {
+            status: 'failed',
+            paymentReference,
+            metadata: {
+              paystackData: data,
+            },
+            updatedAt: new Date(),
+          },
+        }
+      )
+
+      console.log(`Wallet top-up failed: ${paymentReference}`)
+      return
+    }
+
     const orderId = data.metadata?.orderId
     
     if (!orderId) {
@@ -135,5 +248,96 @@ async function handleDispute(data: any) {
     console.log(`Payment dispute for order: ${orderId}`)
   } catch (error) {
     console.error('Error handling payment dispute:', error)
+  }
+}
+
+async function handleTransferSuccess(data: any) {
+  try {
+    const reference = data?.reference
+    if (!reference) {
+      return
+    }
+
+    await connectToDatabase()
+
+    const transaction = await WalletTransaction.findOne({
+      type: 'withdrawal',
+      reference,
+    })
+
+    if (!transaction) {
+      return
+    }
+
+    await WalletTransaction.updateOne(
+      {
+        _id: transaction._id,
+      },
+      {
+        $set: {
+          status: 'completed',
+          metadata: {
+            ...(transaction.metadata || {}),
+            transferData: data,
+          },
+          updatedAt: new Date(),
+        },
+      }
+    )
+  } catch (error) {
+    console.error('Error handling transfer success:', error)
+  }
+}
+
+async function handleTransferFailure(data: any) {
+  try {
+    const reference = data?.reference
+    if (!reference) {
+      return
+    }
+
+    await connectToDatabase()
+
+    const transaction = await WalletTransaction.findOne({
+      type: 'withdrawal',
+      reference,
+    })
+
+    if (!transaction) {
+      return
+    }
+
+    const failedUpdate = await WalletTransaction.updateOne(
+      {
+        _id: transaction._id,
+        status: { $ne: 'failed' },
+      },
+      {
+        $set: {
+          status: 'failed',
+          metadata: {
+            ...(transaction.metadata || {}),
+            transferData: data,
+          },
+          updatedAt: new Date(),
+        },
+      }
+    )
+
+    if (failedUpdate.modifiedCount > 0) {
+      const userIdObject = mongoose.Types.ObjectId.isValid(transaction.userId)
+        ? new mongoose.Types.ObjectId(transaction.userId)
+        : transaction.userId
+
+      await User.updateOne(
+        { _id: userIdObject },
+        {
+          $inc: { walletBalance: transaction.amount },
+          $set: { updatedAt: new Date() },
+        }
+      )
+    }
+  } catch (error) {
+    console.error('Error handling transfer failure:', error)
   }
 }

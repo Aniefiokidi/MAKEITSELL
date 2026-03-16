@@ -12,8 +12,7 @@ export const SubscriptionFilterMiddleware = {
       store.isActive !== false && 
       store.frozen !== true && 
       store.accountStatus !== 'frozen' && 
-      store.accountStatus !== 'suspended' &&
-      store.subscriptionStatus !== 'expired'
+      store.accountStatus !== 'suspended'
     )
   },
 
@@ -44,8 +43,7 @@ export const SubscriptionFilterMiddleware = {
       return store.isActive !== false && 
              store.frozen !== true && 
              store.accountStatus !== 'frozen' && 
-             store.accountStatus !== 'suspended' &&
-             store.subscriptionStatus !== 'expired'
+              store.accountStatus !== 'suspended'
     } catch (error) {
       console.error('Error checking store accessibility:', error)
       return false
@@ -74,7 +72,7 @@ export const SubscriptionFilterMiddleware = {
   },
 
   /**
-   * Get vendor subscription status
+   * Get vendor access status
    */
   async getVendorSubscriptionStatus(vendorId: string) {
     try {
@@ -87,26 +85,22 @@ export const SubscriptionFilterMiddleware = {
         return { status: 'no_store', accessible: false }
       }
 
-      const now = new Date()
-      const subscriptionExpiry = store.subscriptionExpiry ? new Date(store.subscriptionExpiry) : null
-      
       const status = {
-        subscriptionStatus: store.subscriptionStatus || 'unknown',
+        subscriptionStatus: 'not_required',
         accountStatus: store.accountStatus || 'unknown',
         isActive: store.isActive ?? true,
         frozen: store.frozen ?? false,
-        subscriptionExpiry,
-        isExpired: subscriptionExpiry ? subscriptionExpiry <= now : false,
+        subscriptionExpiry: null,
+        isExpired: false,
         accessible: store.isActive !== false && 
                    store.frozen !== true && 
                    store.accountStatus !== 'frozen' && 
-                   store.accountStatus !== 'suspended' &&
-                   store.subscriptionStatus !== 'expired'
+                   store.accountStatus !== 'suspended'
       }
 
       return status
     } catch (error) {
-      console.error('Error getting vendor subscription status:', error)
+      console.error('Error getting vendor access status:', error)
       return { status: 'error', accessible: false }
     }
   }

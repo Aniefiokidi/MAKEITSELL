@@ -1,7 +1,11 @@
 import { NextRequest } from 'next/server'
 import { getAllProducts, getAllStores, getAllUsers } from '@/lib/mongodb-operations'
+import { requireAdminAccess } from '@/lib/server-route-auth'
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
+  const unauthorized = await requireAdminAccess(req)
+  if (unauthorized) return unauthorized
+
   try {
     const [products, stores, users] = await Promise.all([
       getAllProducts(),

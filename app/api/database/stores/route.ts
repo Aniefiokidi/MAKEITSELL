@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getStores as mongoGetStores } from '@/lib/mongodb-operations'
 import { getProducts } from '@/lib/mongodb-operations'
-import { getUserBySessionToken } from '@/lib/auth'
-import { cookies } from 'next/headers'
+import { requireRoles } from '@/lib/server-route-auth'
 
 export async function GET(request: NextRequest) {
   try {
@@ -86,30 +85,21 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const { user, response } = await requireRoles(request, ['vendor', 'admin'])
+  if (response) return response
+
   try {
     const storeData = await request.json()
     console.log('Creating store with data:', storeData)
-    
-    // Get authenticated user to link wallet
-    const cookieStore = await cookies()
-    const sessionToken = cookieStore.get('sessionToken')?.value || request.headers.get('X-Session-Token')
-    let walletUserId = storeData.linkedWalletUserId || storeData.vendorId
-    
-    if (sessionToken) {
-      try {
-        const currentUser = await getUserBySessionToken(sessionToken)
-        if (currentUser && currentUser.role === 'vendor') {
-          walletUserId = currentUser.id
-          console.log('Auto-linked store to vendor user wallet:', walletUserId)
-        }
-      } catch (authError) {
-        console.warn('Could not auto-link store to user wallet:', authError)
-      }
-    }
+
+    const enforcedVendorId = user?.role === 'vendor' ? user.id : storeData.vendorId
+    const walletUserId = user?.role === 'vendor'
+      ? user.id
+      : (storeData.linkedWalletUserId || storeData.vendorId)
     
     // Map the data from signup form to the MongoDB store schema
     const mappedStoreData = {
-      vendorId: storeData.vendorId,
+      vendorId: enforcedVendorId,
       storeName: storeData.storeName || storeData.name,
       storeDescription: storeData.storeDescription || storeData.description,
       storeImage: storeData.storeImage || storeData.logoImage || '',

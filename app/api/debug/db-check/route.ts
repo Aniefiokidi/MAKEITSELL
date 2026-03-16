@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
+import { requireAdminAccess } from '@/lib/server-route-auth'
 
 export async function GET(request: NextRequest) {
+  const unauthorized = await requireAdminAccess(request)
+  if (unauthorized) return unauthorized
+
   try {
     console.log('[db-check] Connecting to database...')
     await connectToDatabase()

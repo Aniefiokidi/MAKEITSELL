@@ -14,20 +14,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { useAuth } from "@/contexts/AuthContext"
 import { createStore } from "@/lib/database-client"
-import { createService } from "@/lib/database-client"
-import { uploadToCloudinary } from "@/lib/cloudinary"
-import { Eye, EyeOff, Loader2, Upload, X } from "lucide-react"
+import { Eye, EyeOff, Loader2 } from "lucide-react"
 import LocationPicker from "@/components/LocationPicker"
 
 export default function SignupForm() {
   const searchParams = useSearchParams()
   const isVendorSignup = searchParams.get("type") === "vendor"
-  const paymentError = searchParams.get("error")
+  const signupError = searchParams.get("error")
   const { register } = useAuth() // Add auth context hook
 
   type RoleType = "customer" | "vendor" | "admin";
   const [formData, setFormData] = useState<{
     email: string
+    customerPhone: string
     password: string
     confirmPassword: string
     displayName: string
@@ -40,6 +39,7 @@ export default function SignupForm() {
     storePhone: string
   }>({
     email: "",
+    customerPhone: "",
     password: "",
     confirmPassword: "",
     displayName: "",
@@ -57,48 +57,15 @@ export default function SignupForm() {
   const [acceptTerms, setAcceptTerms] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(
-    paymentError === "payment_failed" ? "Payment was cancelled. Please complete payment to activate your vendor account." :
-    paymentError === "payment_verification_failed" ? "Payment verification failed. Please try again." :
-    paymentError === "payment_unsuccessful" ? "Payment was not successful. Please try again." :
-    paymentError === "callback_error" ? "Payment processing error. Please contact support." :
+    signupError ? "Your signup session could not be completed. Please try again." :
     ""
   )
-  const [storeLogoFile, setStoreLogoFile] = useState<File | null>(null)
-  const [logoPreview, setLogoPreview] = useState<string | null>(null)
-  const [uploadingLogo, setUploadingLogo] = useState(false)
   const [storeCoordinates, setStoreCoordinates] = useState<{ lat: number; lng: number } | null>(null)
   const [storeCity, setStoreCity] = useState<string | null>(null)
   const router = useRouter()
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
-  }
-
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        setError("Logo file size must be less than 5MB")
-        return
-      }
-      if (!file.type.startsWith('image/')) {
-        setError("Please select a valid image file")
-        return
-      }
-      setStoreLogoFile(file)
-      // Create preview
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setLogoPreview(reader.result as string)
-      }
-      reader.readAsDataURL(file)
-      setError("") // Clear any previous errors
-    }
-  }
-
-  const removeLogo = () => {
-    setStoreLogoFile(null)
-    setLogoPreview(null)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -129,6 +96,12 @@ export default function SignupForm() {
       return
     }
 
+    if ((formData.role === "customer" || formData.role === "admin") && !formData.customerPhone.trim()) {
+      setError("Phone number is required")
+      setLoading(false)
+      return
+    }
+
     // Additional validation for vendors
     if (formData.role === "vendor") {
       if (!formData.storeName.trim()) {
@@ -151,6 +124,11 @@ export default function SignupForm() {
         setLoading(false)
         return
       }
+      if (!formData.storePhone.trim()) {
+        setError("Store phone number is required for sellers")
+        setLoading(false)
+        return
+      }
     }
 
     try {
@@ -159,71 +137,63 @@ export default function SignupForm() {
       console.log("isVendorSignup:", isVendorSignup)
       console.log("URL search params:", window.location.search)
       
-      // If vendor, process subscription payment FIRST before creating account
+      // Vendor signup is now free and creates the account directly.
       if (formData.role === "vendor") {
-        console.log("Step 1: VENDOR DETECTED - Processing subscription payment first (NO ACCOUNT CREATION YET)...")
+        console.log("Step 1: Creating vendor account via AuthContext...")
+        const result = await register(
+          formData.email,
+          formData.password,
+          formData.displayName,
+          "vendor",
+          undefined,
+          formData.vendorType
+        )
+
+        const vendorId = result?.user?.uid
+        const resolvedCity = storeCity || formData.storeAddress.split(',')[0]?.trim() || "Lagos"
+
         try {
-          // Store signup data temporarily for after payment
-          const pendingSignupData = {
-            ...formData,
-            storeLogoUrl: storeLogoFile ? await uploadToCloudinary(storeLogoFile) : "/placeholder.svg",
-            timestamp: Date.now()
-          }
-          
-          sessionStorage.setItem('pendingSignupData', JSON.stringify(pendingSignupData))
-
-          // Initialize vendor subscription payment (no user created yet)
-          const subscriptionResponse = await fetch('/api/payments/vendor-subscription-signup', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              email: formData.email,
-              signupData: pendingSignupData
-            }),
+          await createStore({
+            vendorId,
+            storeName: formData.storeName,
+            storeDescription: formData.storeDescription,
+            storeImage: "/placeholder.svg",
+            category: formData.storeCategory,
+            address: formData.storeAddress,
+            location: formData.storeAddress,
+            city: resolvedCity,
+            storePhone: formData.storePhone,
+            email: formData.email,
+            deliveryTime: "1-3 days",
+            deliveryFee: 0,
+            minimumOrder: 0,
+            latitude: storeCoordinates?.lat,
+            longitude: storeCoordinates?.lng,
           })
-
-          if (!subscriptionResponse.ok) {
-            const errorData = await subscriptionResponse.json()
-            throw new Error(errorData.error || 'Failed to initialize subscription payment')
-          }
-
-          const paymentData = await subscriptionResponse.json()
-          console.log("Step 1: Payment initialization successful", paymentData)
-
-          // Redirect to Paystack for payment
-          if (paymentData.success && paymentData.authorization_url) {
-            console.log("Step 1: Redirecting to Paystack payment page...")
-            window.location.href = paymentData.authorization_url
-            return
-          } else {
-            throw new Error('Payment initialization failed: No authorization URL received')
-          }
-        } catch (paymentError: any) {
-          console.error("Step 1: Subscription payment initialization failed:", paymentError)
-          setError(`Failed to process subscription payment: ${paymentError.message}`)
-          setLoading(false)
-          return
+          console.log("Step 2: Vendor store created successfully")
+        } catch (storeError) {
+          console.error("Step 2: Store setup failed, continuing with account creation:", storeError)
         }
+
+        console.log("Step 3: Redirecting to verification notice...")
+        router.push(`/signup/verify-notice?email=${encodeURIComponent(formData.email)}&vendor=true`)
+        return
       }
 
-      // If not vendor, create account normally (customer/admin)
+      // Create customer/admin account
       if (formData.role === "customer" || formData.role === "admin") {
-        console.log("Step 1: Creating customer/admin account via AuthContext...");
+        console.log("Step 1: Creating customer/admin account via AuthContext...")
         await register(
           formData.email,
           formData.password,
           formData.displayName,
-          formData.role === "admin" ? "customer" : formData.role // fallback to "customer" for admin
-        );
-        console.log("Step 1: Customer/admin account created successfully");
-        // No store/service creation for customers/admins
+          formData.role === "admin" ? "customer" : formData.role,
+          formData.customerPhone
+        )
+        console.log("Step 1: Customer/admin account created successfully")
         
-        // Redirect to verification notice instead of logging in
         console.log("Step 2: Redirecting to verification notice...")
         router.push(`/signup/verify-notice?email=${encodeURIComponent(formData.email)}`)
-        return
         return
       }
 
@@ -234,7 +204,6 @@ export default function SignupForm() {
       console.error("=== SIGNUP FORM ERROR ===", error)
       setError(error.message || "Failed to create account")
       setLoading(false)
-      setUploadingLogo(false)
     }
   }
 
@@ -246,14 +215,7 @@ export default function SignupForm() {
         </CardTitle>
         <CardDescription>
           {isVendorSignup ? (
-            <div className="space-y-2">
-              <p>Start selling on Make It Sell marketplace</p>
-              <div className="bg-accent/10 border border-accent/20 rounded-md p-2">
-                <p className="text-xs font-medium text-accent">
-                  Vendor Subscription: ₦2,000/month (billed monthly)
-                </p>
-              </div>
-            </div>
+            "Start selling on Make It Sell marketplace for free"
           ) : (
             "Join Make It Sell marketplace today"
           )}
@@ -292,6 +254,21 @@ export default function SignupForm() {
               disabled={loading}
             />
           </div>
+
+          {(formData.role === "customer" || formData.role === "admin") && (
+            <div className="space-y-2">
+              <Label htmlFor="customerPhone">Phone Number</Label>
+              <Input
+                id="customerPhone"
+                type="tel"
+                placeholder="Enter your phone number"
+                value={formData.customerPhone}
+                onChange={(e) => handleInputChange("customerPhone", e.target.value)}
+                required={formData.role === "customer" || formData.role === "admin"}
+                disabled={loading}
+              />
+            </div>
+          )}
 
           {!isVendorSignup && (
             <div className="space-y-2">
@@ -343,101 +320,6 @@ export default function SignupForm() {
                   </p>
                 </div>
 
-                {/* Vendor Subscription Notice */}
-                <div className="bg-accent/10 border border-accent/20 rounded-lg p-4 mb-4">
-                  <h4 className="font-semibold text-accent mb-2">📦 Vendor Subscription Required</h4>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    As a vendor on Make It Sell, you'll need to subscribe to our monthly vendor plan:
-                  </p>
-                  <div className="flex items-center justify-between bg-white/50 rounded-md p-3 mb-2">
-                    <div>
-                      <p className="font-semibold text-lg">₦2,500 / month</p>
-                      <p className="text-xs text-muted-foreground">Billed monthly • Auto-renewable</p>
-                    </div>
-                    <div className="text-accent">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    <p className="mb-1"><strong>What's included:</strong></p>
-                    <ul className="list-disc list-inside space-y-0.5 ml-2">
-                      <li>Unlimited product/service listings</li>
-                      <li>Store management dashboard</li>
-                      <li>Order & booking management</li>
-                      <li>Analytics & sales insights</li>
-                      <li>Customer support tools</li>
-                      <li>Secure payment processing</li>
-                    </ul>
-                    <p className="mt-2 font-medium text-accent">
-                      First payment will be processed after account creation
-                    </p>
-                  </div>
-                </div>
-
-                {/* Store Logo Upload */}
-                <div className="space-y-2 mb-4">
-                  <Label htmlFor="storeLogo">Store Logo</Label>
-                  <div className="flex items-center gap-4">
-                    {logoPreview ? (
-                      <div className="relative">
-                        <img
-                          src={logoPreview}
-                          alt="Store logo preview"
-                          className="w-20 h-20 object-cover rounded-lg border"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          className="absolute -top-2 -right-2 h-6 w-6"
-                          onClick={removeLogo}
-                          disabled={loading}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="w-20 h-20 border-2 border-dashed border-muted-foreground/25 rounded-lg flex items-center justify-center">
-                        <Upload className="h-8 w-8 text-muted-foreground/50" />
-                      </div>
-                    )}
-                    <div className="flex-1">
-                      <input
-                        id="storeLogo"
-                        type="file"
-                        accept="image/*"
-                        onChange={handleLogoChange}
-                        disabled={loading || uploadingLogo}
-                        className="hidden"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => document.getElementById('storeLogo')?.click()}
-                        disabled={loading || uploadingLogo}
-                        className="w-full"
-                      >
-                        {uploadingLogo ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Uploading...
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="mr-2 h-4 w-4" />
-                            Choose Store Logo
-                          </>
-                        )}
-                      </Button>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        JPG, PNG or GIF (max 5MB)
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Store Name */}
                 <div className="space-y-2">
                   <Label htmlFor="storeName">Store Name *</Label>
@@ -462,7 +344,7 @@ export default function SignupForm() {
                     onChange={(e) => handleInputChange("storeDescription", e.target.value)}
                     required={formData.role === "vendor"}
                     disabled={loading}
-                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     maxLength={500}
                   />
                   <p className="text-xs text-muted-foreground">
@@ -517,13 +399,14 @@ export default function SignupForm() {
 
                 {/* Store Phone */}
                 <div className="space-y-2 mt-3">
-                  <Label htmlFor="storePhone">Store Phone (Optional)</Label>
+                  <Label htmlFor="storePhone">Store Phone *</Label>
                   <Input
                     id="storePhone"
                     type="tel"
                     placeholder="Enter store contact number"
                     value={formData.storePhone}
                     onChange={(e) => handleInputChange("storePhone", e.target.value)}
+                    required={formData.role === "vendor"}
                     disabled={loading}
                   />
                 </div>
@@ -611,15 +494,13 @@ export default function SignupForm() {
         </CardContent>
 
         <CardFooter className="flex flex-col space-y-4">
-          <Button type="submit" className="w-full mt-3" disabled={loading || uploadingLogo || !acceptTerms}>
-            {(loading || uploadingLogo) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {uploadingLogo 
-              ? "Uploading Logo..." 
-              : loading 
-                ? "Creating Account..." 
-                : isVendorSignup || formData.role === "vendor"
-                  ? "Create Seller Account (₦2,500/month)" 
-                  : "Create Account"
+          <Button type="submit" className="w-full mt-3" disabled={loading || !acceptTerms}>
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {loading 
+              ? "Creating Account..." 
+              : isVendorSignup || formData.role === "vendor"
+                ? "Create Seller Account" 
+                : "Create Account"
             }
           </Button>
 

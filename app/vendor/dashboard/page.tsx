@@ -29,12 +29,6 @@ export default function VendorDashboardPage() {
   const { user, userProfile, loading } = useAuth();
   const [dashboard, setDashboard] = useState<any>(null);
   const [dataLoading, setDataLoading] = useState(true);
-  const [subscriptionStatus, setSubscriptionStatus] = useState<{
-    status: 'active' | 'suspended' | 'expired';
-    expiryDate: Date | null;
-    daysUntilExpiry: number;
-    accountStatus: 'active' | 'suspended' | 'deleted';
-  } | null>(null);
   // Popup for new vendors
   const [showSetupPopup, setShowSetupPopup] = useState(false);
   const [storeData, setStoreData] = useState<any>(null);
@@ -92,44 +86,6 @@ export default function VendorDashboardPage() {
 
     loadStoreData();
   }, [user, userProfile]);
-
-  // Handle subscription renewal
-  const handleRenewSubscription = async () => {
-    if (!user || !userProfile) return
-
-    try {
-      setDataLoading(true)
-      const response = await fetch('/api/payments/vendor-subscription', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          vendorId: user.uid,
-          email: user.email || userProfile.email
-        }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to initialize payment')
-      }
-
-      const result = await response.json()
-
-      if (result.success && result.authorization_url) {
-        // Redirect to Paystack payment
-        window.location.href = result.authorization_url
-      } else {
-        throw new Error('Payment initialization failed')
-      }
-    } catch (error) {
-      console.error('Renewal error:', error)
-      alert('Failed to process subscription renewal. Please try again.')
-    } finally {
-      setDataLoading(false)
-    }
-  }
 
   // Format currency with commas
   const formatCurrency = (amount: number) => {
@@ -281,104 +237,6 @@ export default function VendorDashboardPage() {
           </Button>
         </div>
       </div>
-
-      {/* Subscription Status */}
-      {subscriptionStatus && (
-        <div className="mt-6 mb-6">
-          <Card className={`border-l-4 ${
-            subscriptionStatus.status === 'active' && subscriptionStatus.daysUntilExpiry > 7 
-              ? 'border-l-green-500 bg-green-50' 
-              : subscriptionStatus.status === 'active' && subscriptionStatus.daysUntilExpiry <= 7
-                ? 'border-l-yellow-500 bg-yellow-50'
-                : subscriptionStatus.status === 'expired' 
-                  ? 'border-l-orange-500 bg-orange-50'
-                  : 'border-l-red-500 bg-red-50'
-          }`}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <CreditCard className={`h-6 w-6 ${
-                    subscriptionStatus.status === 'active' && subscriptionStatus.daysUntilExpiry > 7 
-                      ? 'text-green-600' 
-                      : subscriptionStatus.status === 'active' && subscriptionStatus.daysUntilExpiry <= 7
-                        ? 'text-yellow-600'
-                        : subscriptionStatus.status === 'expired' 
-                          ? 'text-orange-600'
-                          : 'text-red-600'
-                  }`} />
-                  <div>
-                    <p className="font-semibold">
-                      {subscriptionStatus.status === 'active' && subscriptionStatus.daysUntilExpiry > 7
-                        ? 'Subscription Active'
-                        : subscriptionStatus.status === 'active' && subscriptionStatus.daysUntilExpiry <= 7
-                          ? 'Subscription Expiring Soon'
-                          : subscriptionStatus.status === 'expired'
-                            ? 'Subscription Expired'
-                            : subscriptionStatus.accountStatus === 'suspended'
-                              ? 'Account Suspended'
-                              : 'Subscription Issue'
-                      }
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {subscriptionStatus.daysUntilExpiry > 0 
-                        ? `Expires in ${subscriptionStatus.daysUntilExpiry} day${subscriptionStatus.daysUntilExpiry === 1 ? '' : 's'}`
-                        : subscriptionStatus.daysUntilExpiry === 0 
-                          ? 'Expires today'
-                          : `Expired ${Math.abs(subscriptionStatus.daysUntilExpiry)} day${Math.abs(subscriptionStatus.daysUntilExpiry) === 1 ? '' : 's'} ago`
-                      }
-                      {subscriptionStatus.expiryDate && (
-                        <span className="ml-2">
-                          ({new Date(subscriptionStatus.expiryDate).toLocaleDateString('en-NG')})
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  {(subscriptionStatus.status !== 'active' || subscriptionStatus.daysUntilExpiry <= 7) && (
-                    <Button size="sm" onClick={handleRenewSubscription} disabled={dataLoading} className="hover:bg-accent/80 hover:scale-105 transition-all hover:shadow-lg">
-                      {dataLoading ? 'Processing...' : 'Renew Subscription'}
-                    </Button>
-                  )}
-                  {subscriptionStatus.accountStatus === 'suspended' && (
-                    <Badge variant="destructive">
-                      Suspended
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              {(subscriptionStatus.daysUntilExpiry <= 7 && subscriptionStatus.daysUntilExpiry > 0) && (
-                <div className="mt-2 p-2 bg-yellow-100 rounded text-sm text-yellow-800">
-                  <AlertTriangle className="h-4 w-4 inline mr-2" />
-                  Your subscription expires soon. Renew now to avoid service interruption.
-                </div>
-              )}
-              {subscriptionStatus.daysUntilExpiry < 0 && subscriptionStatus.accountStatus !== 'suspended' && (
-                <div className="mt-2 p-2 bg-orange-100 rounded text-sm text-orange-800">
-                  <AlertTriangle className="h-4 w-4 inline mr-2" />
-                  Your subscription is overdue. Account will be suspended after 10 days of non-payment.
-                  {Math.abs(subscriptionStatus.daysUntilExpiry) >= 10 && (
-                    <span className="block mt-1 font-semibold">
-                      Account suspension: {20 - Math.abs(subscriptionStatus.daysUntilExpiry)} days remaining before permanent deletion
-                    </span>
-                  )}
-                </div>
-              )}
-              {subscriptionStatus.accountStatus === 'suspended' && (
-                <div className="mt-2 p-2 bg-red-100 rounded text-sm text-red-800">
-                  <AlertTriangle className="h-4 w-4 inline mr-2" />
-                  Your account is suspended. Your store is hidden from customers. 
-                  {Math.abs(subscriptionStatus.daysUntilExpiry) < 20 && (
-                    <span className="block mt-1 font-semibold">
-                      Permanent deletion in: {20 - Math.abs(subscriptionStatus.daysUntilExpiry)} days
-                    </span>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
       {/* Dashboard Content */}
       <div className="mt-8">

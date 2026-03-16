@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { MongoClient } from 'mongodb'
+import { requireCronOrAdminAccess } from '@/lib/server-route-auth'
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/gote-marketplace'
 
@@ -17,15 +18,10 @@ async function connectToDatabase() {
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    // This endpoint will be called daily by a cron job or scheduled task
-    const authHeader = request.headers.get('authorization')
-    
-    // Basic security check - you should implement proper API authentication
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  const unauthorized = await requireCronOrAdminAccess(request)
+  if (unauthorized) return unauthorized
 
+  try {
     const db = await connectToDatabase()
     const now = new Date()
     
@@ -143,59 +139,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 3: Send warning emails for accounts nearing suspension (7 days overdue)
-    const warningDate = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000)) // 7 days ago
     const accountsToWarn = await db.collection('stores').find({
-      subscriptionStatus: 'active',
-      subscriptionExpiry: { $lt: warningDate, $gte: suspensionDate },
-      lastWarningEmail: { $ne: warningDate.toDateString() } // Don't send multiple warnings same day
-    }).toArray()
-
-    if (accountsToWarn.length > 0) {
-      console.log(`Sending warning emails to ${accountsToWarn.length} vendors...`)
-      
       // You would implement email sending here
       // For now, just mark that warnings were sent
       await db.collection('stores').updateMany(
         { _id: { $in: accountsToWarn.map(s => s._id) } },
         { 
-          $set: { 
-            lastWarningEmail: warningDate.toDateString(),
-            warningEmailSent: true
-          }
-        }
-      )
-    }
-
-    // Step 4: Clean up expired pending signups (older than 1 hour)
-    const expiredSignupDate = new Date(now.getTime() - (60 * 60 * 1000)) // 1 hour ago
-    const expiredSignups = await db.collection('pending_signups').find({
-      createdAt: { $lt: expiredSignupDate },
-      status: { $ne: 'completed' }
-    }).toArray()
-
-    if (expiredSignups.length > 0) {
-      console.log(`Cleaning up ${expiredSignups.length} expired pending signups...`)
-      
-      await db.collection('pending_signups').deleteMany({
-        createdAt: { $lt: expiredSignupDate },
-        status: { $ne: 'completed' }
+      return NextResponse.json({
+        success: true,
+        deprecated: true,
+        message: 'Vendor subscription cleanup is disabled. Vendor accounts are free.'
       })
-    }
-
-    return NextResponse.json({
-      success: true,
-      suspended: accountsToSuspend.length,
-      deleted: accountsToDelete.length,
-      warned: accountsToWarn.length,
-      expiredSignupsCleanedUp: expiredSignups.length,
-      timestamp: now.toISOString()
-    })
-
-  } catch (error) {
-    console.error('Vendor subscription cleanup error:', error)
-    return NextResponse.json(
-      { error: 'Cleanup job failed' },
-      { status: 500 }
-    )
-  }
-}

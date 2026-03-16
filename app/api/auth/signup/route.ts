@@ -6,7 +6,7 @@ import { signUp } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, name, role, vendorType } = await request.json()
+    const { email, password, name, role, vendorType, phone } = await request.json()
     
     const vendorInfo = role === "vendor" ? {
       businessName: name,
@@ -17,6 +17,7 @@ export async function POST(request: NextRequest) {
       email,
       password,
       name,
+      phone,
       role: role === "admin" ? "customer" : role,
       vendorInfo
     })
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
         path: '/',
         maxAge: 60 * 60 * 24 * 7, // 1 week
         sameSite: 'lax',
-        secure: false, // Always false in dev, true in prod
+        secure: process.env.NODE_ENV === 'production',
       })
       return new NextResponse(JSON.stringify(result), {
         status: 200,

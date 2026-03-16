@@ -7,7 +7,7 @@ function hashPassword(password: string) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
-export async function signUp({ email, password, name, role, vendorInfo }: { email: string, password: string, name: string, role?: string, vendorInfo?: any }) {
+export async function signUp({ email, password, name, role, vendorInfo, phone }: { email: string, password: string, name: string, role?: string, vendorInfo?: any, phone?: string }) {
   await connectToDatabase();
   const existing = await User.findOne({ email });
   if (existing) throw new Error('Email already in use');
@@ -23,6 +23,7 @@ export async function signUp({ email, password, name, role, vendorInfo }: { emai
     email,
     passwordHash,
     name,
+    phone,
     role: role || 'customer',
     walletBalance: 0,
     vendorInfo,
@@ -65,7 +66,6 @@ export async function signUp({ email, password, name, role, vendorInfo }: { emai
 export async function signIn({ email, password }: { email: string, password: string }) {
   await connectToDatabase();
   const user = await User.findOne({ email });
-  console.log('[auth.signIn] User found:', user ? 'YES' : 'NO');
   if (!user) throw new Error('Invalid credentials');
   
   // Check email verification
@@ -84,13 +84,9 @@ export async function signIn({ email, password }: { email: string, password: str
 
   // Primary path: use passwordHash
   if (user.passwordHash) {
-    console.log('[auth.signIn] Stored hash:', user.passwordHash);
-    console.log('[auth.signIn] Input hash:', inputPasswordHash);
-    console.log('[auth.signIn] Hashes match:', user.passwordHash === inputPasswordHash);
     if (user.passwordHash !== inputPasswordHash) throw new Error('Invalid credentials');
   } else {
     // Backward compatibility: some legacy users only have `password` field
-    console.log('[auth.signIn] No passwordHash; attempting legacy password check');
     const legacyPassword: string | undefined = (user as any).password;
 
     // If legacy password matches plaintext input OR hashed input, accept and upgrade
@@ -99,12 +95,10 @@ export async function signIn({ email, password }: { email: string, password: str
       throw new Error('Your account is missing a password hash. Please reset your password or contact support.');
     }
 
-    console.log('[auth.signIn] Legacy password accepted; upgrading to passwordHash');
   }
   
   // Generate new session token
   const newSessionToken = crypto.randomBytes(32).toString('hex');
-  console.log('[auth.signIn] Generated sessionToken:', newSessionToken);
 
   let walletBalance = typeof (user as any).walletBalance === 'number' ? (user as any).walletBalance : 0;
   
@@ -124,8 +118,6 @@ export async function signIn({ email, password }: { email: string, password: str
     }
   );
   
-  console.log('[auth.signIn] Direct update result:', updateResult.modifiedCount > 0 ? 'SUCCESS' : 'FAILED');
-  
   return { 
     success: true, 
     user: { 
@@ -141,9 +133,7 @@ export async function signIn({ email, password }: { email: string, password: str
 
 export async function getUserBySessionToken(sessionToken: string) {
   await connectToDatabase();
-  console.log('[auth.getUserBySessionToken] Looking for user with token:', sessionToken.substring(0, 8) + '...');
   const user = await User.findOne({ sessionToken });
-  console.log('[auth.getUserBySessionToken] User found:', user ? 'YES' : 'NO');
   if (!user) return null;
 
   let walletBalance = typeof (user as any).walletBalance === 'number' ? (user as any).walletBalance : undefined;

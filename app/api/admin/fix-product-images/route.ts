@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectToDatabase from "@/lib/mongodb";
 import { Product } from "@/lib/models";
+import { requireAdminAccess } from '@/lib/server-route-auth'
 
 export async function POST(request: NextRequest) {
+  const unauthorized = await requireAdminAccess(request)
+  if (unauthorized) return unauthorized
+
   await connectToDatabase();
   let fixedCount = 0;
   let checkedCount = 0;
