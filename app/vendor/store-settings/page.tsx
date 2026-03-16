@@ -26,7 +26,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAuth } from "@/contexts/AuthContext"
 // Replace with the correct type export from "@/lib/models" or define inline if missing
@@ -687,54 +686,6 @@ export default function VendorStoreSettingsPage() {
                     onChange={e => handleInputChange("shippingPolicy", e.target.value)}
                     placeholder="Describe your shipping policy..."
                     rows={3}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-            {/* Preferences Section */}
-            <Card id="preferences">
-              <CardHeader>
-                <CardTitle>Preferences</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Accept Returns</Label>
-                    <p className="text-sm text-muted-foreground">Allow customers to return products</p>
-                  </div>
-                  <Switch
-                    checked={settings.acceptReturns}
-                    onCheckedChange={checked => handleInputChange("acceptReturns", checked)}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Accept Exchanges</Label>
-                    <p className="text-sm text-muted-foreground">Allow customers to exchange products</p>
-                  </div>
-                  <Switch
-                    checked={settings.acceptExchanges}
-                    onCheckedChange={checked => handleInputChange("acceptExchanges", checked)}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Auto Fulfill Orders</Label>
-                    <p className="text-sm text-muted-foreground">Automatically mark orders as fulfilled</p>
-                  </div>
-                  <Switch
-                    checked={settings.autoFulfill}
-                    onCheckedChange={checked => handleInputChange("autoFulfill", checked)}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Email Notifications</Label>
-                    <p className="text-sm text-muted-foreground">Receive email notifications for orders</p>
-                  </div>
-                  <Switch
-                    checked={settings.emailNotifications}
-                    onCheckedChange={checked => handleInputChange("emailNotifications", checked)}
                   />
                 </div>
               </CardContent>
