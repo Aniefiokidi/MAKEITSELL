@@ -23,6 +23,11 @@ export async function getGlobalDashboard() {
   const vendorsCount = users.filter(u => u.role === 'vendor').length
   const customersCount = users.filter(u => !u.role || u.role === 'customer').length
 
+  const isPaymentConfirmed = (order: any) => {
+    const paymentStatus = String(order?.paymentStatus || '').toLowerCase()
+    return paymentStatus === 'completed' || paymentStatus === 'paid' || paymentStatus === 'confirmed' || paymentStatus === 'successful' || paymentStatus === 'success'
+  }
+
   // Top vendors by revenue
   const vendorRevenueMap = new Map<string, number>()
   const vendorSalesMap = new Map<string, number>()
@@ -50,12 +55,26 @@ export async function getGlobalDashboard() {
 
   // Top customers by spend
   const customerSpendMap = new Map<string, number>()
-  orders.forEach(o => {
+  const paidOrders = orders.filter(isPaymentConfirmed)
+  paidOrders.forEach(o => {
     const orderTotal = vendorTotalsByOrder(o)
-    if (o.customerId) customerSpendMap.set(o.customerId, (customerSpendMap.get(o.customerId) || 0) + orderTotal)
+    const customerId = o.customerId ? String(o.customerId) : ''
+    if (customerId) {
+      customerSpendMap.set(customerId, (customerSpendMap.get(customerId) || 0) + orderTotal)
+    }
   })
   const userById: Record<string, { name?: string; email?: string }> = {}
-  users.forEach(u => { userById[u.id || (u as any)._id] = { name: u.name || (u as any).displayName, email: u.email } })
+  users.forEach((u: any) => {
+    const keys = [u.id, u._id?.toString?.(), u.uid, u.userId].filter(Boolean) as string[]
+    const email = u.email
+    const profileName = u.name || u.displayName || [u.firstName, u.lastName].filter(Boolean).join(' ').trim()
+    const fallbackName = email ? String(email).split('@')[0] : undefined
+    const resolvedName = profileName || fallbackName || 'Customer'
+
+    keys.forEach((key) => {
+      userById[String(key)] = { name: resolvedName, email }
+    })
+  })
 
   const topCustomers = Array.from(customerSpendMap.entries()).map(([customerId, spend]) => ({
     customerId,

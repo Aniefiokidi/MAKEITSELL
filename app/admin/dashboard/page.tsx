@@ -185,8 +185,8 @@ export default function AdminDashboard() {
                 {(data?.topCustomers || []).slice(0, 3).map((customer: any, idx: number) => (
                   <div key={idx} className="flex items-center justify-between gap-2">
                     <div className="space-y-1 flex-1 min-w-0">
-                      <p className="font-medium text-sm">Customer</p>
-                      <p className="text-xs text-muted-foreground truncate">{customer.customerId}</p>
+                      <p className="font-medium text-sm truncate">{customer.name || "Customer"}</p>
+                      <p className="text-xs text-muted-foreground truncate">{customer.email || customer.customerId}</p>
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className="font-bold text-sm">₦{customer.spend.toLocaleString()}</p>
