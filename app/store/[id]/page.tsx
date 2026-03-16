@@ -979,8 +979,9 @@ export default function StorePage() {
                     <div className="flex gap-3 items-start pb-3 border-b border-border/50">
                       <Truck className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                       <div>
-                        <p className="text-xs text-muted-foreground mb-1">Free Shipping Threshold</p>
-                        <span className="text-sm font-medium">{formatCurrency(store.shippingInfo?.freeShippingThreshold || 5000)}</span>
+                        <p className="text-xs text-muted-foreground mb-1">Shipping Cost</p>
+                        <span className="text-sm font-medium text-muted-foreground">TBD</span>
+                        <p className="text-xs text-muted-foreground mt-1">Rider will inform you of delivery cost at checkout.</p>
                       </div>
                     </div>
                     <div className="flex gap-3 items-start pb-3 border-b border-border/50">
@@ -993,8 +994,9 @@ export default function StorePage() {
                     <div className="flex gap-3 items-start">
                       <Package className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                       <div>
-                        <p className="text-xs text-muted-foreground mb-1">Shipping Cost</p>
-                        <span className="text-sm font-medium">{formatCurrency(store.shippingInfo?.shippingCost || 500)}</span>
+                        <p className="text-xs text-muted-foreground mb-1">Checkout Note</p>
+                        <span className="text-sm font-medium">Order total excludes delivery fee.</span>
+                        <p className="text-xs text-muted-foreground mt-1">Delivery fee is determined by rider, same as checkout.</p>
                       </div>
                     </div>
                   </div>
