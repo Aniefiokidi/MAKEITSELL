@@ -184,7 +184,7 @@ export interface Service {
   duration?: number
   images: string[]
   location: string
-  locationType: "online" | "in-person" | "both"
+  locationType: "online" | "store" | "home-service" | "in-person" | "both"
   availability: {
     monday?: { start: string; end: string; available: boolean }
     tuesday?: { start: string; end: string; available: boolean }

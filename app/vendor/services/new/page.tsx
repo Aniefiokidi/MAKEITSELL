@@ -456,23 +456,23 @@ export default function NewServicePage() {
                   
                   {/* Suggestions Dropdown */}
                   {showSuggestions && locationSuggestions.length > 0 && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    <div className="absolute z-50 w-full mt-1 bg-popover text-popover-foreground border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto">
                       {locationSuggestions.map((suggestion, index) => (
                         <button
                           key={suggestion.place_id || index}
                           type="button"
-                          className="w-full px-4 py-3 text-left hover:bg-accent/10 transition-colors border-b last:border-b-0 flex items-start gap-2"
+                          className="w-full px-4 py-3 text-left text-popover-foreground hover:bg-accent/10 transition-colors border-b border-border last:border-b-0 flex items-start gap-2"
                           onMouseDown={(e) => {
                             e.preventDefault() // Prevent input blur
                             selectAddress(suggestion)
                           }}
                         >
-                          <svg className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-5 h-5 text-accent mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                           </svg>
                           <div className="flex-1">
-                            <p className="text-sm font-medium">{suggestion.structured_formatting?.main_text || suggestion.description}</p>
+                            <p className="text-sm font-medium text-popover-foreground">{suggestion.structured_formatting?.main_text || suggestion.description}</p>
                             {suggestion.structured_formatting?.secondary_text && (
                               <p className="text-xs text-muted-foreground">{suggestion.structured_formatting.secondary_text}</p>
                             )}

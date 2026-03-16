@@ -15,7 +15,7 @@ export interface IBooking extends Document {
   duration: number;
   totalPrice: number;
   status: "pending" | "confirmed" | "completed" | "cancelled";
-  locationType: "online" | "in-person" | "both";
+  locationType: "online" | "store" | "home-service" | "in-person" | "both";
   location: string;
   notes?: string;
   createdAt: Date;
@@ -37,7 +37,8 @@ const BookingSchema = new Schema<IBooking>({
   duration: { type: Number, required: true },
   totalPrice: { type: Number, required: true },
   status: { type: String, enum: ["pending", "confirmed", "completed", "cancelled"], default: "pending" },
-  locationType: { type: String, enum: ["online", "in-person", "both"], required: true },
+  // Keep legacy values (in-person/both) while accepting current service values.
+  locationType: { type: String, enum: ["online", "store", "home-service", "in-person", "both"], required: true },
   location: { type: String, required: true },
   notes: { type: String },
   createdAt: { type: Date, default: Date.now },

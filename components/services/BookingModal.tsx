@@ -79,11 +79,20 @@ export default function BookingModal({ service, isOpen, onClose }: BookingModalP
 
       // Calculate end time based on service duration
       const [hour, minute] = selectedTime.split(":").map(Number)
-      const duration = service.duration || 60
+      const parsedDuration = Number(service.duration)
+      const duration = Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : 60
       const endMinutes = minute + duration
       const endHour = hour + Math.floor(endMinutes / 60)
       const endMinute = endMinutes % 60
       const endTime = `${String(endHour).padStart(2, "0")}:${String(endMinute).padStart(2, "0")}`
+
+      const locationType = service.locationType === "store"
+        ? "store"
+        : service.locationType === "home-service"
+          ? "home-service"
+          : service.locationType === "in-person"
+            ? "store"
+            : "online"
 
       const bookingData = {
         serviceId: service.id!,
@@ -100,7 +109,7 @@ export default function BookingModal({ service, isOpen, onClose }: BookingModalP
         duration: duration,
         totalPrice: service.price,
         status: "pending" as const,
-        locationType: service.locationType as "online" | "home-service" | "store",
+        locationType,
         location: service.location,
         notes: notes,
       }
