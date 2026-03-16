@@ -436,13 +436,13 @@ function TrendingProducts() {
                     <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-[2.25rem] border-t border-white/10 p-2 sm:p-4">
                       <div className="flex items-start justify-between gap-2 sm:gap-3 mb-1 sm:mb-2">
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-xs sm:text-lg md:text-xl font-bold tracking-tight mb-0.5 sm:mb-1 text-white drop-shadow-lg truncate">
+                          <h3 className="text-xs sm:text-lg md:text-xl font-bold tracking-tight mb-0.5 sm:mb-1 text-white drop-shadow-lg leading-tight wrap-break-word whitespace-normal">
                             {serviceName}
                           </h3>
                           {(service.providerName || service.vendorName) && (
                             <div className="flex items-center gap-0.5 text-[7px] sm:text-xs font-medium text-white/90 tracking-wide mb-1 sm:mb-2">
                               <Verified className="h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0" />
-                              <span className="truncate">{service.providerName || service.vendorName}</span>
+                              <span className="leading-tight wrap-break-word whitespace-normal">{service.providerName || service.vendorName}</span>
                             </div>
                           )}
 
