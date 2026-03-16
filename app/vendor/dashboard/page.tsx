@@ -200,12 +200,36 @@ export default function VendorDashboardPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white/80 dark:bg-gray-900/80 rounded-xl shadow-2xl p-8 max-w-sm mx-auto flex flex-col items-center justify-center border border-accent" style={{backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)'}}>
             <h2 className="text-xl font-bold mb-2 text-center">Welcome to MakeItSell!</h2>
-            <p className="mb-4 text-center text-muted-foreground">To start selling, please finish setting up your store.</p>
-            <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg" variant="accent" onClick={() => setShowSetupPopup(false)}>
-              <Link href="/vendor/store-settings">
-                Go to Store Settings
-              </Link>
-            </Button>
+            <p className="mb-4 text-center text-muted-foreground">
+              {vendorType === "services"
+                ? "To start selling, please finish setting up your service profile."
+                : vendorType === "both"
+                  ? "To start selling, please finish setting up your store and service profile."
+                  : "To start selling, please finish setting up your store."
+              }
+            </p>
+
+            {vendorType === "both" ? (
+              <>
+                <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg" variant="accent" onClick={() => setShowSetupPopup(false)}>
+                  <Link href="/vendor/store-settings">
+                    Go to Store Settings
+                  </Link>
+                </Button>
+                <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg" variant="outline" onClick={() => setShowSetupPopup(false)}>
+                  <Link href="/vendor/services/new">
+                    Go to Service Setup
+                  </Link>
+                </Button>
+              </>
+            ) : (
+              <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg" variant="accent" onClick={() => setShowSetupPopup(false)}>
+                <Link href={vendorType === "services" ? "/vendor/services/new" : "/vendor/store-settings"}>
+                  {vendorType === "services" ? "Go to Service Setup" : "Go to Store Settings"}
+                </Link>
+              </Button>
+            )}
+
             <Button variant="ghost" className="w-full mt-1 text-xs" onClick={() => setShowSetupPopup(false)}>
               Maybe later
             </Button>
