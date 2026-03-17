@@ -12,6 +12,13 @@ export interface UserProfile {
   updatedAt: Date
 }
 
+const getSafeVendorType = (value: unknown): "goods" | "services" | "both" | undefined => {
+  if (value === "goods" || value === "services" || value === "both") {
+    return value
+  }
+  return undefined
+}
+
 // Sign up new user (calls API route)
 export const signUp = async (
   email: string,
@@ -50,7 +57,7 @@ export const signUp = async (
           email: result.user.email,
           displayName: result.user.name,
           role: result.user.role,
-          vendorType: result.user.role === 'vendor' ? (vendorType || 'both') : undefined,
+          vendorType: result.user.role === 'vendor' ? getSafeVendorType(result.user.vendorType) || getSafeVendorType(vendorType) : undefined,
           walletBalance: typeof result.user.walletBalance === 'number' ? result.user.walletBalance : 0,
           createdAt: new Date(),
           updatedAt: new Date()
@@ -86,6 +93,7 @@ export const signIn = async (email: string, password: string) => {
         console.log('[signIn] Stored sessionToken in sessionStorage')
       }
       // Session is also managed by HTTP-only cookie
+      const safeVendorType = getSafeVendorType(result.user.vendorType)
       return {
         user: {
           uid: result.user.id,
@@ -98,7 +106,7 @@ export const signIn = async (email: string, password: string) => {
           email: result.user.email,
           displayName: result.user.name,
           role: result.user.role,
-          vendorType: result.user.role === 'vendor' ? 'both' : undefined,
+          vendorType: result.user.role === 'vendor' ? safeVendorType : undefined,
           walletBalance: typeof result.user.walletBalance === 'number' ? result.user.walletBalance : 0,
           createdAt: new Date(),
           updatedAt: new Date()
@@ -155,7 +163,7 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
           email: currentUser.email,
           displayName: currentUser.name,
           role: currentUser.role || 'customer',
-          vendorType: currentUser.role === 'vendor' ? 'both' : undefined,
+          vendorType: currentUser.role === 'vendor' ? getSafeVendorType(currentUser.vendorType) : undefined,
           walletBalance: typeof currentUser.walletBalance === 'number' ? currentUser.walletBalance : 0,
           createdAt: new Date(),
           updatedAt: new Date()
@@ -173,7 +181,7 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
         email: currentUser.email,
         displayName: currentUser.name,
         role: currentUser.role || 'customer',
-        vendorType: currentUser.role === 'vendor' ? 'both' : undefined,
+        vendorType: currentUser.role === 'vendor' ? getSafeVendorType(currentUser.vendorType) : undefined,
         walletBalance: typeof currentUser.walletBalance === 'number' ? currentUser.walletBalance : 0,
         createdAt: new Date(),
         updatedAt: new Date()

@@ -7,10 +7,18 @@ import { signUp } from '@/lib/auth'
 export async function POST(request: NextRequest) {
   try {
     const { email, password, name, role, vendorType, phone } = await request.json()
+
+    const isValidVendorType = vendorType === "goods" || vendorType === "services" || vendorType === "both"
+    if (role === "vendor" && !isValidVendorType) {
+      return NextResponse.json({
+        success: false,
+        error: 'Please choose what you want to offer: goods, services, or both'
+      }, { status: 400 })
+    }
     
     const vendorInfo = role === "vendor" ? {
       businessName: name,
-      businessType: vendorType || "both"
+      businessType: vendorType
     } : undefined
 
     const result = await signUp({

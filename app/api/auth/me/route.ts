@@ -37,9 +37,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ user: null, success: false }, { status: 401 });
     }
 
-    // Return user data
+    // Return user data with explicit profile shape used by client auth context
     console.log('[/api/auth/me] Returning user:', user.email);
-    return NextResponse.json({ user, success: true }, { status: 200 });
+    return NextResponse.json({
+      user,
+      userProfile: {
+        uid: String(user.id),
+        email: user.email,
+        displayName: user.name,
+        role: user.role,
+        vendorType: user.role === 'vendor' ? user.vendorType : undefined,
+        walletBalance: typeof user.walletBalance === 'number' ? user.walletBalance : 0,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      success: true
+    }, { status: 200 });
   } catch (error: any) {
     console.error('[/api/auth/me] Error:', error);
     return NextResponse.json({ user: null, success: false, error: error?.message }, { status: 500 });

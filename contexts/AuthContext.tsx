@@ -128,6 +128,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (data.user) {
           console.log('[AuthContext] User found, setting to:', data.user.email);
+          const safeVendorType =
+            data.user?.vendorType === 'goods' ||
+            data.user?.vendorType === 'services' ||
+            data.user?.vendorType === 'both'
+              ? data.user.vendorType
+              : undefined
+
           setUser({
             uid: data.user.id,
             email: data.user.email,
@@ -139,7 +146,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email: data.user.email,
             displayName: data.user.name,
             role: data.user.role,
-            vendorType: data.user.role === 'vendor' ? 'both' : undefined,
+            vendorType: data.user.role === 'vendor' ? safeVendorType : undefined,
             walletBalance: typeof data.user.walletBalance === 'number' ? data.user.walletBalance : 0,
             createdAt: new Date(),
             updatedAt: new Date()

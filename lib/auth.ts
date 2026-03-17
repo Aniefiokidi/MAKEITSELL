@@ -57,6 +57,7 @@ export async function signUp({ email, password, name, role, vendorInfo, phone }:
       email: user.email,
       name: user.name,
       role: user.role,
+      vendorType: user.role === 'vendor' ? user.vendorInfo?.businessType : undefined,
       walletBalance: typeof user.walletBalance === 'number' ? user.walletBalance : 0
     },
     sessionToken
@@ -125,6 +126,7 @@ export async function signIn({ email, password }: { email: string, password: str
       email: user.email, 
       name: user.name, 
       role: user.role,
+      vendorType: user.role === 'vendor' ? user.vendorInfo?.businessType : undefined,
       walletBalance
     }, 
     sessionToken: newSessionToken 
@@ -155,6 +157,7 @@ export async function getUserBySessionToken(sessionToken: string) {
     email: user.email, 
     name: user.name, 
     role: user.role,
+    vendorType: user.role === 'vendor' ? user.vendorInfo?.businessType : undefined,
     isEmailVerified: user.isEmailVerified || false,
     walletBalance
   };

@@ -31,7 +31,7 @@ export default function SignupForm() {
     confirmPassword: string
     displayName: string
     role: RoleType
-    vendorType: "goods" | "services" | "both"
+    vendorType: "" | "goods" | "services" | "both"
     storeName: string
     storeDescription: string
     storeCategory: string
@@ -44,7 +44,7 @@ export default function SignupForm() {
     confirmPassword: "",
     displayName: "",
     role: (isVendorSignup ? "vendor" : "customer"),
-    vendorType: "both",
+    vendorType: "",
     // Store-specific fields
     storeName: "",
     storeDescription: "",
@@ -104,6 +104,11 @@ export default function SignupForm() {
 
     // Additional validation for vendors
     if (formData.role === "vendor") {
+      if (!formData.vendorType) {
+        setError("Please choose what you want to offer: goods, services, or both")
+        setLoading(false)
+        return
+      }
       if (!formData.storeName.trim()) {
         setError("Store name is required for sellers")
         setLoading(false)
@@ -146,7 +151,7 @@ export default function SignupForm() {
           formData.displayName,
           "vendor",
           undefined,
-          formData.vendorType
+          formData.vendorType as "goods" | "services" | "both"
         )
 
         const vendorId = result?.user?.uid
@@ -300,20 +305,24 @@ export default function SignupForm() {
                 {/* Vendor Type Selection */}
                 <div className="space-y-2 mb-4">
                   <Label htmlFor="vendorType">What will you offer? *</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Choose this carefully. Your seller dashboard and setup steps will match this selection.
+                  </p>
                   <Select
-                    value={formData.vendorType}
+                    value={formData.vendorType || undefined}
                     onValueChange={(value: "goods" | "services" | "both") => handleInputChange("vendorType", value)}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select offering type" />
+                      <SelectValue placeholder="Select what you want to offer" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="goods">Goods Only - Physical products</SelectItem>
-                      <SelectItem value="services"> Services Only - Professional services</SelectItem>
-                      <SelectItem value="both"> Both - Goods & Services</SelectItem>
+                      <SelectItem value="services">Services Only - Professional services</SelectItem>
+                      <SelectItem value="both">Both - Goods & Services</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
+                    {!formData.vendorType && "Select one to continue"}
                     {formData.vendorType === "goods" && "You'll sell physical products"}
                     {formData.vendorType === "services" && "You'll offer professional services"}
                     {formData.vendorType === "both" && "You'll sell both products and services"}
