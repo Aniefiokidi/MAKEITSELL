@@ -691,7 +691,7 @@ export default function HomePage() {
                     onSubmit={e => {
                       e.preventDefault();
                       if (searchValue.trim()) {
-                        router.push(`/stores?query=${encodeURIComponent(searchValue.trim())}`);
+                        router.push(`/search?query=${encodeURIComponent(searchValue.trim())}`);
                       }
                     }}
                   >

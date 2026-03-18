@@ -27,6 +27,22 @@ const categories = [
   { id: "other", name: "Other" },
 ]
 
+const getCompactPagination = (currentPage: number, totalPages: number): Array<number | string> => {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, idx) => idx + 1)
+  }
+
+  if (currentPage <= 3) {
+    return [1, 2, 3, 4, "ellipsis-right", totalPages]
+  }
+
+  if (currentPage >= totalPages - 2) {
+    return [1, "ellipsis-left", totalPages - 3, totalPages - 2, totalPages - 1, totalPages]
+  }
+
+  return [1, "ellipsis-left", currentPage - 1, currentPage, currentPage + 1, "ellipsis-right", totalPages]
+}
+
 export default function ShopPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -40,6 +56,8 @@ export default function ShopPage() {
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [transitionDirection, setTransitionDirection] = useState<"left" | "right">("left")
   const [showMobileSearch, setShowMobileSearch] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 20
 
   useEffect(() => {
     fetchStores()
@@ -53,8 +71,6 @@ export default function ShopPage() {
       if (selectedCategory !== "all") {
         params.append("category", selectedCategory)
       }
-      
-      params.append("limit", "20")
       
       const response = await fetch(`/api/database/stores?${params}&t=${Date.now()}`)
       const data = await response.json()
@@ -96,6 +112,21 @@ export default function ShopPage() {
     return /\.pdf(\?|#|$)/i.test(value)
   }
 
+  const resolveStoreImageSrc = (value?: string) => {
+    if (!value) return "/placeholder.svg"
+    const normalized = value.trim()
+    if (!normalized) return "/placeholder.svg"
+    if (isPdfAsset(normalized)) return "/placeholder.svg"
+    if (normalized.startsWith("data:image/")) return normalized
+    if (normalized.startsWith("/")) return normalized
+
+    const isHttpUrl = /^https?:\/\//i.test(normalized)
+    const looksLikeImageFile = /\.(avif|bmp|gif|ico|jpe?g|png|svg|webp)(\?|#|$)/i.test(normalized)
+
+    if (isHttpUrl && looksLikeImageFile) return normalized
+    return "/placeholder.svg"
+  }
+
   const locationOptions = useMemo(() => {
     const unique = new Set<string>()
     for (const store of stores) {
@@ -135,6 +166,20 @@ export default function ShopPage() {
     }
   })
 
+  const totalPages = Math.max(1, Math.ceil(sortedStores.length / itemsPerPage))
+  const paginatedStores = sortedStores.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+  const paginationItems = useMemo(() => getCompactPagination(currentPage, totalPages), [currentPage, totalPages])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, selectedCategory, selectedLocation, sortBy])
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
+
   const StoreCard = ({ store }: { store: any }) => (
     (() => {
       const storeBrandingPdfUrl = [
@@ -151,11 +196,7 @@ export default function ShopPage() {
       <div className="aspect-9/16 relative overflow-hidden rounded-[2.5rem]">
         {store.profileImage || store.featuredProduct?.image || store.productImages?.[0] || store.bannerImage ? (
           <Image
-            src={
-              isPdfAsset(store.profileImage || store.featuredProduct?.image || store.productImages?.[0] || store.bannerImage)
-                ? "/placeholder.svg"
-                : (store.profileImage || store.featuredProduct?.image || store.productImages?.[0] || store.bannerImage)
-            }
+            src={resolveStoreImageSrc(store.profileImage || store.featuredProduct?.image || store.productImages?.[0] || store.bannerImage)}
             alt={store.name}
             fill
             className="object-cover group-hover:scale-105 transition-transform duration-500"
@@ -174,11 +215,7 @@ export default function ShopPage() {
           <div className="w-16 h-16 rounded-full bg-white border-4 border-white overflow-hidden shadow-2xl ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110">
             {store.storeImage || store.logoImage ? (
               <Image
-                src={
-                  isPdfAsset(store.storeImage || store.logoImage)
-                    ? "/placeholder.svg"
-                    : (store.storeImage || store.logoImage)
-                }
+                src={resolveStoreImageSrc(store.storeImage || store.logoImage)}
                 alt={`${store.name} logo`}
                 width={64}
                 height={64}
@@ -438,6 +475,7 @@ export default function ShopPage() {
                 onClick={() => {
                   setSelectedCategory("all")
                   setSelectedLocation("all")
+                  setCurrentPage(1)
                 }}
                 className="text-[10px] sm:text-xs hover:text-accent hover:bg-accent/10 transition-all h-7 sm:h-8"
               >
@@ -467,7 +505,7 @@ export default function ShopPage() {
         {/* Results Count */}
         <div className="mb-6 sm:mb-8">
           <p className="text-xs sm:text-sm text-muted-foreground">
-            {loading ? "Loading stores..." : `Showing ${sortedStores.length} store${sortedStores.length !== 1 ? 's' : ''}`}
+            {loading ? "Loading stores..." : `Showing ${sortedStores.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}-${Math.min(currentPage * itemsPerPage, sortedStores.length)} of ${sortedStores.length} store${sortedStores.length !== 1 ? 's' : ''}`}
           </p>
         </div>
 
@@ -495,7 +533,7 @@ export default function ShopPage() {
           </div>
         ) : sortedStores.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5 lg:gap-6 animate-in fade-in duration-500">
-            {sortedStores.map((store) => (
+            {paginatedStores.map((store) => (
               <StoreCard key={store._id || store.id} store={store} />
             ))}
           </div>
@@ -512,6 +550,42 @@ export default function ShopPage() {
               <RefreshCw className="h-3 w-3 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
               <span className="hidden sm:inline">REFRESH</span>
               <span className="sm:hidden">REFRESH</span>
+            </Button>
+          </div>
+        )}
+
+        {!loading && sortedStores.length > itemsPerPage && (
+          <div className="mt-6 sm:mt-8 flex items-center justify-center gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+            >
+              Previous
+            </Button>
+            {paginationItems.map((item, idx) =>
+              typeof item === "number" ? (
+                <Button
+                  key={`page-${item}`}
+                  variant={item === currentPage ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrentPage(item)}
+                  className="min-w-9"
+                >
+                  {item}
+                </Button>
+              ) : (
+                <span key={`ellipsis-${idx}`} className="px-1 text-sm text-muted-foreground select-none">...</span>
+              )
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+            >
+              Next
             </Button>
           </div>
         )}

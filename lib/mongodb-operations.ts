@@ -519,9 +519,11 @@ export const getStores = async (filters: any) => {
   if (filters?.isOpen !== undefined) query.isOpen = filters.isOpen;
   if (filters?.vendorId) query.vendorId = filters.vendorId;
   if (filters?.isActive !== undefined) query.isActive = filters.isActive;
-  const stores = await StoreModel.find(query)
-    .limit(filters?.limitCount ? Number(filters.limitCount) : 20)
-    .lean();
+  let dbQuery = StoreModel.find(query);
+  if (filters?.limitCount) {
+    dbQuery = dbQuery.limit(Number(filters.limitCount));
+  }
+  const stores = await dbQuery.lean();
   return stores;
 };
 // --- Vendor Dashboard Operations ---

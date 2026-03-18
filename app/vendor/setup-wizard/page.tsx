@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { uploadToCloudinary } from "@/lib/cloudinary"
 import { Loader2 } from "lucide-react"
 
 type WizardSettings = {
@@ -79,7 +80,14 @@ export default function VendorSetupWizardPage() {
   const [productsCount, setProductsCount] = useState(0)
   const [banks, setBanks] = useState<{ name: string; code: string }[]>([])
   const [verifyingAccount, setVerifyingAccount] = useState(false)
+  const [profileUploading, setProfileUploading] = useState(false)
+  const [bannerUploading, setBannerUploading] = useState(false)
   const [settings, setSettings] = useState<WizardSettings>(initialSettings)
+
+  const isPdfAsset = (value?: string) => {
+    if (!value) return false
+    return /\.pdf(\?|#|$)/i.test(value)
+  }
 
   useEffect(() => {
     const load = async () => {
@@ -292,6 +300,36 @@ export default function VendorSetupWizardPage() {
     }
   }
 
+  const handleBrandingUpload = async (file: File | null, target: "profileImage" | "storeImage") => {
+    if (!file) return
+
+    const setUploading = target === "profileImage" ? setProfileUploading : setBannerUploading
+    const assetName = target === "profileImage" ? "Profile image" : "Store banner"
+
+    setUploading(true)
+    setMessage("")
+    try {
+      const uploadedUrl = await uploadToCloudinary(file)
+      setSettings((prev) => {
+        const nextSettings = {
+          ...prev,
+          [target]: uploadedUrl,
+        }
+
+        if (target === "profileImage" && !prev.storeImage) {
+          nextSettings.storeImage = uploadedUrl
+        }
+
+        return nextSettings
+      })
+      setMessage(`${assetName} uploaded successfully`)
+    } catch (error: any) {
+      setMessage(error?.message || `Failed to upload ${assetName.toLowerCase()}`)
+    } finally {
+      setUploading(false)
+    }
+  }
+
   if (loading) {
     return (
       <VendorLayout>
@@ -371,12 +409,60 @@ export default function VendorSetupWizardPage() {
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="profileImage">Profile Image URL</Label>
-                    <Input id="profileImage" value={settings.profileImage} onChange={(e) => setSettings((prev) => ({ ...prev, profileImage: e.target.value }))} placeholder="https://..." />
+                    <Label htmlFor="profileImage">Profile Image Upload</Label>
+                    <Input
+                      id="profileImage"
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0] || null
+                        await handleBrandingUpload(file, "profileImage")
+                        e.target.value = ""
+                      }}
+                    />
+                    {profileUploading ? (
+                      <p className="text-xs text-muted-foreground flex items-center gap-2">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Uploading profile image...
+                      </p>
+                    ) : null}
+                    {settings.profileImage ? (
+                      isPdfAsset(settings.profileImage) ? (
+                        <a href={settings.profileImage} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline underline-offset-4">
+                          View uploaded profile PDF
+                        </a>
+                      ) : (
+                        <img src={settings.profileImage} alt="Profile preview" className="h-16 w-16 rounded object-cover border" />
+                      )
+                    ) : null}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="storeImage">Store Banner URL</Label>
-                    <Input id="storeImage" value={settings.storeImage} onChange={(e) => setSettings((prev) => ({ ...prev, storeImage: e.target.value }))} placeholder="https://..." />
+                    <Label htmlFor="storeImage">Store Banner Upload</Label>
+                    <Input
+                      id="storeImage"
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0] || null
+                        await handleBrandingUpload(file, "storeImage")
+                        e.target.value = ""
+                      }}
+                    />
+                    {bannerUploading ? (
+                      <p className="text-xs text-muted-foreground flex items-center gap-2">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Uploading store banner...
+                      </p>
+                    ) : null}
+                    {settings.storeImage ? (
+                      isPdfAsset(settings.storeImage) ? (
+                        <a href={settings.storeImage} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline underline-offset-4">
+                          View uploaded banner PDF
+                        </a>
+                      ) : (
+                        <img src={settings.storeImage} alt="Store banner preview" className="h-16 w-full max-w-60 rounded object-cover border" />
+                      )
+                    ) : null}
                   </div>
                 </div>
               </>
@@ -515,15 +601,15 @@ export default function VendorSetupWizardPage() {
             {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
 
             <div className="flex items-center justify-between pt-2">
-              <Button type="button" variant="outline" onClick={() => setStepIndex((prev) => Math.max(0, prev - 1))} disabled={stepIndex === 0 || saving}>
+              <Button type="button" variant="outline" onClick={() => setStepIndex((prev) => Math.max(0, prev - 1))} disabled={stepIndex === 0 || saving || profileUploading || bannerUploading}>
                 Previous
               </Button>
               <div className="flex items-center gap-2">
-                <Button type="button" variant="outline" onClick={saveCurrentStep} disabled={saving}>
+                <Button type="button" variant="outline" onClick={saveCurrentStep} disabled={saving || profileUploading || bannerUploading}>
                   {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Save Step
                 </Button>
-                <Button type="button" onClick={handleContinue} disabled={saving || stepIndex === stepOrder.length - 1}>
+                <Button type="button" onClick={handleContinue} disabled={saving || profileUploading || bannerUploading || stepIndex === stepOrder.length - 1}>
                   {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Save & Continue
                 </Button>
