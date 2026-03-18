@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
         }
         
         // Build secondary text from context
-        const secondaryParts = []
+        const secondaryParts: string[] = []
         context.forEach((ctx: any) => {
           if (ctx.id.includes('place') || ctx.id.includes('region') || ctx.id.includes('locality')) {
             secondaryParts.push(ctx.text)

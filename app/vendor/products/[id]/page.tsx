@@ -38,7 +38,10 @@ export default function ProductViewPage() {
     if (!id) return
     if (!confirm("Are you sure you want to delete this product?")) return
     try {
-      await deleteProduct(id)
+      const response = await fetch(`/api/vendor/products/${id}`, { method: "DELETE" })
+      if (!response.ok) {
+        throw new Error("Failed to delete product")
+      }
       router.push("/vendor/products")
     } catch (err) {
       setError("Failed to delete product")

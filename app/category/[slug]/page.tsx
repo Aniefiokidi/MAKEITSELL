@@ -151,7 +151,9 @@ export default function CategoryPage() {
           });
           setProducts(mappedProducts)
           // Set available brands and price range
-          const brands = [...new Set(mappedProducts.map((p: any) => p.storeName))]
+          const brands: string[] = Array.from(
+            new Set(mappedProducts.map((p: any) => String(p.storeName || "Store")))
+          )
           setAvailableBrands(brands)
           const prices = mappedProducts.map((p: any) => p.price).filter(Boolean)
           if (prices.length > 0) {
@@ -284,15 +286,14 @@ export default function CategoryPage() {
 
   const handleAddToCart = (product: any) => {
     addToCart({
+      id: product.id,
       productId: product.id,
       title: product.name,
       price: product.price,
       image: product.image,
-      quantity: 1,
       vendorId: product.storeName || "", 
       vendorName: product.storeName,
-      maxStock: product.inStock ? 999 : 0,
-      id: product
+      maxStock: product.inStock ? 999 : 0
     })
     notification.success(
       'Product added to cart',
@@ -660,7 +661,8 @@ export default function CategoryPage() {
                 // Only open quick view if not clicking Add to Cart
                 onClick={e => {
                   // Prevent quick view if clicking Add to Cart
-                  if (e.target.closest('.add-to-cart-btn')) return;
+                  const target = e.target as HTMLElement;
+                  if (target.closest('.add-to-cart-btn')) return;
                   setSelectedProduct(product);
                   setQuickViewOpen(true);
                   addToRecentlyViewed(product);

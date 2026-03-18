@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
     const dashboard = await getVendorDashboard(vendorId);
     return new Response(JSON.stringify({ success: true, data: dashboard }), { status: 200 });
-  } catch (error) {
+  } catch (error: any) {
     return new Response(JSON.stringify({ success: false, error: error?.message || "Unknown error" }), { status: 500 });
   }
 }

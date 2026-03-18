@@ -14,7 +14,7 @@ import Footer from "@/components/Footer"
 import SmartSearch from "@/components/search/SmartSearch"
 import AdvancedFilters from "@/components/search/AdvancedFilters"
 
-import { getStores, type Store } from "@/lib/firestore"
+import { getStores, type Store } from "@/lib/database-client"
 import { Skeleton } from "@/components/ui/skeleton"
 
 const categories = [
@@ -239,7 +239,7 @@ export default function ShopPage() {
           
           <AdvancedFilters
             onFiltersChange={handleFiltersChange}
-            initialFilters={filters}
+            filters={filters}
           />
         </div>
 

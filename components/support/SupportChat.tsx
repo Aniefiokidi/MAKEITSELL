@@ -142,7 +142,7 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
 
       try {
         // Get AI response with context
-        const userName = user?.displayName || userProfile?.name || user?.email?.split('@')[0] || null
+        const userName = user?.displayName || userProfile?.name || user?.email?.split('@')[0] || undefined
         const aiResponse = await analyzeQueryWithGemini(userMessage, {
           userId: user?.uid,
           userName: userName,

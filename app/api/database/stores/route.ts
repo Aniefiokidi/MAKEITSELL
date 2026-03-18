@@ -93,6 +93,21 @@ export async function POST(request: NextRequest) {
     console.log('Creating store with data:', storeData)
 
     const enforcedVendorId = user?.role === 'vendor' ? user.id : storeData.vendorId
+    const existingStoresForVendor = await mongoGetStores({
+      vendorId: enforcedVendorId,
+      limitCount: 6,
+    })
+
+    if (Array.isArray(existingStoresForVendor) && existingStoresForVendor.length >= 5) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Store limit reached. You can create at most 5 stores.',
+        },
+        { status: 400 }
+      )
+    }
+
     const walletUserId = user?.role === 'vendor'
       ? user.id
       : (storeData.linkedWalletUserId || storeData.vendorId)

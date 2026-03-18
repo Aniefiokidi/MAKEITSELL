@@ -6,7 +6,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const messageId = await createChatMessage(body);
     return NextResponse.json({ success: true, data: messageId });
-  } catch (error) {
+  } catch (error: any) {
     console.error('API /api/database/chat-messages error:', error);
     return NextResponse.json({ success: false, error: error?.message || error }, { status: 500 });
   }

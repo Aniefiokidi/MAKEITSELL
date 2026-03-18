@@ -34,8 +34,8 @@ export async function GET(req: NextRequest) {
     const allVendors = users.filter((u: any) => u.role === 'vendor')
     
     // Split vendors into those with stores and those without
-    const vendorsWithStores = []
-    const vendorsWithoutStores = []
+    const vendorsWithStores: any[] = []
+    const vendorsWithoutStores: any[] = []
     
     allVendors.forEach((vendor: any) => {
       const vendorIdStr = (vendor.id || vendor._id).toString()

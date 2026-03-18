@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectToDatabase from "@/lib/mongodb";
-import { Product } from "@/lib/models";
+import { Product } from "@/lib/models/Product";
 import { requireAdminAccess } from '@/lib/server-route-auth'
 
 export async function POST(request: NextRequest) {
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       }
     }
     return NextResponse.json({ success: true, checked: checkedCount, fixed: fixedCount, errors });
-  } catch (error) {
+  } catch (error: any) {
     return NextResponse.json({ success: false, error: error?.message || error });
   }
 }

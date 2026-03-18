@@ -14,8 +14,8 @@ export async function GET(req: Request) {
     const messages = await getChatMessages(
       conversationId,
       limitCount ? Number(limitCount) : undefined,
-      userId,
-      userRole
+      userId || undefined,
+      userRole || undefined
     );
     return NextResponse.json({ messages });
   } catch (error) {

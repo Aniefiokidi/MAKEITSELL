@@ -64,7 +64,7 @@ export default function VendorMessagesPage() {
       const res = await fetch(`/api/messages?userId=${user?.uid || ""}&role=provider`)
       const result = await res.json()
       // Sort conversations by lastMessageTime descending
-      const sorted = (result.conversations || []).sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime())
+      const sorted = (result.conversations || []).sort((a: any, b: any) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime())
       setConversations(sorted)
     } catch (error) {
       console.error("Error fetching conversations:", error)
@@ -112,7 +112,7 @@ export default function VendorMessagesPage() {
             ? { ...conv, lastMessage: newMessage.trim(), lastMessageTime: new Date().toISOString() }
             : conv
         )
-        return updated.sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime())
+        return updated.sort((a: any, b: any) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime())
       })
     } catch (error) {
       console.error("Error sending message:", error)

@@ -85,9 +85,9 @@ export async function GET(request: NextRequest) {
     }
 
     const products = await getProducts(filters)
-    const mappedProducts = products?.map(product => ({
+    const mappedProducts = products?.map((product: any) => ({
       ...product,
-      id: product._id?.toString() || product.id
+      id: product?._id?.toString?.() || product?.id
     })) || []
 
     const isPublicCollectionRequest = !vendorId

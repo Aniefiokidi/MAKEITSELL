@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 // NotificationBox component
 function NotificationBox({ message, show, onClose, type = "success" }: { message: string; show: boolean; onClose: () => void; type?: "success" | "error" }) {
   return (
@@ -61,8 +62,13 @@ import LocationPicker from "@/components/LocationPicker"
 
 export default function VendorStoreSettingsPage() {
   const { user, userProfile } = useAuth()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const selectedStoreId = searchParams.get("storeId")
+  const isCreateNewMode = searchParams.get("new") === "1"
   const [loading, setLoading] = useState(false)
   const [storeData, setStoreData] = useState<StoreType | null>(null)
+  const [storeCount, setStoreCount] = useState(0)
   // Notification state
   const [notification, setNotification] = useState("");
   const [showNotification, setShowNotification] = useState(false);
@@ -122,13 +128,40 @@ export default function VendorStoreSettingsPage() {
   const loadStoreData = async () => {
     if (user) {
       try {
-        // Fetch the store for this vendor via API
-        const res = await fetch(`/api/database/stores`);
+        const res = await fetch(`/api/database/stores?vendorId=${user.uid}`);
         const data = await res.json();
-        let userStore = null;
+        let stores: any[] = [];
         if (data.success && Array.isArray(data.data)) {
-          userStore = data.data.find((store: any) => store.vendorId === user.uid);
+          stores = data.data;
         }
+
+        setStoreCount(stores.length)
+
+        if (isCreateNewMode) {
+          setStoreData(null)
+          setSettings(prev => ({
+            ...prev,
+            storeName: userProfile?.displayName || "",
+            storeDescription: "",
+            contactEmail: userProfile?.email || "",
+            contactPhone: "",
+            businessAddress: "",
+            storeCategory: "",
+            deliveryTime: "30-60 min",
+            deliveryFee: 500,
+            minimumOrder: 2000,
+          }))
+          setBackgroundImage("")
+          setBackgroundPreview("")
+          setProfileImage("")
+          setProfilePreview("")
+          return
+        }
+
+        const userStore = selectedStoreId
+          ? stores.find((store: any) => String(store.id || store._id) === String(selectedStoreId))
+          : stores[0]
+
         if (userStore) {
           setStoreData(userStore);
           setSettings(prev => ({
@@ -167,7 +200,7 @@ export default function VendorStoreSettingsPage() {
 
   useEffect(() => {
     loadStoreData();
-  }, [user, userProfile]);
+  }, [user, userProfile, selectedStoreId, isCreateNewMode]);
 
   useEffect(() => {
     const fetchBanks = async () => {
@@ -289,6 +322,12 @@ export default function VendorStoreSettingsPage() {
 
   const handleSave = async () => {
     if (!user || loading || bgUploading) return;
+
+    if (!storeData && storeCount >= 5) {
+      showNotificationBox("Store limit reached. You can create at most 5 stores.", "error")
+      return
+    }
+
     setLoading(true);
     try {
       let bgUrl = backgroundImage;
@@ -359,6 +398,7 @@ export default function VendorStoreSettingsPage() {
         accountVerified: settings.accountVerified,
       };
       let saveSuccess = false;
+      let createdStoreId: string | null = null;
       if (storeData) {
         // Update existing store
         console.log("PATCH payload:", storeInfo);
@@ -387,12 +427,16 @@ export default function VendorStoreSettingsPage() {
           data = text ? JSON.parse(text) : {};
         }
         saveSuccess = (data as any).success;
+        createdStoreId = (data as any).id ? String((data as any).id) : null;
       }
       if (saveSuccess) {
         // Reload store data
         await loadStoreData();
         setNewBackgroundFile(null);
         showNotificationBox("Settings saved successfully!", "success");
+        if (!storeData && createdStoreId) {
+          router.replace(`/vendor/store-settings?storeId=${createdStoreId}`)
+        }
       } else {
         showNotificationBox("Failed to save settings. Please try again.", "error");
       }

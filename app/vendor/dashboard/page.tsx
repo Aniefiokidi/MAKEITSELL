@@ -214,7 +214,7 @@ export default function VendorDashboardPage() {
 
             {vendorType === "both" ? (
               <>
-                <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg" variant="accent" onClick={() => setShowSetupPopup(false)}>
+                <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg" variant="default" onClick={() => setShowSetupPopup(false)}>
                   <Link href="/vendor/setup-wizard">
                     Start Setup Wizard
                   </Link>
@@ -226,7 +226,7 @@ export default function VendorDashboardPage() {
                 </Button>
               </>
             ) : (
-              <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg" variant="accent" onClick={() => setShowSetupPopup(false)}>
+              <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg" variant="default" onClick={() => setShowSetupPopup(false)}>
                 <Link href={vendorType === "services" ? "/vendor/services/new" : "/vendor/setup-wizard"}>
                   {vendorType === "services" ? "Go to Service Setup" : "Start Setup Wizard"}
                 </Link>

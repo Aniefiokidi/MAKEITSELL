@@ -121,7 +121,7 @@ const mockProducts = [
 ]
 
 export default function FeaturedProducts() {
-  const [products, setProducts] = useState(mockProducts)
+  const [products, setProducts] = useState(mockProducts.map((product) => ({ ...product, stock: 10 })))
   const { addItem } = useCart()
   const { user } = useAuth()
   const notification = useNotification()

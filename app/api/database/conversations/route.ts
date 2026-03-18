@@ -10,6 +10,11 @@ export async function GET(request: NextRequest) {
     if (!userId || !role) {
       return NextResponse.json({ success: false, error: 'Missing userId or role' }, { status: 400 })
     }
+
+    if (role !== 'customer' && role !== 'provider') {
+      return NextResponse.json({ success: false, error: 'Invalid role' }, { status: 400 })
+    }
+
     const conversations = await getConversations(userId, role)
     return NextResponse.json({ success: true, data: conversations })
   } catch (error: any) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getStoreById, getStoreByVendorId, getUserById } from '@/lib/mongodb-operations'
+import { getStoreById, getStoreByVendorId, getUserById, updateStore, deleteStore } from '@/lib/mongodb-operations'
+import { requireRoles } from '@/lib/server-route-auth'
 
 export async function GET(
   request: NextRequest,
@@ -103,15 +104,25 @@ export async function GET(
   }
 }
 
-// PATCH: Update store by ID
-import { updateStore } from '@/lib/mongodb-operations';
-
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { user, response } = await requireRoles(request, ['vendor', 'admin'])
+  if (response) return response
+
   try {
     const { id } = await params;
     if (!id) {
       return NextResponse.json({ success: false, error: 'Store ID is required' }, { status: 400 });
     }
+
+    const existingStore: any = await getStoreById(id)
+    if (!existingStore) {
+      return NextResponse.json({ success: false, error: 'Store not found' }, { status: 404 });
+    }
+
+    if (user?.role === 'vendor' && String(existingStore.vendorId || '') !== String(user.id)) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     const body = await request.json();
     // DEBUG: Log received body
     console.log('PATCH /stores/[id] received body:', JSON.stringify(body, null, 2));
@@ -139,5 +150,32 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   } catch (error: any) {
     console.error('Update store error:', error);
     return NextResponse.json({ success: false, error: error.message || 'Failed to update store' }, { status: 400 });
+  }
+}
+
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { user, response } = await requireRoles(request, ['vendor', 'admin'])
+  if (response) return response
+
+  try {
+    const { id } = await params
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'Store ID is required' }, { status: 400 })
+    }
+
+    const existingStore: any = await getStoreById(id)
+    if (!existingStore) {
+      return NextResponse.json({ success: false, error: 'Store not found' }, { status: 404 })
+    }
+
+    if (user?.role === 'vendor' && String(existingStore.vendorId || '') !== String(user.id)) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+    }
+
+    await deleteStore(id)
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    console.error('Delete store error:', error)
+    return NextResponse.json({ success: false, error: error.message || 'Failed to delete store' }, { status: 500 })
   }
 }

@@ -32,7 +32,7 @@ export default function OrderDetailsSlider({ open, onOpenChange, order, onStatus
           </div>
           <div className="border-b border-white/10 pb-4 mb-4">
             <div className="font-semibold text-lg mb-2 text-accent">Order Items</div>
-            {order.products?.length > 0 ? order.products.map((prod, idx) => (
+            {order.products?.length > 0 ? order.products.map((prod: any, idx: number) => (
               <div key={idx} className="flex items-center gap-4 mb-3 bg-white/5 backdrop-blur-sm rounded-lg p-2">
                 {prod.image && (
                   <img src={prod.image} alt={prod.title || "Product"} className="w-14 h-14 object-cover rounded shadow" />

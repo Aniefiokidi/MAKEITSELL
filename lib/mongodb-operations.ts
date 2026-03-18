@@ -712,11 +712,62 @@ export const setUserCart = async (userId: string, items: any[]) => {
   );
   return true;
 };
-export const updateUserProfileInDb = () => { throw new Error("Server-only: updateUserProfileInDb is not available on client."); };
-export const deleteStore = () => { throw new Error("Server-only: deleteStore is not available on client."); };
-export const deleteProductsByVendor = () => { throw new Error("Server-only: deleteProductsByVendor is not available on client."); };
-export const deleteServicesByVendor = () => { throw new Error("Server-only: deleteServicesByVendor is not available on client."); };
-export const deleteOrdersByVendor = () => { throw new Error("Server-only: deleteOrdersByVendor is not available on client."); };
+export const updateUserProfileInDb = async (userId: string, data: any) => {
+  await connectToDatabase();
+
+  if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+    return { success: false, error: 'Invalid user ID' };
+  }
+
+  const result = await UserModel.findByIdAndUpdate(
+    userId,
+    {
+      ...data,
+      updatedAt: new Date(),
+    },
+    { new: true }
+  ).lean();
+
+  if (!result) {
+    return { success: false, error: 'User not found' };
+  }
+
+  return { success: true, data: result };
+};
+export const deleteStore = async (id: string) => {
+  await connectToDatabase();
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    await StoreModel.findByIdAndDelete(id);
+  } else {
+    await StoreModel.deleteMany({ vendorId: id });
+  }
+  return true;
+};
+export const deleteProductsByVendor = async (vendorId: string) => {
+  await connectToDatabase();
+  await ProductModel.deleteMany({ vendorId });
+  return true;
+};
+export const deleteServicesByVendor = async (vendorId: string) => {
+  await connectToDatabase();
+  await ServiceModel.deleteMany({ $or: [{ providerId: vendorId }, { vendorId }] });
+  return true;
+};
+export const deleteOrdersByVendor = async (vendorId: string) => {
+  await connectToDatabase();
+  await OrderModel.updateMany(
+    { 'vendors.vendorId': vendorId },
+    {
+      $set: {
+        'vendors.$[elem].status': 'cancelled',
+        'vendors.$[elem].cancelledAt': new Date(),
+        updatedAt: new Date(),
+      },
+    },
+    { arrayFilters: [{ 'elem.vendorId': vendorId }] }
+  );
+  return true;
+};
 
 export const getBookings = async (filters: any) => {
   await connectToDatabase();
@@ -879,8 +930,44 @@ export const createConversation = async (data: any) => {
   return conversation;
 };
 
-export const deleteBookingsByVendor = () => { throw new Error("Server-only: deleteBookingsByVendor is not available on client."); };
-export const deleteUserCartItemsByVendor = () => { throw new Error("Server-only: deleteUserCartItemsByVendor is not available on client."); };
-export const deleteConversationsByVendor = () => { throw new Error("Server-only: deleteConversationsByVendor is not available on client."); };
-export const deleteUser = () => { throw new Error("Server-only: deleteUser is not available on client."); };
-export const deleteSessions = () => { throw new Error("Server-only: deleteSessions is not available on client."); };
+export const deleteBookingsByVendor = async (vendorId: string) => {
+  await connectToDatabase();
+  await BookingModel.deleteMany({ providerId: vendorId });
+  return true;
+};
+export const deleteUserCartItemsByVendor = async (vendorId: string) => {
+  await connectToDatabase();
+  await CartModel.updateMany(
+    {},
+    {
+      $pull: {
+        items: {
+          $or: [{ vendorId }, { providerId: vendorId }],
+        },
+      },
+    }
+  );
+  return true;
+};
+export const deleteConversationsByVendor = async (vendorId: string) => {
+  await connectToDatabase();
+  const conversations = await ConversationModel.find({ providerId: vendorId }).select('_id').lean();
+  const conversationIds = conversations.map((conversation: any) => conversation._id);
+
+  if (conversationIds.length > 0) {
+    await MessageModel.deleteMany({ conversationId: { $in: conversationIds } });
+  }
+
+  await ConversationModel.deleteMany({ providerId: vendorId });
+  return true;
+};
+export const deleteUser = async (userId: string) => {
+  await connectToDatabase();
+  await UserModel.findByIdAndDelete(userId);
+  return true;
+};
+export const deleteSessions = async (userId: string) => {
+  await connectToDatabase();
+  await UserModel.findByIdAndUpdate(userId, { $unset: { sessionToken: 1 }, $set: { updatedAt: new Date() } });
+  return true;
+};

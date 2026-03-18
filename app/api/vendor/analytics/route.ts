@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     }
     const analytics = await getVendorAnalytics(vendorId);
     return new Response(JSON.stringify({ success: true, data: analytics }), { status: 200 });
-  } catch (error) {
+  } catch (error: any) {
     return new Response(JSON.stringify({ success: false, error: error?.message || "Unknown error" }), { status: 500 });
   }
 }

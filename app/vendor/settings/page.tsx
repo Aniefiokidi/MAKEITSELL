@@ -294,7 +294,7 @@ export default function VendorSettingsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>Theme</Label>
-                    <ThemeSelect value={settings.theme} onValueChange={v => handleInputChange("theme", v)} />
+                    <ThemeSelect value={settings.theme} onValueChange={(v: string) => handleInputChange("theme", v)} />
                   </div>
 
                   <div className="space-y-2">

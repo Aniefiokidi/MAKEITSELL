@@ -10,9 +10,22 @@ import { UserCheck, UserX } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 
+interface Profile {
+  id: string
+  name: string
+  email: string
+  role: string
+  status: string
+  joinDate: string
+  orders: number
+  totalSpent: number
+  address: string
+  phone: string
+}
+
 export default function UserProfilePage() {
   const { user, userProfile } = useAuth()
-  const [profile, setProfile] = useState(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {

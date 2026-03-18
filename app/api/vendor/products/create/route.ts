@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createProduct } from '@/lib/database'
+import { createProduct } from '@/lib/mongodb-operations'
 import { cacheNamespaces, invalidateCacheNamespace } from '@/lib/cache-store'
 import { logApiPerformance } from '@/lib/performance-logs'
 

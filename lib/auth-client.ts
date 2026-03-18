@@ -4,8 +4,18 @@
 export interface UserProfile {
   uid: string
   email: string
+  name?: string
   displayName: string
   role: "customer" | "vendor" | "admin" | "csa"
+  phone?: string
+  address?: string
+  city?: string
+  state?: string
+  postalCode?: string
+  vendorInfo?: {
+    businessName?: string
+    [key: string]: any
+  }
   vendorType?: "goods" | "services" | "both"
   walletBalance?: number
   createdAt: Date

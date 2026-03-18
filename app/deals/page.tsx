@@ -83,7 +83,6 @@ export default function DealsPage() {
       title: product.name || product.title,
       price: product.price,
       image: product.image || '',
-      quantity: 1,
       vendorId: product.vendor || '', 
       vendorName: product.vendor || 'Unknown Vendor',
       maxStock: product.inStock ? 999 : 0

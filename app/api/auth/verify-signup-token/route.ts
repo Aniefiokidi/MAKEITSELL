@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectToDatabase from '@/lib/mongodb'
-import { signInWithToken } from '@/lib/mongodb-auth'
 
 export async function POST(request: NextRequest) {
   try {
