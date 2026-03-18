@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
     const providerId = searchParams.get('providerId') || undefined
     const featured = searchParams.get('featured') === 'true' ? true : undefined
     const locationType = searchParams.get('locationType') || undefined
+    const search = searchParams.get('search') || undefined
     const limitCount = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined
 
     const cacheKey = JSON.stringify({
@@ -21,6 +22,7 @@ export async function GET(request: NextRequest) {
       providerId: providerId || null,
       featured: featured ?? null,
       locationType: locationType || null,
+      search: search || null,
       limitCount: limitCount || null,
     })
 
@@ -40,6 +42,7 @@ export async function GET(request: NextRequest) {
       providerId,
       featured,
       locationType,
+      search,
       limitCount
     })
 

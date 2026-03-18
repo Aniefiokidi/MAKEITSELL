@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category')
     const vendorId = searchParams.get('vendorId')
     const featured = searchParams.get('featured')
+    const search = searchParams.get('search') || undefined
     const limit = searchParams.get('limit')
     const page = searchParams.get('page')
 
@@ -61,6 +62,7 @@ export async function GET(request: NextRequest) {
     if (category) filters.category = category
     if (vendorId) filters.vendorId = vendorId
     if (featured) filters.featured = featured === 'true'
+    if (search) filters.search = search
     filters.limitCount = safeLimit
     filters.skipCount = skipCount
 
@@ -68,6 +70,7 @@ export async function GET(request: NextRequest) {
       category: category || null,
       vendorId: vendorId || null,
       featured: typeof featured === 'string' ? featured : null,
+      search: search || null,
       page: safePage,
       limit: safeLimit,
     })

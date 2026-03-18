@@ -234,6 +234,7 @@ const ServiceSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String, required: true },
   category: { type: String, required: true },
+  subcategory: { type: String },
   price: { type: Number, required: true },
   pricingType: { type: String, required: true },
   duration: { type: Number },
@@ -288,6 +289,8 @@ const ServiceSchema = new mongoose.Schema({
   },
   distanceRatePerMile: { type: Number, default: 0 },
   location: { type: String, required: true },
+  state: { type: String, default: '' },
+  city: { type: String, default: '' },
   locationType: { type: String, required: true },
   images: { type: [String], default: [] },
   availability: { type: mongoose.Schema.Types.Mixed, default: {} },
@@ -542,7 +545,11 @@ export interface Service {
   id: string;
   name: string;
   category: string;
+  subcategory?: string;
   providerId: string;
+  providerImage?: string;
+  state?: string;
+  city?: string;
   featured: boolean;
   locationType: 'remote' | 'local';
   price: number;
@@ -598,6 +605,20 @@ export const getServices = async (filters: ServiceFilters): Promise<Service[]> =
   if (filters?.providerId) query.providerId = filters.providerId;
   if (filters?.featured !== undefined) query.featured = filters.featured;
   if (filters?.locationType) query.locationType = filters.locationType;
+  if (filters?.search) {
+    const searchRegex = new RegExp(String(filters.search).trim(), 'i');
+    query.$or = [
+      { title: searchRegex },
+      { description: searchRegex },
+      { category: searchRegex },
+      { subcategory: searchRegex },
+      { providerName: searchRegex },
+      { location: searchRegex },
+      { state: searchRegex },
+      { city: searchRegex },
+      { tags: searchRegex },
+    ];
+  }
 
   let q = ServiceModel.find(query).sort({ createdAt: -1 });
   if (filters?.limitCount) q = q.limit(Number(filters.limitCount));
@@ -642,6 +663,18 @@ export const getProducts = async (filters?: any): Promise<Product[]> => {
   if (filters?.vendorId) query.vendorId = filters.vendorId;
   if (filters?.featured !== undefined) query.featured = filters.featured;
   if (filters?.status) query.status = filters.status;
+  if (filters?.search) {
+    const searchRegex = new RegExp(String(filters.search).trim(), 'i');
+    query.$or = [
+      { title: searchRegex },
+      { name: searchRegex },
+      { description: searchRegex },
+      { category: searchRegex },
+      { subcategory: searchRegex },
+      { tags: searchRegex },
+      { vendorName: searchRegex },
+    ];
+  }
   const limitCount = Number(filters?.limitCount);
   const skipCount = Number(filters?.skipCount || 0);
   const hasLimit = Number.isFinite(limitCount) && limitCount > 0;

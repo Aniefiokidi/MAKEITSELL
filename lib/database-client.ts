@@ -220,6 +220,8 @@ export interface Service {
   defaultPackageId?: string
   images: string[]
   location: string
+  state?: string
+  city?: string
   locationType: "online" | "store" | "home-service" | "in-person" | "both"
   availability: {
     monday?: { start: string; end: string; available: boolean }

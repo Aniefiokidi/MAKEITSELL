@@ -1,12 +1,13 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import Image from "next/image";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Heart, ShoppingCart, MapPin, Users, Clock, Store as StoreIcon } from "lucide-react";
+import { useCart } from "@/contexts/CartContext";
+import { useNotification } from "@/contexts/NotificationContext";
+import { ArrowRight, MapPin, Users, Clock, Store as StoreIcon } from "lucide-react";
 import React from "react";
 
 const getCategoryIcon = (category: string) => {
@@ -15,25 +16,120 @@ const getCategoryIcon = (category: string) => {
 };
 
 export default function SearchResults({ query }: { query: string }) {
+  const router = useRouter();
+  const { addItem } = useCart();
+  const notification = useNotification();
   const [products, setProducts] = React.useState<any[]>([]);
   const [services, setServices] = React.useState<any[]>([]);
   const [stores, setStores] = React.useState<any[]>([]);
+  const [recommendedProducts, setRecommendedProducts] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
 
+  const buildTokens = React.useCallback((searchQuery: string) => {
+    return searchQuery
+      .toLowerCase()
+      .split(/\s+/)
+      .map((token) => token.trim())
+      .filter((token) => token.length > 1);
+  }, []);
+
+  const getRecommendationScore = React.useCallback((product: any, tokens: string[]) => {
+    const title = String(product?.title || product?.name || "").toLowerCase();
+    const description = String(product?.description || "").toLowerCase();
+    const category = String(product?.category || "").toLowerCase();
+
+    let score = 0;
+    for (const token of tokens) {
+      if (title.includes(token)) score += 3;
+      if (category.includes(token)) score += 2;
+      if (description.includes(token)) score += 1;
+    }
+
+    if (product?.featured) score += 1;
+    return score;
+  }, []);
+
+  const handleAddToCart = React.useCallback((product: any) => {
+    if (!product?.id) return;
+
+    addItem({
+      id: product.id,
+      productId: product.id,
+      title: product.title || product.name || "Product",
+      price: Number(product.price || 0),
+      image: product.images?.[0] || "/placeholder.png",
+      vendorId: product.vendorId,
+      vendorName: product.vendorName || "Unknown Vendor",
+      maxStock: product.stock || 100,
+    });
+
+    notification.success(
+      "Product added to cart",
+      product.title || product.name || "Added to cart",
+      2500
+    );
+  }, [addItem, notification]);
+
   React.useEffect(() => {
-    if (!query) return;
+    if (!query) {
+      setProducts([]);
+      setServices([]);
+      setStores([]);
+      setRecommendedProducts([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
+
     Promise.all([
       fetch(`/api/database/products?limit=12&search=${encodeURIComponent(query)}`).then(r => r.json()),
       fetch(`/api/database/services?limit=12&search=${encodeURIComponent(query)}`).then(r => r.json()),
       fetch(`/api/database/stores?limit=12&search=${encodeURIComponent(query)}`).then(r => r.json()),
-    ]).then(([prod, serv, stor]) => {
-      setProducts(prod.data || []);
-      setServices(serv.data || []);
-      setStores(stor.data || []);
-      setLoading(false);
-    });
-  }, [query]);
+    ])
+      .then(async ([prod, serv, stor]) => {
+        const exactProducts = Array.isArray(prod?.data) ? prod.data : [];
+        setProducts(exactProducts);
+        setServices(Array.isArray(serv?.data) ? serv.data : []);
+        setStores(Array.isArray(stor?.data) ? stor.data : []);
+
+        if (exactProducts.length === 0) {
+          const recommendationResponse = await fetch(`/api/database/products?limit=60`);
+          const recommendationPayload = await recommendationResponse.json();
+          const allProducts = Array.isArray(recommendationPayload?.data) ? recommendationPayload.data : [];
+          const tokens = buildTokens(query);
+
+          const scored = allProducts
+            .map((product: any) => ({
+              product,
+              score: getRecommendationScore(product, tokens),
+            }))
+            .filter((entry: any) => entry.score > 0)
+            .sort((a: any, b: any) => b.score - a.score)
+            .slice(0, 8)
+            .map((entry: any) => entry.product);
+
+          if (scored.length > 0) {
+            setRecommendedProducts(scored);
+          } else {
+            const fallback = allProducts
+              .filter((product: any) => Boolean(product?.featured))
+              .slice(0, 8);
+
+            setRecommendedProducts(fallback.length > 0 ? fallback : allProducts.slice(0, 8));
+          }
+        } else {
+          setRecommendedProducts([]);
+        }
+      })
+      .catch(() => {
+        setProducts([]);
+        setServices([]);
+        setStores([]);
+        setRecommendedProducts([]);
+      })
+      .finally(() => setLoading(false));
+  }, [buildTokens, getRecommendationScore, query]);
 
   if (!query) return null;
   if (loading) return <div className="py-10 text-center text-muted-foreground">Loading results...</div>;
@@ -41,12 +137,28 @@ export default function SearchResults({ query }: { query: string }) {
   return (
     <div className="w-full max-w-6xl mx-auto space-y-10">
       {/* Products */}
-      {products.length > 0 && (
-        <div>
-          <h2 className="text-xl font-bold mb-4">Products</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+      <div>
+        <h2 className="text-xl font-bold mb-4">Products</h2>
+
+        {products.length === 0 ? (
+          <div className="rounded-2xl border border-border/60 bg-card/30 p-4 sm:p-6 text-center">
+            <p className="text-base sm:text-lg font-semibold text-foreground">
+              No exact product matches found for "{query}".
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Try these similar products instead.
+            </p>
+          </div>
+        ) : null}
+
+        {products.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
             {products.map((product: any) => (
-              <Card key={product.id} className="border-0 shadow-md overflow-hidden relative h-[280px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100 cursor-pointer group">
+              <Card
+                key={product.id}
+                onClick={() => router.push(`/products/${product.id}`)}
+                className="border-0 shadow-md overflow-hidden relative h-[280px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100 cursor-pointer group"
+              >
                 <div className="group absolute inset-0 overflow-hidden">
                   <Image src={product.images?.[0] || "/placeholder.png"} alt={product.title || product.name || "Product image"} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
                   {product.stock === 0 && (
@@ -81,16 +193,74 @@ export default function SearchResults({ query }: { query: string }) {
                       ))}
                     </div>
                   )}
-                  <Button size="sm" className="w-full h-6 text-[10px] backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/20 hover:bg-white/80 text-accent">
-                    <img src="/images/logo3.png" alt="Add" className="w-6 h-6 -mt-1" />
-                    <span className="leading-none hidden sm:inline">Add</span>
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddToCart(product);
+                      }}
+                      disabled={product.stock === 0}
+                      className="flex-1 h-6 text-[10px] backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/20 hover:bg-white/80 text-accent"
+                    >
+                      <img src="/images/logo3.png" alt="Add" className="w-6 h-6 -mt-1" />
+                      <span className="leading-none hidden sm:inline">Add</span>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/products/${product.id}`);
+                      }}
+                      className="h-6 px-2 text-[10px] border-white/50 bg-white/20 text-white hover:bg-white/30"
+                    >
+                      <ArrowRight className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
               </Card>
             ))}
           </div>
-        </div>
-      )}
+        )}
+
+        {products.length === 0 && recommendedProducts.length > 0 && (
+          <div className="mt-6">
+            <h3 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">Recommended Similar Products</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {recommendedProducts.map((product: any) => (
+                <Card
+                  key={`recommended-${product.id}`}
+                  onClick={() => router.push(`/products/${product.id}`)}
+                  className="border border-border/60 shadow-sm overflow-hidden relative h-[260px] hover:shadow-lg transition-all duration-300 cursor-pointer group"
+                >
+                  <div className="absolute inset-0">
+                    <Image src={product.images?.[0] || "/placeholder.png"} alt={product.title || product.name || "Product image"} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
+                  </div>
+                  <div className="absolute inset-0 bg-linear-to-b from-transparent to-black/70" />
+                  <div className="absolute bottom-0 left-0 right-0 p-2 text-white">
+                    <p className="text-xs font-semibold line-clamp-2">{product.title || product.name}</p>
+                    <div className="mt-1 flex items-center justify-between">
+                      <span className="text-[11px] font-semibold">₦{product.price?.toLocaleString?.() || product.price}</span>
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddToCart(product);
+                        }}
+                        disabled={product.stock === 0}
+                        className="h-6 text-[10px] bg-white/20 hover:bg-white/30 text-white"
+                      >
+                        Add
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
       {/* Services */}
       {services.length > 0 && (
         <div>
@@ -193,7 +363,7 @@ export default function SearchResults({ query }: { query: string }) {
           </div>
         </div>
       )}
-      {products.length === 0 && services.length === 0 && stores.length === 0 && (
+      {products.length === 0 && recommendedProducts.length === 0 && services.length === 0 && stores.length === 0 && (
         <div className="text-center text-muted-foreground py-10">No results found for "{query}".</div>
       )}
     </div>

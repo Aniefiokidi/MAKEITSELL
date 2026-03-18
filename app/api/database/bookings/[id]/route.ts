@@ -153,6 +153,13 @@ export async function PATCH(
     }
 
     if (actionType === 'reschedule') {
+      const toLocalDateKey = (value: Date) => {
+        const year = value.getFullYear()
+        const month = String(value.getMonth() + 1).padStart(2, '0')
+        const day = String(value.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
+      }
+
       const nextDateValue = data.newBookingDate
       const nextStart = typeof data.newStartTime === 'string' ? data.newStartTime : ''
       const nextEnd = typeof data.newEndTime === 'string' ? data.newEndTime : ''
@@ -165,7 +172,7 @@ export async function PATCH(
       }
 
       const providerId = String((existingBooking as any).providerId || '')
-      const nextDateOnly = new Date(nextDateValue).toISOString().split('T')[0]
+      const nextDateOnly = toLocalDateKey(new Date(nextDateValue))
       const parseTime = (timeStr: string) => {
         const [hh, mm] = String(timeStr || '00:00').split(':').map(Number)
         return (hh * 60) + mm
@@ -181,7 +188,7 @@ export async function PATCH(
 
       const overlap = sameDayBookings.some((item: any) => {
         if (!item?.bookingDate) return false
-        const itemDateOnly = new Date(item.bookingDate).toISOString().split('T')[0]
+        const itemDateOnly = toLocalDateKey(new Date(item.bookingDate))
         if (itemDateOnly !== nextDateOnly) return false
         const itemStart = parseTime(item.startTime)
         const itemEnd = parseTime(item.endTime)
