@@ -348,11 +348,21 @@ export default function StorePage() {
     let filtered = [...products]
     
     // Search filter
-    if (searchQuery) {
-      filtered = filtered.filter(product =>
-        (product.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.category.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+    const normalizedSearch = searchQuery.trim().toLowerCase()
+    if (normalizedSearch) {
+      filtered = filtered.filter((product) => {
+        const title = (product.title || "").toLowerCase()
+        const name = (product.name || "").toLowerCase()
+        const category = (product.category || "").toLowerCase()
+        const description = (product.description || "").toLowerCase()
+
+        return (
+          title.includes(normalizedSearch) ||
+          name.includes(normalizedSearch) ||
+          category.includes(normalizedSearch) ||
+          description.includes(normalizedSearch)
+        )
+      })
     }
     
     // Category filter
