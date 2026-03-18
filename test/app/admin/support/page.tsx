@@ -25,7 +25,7 @@ export default function AdminSupportPage() {
     const loadTickets = async () => {
       try {
         const { getSupportTickets } = await import("@/lib/firestore")
-        const { getUserProfile } = await import("@/lib/auth")
+        const { getUserProfile } = await import("@/lib/auth-client")
         const allTickets = await getSupportTickets()
 
         // Enrich tickets with user names

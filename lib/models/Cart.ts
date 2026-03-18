@@ -8,7 +8,7 @@ export interface ICart extends Document {
 
 const CartSchema = new Schema<ICart>({
   userId: { type: String, required: true, unique: true },
-  items: { type: [Schema.Types.Mixed], default: [] },
+  items: { type: [Schema.Types.Mixed] as any, default: [] },
 }, { timestamps: { updatedAt: true, createdAt: false } });
 
 export const Cart = models.Cart || mongoose.model<ICart>('Cart', CartSchema);

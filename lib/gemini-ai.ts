@@ -139,7 +139,7 @@ Remember: You're not just answering questions - you're having an intelligent con
         priority: "medium"
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Gemini AI error:', error)
 
     // Check if it's an API key error and use fallback immediately

@@ -29,19 +29,20 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const addNotification = useCallback((notification: Omit<Notification, "id">) => {
     const id = `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const duration = notification.duration ?? 5000
     const newNotification: Notification = {
       id,
       ...notification,
-      duration: notification.duration || 5000, // Default 5 seconds
+      duration, // Default 5 seconds
     }
 
     setNotifications((prev) => [...prev, newNotification])
 
     // Auto remove after duration
-    if (newNotification.duration > 0) {
+    if (duration > 0) {
       setTimeout(() => {
         removeNotification(id)
-      }, newNotification.duration)
+      }, duration)
     }
   }, [])
 

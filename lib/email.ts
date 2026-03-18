@@ -146,7 +146,7 @@ class EmailService {
     `).join('')
 
     const subtotal = orderData.total
-    const deliveryFee = 0 // You can calculate this based on location
+    const deliveryFee: number = 0 // You can calculate this based on location
     const total = subtotal + deliveryFee
 
     const customerEmailHtml = `

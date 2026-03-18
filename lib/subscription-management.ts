@@ -338,7 +338,7 @@ export const SubscriptionManagementService = {
       results.accountsFrozen = expiredGrace.frozen
 
       return { success: true, results }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Daily subscription job error:', error)
       return { success: false, error: error.message, results }
     }
