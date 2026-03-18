@@ -472,7 +472,7 @@ export default function NewProduct() {
                     <span className="text-sm text-muted-foreground mt-2">Upload Image</span>
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
                       multiple
                       className="hidden"
                       onChange={handleImageUpload}

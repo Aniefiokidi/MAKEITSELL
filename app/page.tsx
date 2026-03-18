@@ -644,6 +644,21 @@ export default function HomePage() {
     }
   }, [slideOut, slideTarget]);
 
+  // If user is not logged in, show sign-in prompt only
+  if (!user) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <Header homeBg={true} />
+        <main className="flex-1 flex flex-col items-center justify-center text-center">
+          <h1 className="text-3xl sm:text-5xl font-bold text-accent mb-4">Welcome to Make It Sell</h1>
+          <p className="text-lg text-neutral-700 dark:text-gray-200 mb-6">Sign in to access the marketplace and your account.</p>
+          <Link href="/login">
+            <Button className="bg-accent text-white px-8 py-3 rounded-lg text-lg font-semibold shadow-md hover:bg-accent/90 transition-all">Sign In</Button>
+          </Link>
+        </main>
+      </div>
+    );
+  }
   return (
     <div className="min-h-screen flex flex-col relative">
       <div
@@ -679,12 +694,13 @@ export default function HomePage() {
                   <p className="text-base sm:text-lg md:text-xl text-neutral-700 dark:text-gray-200 max-w-2xl mb-2">
                     Nigeria’s most trusted marketplace for unique products, unbeatable prices, and real customer support.
                   </p>
+                  {/* Search Form (existing) */}
                   <form
                     className="flex w-full max-w-md bg-white/90 dark:bg-white/20 rounded-full shadow-lg overflow-hidden border border-accent/30 focus-within:ring-2 focus-within:ring-accent"
                     onSubmit={e => {
                       e.preventDefault();
                       if (searchValue.trim()) {
-                        router.push(`/search?query=${encodeURIComponent(searchValue.trim())}`);
+                        router.push(`/stores?query=${encodeURIComponent(searchValue.trim())}`);
                       }
                     }}
                   >
