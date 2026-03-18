@@ -1294,10 +1294,11 @@ export default function NewServicePage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {DAYS.map((day) => (
-                <div key={day} className="flex items-center gap-4 p-3 border rounded-lg">
-                  <div className="flex items-center gap-2 w-32">
+                <div key={day} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 border rounded-lg overflow-hidden">
+                  <div className="flex items-center gap-2 w-full sm:w-36 shrink-0">
                     <Switch
                       checked={availability[day].available}
+                      className="border border-border data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
                       onCheckedChange={(checked) =>
                         setAvailability({
                           ...availability,
@@ -1309,7 +1310,7 @@ export default function NewServicePage() {
                   </div>
 
                   {availability[day].available && (
-                    <div className="flex items-center gap-2 flex-1">
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:flex-1 min-w-0">
                       <Input
                         type="time"
                         value={availability[day].start}
@@ -1319,9 +1320,9 @@ export default function NewServicePage() {
                             [day]: { ...availability[day], start: e.target.value },
                           })
                         }
-                        className="max-w-32"
+                        className="w-full sm:w-36 min-w-0"
                       />
-                      <span>to</span>
+                      <span className="text-sm text-muted-foreground shrink-0">to</span>
                       <Input
                         type="time"
                         value={availability[day].end}
@@ -1331,7 +1332,7 @@ export default function NewServicePage() {
                             [day]: { ...availability[day], end: e.target.value },
                           })
                         }
-                        className="max-w-32"
+                        className="w-full sm:w-36 min-w-0"
                       />
                     </div>
                   )}
