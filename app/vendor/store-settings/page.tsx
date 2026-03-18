@@ -115,6 +115,8 @@ export default function VendorStoreSettingsPage() {
   const [backgroundImage, setBackgroundImage] = useState<string>("")
   const [newBackgroundFile, setNewBackgroundFile] = useState<File | null>(null)
   const [backgroundPreview, setBackgroundPreview] = useState<string>("")
+  const [backgroundIsPdf, setBackgroundIsPdf] = useState(false)
+  const [backgroundFileName, setBackgroundFileName] = useState("")
   const [bgUploading, setBgUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -122,8 +124,22 @@ export default function VendorStoreSettingsPage() {
   const [profileImage, setProfileImage] = useState<string>("");
   const [newProfileFile, setNewProfileFile] = useState<File | null>(null);
   const [profilePreview, setProfilePreview] = useState<string>("");
+  const [profileIsPdf, setProfileIsPdf] = useState(false);
+  const [profileFileName, setProfileFileName] = useState("");
   const [profileUploading, setProfileUploading] = useState(false);
   const profileInputRef = useRef<HTMLInputElement>(null);
+
+  const isPdfAsset = (value?: string) => {
+    if (!value) return false
+    return /\.pdf(\?|#|$)/i.test(value)
+  }
+
+  const getFileNameFromUrl = (value?: string) => {
+    if (!value) return ""
+    const cleanUrl = value.split("?")[0]
+    const parts = cleanUrl.split("/")
+    return parts[parts.length - 1] || "uploaded-file"
+  }
 
   const loadStoreData = async () => {
     if (user) {
@@ -183,8 +199,12 @@ export default function VendorStoreSettingsPage() {
           }));
           setBackgroundImage(userStore.backgroundImage || userStore.storeImage || userStore.logoImage || "");
           setBackgroundPreview("");
+          setBackgroundIsPdf(isPdfAsset(userStore.backgroundImage || userStore.storeImage || userStore.logoImage || ""))
+          setBackgroundFileName(getFileNameFromUrl(userStore.backgroundImage || userStore.storeImage || userStore.logoImage || ""))
           setProfileImage(userStore.profileImage || "");
           setProfilePreview("");
+          setProfileIsPdf(isPdfAsset(userStore.profileImage || ""))
+          setProfileFileName(getFileNameFromUrl(userStore.profileImage || ""))
         } else if (userProfile) {
           setSettings(prev => ({
             ...prev,
@@ -597,12 +617,17 @@ export default function VendorStoreSettingsPage() {
                 {/* Store Profile Card Image (large background/profile photo) */}
                 <div className="space-y-2">
                   <Label>Profile Card Image (Large)</Label>
-                  {profileImage ? (
+                  {profileImage && !isPdfAsset(profileImage) ? (
                     <img
                       src={profilePreview || profileImage}
                       alt="Profile Card"
                       className="w-full max-w-md h-40 object-cover rounded border"
                     />
+                  ) : profileImage ? (
+                    <div className="w-full max-w-md h-40 flex flex-col items-center justify-center bg-muted rounded border text-muted-foreground px-4 text-center">
+                      <p className="text-xs font-semibold uppercase">PDF Uploaded</p>
+                      <p className="text-xs truncate max-w-full mt-1">{profileFileName || getFileNameFromUrl(profileImage)}</p>
+                    </div>
                   ) : (
                     <div className="w-full max-w-md h-40 flex items-center justify-center bg-muted rounded border text-muted-foreground">
                       No profile card image set
@@ -614,19 +639,35 @@ export default function VendorStoreSettingsPage() {
                   <Input
                     id="profile-upload"
                     type="file"
-                    accept="image/*"
+                    accept="image/*,application/pdf"
                     ref={profileInputRef}
                     onChange={e => {
                       const file = e.target.files?.[0];
                       if (file) {
+                        const isPdfFile = file.type === "application/pdf" || /\.pdf$/i.test(file.name)
+                        const isImageFile = file.type.startsWith("image/")
+                        if (!isPdfFile && !isImageFile) {
+                          showNotificationBox("Only images and PDFs are supported.", "error")
+                          return
+                        }
+
                         console.log('Profile image file selected:', file);
                         setNewProfileFile(file);
-                        const url = URL.createObjectURL(file);
-                        setProfilePreview(url);
-                        console.log('Profile preview URL set:', url);
+                        setProfileFileName(file.name)
+                        setProfileIsPdf(isPdfFile)
+                        if (isPdfFile) {
+                          setProfilePreview("")
+                        } else {
+                          const url = URL.createObjectURL(file);
+                          setProfilePreview(url);
+                          console.log('Profile preview URL set:', url);
+                        }
                       }
                     }}
                   />
+                  {profileIsPdf && profileFileName && (
+                    <p className="text-xs text-muted-foreground truncate">Selected PDF: {profileFileName}</p>
+                  )}
                   {profilePreview && (
                     <div className="flex gap-2 mt-2">
                       <Button
@@ -635,6 +676,26 @@ export default function VendorStoreSettingsPage() {
                         onClick={() => {
                           setNewProfileFile(null);
                           setProfilePreview("");
+                          setProfileIsPdf(false);
+                          setProfileFileName("");
+                          if (profileInputRef.current) profileInputRef.current.value = "";
+                        }}
+                        size="sm"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
+                  {profileIsPdf && !profilePreview && (
+                    <div className="flex gap-2 mt-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => {
+                          setNewProfileFile(null);
+                          setProfilePreview("");
+                          setProfileIsPdf(false);
+                          setProfileFileName("");
                           if (profileInputRef.current) profileInputRef.current.value = "";
                         }}
                         size="sm"
@@ -652,12 +713,17 @@ export default function VendorStoreSettingsPage() {
                 {/* Store Background Image (for banner, etc) */}
                 <div className="space-y-2">
                   <Label>Store Background Image</Label>
-                  {(backgroundPreview || backgroundImage) ? (
+                  {(backgroundPreview || backgroundImage) && !(backgroundIsPdf || isPdfAsset(backgroundImage)) ? (
                     <img
                       src={backgroundPreview || backgroundImage}
                       alt="Store Background"
                       className="w-full max-w-md h-40 object-cover rounded border"
                     />
+                  ) : (backgroundPreview || backgroundImage) ? (
+                    <div className="w-full max-w-md h-40 flex flex-col items-center justify-center bg-muted rounded border text-muted-foreground px-4 text-center">
+                      <p className="text-xs font-semibold uppercase">PDF Uploaded</p>
+                      <p className="text-xs truncate max-w-full mt-1">{backgroundFileName || getFileNameFromUrl(backgroundImage)}</p>
+                    </div>
                   ) : (
                     <div className="w-full max-w-md h-40 flex items-center justify-center bg-muted rounded border text-muted-foreground">
                       No background image set
@@ -669,19 +735,35 @@ export default function VendorStoreSettingsPage() {
                   <Input
                     id="background-upload"
                     type="file"
-                    accept="image/*"
+                    accept="image/*,application/pdf"
                     ref={fileInputRef}
                     onChange={e => {
                       const file = e.target.files?.[0]
                       if (file) {
+                        const isPdfFile = file.type === "application/pdf" || /\.pdf$/i.test(file.name)
+                        const isImageFile = file.type.startsWith("image/")
+                        if (!isPdfFile && !isImageFile) {
+                          showNotificationBox("Only images and PDFs are supported.", "error")
+                          return
+                        }
+
                         console.log('Background image file selected:', file);
                         setNewBackgroundFile(file)
-                        const url = URL.createObjectURL(file);
-                        setBackgroundPreview(url)
-                        console.log('Background preview URL set:', url);
+                        setBackgroundFileName(file.name)
+                        setBackgroundIsPdf(isPdfFile)
+                        if (isPdfFile) {
+                          setBackgroundPreview("")
+                        } else {
+                          const url = URL.createObjectURL(file);
+                          setBackgroundPreview(url)
+                          console.log('Background preview URL set:', url);
+                        }
                       }
                     }}
                   />
+                  {backgroundIsPdf && backgroundFileName && (
+                    <p className="text-xs text-muted-foreground truncate">Selected PDF: {backgroundFileName}</p>
+                  )}
                   {backgroundPreview && (
                     <div className="flex gap-2 mt-2">
                       <Button
@@ -690,6 +772,26 @@ export default function VendorStoreSettingsPage() {
                         onClick={() => {
                           setNewBackgroundFile(null)
                           setBackgroundPreview("")
+                          setBackgroundIsPdf(false)
+                          setBackgroundFileName("")
+                          if (fileInputRef.current) fileInputRef.current.value = ""
+                        }}
+                        size="sm"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
+                  {backgroundIsPdf && !backgroundPreview && (
+                    <div className="flex gap-2 mt-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => {
+                          setNewBackgroundFile(null)
+                          setBackgroundPreview("")
+                          setBackgroundIsPdf(false)
+                          setBackgroundFileName("")
                           if (fileInputRef.current) fileInputRef.current.value = ""
                         }}
                         size="sm"

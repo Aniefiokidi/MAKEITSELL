@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
-import { Clock, Truck, MapPin, Search, Heart, ShoppingCart, ArrowLeft, Shield, Users, Package, MessageCircle, Verified, Store as StoreIcon, TrendingUp, Calendar, Eye, Filter } from "lucide-react"
+import { Clock, Truck, MapPin, Search, Heart, ShoppingCart, ArrowLeft, Shield, Users, Package, MessageCircle, Verified, Store as StoreIcon, TrendingUp, Calendar, Eye, Filter, ExternalLink } from "lucide-react"
 import Link from "next/link"
 import { useCart } from "@/contexts/CartContext"
 import { useAuth } from "@/contexts/AuthContext"
@@ -93,6 +93,19 @@ export default function StorePage() {
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
   const [imageBrightness, setImageBrightness] = useState<{ [key: string]: 'light' | 'dark' }>({})
   const [storeVisitTracked, setStoreVisitTracked] = useState(false)
+  const isPdfAsset = (value?: string) => {
+    if (!value) return false
+    return /\.pdf(\?|#|$)/i.test(value)
+  }
+  const storeBrandingPdfUrl = store
+    ? [
+        (store as any).storeImage,
+        (store as any).logoImage,
+        (store as any).profileImage,
+        (store as any).backgroundImage,
+        (store as any).bannerImage,
+      ].find((value) => isPdfAsset(value))
+    : undefined
     // Reset color and size selection when quick view opens or closes
     useEffect(() => {
       setSelectedColor(null)
@@ -559,7 +572,9 @@ export default function StorePage() {
         <div className="absolute inset-0">
           <img
             src={
-              (store as any).profileImage
+              ((store as any).profileImage && !isPdfAsset((store as any).profileImage)
+                ? (store as any).profileImage
+                : undefined)
                 || (products[0]?.images?.[0])
                 || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&h=600&fit=crop"
             }
@@ -587,7 +602,7 @@ export default function StorePage() {
               {/* Store Avatar (Logo) and Store Name beside each other on mobile */}
               <div className="flex flex-col sm:flex-row sm:items-start items-center gap-3 lg:flex-col lg:items-start w-full sm:w-auto">
                 <Avatar className="w-14 sm:w-16 h-14 sm:h-16 border-4 border-white/20 backdrop-blur-sm store-logo-mobile">
-                  <AvatarImage src={store.storeImage} alt={store.storeName} />
+                  <AvatarImage src={isPdfAsset(store.storeImage) ? undefined : store.storeImage} alt={store.storeName} />
                   <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
                     {store.storeName.charAt(0)}
                   </AvatarFallback>
@@ -644,6 +659,16 @@ export default function StorePage() {
               
               {/* Action Buttons */}
               <div className="flex gap-2 sm:gap-3 w-full sm:w-auto flex-col sm:flex-row">
+                {storeBrandingPdfUrl && (
+                  <Button
+                    variant="outline"
+                    className="bg-white/10 backdrop-blur-md border-white/30 text-white hover:bg-white/20 hover:scale-105 transition-all text-xs sm:text-sm py-2 sm:py-3"
+                    onClick={() => window.open(storeBrandingPdfUrl, "_blank", "noopener,noreferrer")}
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    View Brand PDF
+                  </Button>
+                )}
                 <Button 
                   className={`${isFollowing ? "bg-green-600 hover:bg-green-700 hover:scale-105 transition-all" : "bg-primary hover:bg-primary/90 hover:scale-105 transition-all"} text-xs sm:text-sm py-2 sm:py-3`}
                   onClick={handleFollowToggle}

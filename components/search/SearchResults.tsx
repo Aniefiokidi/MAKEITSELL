@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { useNotification } from "@/contexts/NotificationContext";
-import { ArrowRight, MapPin, Users, Clock, Store as StoreIcon } from "lucide-react";
+import { ArrowRight, MapPin, Users, Clock, Store as StoreIcon, ExternalLink } from "lucide-react";
 import React from "react";
 
 const getCategoryIcon = (category: string) => {
@@ -25,6 +25,11 @@ export default function SearchResults({ query }: { query: string }) {
   const [recommendedProducts, setRecommendedProducts] = React.useState<any[]>([]);
   const [didYouMean, setDidYouMean] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
+
+  const isPdfAsset = React.useCallback((value?: string) => {
+    if (!value) return false;
+    return /\.pdf(\?|#|$)/i.test(value);
+  }, []);
 
   const levenshteinDistance = React.useCallback((a: string, b: string) => {
     const source = a.toLowerCase();
@@ -391,10 +396,29 @@ export default function SearchResults({ query }: { query: string }) {
           <h2 className="text-xl font-bold mb-4">Stores</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
             {stores.map((store: any) => (
+              (() => {
+                const storeBrandingPdfUrl = [
+                  store.storeImage,
+                  store.logoImage,
+                  store.profileImage,
+                  store.bannerImage,
+                  store.backgroundImage,
+                ].find((value) => isPdfAsset(value))
+
+                return (
               <Card key={store.id} className="h-full hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02] transition-all duration-300 group overflow-hidden border-none rounded-[2.5rem] relative">
                 <div className="aspect-9/16 relative overflow-hidden rounded-[2.5rem]">
                   {store.profileImage || store.featuredProduct?.image || store.productImages?.[0] || store.bannerImage ? (
-                    <Image src={store.profileImage || store.featuredProduct?.image || store.productImages?.[0] || store.bannerImage} alt={store.name} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <Image
+                      src={
+                        isPdfAsset(store.profileImage || store.featuredProduct?.image || store.productImages?.[0] || store.bannerImage)
+                          ? "/placeholder.png"
+                          : (store.profileImage || store.featuredProduct?.image || store.productImages?.[0] || store.bannerImage)
+                      }
+                      alt={store.name}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
                   ) : (
                     <div className="flex items-center justify-center h-full bg-linear-to-br from-accent/90 via-orange-500/90 to-red-600/90">
                       <StoreIcon className="h-20 w-20 text-white drop-shadow-lg animate-pulse" />
@@ -404,7 +428,13 @@ export default function SearchResults({ query }: { query: string }) {
                   <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
                     <div className="w-16 h-16 rounded-full bg-white border-4 border-white overflow-hidden shadow-2xl ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110">
                       {store.storeImage || store.logoImage ? (
-                        <Image src={store.storeImage || store.logoImage} alt={`${store.name} logo`} width={64} height={64} className="object-cover" />
+                        <Image
+                          src={isPdfAsset(store.storeImage || store.logoImage) ? "/placeholder.png" : (store.storeImage || store.logoImage)}
+                          alt={`${store.name} logo`}
+                          width={64}
+                          height={64}
+                          className="object-cover"
+                        />
                       ) : (
                         <div className="w-full h-full bg-linear-to-br from-accent to-orange-500 flex items-center justify-center">
                           <StoreIcon className="h-8 w-8 text-white" />
@@ -437,9 +467,25 @@ export default function SearchResults({ query }: { query: string }) {
                         <span className="sm:hidden">{new Date(store.createdAt || Date.now()).getFullYear()}</span>
                       </div>
                     </div>
+                    {storeBrandingPdfUrl && (
+                      <div className="mt-2">
+                        <a
+                          href={storeBrandingPdfUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[9px] sm:text-[11px] font-semibold text-white/90 hover:text-white underline underline-offset-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          View Brand PDF
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
               </Card>
+                )
+              })()
             ))}
           </div>
         </div>

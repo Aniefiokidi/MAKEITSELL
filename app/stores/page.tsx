@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Search, Store, RefreshCw, Filter, MapPin, Clock, Users, Package, Wrench, ArrowRight } from "lucide-react"
+import { Search, Store, RefreshCw, Filter, MapPin, Clock, Users, Package, Wrench, ArrowRight, ExternalLink } from "lucide-react"
 import Link from "next/link"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
@@ -91,6 +91,11 @@ export default function ShopPage() {
     return matchesSearch && matchesLocation
   })
 
+  const isPdfAsset = (value?: string) => {
+    if (!value) return false
+    return /\.pdf(\?|#|$)/i.test(value)
+  }
+
   const locationOptions = useMemo(() => {
     const unique = new Set<string>()
     for (const store of stores) {
@@ -131,38 +136,56 @@ export default function ShopPage() {
   })
 
   const StoreCard = ({ store }: { store: any }) => (
+    (() => {
+      const storeBrandingPdfUrl = [
+        store.storeImage,
+        store.logoImage,
+        store.profileImage,
+        store.bannerImage,
+        store.backgroundImage,
+      ].find((value) => isPdfAsset(value))
+
+      return (
     <Card className="h-full hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02] transition-all duration-300 group overflow-hidden border-none rounded-[2.5rem] relative" style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}>
       {/* Full Image Background */}
-      <div className="aspect-[9/16] relative overflow-hidden rounded-[2.5rem]">
+      <div className="aspect-9/16 relative overflow-hidden rounded-[2.5rem]">
         {store.profileImage || store.featuredProduct?.image || store.productImages?.[0] || store.bannerImage ? (
           <Image
-            src={store.profileImage || store.featuredProduct?.image || store.productImages?.[0] || store.bannerImage}
+            src={
+              isPdfAsset(store.profileImage || store.featuredProduct?.image || store.productImages?.[0] || store.bannerImage)
+                ? "/placeholder.svg"
+                : (store.profileImage || store.featuredProduct?.image || store.productImages?.[0] || store.bannerImage)
+            }
             alt={store.name}
             fill
             className="object-cover group-hover:scale-105 transition-transform duration-500"
           />
         ) : (
-          <div className="flex items-center justify-center h-full bg-gradient-to-br from-accent/90 via-orange-500/90 to-red-600/90">
+          <div className="flex items-center justify-center h-full bg-linear-to-br from-accent/90 via-orange-500/90 to-red-600/90">
             <Store className="h-20 w-20 text-white drop-shadow-lg animate-pulse" />
           </div>
         )}
         
         {/* Dark overlay gradient at bottom for text readability */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent via-50% to-black/90" />
+        <div className="absolute inset-0 bg-linear-to-b from-black/20 via-transparent via-50% to-black/90" />
         
         {/* Logo in Center Top */}
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
           <div className="w-16 h-16 rounded-full bg-white border-4 border-white overflow-hidden shadow-2xl ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110">
             {store.storeImage || store.logoImage ? (
               <Image
-                src={store.storeImage || store.logoImage}
+                src={
+                  isPdfAsset(store.storeImage || store.logoImage)
+                    ? "/placeholder.svg"
+                    : (store.storeImage || store.logoImage)
+                }
                 alt={`${store.name} logo`}
                 width={64}
                 height={64}
                 className="object-cover"
               />
             ) : (
-              <div className="w-full h-full bg-gradient-to-br from-accent to-orange-500 flex items-center justify-center">
+              <div className="w-full h-full bg-linear-to-br from-accent to-orange-500 flex items-center justify-center">
                 <Store className="h-8 w-8 text-white" />
               </div>
             )}
@@ -193,7 +216,7 @@ export default function ShopPage() {
               e.preventDefault()
               handleStoreClick(store._id || store.id)
             }}>
-              <div className="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full bg-white flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 hover:bg-accent hover:text-white transition-all duration-200 cursor-pointer group/arrow">
+              <div className="shrink-0 w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full bg-white flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 hover:bg-accent hover:text-white transition-all duration-200 cursor-pointer group/arrow">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent group-hover/arrow:text-white transition-colors group-hover/arrow:translate-x-0.5">
                   <path d="M5 12h14"/>
                   <path d="m12 5 7 7-7 7"/>
@@ -215,9 +238,25 @@ export default function ShopPage() {
               <span className="sm:hidden">{new Date(store.createdAt || Date.now()).getFullYear()}</span>
             </div>
           </div>
+          {storeBrandingPdfUrl && (
+            <div className="mt-2">
+              <a
+                href={storeBrandingPdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[9px] sm:text-[11px] font-semibold text-white/90 hover:text-white underline underline-offset-2"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ExternalLink className="h-3 w-3" />
+                View Brand PDF
+              </a>
+            </div>
+          )}
         </div>
       </div>
     </Card>
+      )
+    })()
   )
 
   return (
