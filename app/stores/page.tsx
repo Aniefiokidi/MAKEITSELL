@@ -180,6 +180,46 @@ export default function ShopPage() {
     }
   }, [currentPage, totalPages])
 
+  const renderPaginationControls = () => {
+    if (loading || sortedStores.length <= itemsPerPage) return null
+
+    return (
+      <div className="flex items-center justify-center gap-2 flex-wrap">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={currentPage === 1}
+          onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+        >
+          Previous
+        </Button>
+        {paginationItems.map((item, idx) =>
+          typeof item === "number" ? (
+            <Button
+              key={`page-${item}`}
+              variant={item === currentPage ? "default" : "outline"}
+              size="sm"
+              onClick={() => setCurrentPage(item)}
+              className="min-w-9"
+            >
+              {item}
+            </Button>
+          ) : (
+            <span key={`ellipsis-${idx}`} className="px-1 text-sm text-muted-foreground select-none">...</span>
+          )
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={currentPage === totalPages}
+          onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+        >
+          Next
+        </Button>
+      </div>
+    )
+  }
+
   const StoreCard = ({ store }: { store: any }) => (
     (() => {
       const storeBrandingPdfUrl = [
@@ -509,6 +549,8 @@ export default function ShopPage() {
           </p>
         </div>
 
+        <div className="mb-4 sm:mb-6">{renderPaginationControls()}</div>
+
         {/* Stores Grid */}
         {loading ? (
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
@@ -554,41 +596,7 @@ export default function ShopPage() {
           </div>
         )}
 
-        {!loading && sortedStores.length > itemsPerPage && (
-          <div className="mt-6 sm:mt-8 flex items-center justify-center gap-2 flex-wrap">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-            >
-              Previous
-            </Button>
-            {paginationItems.map((item, idx) =>
-              typeof item === "number" ? (
-                <Button
-                  key={`page-${item}`}
-                  variant={item === currentPage ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setCurrentPage(item)}
-                  className="min-w-9"
-                >
-                  {item}
-                </Button>
-              ) : (
-                <span key={`ellipsis-${idx}`} className="px-1 text-sm text-muted-foreground select-none">...</span>
-              )
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-            >
-              Next
-            </Button>
-          </div>
-        )}
+        <div className="mt-6 sm:mt-8">{renderPaginationControls()}</div>
       </main>
 
       

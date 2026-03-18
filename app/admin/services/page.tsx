@@ -10,6 +10,22 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Loader2 } from "lucide-react"
 
+const getCompactPagination = (currentPage: number, totalPages: number): Array<number | string> => {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, idx) => idx + 1)
+  }
+
+  if (currentPage <= 3) {
+    return [1, 2, 3, 4, "ellipsis-right", totalPages]
+  }
+
+  if (currentPage >= totalPages - 2) {
+    return [1, "ellipsis-left", totalPages - 3, totalPages - 2, totalPages - 1, totalPages]
+  }
+
+  return [1, "ellipsis-left", currentPage - 1, currentPage, currentPage + 1, "ellipsis-right", totalPages]
+}
+
 export default function AdminServicesPage() {
   const [services, setServices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -63,13 +79,68 @@ export default function AdminServicesPage() {
   }, [services, search, statusFilter])
 
   // Pagination
-  const totalPages = Math.ceil(filtered.length / itemsPerPage)
+  const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage))
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
   const paginatedItems = filtered.slice(startIndex, endIndex)
+  const paginationItems = useMemo(() => getCompactPagination(currentPage, totalPages), [currentPage, totalPages])
 
   const handlePageChange = (page: number) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)))
+  }
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, statusFilter])
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
+
+  const renderPaginationControls = () => {
+    if (totalPages <= 1) return null
+
+    return (
+      <div className="flex justify-end items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="h-8 px-3 text-xs"
+        >
+          Previous
+        </Button>
+        <div className="flex items-center gap-1">
+          {paginationItems.map((item, idx) =>
+            typeof item === "number" ? (
+              <Button
+                key={`service-page-${item}`}
+                variant={currentPage === item ? "default" : "outline"}
+                size="sm"
+                onClick={() => handlePageChange(item)}
+                className="h-8 w-8 p-0 text-xs"
+              >
+                {item}
+              </Button>
+            ) : (
+              <span key={`service-ellipsis-${idx}`} className="px-1 text-xs text-muted-foreground select-none">...</span>
+            )
+          )}
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="h-8 px-3 text-xs"
+        >
+          Next
+        </Button>
+      </div>
+    )
   }
 
   const statusBadge = (status: string) => {
@@ -167,6 +238,7 @@ export default function AdminServicesPage() {
               <div className="text-center py-8 text-muted-foreground text-sm">No services found</div>
             ) : (
               <div className="space-y-4">
+                <div className="mt-1 mb-1">{renderPaginationControls()}</div>
                 {/* Mobile view - Card layout */}
                 <div className="lg:hidden space-y-4">
                   {paginatedItems.map((service) => (
@@ -261,42 +333,7 @@ export default function AdminServicesPage() {
                   </Table>
                 </div>
 
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="flex justify-end items-center gap-2 mt-6">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handlePageChange(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      className="h-8 px-3 text-xs"
-                    >
-                      Previous
-                    </Button>
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                        <Button
-                          key={page}
-                          variant={currentPage === page ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => handlePageChange(page)}
-                          className="h-8 w-8 p-0 text-xs"
-                        >
-                          {page}
-                        </Button>
-                      ))}
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      className="h-8 px-3 text-xs"
-                    >
-                      Next
-                    </Button>
-                  </div>
-                )}
+                <div className="mt-6">{renderPaginationControls()}</div>
               </div>
             )}
           </CardContent>

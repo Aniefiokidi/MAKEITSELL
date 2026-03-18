@@ -93,6 +93,88 @@ export default function AdminVendorsPage() {
     if (currentNoStorePage > totalNoStorePages) setCurrentNoStorePage(totalNoStorePages)
   }, [currentNoStorePage, totalNoStorePages])
 
+  const renderAllVendorsPagination = () => {
+    if (filtered.length <= itemsPerPage) return null
+
+    return (
+      <div className="flex justify-end items-center gap-2">
+        <button
+          type="button"
+          className="h-8 px-3 text-xs rounded border border-border bg-background disabled:opacity-50"
+          onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+          disabled={currentPage === 1}
+        >
+          Previous
+        </button>
+        <div className="flex items-center gap-1">
+          {vendorPaginationItems.map((item, idx) =>
+            typeof item === "number" ? (
+              <button
+                key={`vendors-page-${item}`}
+                type="button"
+                className={`h-8 min-w-8 px-2 text-xs rounded border ${currentPage === item ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border"}`}
+                onClick={() => setCurrentPage(item)}
+              >
+                {item}
+              </button>
+            ) : (
+              <span key={`vendors-ellipsis-${idx}`} className="px-1 text-xs text-muted-foreground select-none">...</span>
+            )
+          )}
+        </div>
+        <button
+          type="button"
+          className="h-8 px-3 text-xs rounded border border-border bg-background disabled:opacity-50"
+          onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+          disabled={currentPage === totalPages}
+        >
+          Next
+        </button>
+      </div>
+    )
+  }
+
+  const renderNoStorePagination = () => {
+    if (vendorsWithoutStores.length <= itemsPerPage) return null
+
+    return (
+      <div className="flex justify-end items-center gap-2">
+        <button
+          type="button"
+          className="h-8 px-3 text-xs rounded border border-border bg-background disabled:opacity-50"
+          onClick={() => setCurrentNoStorePage((prev) => Math.max(1, prev - 1))}
+          disabled={currentNoStorePage === 1}
+        >
+          Previous
+        </button>
+        <div className="flex items-center gap-1">
+          {noStorePaginationItems.map((item, idx) =>
+            typeof item === "number" ? (
+              <button
+                key={`no-store-page-${item}`}
+                type="button"
+                className={`h-8 min-w-8 px-2 text-xs rounded border ${currentNoStorePage === item ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border"}`}
+                onClick={() => setCurrentNoStorePage(item)}
+              >
+                {item}
+              </button>
+            ) : (
+              <span key={`no-store-ellipsis-${idx}`} className="px-1 text-xs text-muted-foreground select-none">...</span>
+            )
+          )}
+        </div>
+        <button
+          type="button"
+          className="h-8 px-3 text-xs rounded border border-border bg-background disabled:opacity-50"
+          onClick={() => setCurrentNoStorePage((prev) => Math.min(totalNoStorePages, prev + 1))}
+          disabled={currentNoStorePage === totalNoStorePages}
+        >
+          Next
+        </button>
+      </div>
+    )
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -132,6 +214,7 @@ export default function AdminVendorsPage() {
               <div className="text-center py-8 text-muted-foreground text-sm">No vendors found</div>
             ) : (
               <div className="space-y-4">
+                <div className="mt-1 mb-1">{renderAllVendorsPagination()}</div>
                 {/* Mobile view - Card layout */}
                 <div className="lg:hidden space-y-4">
                   {paginatedVendors.map((vendor) => (
@@ -208,42 +291,7 @@ export default function AdminVendorsPage() {
                   </Table>
                 </div>
 
-                {filtered.length > itemsPerPage && (
-                  <div className="flex justify-end items-center gap-2 mt-2">
-                    <button
-                      type="button"
-                      className="h-8 px-3 text-xs rounded border border-border bg-background disabled:opacity-50"
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      Previous
-                    </button>
-                    <div className="flex items-center gap-1">
-                      {vendorPaginationItems.map((item, idx) =>
-                        typeof item === "number" ? (
-                          <button
-                            key={`vendors-page-${item}`}
-                            type="button"
-                            className={`h-8 min-w-8 px-2 text-xs rounded border ${currentPage === item ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border"}`}
-                            onClick={() => setCurrentPage(item)}
-                          >
-                            {item}
-                          </button>
-                        ) : (
-                          <span key={`vendors-ellipsis-${idx}`} className="px-1 text-xs text-muted-foreground select-none">...</span>
-                        )
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      className="h-8 px-3 text-xs rounded border border-border bg-background disabled:opacity-50"
-                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                    </button>
-                  </div>
-                )}
+                <div className="mt-2">{renderAllVendorsPagination()}</div>
               </div>
             )}
           </CardContent>
@@ -262,6 +310,7 @@ export default function AdminVendorsPage() {
               <div className="text-center py-8 text-muted-foreground text-sm">All vendors currently have stores</div>
             ) : (
               <div className="space-y-4">
+                <div className="mt-1 mb-1">{renderNoStorePagination()}</div>
                 <div className="lg:hidden space-y-3">
                   {paginatedNoStoreVendors.map((vendor) => (
                     <Card key={`no-store-${vendor.id || vendor._id}`} className="bg-muted/50">
@@ -314,42 +363,7 @@ export default function AdminVendorsPage() {
                   </Table>
                 </div>
 
-                {vendorsWithoutStores.length > itemsPerPage && (
-                  <div className="flex justify-end items-center gap-2 mt-2">
-                    <button
-                      type="button"
-                      className="h-8 px-3 text-xs rounded border border-border bg-background disabled:opacity-50"
-                      onClick={() => setCurrentNoStorePage((prev) => Math.max(1, prev - 1))}
-                      disabled={currentNoStorePage === 1}
-                    >
-                      Previous
-                    </button>
-                    <div className="flex items-center gap-1">
-                      {noStorePaginationItems.map((item, idx) =>
-                        typeof item === "number" ? (
-                          <button
-                            key={`no-store-page-${item}`}
-                            type="button"
-                            className={`h-8 min-w-8 px-2 text-xs rounded border ${currentNoStorePage === item ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border"}`}
-                            onClick={() => setCurrentNoStorePage(item)}
-                          >
-                            {item}
-                          </button>
-                        ) : (
-                          <span key={`no-store-ellipsis-${idx}`} className="px-1 text-xs text-muted-foreground select-none">...</span>
-                        )
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      className="h-8 px-3 text-xs rounded border border-border bg-background disabled:opacity-50"
-                      onClick={() => setCurrentNoStorePage((prev) => Math.min(totalNoStorePages, prev + 1))}
-                      disabled={currentNoStorePage === totalNoStorePages}
-                    >
-                      Next
-                    </button>
-                  </div>
-                )}
+                <div className="mt-2">{renderNoStorePagination()}</div>
               </div>
             )}
           </CardContent>
