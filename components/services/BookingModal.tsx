@@ -17,11 +17,24 @@ import { format } from "date-fns"
 
 interface BookingModalProps {
   service: Service
+  selectedPackage?: {
+    id: string
+    name: string
+    price: number
+    duration?: number
+    pricingType?: string
+  }
+  selectedAddOns?: Array<{
+    id: string
+    name: string
+    pricingType: "fixed" | "percentage"
+    amount: number
+  }>
   isOpen: boolean
   onClose: () => void
 }
 
-export default function BookingModal({ service, isOpen, onClose }: BookingModalProps) {
+export default function BookingModal({ service, selectedPackage, selectedAddOns = [], isOpen, onClose }: BookingModalProps) {
   const { user, userProfile } = useAuth()
   const { toast } = useToast()
   const notification = useNotification()
@@ -32,6 +45,15 @@ export default function BookingModal({ service, isOpen, onClose }: BookingModalP
   const [phone, setPhone] = useState("")
   const [notes, setNotes] = useState("")
   const [loading, setLoading] = useState(false)
+
+  const basePackagePrice = Number(selectedPackage?.price ?? service.price ?? 0)
+  const addOnTotal = selectedAddOns.reduce((sum, addOn) => {
+    if (addOn.pricingType === "percentage") {
+      return sum + (basePackagePrice * Number(addOn.amount || 0)) / 100
+    }
+    return sum + Number(addOn.amount || 0)
+  }, 0)
+  const estimatedTotal = Math.max(0, Math.round(basePackagePrice + addOnTotal))
 
   // Generate available time slots based on service availability
   const getAvailableTimeSlots = () => {
@@ -79,7 +101,7 @@ export default function BookingModal({ service, isOpen, onClose }: BookingModalP
 
       // Calculate end time based on service duration
       const [hour, minute] = selectedTime.split(":").map(Number)
-      const parsedDuration = Number(service.duration)
+      const parsedDuration = Number(selectedPackage?.duration ?? service.duration)
       const duration = Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : 60
       const endMinutes = minute + duration
       const endHour = hour + Math.floor(endMinutes / 60)
@@ -96,6 +118,13 @@ export default function BookingModal({ service, isOpen, onClose }: BookingModalP
 
       const bookingData = {
         serviceId: service.id!,
+        selectedPackageId: selectedPackage?.id,
+        selectedPackageName: selectedPackage?.name,
+        selectedAddOns,
+        estimatedPrice: estimatedTotal,
+        finalPrice: service.requiresQuote ? null : estimatedTotal,
+        pricingStatus: service.requiresQuote ? "estimated" : "accepted",
+        requiresQuote: Boolean(service.requiresQuote),
         customerId: user.uid,
         customerName: userProfile.displayName,
         customerEmail: userProfile.email,
@@ -107,7 +136,7 @@ export default function BookingModal({ service, isOpen, onClose }: BookingModalP
         startTime: selectedTime,
         endTime: endTime,
         duration: duration,
-        totalPrice: service.price,
+        totalPrice: estimatedTotal,
         status: "pending" as const,
         locationType,
         location: service.location,
@@ -175,11 +204,27 @@ export default function BookingModal({ service, isOpen, onClose }: BookingModalP
             <h4 className="font-semibold mb-2">{service.title}</h4>
             <div className="text-sm space-y-1 text-muted-foreground">
               <p>Provider: {service.providerName}</p>
-              <p>Duration: {service.duration || "Variable"} minutes</p>
-              <p>Price: ₦{service.price?.toLocaleString('en-NG')}</p>
+              <p>Package: {selectedPackage?.name || "Standard"}</p>
+              <p>Duration: {selectedPackage?.duration || service.duration || "Variable"} minutes</p>
+              <p>
+                {service.requiresQuote ? "Estimated Total" : "Total"}: ₦{estimatedTotal.toLocaleString('en-NG')}
+              </p>
               <p className="capitalize">Location: {service.locationType.replace("-", " ")}</p>
             </div>
           </div>
+
+          {selectedAddOns.length > 0 && (
+            <div className="bg-muted p-4 rounded-lg">
+              <h4 className="font-semibold mb-2">Selected Add-ons</h4>
+              <div className="text-sm space-y-1 text-muted-foreground">
+                {selectedAddOns.map((addOn) => (
+                  <p key={addOn.id}>
+                    {addOn.name} ({addOn.pricingType === "percentage" ? `${addOn.amount}%` : `₦${addOn.amount.toLocaleString('en-NG')}`})
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Date Selection */}
           <div className="space-y-2">
@@ -243,8 +288,14 @@ export default function BookingModal({ service, isOpen, onClose }: BookingModalP
               <div className="text-sm space-y-1">
                 <p>Date: {format(selectedDate, "MMMM d, yyyy")}</p>
                 <p>Time: {selectedTime}</p>
-                <p>Duration: {service.duration || "Variable"} minutes</p>
-                <p className="font-semibold text-accent">Total: ₦{service.price?.toLocaleString('en-NG')}</p>
+                <p>Package: {selectedPackage?.name || "Standard"}</p>
+                <p>Duration: {selectedPackage?.duration || service.duration || "Variable"} minutes</p>
+                <p className="font-semibold text-accent">
+                  {service.requiresQuote ? "Estimated Total" : "Total"}: ₦{estimatedTotal.toLocaleString('en-NG')}
+                </p>
+                {service.requiresQuote && (
+                  <p className="text-xs text-muted-foreground">Final amount will be confirmed by provider before acceptance.</p>
+                )}
               </div>
             </div>
           )}

@@ -236,6 +236,39 @@ const ServiceSchema = new mongoose.Schema({
   category: { type: String, required: true },
   price: { type: Number, required: true },
   pricingType: { type: String, required: true },
+  duration: { type: Number },
+  packageOptions: {
+    type: [
+      {
+        id: { type: String, required: true },
+        name: { type: String, required: true },
+        description: { type: String, default: '' },
+        price: { type: Number, required: true },
+        duration: { type: Number },
+        images: { type: [String], default: [] },
+        pricingType: { type: String, default: 'fixed' },
+        isDefault: { type: Boolean, default: false },
+        active: { type: Boolean, default: true },
+      },
+    ],
+    default: [],
+  },
+  addOnOptions: {
+    type: [
+      {
+        id: { type: String, required: true },
+        name: { type: String, required: true },
+        description: { type: String, default: '' },
+        pricingType: { type: String, enum: ['fixed', 'percentage'], default: 'fixed' },
+        amount: { type: Number, required: true },
+        optional: { type: Boolean, default: true },
+        active: { type: Boolean, default: true },
+      },
+    ],
+    default: [],
+  },
+  requiresQuote: { type: Boolean, default: false },
+  quoteNotesTemplate: { type: String, default: '' },
   location: { type: String, required: true },
   locationType: { type: String, required: true },
   images: { type: [String], default: [] },
@@ -246,6 +279,50 @@ const ServiceSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const ServiceModel = (mongoose.models.Service as any) || mongoose.model('Service', ServiceSchema);
+
+const buildFallbackPackage = (service: any) => {
+  const fallbackPrice = Number(service?.price || 0);
+  const fallbackDuration = Number(service?.duration || 60);
+  return {
+    id: 'default',
+    name: 'Standard',
+    description: '',
+    price: Number.isFinite(fallbackPrice) ? fallbackPrice : 0,
+    duration: Number.isFinite(fallbackDuration) && fallbackDuration > 0 ? fallbackDuration : 60,
+    pricingType: service?.pricingType || 'fixed',
+    isDefault: true,
+    active: true,
+  };
+};
+
+const normalizeServicePricing = (service: any) => {
+  const rawPackages = Array.isArray(service?.packageOptions) ? service.packageOptions : [];
+  const activePackages = rawPackages.filter((pkg: any) => pkg && pkg.active !== false && Number(pkg.price) >= 0);
+  const packageOptions = activePackages.length ? activePackages : [buildFallbackPackage(service)];
+  const normalizedPackages = packageOptions.map((pkg: any) => ({
+    ...pkg,
+    images: Array.isArray(pkg?.images) ? pkg.images : [],
+  }));
+
+  const defaultPackage =
+    normalizedPackages.find((pkg: any) => pkg.isDefault) ||
+    normalizedPackages[0];
+
+  const minPrice = Math.min(...normalizedPackages.map((pkg: any) => Number(pkg.price || 0)));
+  const normalizedPrice = Number.isFinite(minPrice) ? minPrice : Number(service?.price || 0) || 0;
+
+  return {
+    ...service,
+    packageOptions: normalizedPackages,
+    addOnOptions: Array.isArray(service?.addOnOptions) ? service.addOnOptions : [],
+    requiresQuote: Boolean(service?.requiresQuote),
+    quoteNotesTemplate: service?.quoteNotesTemplate || '',
+    defaultPackageId: defaultPackage?.id || normalizedPackages[0]?.id || 'default',
+    price: normalizedPrice,
+    pricingType: defaultPackage?.pricingType || service?.pricingType || 'fixed',
+    duration: defaultPackage?.duration || service?.duration,
+  };
+};
 
 // --- Store by ID ---
 export const getStoreById = async (id: string) => {
@@ -341,10 +418,30 @@ export const getProductById = async (id: string) => {
 
 export const createService = async (serviceData: any): Promise<any> => {
   await connectToDatabase();
-  const service: any = await ServiceModel.create(serviceData as any);
+  const packageOptions = Array.isArray(serviceData?.packageOptions)
+    ? serviceData.packageOptions.filter((pkg: any) => pkg && pkg.name && Number(pkg.price) >= 0)
+    : [];
+
+  const normalizedInput = {
+    ...serviceData,
+    packageOptions,
+    addOnOptions: Array.isArray(serviceData?.addOnOptions) ? serviceData.addOnOptions : [],
+    requiresQuote: Boolean(serviceData?.requiresQuote),
+    quoteNotesTemplate: serviceData?.quoteNotesTemplate || '',
+  } as any;
+
+  if (packageOptions.length > 0) {
+    const minPrice = Math.min(...packageOptions.map((pkg: any) => Number(pkg.price || 0)));
+    normalizedInput.price = Number.isFinite(minPrice) ? minPrice : Number(serviceData?.price || 0);
+    if (!normalizedInput.pricingType) {
+      normalizedInput.pricingType = packageOptions.find((pkg: any) => pkg.isDefault)?.pricingType || 'fixed';
+    }
+  }
+
+  const service: any = await ServiceModel.create(normalizedInput as any);
   if (!service) return null;
   const { _id, ...rest } = service.toObject ? service.toObject() : (service as any);
-  const result = { ...rest, id: _id?.toString?.() };
+  const result = normalizeServicePricing({ ...rest, id: _id?.toString?.() });
   console.log(`[createService] Created service with id: ${result.id}`, result);
   return result;
 };
@@ -359,7 +456,7 @@ export const getServiceById = async (id: string) => {
       return null;
     }
     const { _id, ...rest } = service as any;
-    const result = { ...rest, id: _id.toString() };
+    const result = normalizeServicePricing({ ...rest, id: _id.toString() });
     console.log(`[getServiceById] Found service:`, result);
     return result;
   } catch (error: any) {
@@ -426,6 +523,30 @@ export interface Service {
   featured: boolean;
   locationType: 'remote' | 'local';
   price: number;
+  pricingType?: 'fixed' | 'hourly' | 'per-session' | 'custom' | string;
+  duration?: number;
+  packageOptions?: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    price: number;
+    duration?: number;
+    images?: string[];
+    pricingType?: string;
+    isDefault?: boolean;
+    active?: boolean;
+  }>;
+  addOnOptions?: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    pricingType: 'fixed' | 'percentage' | string;
+    amount: number;
+    optional?: boolean;
+    active?: boolean;
+  }>;
+  requiresQuote?: boolean;
+  quoteNotesTemplate?: string;
   rating: number;
   reviews: number;
 }
@@ -448,7 +569,7 @@ export const getServices = async (filters: ServiceFilters): Promise<Service[]> =
   const services = await q.lean();
   return services.map((s: any) => {
     const { _id, ...rest } = s;
-    return { ...rest, id: _id.toString() } as Service;
+    return normalizeServicePricing({ ...rest, id: _id.toString() }) as Service;
   });
 };
 
@@ -485,18 +606,23 @@ export const getProducts = async (filters?: any): Promise<Product[]> => {
   if (filters?.vendorId) query.vendorId = filters.vendorId;
   if (filters?.featured !== undefined) query.featured = filters.featured;
   if (filters?.status) query.status = filters.status;
+  const limitCount = Number(filters?.limitCount);
+  const skipCount = Number(filters?.skipCount || 0);
+  const hasLimit = Number.isFinite(limitCount) && limitCount > 0;
+  const hasSkip = Number.isFinite(skipCount) && skipCount > 0;
+
   const mapProduct = (p: any) => ({
     ...p,
     id: p._id?.toString() || p.id,
     name: p.name || p.title || '',
   });
-  if (filters?.limitCount) {
-    const products = await ProductModel.find(query).limit(Number(filters.limitCount)).lean();
-    return products.map(mapProduct);
-  } else {
-    const products = await ProductModel.find(query).lean();
-    return products.map(mapProduct);
-  }
+
+  let dbQuery = ProductModel.find(query).sort({ createdAt: -1 });
+  if (hasSkip) dbQuery = dbQuery.skip(skipCount);
+  if (hasLimit) dbQuery = dbQuery.limit(limitCount);
+
+  const products = await dbQuery.lean();
+  return products.map(mapProduct);
 };
 
 export const updateProduct = async (id: string, data: any) => {

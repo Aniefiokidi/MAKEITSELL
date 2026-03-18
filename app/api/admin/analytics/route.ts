@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     ])
 
     // Get all services
-    let services = []
+    let services: any[] = []
     try {
       services = await getServices({}) || []
     } catch (error) {
@@ -65,14 +65,15 @@ export async function GET(req: NextRequest) {
     let totalServiceRevenue = 0
 
     services.forEach((s: any) => {
-      const serviceType = s.serviceType || 'Other'
+      const serviceType = s.category || s.serviceType || 'Other'
       if (!serviceTypeStats[serviceType]) {
         serviceTypeStats[serviceType] = { count: 0, revenue: 0 }
       }
       serviceTypeStats[serviceType].count++
-      if (s.price) {
-        serviceTypeStats[serviceType].revenue += s.price
-        totalServiceRevenue += s.price
+      const baseRevenue = Number(s.price || 0)
+      if (Number.isFinite(baseRevenue) && baseRevenue > 0) {
+        serviceTypeStats[serviceType].revenue += baseRevenue
+        totalServiceRevenue += baseRevenue
       }
     })
 

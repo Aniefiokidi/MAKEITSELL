@@ -182,6 +182,29 @@ export interface Service {
   price: number
   pricingType: "fixed" | "hourly" | "per-session" | "custom"
   duration?: number
+  packageOptions?: Array<{
+    id: string
+    name: string
+    description?: string
+    price: number
+    duration?: number
+    images?: string[]
+    pricingType?: "fixed" | "hourly" | "per-session" | "custom"
+    isDefault?: boolean
+    active?: boolean
+  }>
+  addOnOptions?: Array<{
+    id: string
+    name: string
+    description?: string
+    pricingType: "fixed" | "percentage"
+    amount: number
+    optional?: boolean
+    active?: boolean
+  }>
+  requiresQuote?: boolean
+  quoteNotesTemplate?: string
+  defaultPackageId?: string
   images: string[]
   location: string
   locationType: "online" | "store" | "home-service" | "in-person" | "both"

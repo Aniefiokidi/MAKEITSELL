@@ -2,10 +2,25 @@ import { NextRequest } from 'next/server'
 import connectToDatabase from '@/lib/mongodb'
 import { getServices, updateService, getUserById } from '@/lib/mongodb-operations'
 import { requireAdminAccess } from '@/lib/server-route-auth'
+import { cacheNamespaces, invalidateCacheNamespace } from '@/lib/cache-store'
+import { logApiPerformance } from '@/lib/performance-logs'
 
 export async function GET(req: NextRequest) {
+  const startedAt = Date.now()
+  let statusCode = 200
+
   const unauthorized = await requireAdminAccess(req)
-  if (unauthorized) return unauthorized
+  if (unauthorized) {
+    statusCode = unauthorized.status
+    void logApiPerformance({
+      route: '/api/admin/services',
+      method: req.method,
+      statusCode,
+      durationMs: Date.now() - startedAt,
+      cacheHit: false,
+    })
+    return unauthorized
+  }
 
   try {
     await connectToDatabase()
@@ -36,7 +51,10 @@ export async function GET(req: NextRequest) {
         serviceTitle: s.title || 'N/A',
         serviceDescription: s.description || '',
         serviceType: s.category || s.serviceType || 'N/A',
-        price: s.price || 0,
+        price: Number(s.price || 0),
+        minPrice: Number(s.price || 0),
+        packageCount: Array.isArray(s.packageOptions) ? s.packageOptions.length : 0,
+        requiresQuote: Boolean(s.requiresQuote),
         vendorId: providerId,
         vendorName,
         vendorEmail,
@@ -49,13 +67,35 @@ export async function GET(req: NextRequest) {
     return new Response(JSON.stringify({ success: true, services: enrichedServices }), { status: 200 })
   } catch (error: any) {
     console.error('[/api/admin/services]', error)
+    statusCode = 500
     return new Response(JSON.stringify({ success: false, error: error?.message || 'Unknown error' }), { status: 500 })
+  } finally {
+    void logApiPerformance({
+      route: '/api/admin/services',
+      method: req.method,
+      statusCode,
+      durationMs: Date.now() - startedAt,
+      cacheHit: false,
+    })
   }
 }
 
 export async function PATCH(req: NextRequest) {
+  const startedAt = Date.now()
+  let statusCode = 200
+
   const unauthorized = await requireAdminAccess(req)
-  if (unauthorized) return unauthorized
+  if (unauthorized) {
+    statusCode = unauthorized.status
+    void logApiPerformance({
+      route: '/api/admin/services',
+      method: req.method,
+      statusCode,
+      durationMs: Date.now() - startedAt,
+      cacheHit: false,
+    })
+    return unauthorized
+  }
 
   try {
     await connectToDatabase()
@@ -64,18 +104,32 @@ export async function PATCH(req: NextRequest) {
     const { serviceId, status } = body
 
     if (!serviceId || !status) {
+      statusCode = 400
       return new Response(JSON.stringify({ success: false, error: 'serviceId and status are required' }), { status: 400 })
     }
 
     const service = await updateService(serviceId, { status, updatedAt: new Date() })
 
     if (!service) {
+      statusCode = 404
       return new Response(JSON.stringify({ success: false, error: 'Service not found' }), { status: 404 })
     }
+
+    await invalidateCacheNamespace(cacheNamespaces.servicesList)
+    await invalidateCacheNamespace(cacheNamespaces.servicesDetail)
 
     return new Response(JSON.stringify({ success: true, service }), { status: 200 })
   } catch (error: any) {
     console.error('[/api/admin/services PATCH]', error)
+    statusCode = 500
     return new Response(JSON.stringify({ success: false, error: error?.message || 'Unknown error' }), { status: 500 })
+  } finally {
+    void logApiPerformance({
+      route: '/api/admin/services',
+      method: req.method,
+      statusCode,
+      durationMs: Date.now() - startedAt,
+      cacheHit: false,
+    })
   }
 }

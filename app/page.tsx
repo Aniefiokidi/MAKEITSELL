@@ -48,6 +48,19 @@ function TrendingProducts() {
     }).format(amount)
   }
 
+  const getServiceDisplayPrice = (service: any) => {
+    const packages = (service?.packageOptions || []).filter((pkg: any) => pkg?.active !== false)
+    const minPrice = packages.length
+      ? Math.min(...packages.map((pkg: any) => Number(pkg?.price || 0)))
+      : Number(service?.price || 0)
+
+    if (service?.requiresQuote) {
+      return `From ${formatCurrency(minPrice)}`
+    }
+
+    return formatCurrency(minPrice)
+  }
+
   const getCategoryIcon = (category: string) => {
     switch ((category || '').toLowerCase()) {
       case "photography":
@@ -473,7 +486,7 @@ function TrendingProducts() {
                         </div>
                         <div className="flex items-center gap-1">
                           <Banknote className="h-3 w-3" />
-                          <span>{formatCurrency(Number(service.price || 0))}</span>
+                          <span>{getServiceDisplayPrice(service)}</span>
                         </div>
                       </div>
                     </div>

@@ -83,33 +83,16 @@ export default function AllProductsPage() {
   const fetchAllProducts = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/database/products?limit=200&t=${Date.now()}`)
+      const response = await fetch(`/api/database/products?limit=100&page=1`)
       const data = await response.json()
       if (data.success) {
-        const productsRaw = data.data || [];
-        // Fetch store info for each product in parallel
-        const productsWithStore = await Promise.all(productsRaw.map(async (prod: Product) => {
-          let storeName = prod.storeName || prod.vendorName || '';
-          if (!storeName && prod.vendorId) {
-            try {
-              const storeRes = await fetch(`/api/database/stores/${prod.vendorId}`);
-              if (storeRes.ok) {
-                const storeData = await storeRes.json();
-                if (storeData.success && storeData.data) {
-                  storeName = storeData.data.storeName || storeData.data.name || '';
-                }
-              }
-            } catch (e) {
-              // ignore
-            }
-          }
-          return {
-            ...prod,
-            storeName: storeName || 'Premium Vendor',
-            vendorName: prod.vendorName || storeName || 'Premium Vendor',
-          };
-        }));
-        setProducts(productsWithStore);
+        const productsRaw = data.data || []
+        const normalizedProducts = productsRaw.map((prod: Product) => ({
+          ...prod,
+          storeName: prod.storeName || prod.vendorName || 'Premium Vendor',
+          vendorName: prod.vendorName || prod.storeName || 'Premium Vendor',
+        }))
+        setProducts(normalizedProducts)
       } else {
         console.error("Failed to fetch products:", data.error)
         setProducts([])

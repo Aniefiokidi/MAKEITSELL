@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
 
   // If you're hosting on Vercel, you DO NOT need this:
@@ -20,7 +20,7 @@ const nextConfig = {
   },
 
   images: {
-    unoptimized: true,
+    unoptimized: false,
     formats: ["image/webp", "image/avif"],
     remotePatterns: [
       {

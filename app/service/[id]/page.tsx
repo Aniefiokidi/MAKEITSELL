@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog"
 // import { getServiceById, Service, createConversation, getConversations } from "@/lib/database"
-import type { Service } from "@/lib/models"
+import type { Service } from "@/lib/database-client"
 import { useAuth } from "@/contexts/AuthContext"
 import { ArrowLeft, MapPin, Clock, DollarSign, Calendar, MessageCircle, CheckCircle, X, ChevronLeft, ChevronRight, Star } from "lucide-react"
 import BookingModal from "@/components/services/BookingModal"
@@ -42,6 +42,8 @@ export default function ServiceDetailPage() {
   const [sendingQuickMessage, setSendingQuickMessage] = useState(false)
   const [showImageModal, setShowImageModal] = useState(false)
   const [modalImageIndex, setModalImageIndex] = useState(0)
+  const [selectedPackageId, setSelectedPackageId] = useState<string>("")
+  const [selectedAddOnIds, setSelectedAddOnIds] = useState<string[]>([])
 
   useEffect(() => {
     const fetchService = async () => {
@@ -51,6 +53,12 @@ export default function ServiceDetailPage() {
         if (!res.ok) throw new Error("Failed to fetch service")
         const json = await res.json()
         setService(json.data)
+
+        const packages = (json.data?.packageOptions || []).filter((pkg: any) => pkg?.active !== false)
+        const defaultPackage = packages.find((pkg: any) => pkg?.isDefault) || packages[0]
+        if (defaultPackage?.id) {
+          setSelectedPackageId(defaultPackage.id)
+        }
       } catch (error) {
         console.error("Error fetching service:", error)
       } finally {
@@ -126,6 +134,37 @@ export default function ServiceDetailPage() {
     }
   }
 
+  const activePackages = (service?.packageOptions || []).filter((pkg: any) => pkg?.active !== false)
+  const selectedPackage = activePackages.find((pkg: any) => pkg.id === selectedPackageId)
+    || activePackages.find((pkg: any) => pkg.isDefault)
+    || activePackages[0]
+
+  const activeAddOns = (service?.addOnOptions || []).filter((addOn: any) => addOn?.active !== false)
+  const selectedAddOns = activeAddOns.filter((addOn: any) => selectedAddOnIds.includes(addOn.id))
+    const selectedPackageImages = Array.isArray(selectedPackage?.images) ? selectedPackage.images : []
+    const displayedImages = selectedPackageImages.length > 0
+      ? selectedPackageImages
+      : (service?.images || [])
+
+    useEffect(() => {
+      if (selectedImage >= displayedImages.length) {
+        setSelectedImage(0)
+      }
+    }, [displayedImages.length, selectedImage])
+
+  const estimatedTotal = (() => {
+    if (!service) return 0
+    const basePrice = Number(selectedPackage?.price ?? service.price ?? 0)
+    const addOnTotal = selectedAddOns.reduce((sum: number, addOn: any) => {
+      const amount = Number(addOn.amount || 0)
+      if (addOn.pricingType === "percentage") {
+        return sum + (basePrice * amount) / 100
+      }
+      return sum + amount
+    }, 0)
+    return Math.max(0, Math.round(basePrice + addOnTotal))
+  })()
+
   const getPriceDisplay = () => {
     if (!service) return ""
     const priceTypeMap = {
@@ -134,7 +173,12 @@ export default function ServiceDetailPage() {
       "per-session": "/session",
       custom: "",
     }
-    return `₦${service.price?.toLocaleString('en-NG')}${priceTypeMap[service.pricingType]}`
+    const activePkg = selectedPackage || activePackages[0]
+    if (service.requiresQuote) {
+      return `From ₦${Number(activePkg?.price ?? service.price ?? 0).toLocaleString('en-NG')}`
+    }
+    const displayPrice = Number(activePkg?.price ?? service.price ?? 0)
+    return `₦${displayPrice.toLocaleString('en-NG')}${priceTypeMap[(activePkg?.pricingType || service.pricingType) as keyof typeof priceTypeMap] || ''}`
   }
 
   const getLocationTypeLabel = (locationType: string) => {
@@ -204,16 +248,16 @@ export default function ServiceDetailPage() {
       <div className="relative w-full h-[500px] overflow-hidden">
         {/* Service Image Banner */}
         <img
-          src={service.images && service.images.length > 0 ? service.images[selectedImage] : "/placeholder.svg"}
+          src={displayedImages.length > 0 ? displayedImages[selectedImage] : "/placeholder.svg"}
           alt={service.title}
           className="absolute inset-0 w-full h-full object-cover"
         />
         
         {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" style={{ zIndex: 2 }} />
+        <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/30 to-transparent" style={{ zIndex: 2 }} />
         
         {/* Bottom Fade to White */}
-        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent" style={{ zIndex: 3 }} />
+        <div className="absolute bottom-0 left-0 right-0 h-32 bg-linear-to-t from-background to-transparent" style={{ zIndex: 3 }} />
         
         {/* Content Overlay */}
         <div className="absolute inset-0 flex flex-col justify-end" style={{ zIndex: 4 }}>
@@ -245,7 +289,7 @@ export default function ServiceDetailPage() {
             <div className="mt-6 animate-bounce">
               <Button
                 onClick={() => {
-                  if (service.images && service.images.length > 0) {
+                  if (displayedImages.length > 0) {
                     setModalImageIndex(selectedImage)
                     setShowImageModal(true)
                   }
@@ -264,11 +308,11 @@ export default function ServiceDetailPage() {
 
       <main className="flex-1 container mx-auto px-4 py-8">
         {/* Image Thumbnails */}
-        {service.images && service.images.length > 1 && (
+        {displayedImages.length > 1 && (
           <div className="mb-8 animate-scale-in">
             <h3 className="text-lg font-semibold mb-3">Gallery</h3>
             <div className="flex gap-2 overflow-x-auto pb-2">
-              {service.images.map((img, index) => (
+              {displayedImages.map((img, index) => (
                 <button
                   key={index}
                   onClick={() => setSelectedImage(index)}
@@ -301,22 +345,22 @@ export default function ServiceDetailPage() {
               </Button>
 
               {/* Image */}
-              {service.images && service.images.length > 0 && (
+              {displayedImages.length > 0 && (
                 <div className="relative">
                   <img
-                    src={service.images[modalImageIndex]}
+                    src={displayedImages[modalImageIndex]}
                     alt={`${service.title} - Image ${modalImageIndex + 1}`}
                     className="w-full h-auto max-h-[80vh] object-contain"
                   />
 
                   {/* Navigation arrows */}
-                  {service.images.length > 1 && (
+                  {displayedImages.length > 1 && (
                     <>
                       <Button
                         variant="ghost"
                         size="icon"
                         className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 hover:scale-110 transition-all"
-                        onClick={() => setModalImageIndex((prev) => (prev === 0 ? service.images!.length - 1 : prev - 1))}
+                        onClick={() => setModalImageIndex((prev) => (prev === 0 ? displayedImages.length - 1 : prev - 1))}
                       >
                         <ChevronLeft className="h-8 w-8" />
                       </Button>
@@ -324,7 +368,7 @@ export default function ServiceDetailPage() {
                         variant="ghost"
                         size="icon"
                         className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 hover:scale-110 transition-all"
-                        onClick={() => setModalImageIndex((prev) => (prev === service.images!.length - 1 ? 0 : prev + 1))}
+                        onClick={() => setModalImageIndex((prev) => (prev === displayedImages.length - 1 ? 0 : prev + 1))}
                       >
                         <ChevronRight className="h-8 w-8" />
                       </Button>
@@ -333,7 +377,7 @@ export default function ServiceDetailPage() {
 
                   {/* Image counter */}
                   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 text-white px-3 py-1 rounded-full text-sm">
-                    {modalImageIndex + 1} / {service.images.length}
+                    {modalImageIndex + 1} / {displayedImages.length}
                   </div>
                 </div>
               )}
@@ -446,6 +490,59 @@ export default function ServiceDetailPage() {
               </CardHeader>
 
               <CardContent className="space-y-4">
+                {activePackages.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold">Select Package</p>
+                    <div className="space-y-2">
+                      {activePackages.map((pkg: any) => (
+                        <button
+                          key={pkg.id}
+                          type="button"
+                          className={`w-full text-left rounded-md border p-3 transition-colors ${selectedPackage?.id === pkg.id ? 'border-accent bg-accent/5' : 'hover:border-accent/50'}`}
+                          onClick={() => setSelectedPackageId(pkg.id)}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-medium">{pkg.name}</span>
+                            <span className="text-sm text-accent">₦{Number(pkg.price || 0).toLocaleString('en-NG')}</span>
+                          </div>
+                          {pkg.description && <p className="text-xs text-muted-foreground mt-1">{pkg.description}</p>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {activeAddOns.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold">Optional Add-ons</p>
+                    <div className="space-y-2">
+                      {activeAddOns.map((addOn: any) => {
+                        const isChecked = selectedAddOnIds.includes(addOn.id)
+                        return (
+                          <label key={addOn.id} className="flex items-start gap-2 p-2 border rounded-md cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                setSelectedAddOnIds((prev) => {
+                                  if (e.target.checked) return [...prev, addOn.id]
+                                  return prev.filter((id) => id !== addOn.id)
+                                })
+                              }}
+                              className="mt-1"
+                            />
+                            <span className="text-sm">
+                              <span className="font-medium">{addOn.name}</span>
+                              <span className="text-muted-foreground"> {addOn.pricingType === 'percentage' ? `(+${addOn.amount}%)` : `(+₦${Number(addOn.amount || 0).toLocaleString('en-NG')})`}</span>
+                              {addOn.description && <span className="block text-xs text-muted-foreground mt-0.5">{addOn.description}</span>}
+                            </span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-3 text-sm">
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-muted-foreground" />
@@ -461,6 +558,15 @@ export default function ServiceDetailPage() {
                     <Calendar className="h-4 w-4 text-muted-foreground" />
                     <span>Available: {getAvailabilityDays().join(", ")}</span>
                   </div>
+                </div>
+
+                <div className="p-3 rounded-md bg-accent/10 text-sm">
+                  <p className="font-medium text-accent">
+                    {service.requiresQuote ? 'Estimated total' : 'Total'}: ₦{estimatedTotal.toLocaleString('en-NG')}
+                  </p>
+                  {service.requiresQuote && (
+                    <p className="text-xs text-muted-foreground mt-1">Final amount will be approved by provider before acceptance.</p>
+                  )}
                 </div>
 
                 <div className="pt-4 border-t space-y-2">
@@ -528,6 +634,19 @@ export default function ServiceDetailPage() {
       {showBookingModal && service && (
         <BookingModal
           service={service}
+          selectedPackage={selectedPackage ? {
+            id: selectedPackage.id,
+            name: selectedPackage.name,
+            price: Number(selectedPackage.price || 0),
+            duration: selectedPackage.duration,
+            pricingType: selectedPackage.pricingType,
+          } : undefined}
+          selectedAddOns={selectedAddOns.map((addOn: any) => ({
+            id: addOn.id,
+            name: addOn.name,
+            pricingType: addOn.pricingType,
+            amount: Number(addOn.amount || 0),
+          }))}
           isOpen={showBookingModal}
           onClose={() => setShowBookingModal(false)}
         />

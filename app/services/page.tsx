@@ -202,6 +202,25 @@ export default function ServicesPage() {
     }).format(amount)
   }
 
+  const getServiceDisplayPrice = (service: Service) => {
+    const packages = (service.packageOptions || []).filter((pkg) => pkg.active !== false)
+    if (!packages.length) {
+      return formatCurrency(Number(service.price || 0))
+    }
+
+    const minPrice = Math.min(...packages.map((pkg) => Number(pkg.price || 0)))
+    if (service.requiresQuote) {
+      return `From ${formatCurrency(minPrice)}`
+    }
+    return formatCurrency(minPrice)
+  }
+
+  const getServiceDisplayDuration = (service: Service) => {
+    const packages = (service.packageOptions || []).filter((pkg) => pkg.active !== false)
+    const defaultPackage = packages.find((pkg) => pkg.isDefault) || packages[0]
+    return defaultPackage?.duration || service.duration || "Flexible"
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <style jsx global>{`
@@ -486,11 +505,11 @@ export default function ServicesPage() {
                       <div className="flex items-center gap-3 text-[11px] font-medium text-white/80 tracking-wide">
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          <span>{service.duration}</span>
+                          <span>{getServiceDisplayDuration(service)}</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <Banknote className="h-3 w-3" />
-                          <span>{formatCurrency(service.price)}</span>
+                          <span>{getServiceDisplayPrice(service)}</span>
                         </div>
                       </div>
                     </div>

@@ -18,12 +18,18 @@ interface Booking {
   customerName?: string
   customerEmail?: string
   customerPhone?: string
-  serviceName: string
+  serviceName?: string
+  serviceTitle?: string
   bookingDate: string | Date
   startTime: string
   endTime: string
   duration: number
   totalPrice: number
+  estimatedPrice?: number
+  finalPrice?: number | null
+  pricingStatus?: "estimated" | "quoted" | "accepted"
+  requiresQuote?: boolean
+  selectedPackageName?: string
   status: "pending" | "confirmed" | "completed" | "cancelled"
   locationType: string
   location: string
@@ -36,6 +42,7 @@ export default function VendorBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("pending")
+  const [quoteValues, setQuoteValues] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (user) {
@@ -75,6 +82,44 @@ export default function VendorBookingsPage() {
     }
   }
 
+  const handleSendQuote = async (booking: Booking) => {
+    const quoteValue = Number(quoteValues[booking.id])
+    if (!Number.isFinite(quoteValue) || quoteValue <= 0) {
+      toast({ title: "Invalid quote", description: "Enter a valid quote amount.", variant: "destructive" })
+      return
+    }
+
+    try {
+      const res = await fetch(`/api/database/bookings/${booking.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pricingStatus: "quoted",
+          finalPrice: quoteValue,
+          estimatedPrice: booking.estimatedPrice ?? booking.totalPrice,
+          status: "pending",
+        }),
+      })
+
+      if (!res.ok) {
+        throw new Error("Failed to send quote")
+      }
+
+      setBookings((prev) =>
+        prev.map((item) =>
+          item.id === booking.id
+            ? { ...item, pricingStatus: "quoted", finalPrice: quoteValue, totalPrice: quoteValue }
+            : item
+        )
+      )
+
+      toast({ title: "Quote sent", description: "Customer can now accept or reject this quote." })
+    } catch (error) {
+      console.error("Error sending quote:", error)
+      toast({ title: "Error", description: "Failed to send quote.", variant: "destructive" })
+    }
+  }
+
   const handleReject = async (bookingId: string) => {
     try {
       const res = await fetch(`/api/database/bookings/${bookingId}`, {
@@ -97,12 +142,24 @@ export default function VendorBookingsPage() {
   const completedBookings = bookings.filter((b) => b.status === "completed")
   const cancelledBookings = bookings.filter((b) => b.status === "cancelled")
 
+  const getPricingStatusColor = (status?: string) => {
+    switch (status) {
+      case "accepted":
+        return "bg-green-100 text-green-800"
+      case "quoted":
+        return "bg-blue-100 text-blue-800"
+      case "estimated":
+      default:
+        return "bg-amber-100 text-amber-800"
+    }
+  }
+
   const BookingCard = ({ booking }: { booking: Booking }) => (
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="p-4 lg:p-6">
         <div className="flex justify-between items-start mb-4 gap-2">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-base lg:text-lg truncate">{booking.serviceName}</h3>
+            <h3 className="font-semibold text-base lg:text-lg truncate">{booking.serviceName || booking.serviceTitle || "Service Booking"}</h3>
             <p className="text-xs lg:text-sm text-muted-foreground truncate">{booking.customerName || "Customer"}</p>
           </div>
           <Badge
@@ -122,19 +179,19 @@ export default function VendorBookingsPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 lg:gap-4 mb-4">
           <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
             <span className="text-xs lg:text-sm truncate">{format(new Date(booking.bookingDate), "MMM dd, yyyy")}</span>
           </div>
           <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
             <span className="text-xs lg:text-sm truncate">{booking.startTime} - {booking.endTime}</span>
           </div>
           <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
             <span className="text-xs lg:text-sm truncate">{booking.location}</span>
           </div>
           <div className="flex items-center gap-2">
-            <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
             <span className="text-xs lg:text-sm truncate">{booking.customerPhone || "Not provided"}</span>
           </div>
         </div>
@@ -146,10 +203,45 @@ export default function VendorBookingsPage() {
           </div>
         )}
 
+        {booking.requiresQuote && (
+          <div className="mb-4 p-3 bg-accent/5 rounded-lg border border-accent/20">
+            <p className="text-sm font-medium mb-1">Quote Status</p>
+            <Badge className={getPricingStatusColor(booking.pricingStatus)}>
+              {(booking.pricingStatus || 'estimated').toUpperCase()}
+            </Badge>
+            <p className="text-xs text-muted-foreground mt-1">
+              Est: ₦{Number(booking.estimatedPrice ?? booking.totalPrice ?? 0).toLocaleString('en-NG')}
+              {booking.finalPrice != null ? ` • Final: ₦${Number(booking.finalPrice).toLocaleString('en-NG')}` : ''}
+            </p>
+          </div>
+        )}
+
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <p className="font-semibold text-base lg:text-lg">₦{booking.totalPrice.toLocaleString('en-NG')}</p>
+          <p className="font-semibold text-base lg:text-lg">₦{Number(booking.finalPrice ?? booking.totalPrice ?? booking.estimatedPrice ?? 0).toLocaleString('en-NG')}</p>
           <div className="flex gap-2 w-full sm:w-auto">
-            {booking.status === "pending" && (
+            {booking.status === "pending" && booking.requiresQuote && booking.pricingStatus !== "accepted" && (
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Final quote"
+                  value={quoteValues[booking.id] ?? String(booking.finalPrice ?? "")}
+                  onChange={(e) =>
+                    setQuoteValues((prev) => ({
+                      ...prev,
+                      [booking.id]: e.target.value,
+                    }))
+                  }
+                  className="h-9 w-full sm:w-32 rounded-md border border-input bg-background px-3 text-sm"
+                />
+                <Button size="sm" variant="default" onClick={() => handleSendQuote(booking)}>
+                  Send Quote
+                </Button>
+              </div>
+            )}
+
+            {booking.status === "pending" && (!booking.requiresQuote || booking.pricingStatus === "accepted") && (
               <>
                 <Button size="sm" variant="default" onClick={() => handleApprove(booking.id)} className="gap-1">
                   <CheckCircle2 className="h-4 w-4" />
@@ -205,7 +297,7 @@ export default function VendorBookingsPage() {
                   <p className="text-xs lg:text-sm text-muted-foreground">Pending</p>
                   <p className="text-xl lg:text-2xl font-bold">{pendingBookings.length}</p>
                 </div>
-                <Clock3 className="h-6 w-6 lg:h-8 lg:w-8 text-yellow-500 opacity-50 flex-shrink-0" />
+                <Clock3 className="h-6 w-6 lg:h-8 lg:w-8 text-yellow-500 opacity-50 shrink-0" />
               </div>
             </CardContent>
           </Card>
@@ -217,7 +309,7 @@ export default function VendorBookingsPage() {
                   <p className="text-xs lg:text-sm text-muted-foreground">Confirmed</p>
                   <p className="text-xl lg:text-2xl font-bold">{confirmedBookings.length}</p>
                 </div>
-                <CheckCircle2 className="h-6 w-6 lg:h-8 lg:w-8 text-green-500 opacity-50 flex-shrink-0" />
+                <CheckCircle2 className="h-6 w-6 lg:h-8 lg:w-8 text-green-500 opacity-50 shrink-0" />
               </div>
             </CardContent>
           </Card>
@@ -229,7 +321,7 @@ export default function VendorBookingsPage() {
                   <p className="text-xs lg:text-sm text-muted-foreground">Completed</p>
                   <p className="text-xl lg:text-2xl font-bold">{completedBookings.length}</p>
                 </div>
-                <CheckCircle2 className="h-6 w-6 lg:h-8 lg:w-8 text-blue-500 opacity-50 flex-shrink-0" />
+                <CheckCircle2 className="h-6 w-6 lg:h-8 lg:w-8 text-blue-500 opacity-50 shrink-0" />
               </div>
             </CardContent>
           </Card>
@@ -241,7 +333,7 @@ export default function VendorBookingsPage() {
                   <p className="text-xs lg:text-sm text-muted-foreground">Rejected</p>
                   <p className="text-xl lg:text-2xl font-bold">{cancelledBookings.length}</p>
                 </div>
-                <XCircle className="h-6 w-6 lg:h-8 lg:w-8 text-red-500 opacity-50 flex-shrink-0" />
+                <XCircle className="h-6 w-6 lg:h-8 lg:w-8 text-red-500 opacity-50 shrink-0" />
               </div>
             </CardContent>
           </Card>

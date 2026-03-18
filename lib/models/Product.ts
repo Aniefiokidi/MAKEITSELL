@@ -46,4 +46,13 @@ const ProductSchema = new Schema<IProduct>({
   colorImages: { type: Schema.Types.Mixed, default: {} },
 }, { timestamps: true });
 
+// Query indexes for high-traffic product listing/filter endpoints.
+ProductSchema.index({ createdAt: -1 });
+ProductSchema.index({ vendorId: 1, createdAt: -1 });
+ProductSchema.index({ category: 1, createdAt: -1 });
+ProductSchema.index({ category: 1, subcategory: 1, createdAt: -1 });
+ProductSchema.index({ featured: 1, createdAt: -1 });
+ProductSchema.index({ status: 1, createdAt: -1 });
+ProductSchema.index({ vendorId: 1, status: 1, createdAt: -1 });
+
 export const Product = models.Product || mongoose.model<IProduct>('Product', ProductSchema);

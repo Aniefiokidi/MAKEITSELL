@@ -3,19 +3,11 @@
 import React, { useState } from "react";
 import { notFound } from "next/navigation";
 import { useEffect } from "react";
+import Image from "next/image";
 
 async function getProduct(id: string) {
   if (!id) return null;
-  // Try to use absolute URL if available, else fallback to relative
-  let url = '';
-  if (typeof window === 'undefined') {
-    // On server, use process.env.NEXT_PUBLIC_BASE_URL or fallback to https://www.makeitsell.org
-    const base = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.makeitsell.org';
-    url = `${base}/api/database/products?id=${id}`;
-  } else {
-    url = `/api/database/products?id=${id}`;
-  }
-  const res = await fetch(url, { cache: 'no-store' });
+  const res = await fetch(`/api/database/products?id=${id}`, { cache: 'force-cache' });
   const data = await res.json();
   if (!data.success || !data.data || !data.data.length) return null;
   return data.data[0];
@@ -58,11 +50,15 @@ export default function ProductPage({ params }: { params: { id: string } }) {
         <div className="flex flex-col md:grid md:grid-cols-2 gap-6">
           {/* Product Image */}
           <div className="flex flex-col items-center">
-            <img
-              src={displayImage}
-              alt={product.title || product.name || "Product"}
-              className="w-full max-w-sm h-auto object-cover rounded-xl mb-4 border-2 border-accent"
-            />
+            <div className="relative w-full max-w-sm aspect-square rounded-xl mb-4 border-2 border-accent overflow-hidden">
+              <Image
+                src={displayImage}
+                alt={product.title || product.name || "Product"}
+                fill
+                sizes="(max-width: 768px) 90vw, 420px"
+                className="object-cover"
+              />
+            </div>
             {/* Thumbnails */}
             {(product.images || []).length > 1 && (
               <div className="flex gap-2 flex-wrap justify-center">
@@ -74,7 +70,15 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                       mainImage === img ? "border-accent ring-2 ring-accent/30" : "border-slate-200 hover:border-accent/50"
                     }`}
                   >
-                    <img src={img} alt={`Thumbnail ${i + 1}`} className="w-full h-full object-cover" />
+                    <div className="relative w-full h-full">
+                      <Image
+                        src={img}
+                        alt={`Thumbnail ${i + 1}`}
+                        fill
+                        sizes="64px"
+                        className="object-cover"
+                      />
+                    </div>
                   </button>
                 ))}
               </div>
@@ -161,7 +165,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
             {/* Description */}
             <div className="mb-4 bg-slate-50 rounded-lg p-3">
               <h3 className="font-semibold text-sm mb-2">Description</h3>
-              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">{product.description}</p>
+              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap wrap-break-word">{product.description}</p>
             </div>
             
             <div className="mb-4 flex flex-wrap gap-2">

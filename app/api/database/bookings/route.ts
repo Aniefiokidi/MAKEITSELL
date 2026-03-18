@@ -34,9 +34,34 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const bookingData = await request.json()
+
+    const numericEstimated = Number(bookingData?.estimatedPrice)
+    const numericFinal = Number(bookingData?.finalPrice)
+    const numericTotal = Number(bookingData?.totalPrice)
+    const requiresQuote = Boolean(bookingData?.requiresQuote)
+
+    const normalizedEstimated = Number.isFinite(numericEstimated)
+      ? numericEstimated
+      : (Number.isFinite(numericTotal) ? numericTotal : 0)
+    const normalizedFinal = Number.isFinite(numericFinal)
+      ? numericFinal
+      : (requiresQuote ? null : normalizedEstimated)
+    const normalizedTotal = Number.isFinite(numericTotal)
+      ? numericTotal
+      : (Number.isFinite(normalizedFinal as any) ? Number(normalizedFinal) : normalizedEstimated)
+
+    const normalizedBookingData = {
+      ...bookingData,
+      estimatedPrice: normalizedEstimated,
+      finalPrice: normalizedFinal,
+      totalPrice: normalizedTotal,
+      pricingStatus: bookingData?.pricingStatus || (requiresQuote ? 'estimated' : 'accepted'),
+      requiresQuote,
+      selectedAddOns: Array.isArray(bookingData?.selectedAddOns) ? bookingData.selectedAddOns : [],
+    }
     
     // 1. Check for double-booking prevention
-    const { providerId, bookingDate, startTime, endTime } = bookingData
+    const { providerId, bookingDate, startTime, endTime } = normalizedBookingData
     
     if (!providerId || !bookingDate || !startTime || !endTime) {
       return NextResponse.json(
@@ -94,7 +119,7 @@ export async function POST(request: NextRequest) {
     }
     
     // 2. Create the booking (no conflicts found)
-    const booking = await createBooking(bookingData)
+    const booking = await createBooking(normalizedBookingData)
     
     // 3. Send email notifications
     try {
@@ -105,21 +130,21 @@ export async function POST(request: NextRequest) {
       if (providerEmail) {
         await AppointmentEmailService.sendBookingConfirmationEmails({
           bookingId: booking.id,
-          customerName: bookingData.customerName,
-          customerEmail: bookingData.customerEmail,
-          customerPhone: bookingData.customerPhone,
-          providerName: bookingData.providerName,
+          customerName: normalizedBookingData.customerName,
+          customerEmail: normalizedBookingData.customerEmail,
+          customerPhone: normalizedBookingData.customerPhone,
+          providerName: normalizedBookingData.providerName,
           providerEmail: providerEmail,
-          serviceTitle: bookingData.serviceTitle,
-          bookingDate: new Date(bookingData.bookingDate),
-          startTime: bookingData.startTime,
-          endTime: bookingData.endTime,
-          duration: bookingData.duration || 60,
-          location: bookingData.location,
-          locationType: bookingData.locationType || 'in-person',
-          totalPrice: bookingData.totalPrice,
-          status: bookingData.status || 'pending',
-          notes: bookingData.notes
+          serviceTitle: normalizedBookingData.serviceTitle,
+          bookingDate: new Date(normalizedBookingData.bookingDate),
+          startTime: normalizedBookingData.startTime,
+          endTime: normalizedBookingData.endTime,
+          duration: normalizedBookingData.duration || 60,
+          location: normalizedBookingData.location,
+          locationType: normalizedBookingData.locationType || 'in-person',
+          totalPrice: normalizedBookingData.totalPrice,
+          status: normalizedBookingData.status || 'pending',
+          notes: normalizedBookingData.notes
         })
         console.log('✅ Booking confirmation emails sent successfully')
       } else {

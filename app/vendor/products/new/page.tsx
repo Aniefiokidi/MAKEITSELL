@@ -48,6 +48,7 @@ const fashionSubcategories = [
 ]
 
 const predefinedSizes = ["S", "M", "L", "XL", "XXL"]
+const shoeSizes = Array.from({ length: 31 }, (_, index) => String(index + 35))
 
 const predefinedColors = [
   "Black",
@@ -103,6 +104,12 @@ export default function NewProduct() {
   const [colorImages, setColorImages] = useState<{ [color: string]: File[] }>({})
   const [colorPreviews, setColorPreviews] = useState<{ [color: string]: string[] }>({})
   const [colorImageMapping, setColorImageMapping] = useState<{ [color: string]: number }>({})
+
+  const isShoeSubcategory =
+    formData.category === "Fashion" &&
+    ["shoe", "shoes"].includes(formData.subcategory.toLowerCase())
+
+  const availableSizeOptions = isShoeSubcategory ? shoeSizes : predefinedSizes
 
   const addColor = () => {
     if (newColor && !colors.includes(newColor)) {
@@ -354,6 +361,7 @@ export default function NewProduct() {
                     if (value !== "Fashion") {
                       handleInputChange("subcategory", "")
                     }
+                    setSizes([])
                   }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select category" />
@@ -373,7 +381,10 @@ export default function NewProduct() {
               {formData.category === "Fashion" && (
                 <div className="space-y-2">
                   <Label htmlFor="subcategory">Fashion Subcategory</Label>
-                  <Select value={formData.subcategory} onValueChange={(value) => handleInputChange("subcategory", value)}>
+                  <Select value={formData.subcategory} onValueChange={(value) => {
+                    handleInputChange("subcategory", value)
+                    setSizes([])
+                  }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select fashion subcategory" />
                     </SelectTrigger>
@@ -484,8 +495,11 @@ export default function NewProduct() {
                 {/* Sizes Section */}
                 <div className="space-y-4">
                   <Label className="text-base font-semibold">Available Sizes</Label>
-                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-                    {predefinedSizes.map((size) => (
+                  {isShoeSubcategory && (
+                    <p className="text-xs text-muted-foreground">Shoe sizes (EU): 35-65</p>
+                  )}
+                  <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-3">
+                    {availableSizeOptions.map((size) => (
                       <div key={size} className="flex items-center space-x-2">
                         <Checkbox
                           id={`size-${size}`}

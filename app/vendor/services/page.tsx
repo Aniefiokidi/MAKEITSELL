@@ -111,6 +111,12 @@ export default function VendorServicesPage() {
     }
   }
 
+  const getServiceDisplayPrice = (service: any) => {
+    const packages = (service?.packageOptions || []).filter((pkg: any) => pkg?.active !== false)
+    if (!packages.length) return Number(service?.price || 0)
+    return Math.min(...packages.map((pkg: any) => Number(pkg?.price || 0)))
+  }
+
   return (
     <VendorLayout>
       <div className="space-y-6">
@@ -236,7 +242,7 @@ export default function VendorServicesPage() {
                 <CardContent className="space-y-3">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Price:</span>
-                    <span className="font-semibold text-accent">₦{service.price}</span>
+                    <span className="font-semibold text-accent">₦{getServiceDisplayPrice(service).toLocaleString('en-NG')}</span>
                   </div>
 
                   <div className="flex justify-between text-sm">

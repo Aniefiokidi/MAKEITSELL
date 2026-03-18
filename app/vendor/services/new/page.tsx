@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/switch"
 import { uploadToCloudinary } from "@/lib/cloudinary"
 import { useAuth } from "@/contexts/AuthContext"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, Upload, X } from "lucide-react"
+import { ArrowLeft, Plus, Upload, X } from "lucide-react"
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 
@@ -29,6 +29,29 @@ const SERVICE_CATEGORIES = [
   "tech",
   "other",
 ]
+
+type ServicePackageOption = {
+  id: string
+  name: string
+  description: string
+  price: string
+  duration: string
+  pricingType: "fixed" | "hourly" | "per-session" | "custom"
+  isDefault: boolean
+  active: boolean
+}
+
+type ServiceAddOnOption = {
+  id: string
+  name: string
+  description: string
+  pricingType: "fixed" | "percentage"
+  amount: string
+  optional: boolean
+  active: boolean
+}
+
+const makeOptionId = () => `opt-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
 
 export default function NewServicePage() {
   const router = useRouter()
@@ -62,6 +85,82 @@ export default function NewServicePage() {
   const [images, setImages] = useState<string[]>([])
   const [imageFiles, setImageFiles] = useState<File[]>([])
   const [loading, setLoading] = useState(false)
+  const [packageOptions, setPackageOptions] = useState<ServicePackageOption[]>([
+    {
+      id: makeOptionId(),
+      name: "Standard",
+      description: "",
+      price: "",
+      duration: "60",
+      pricingType: "fixed",
+      isDefault: true,
+      active: true,
+    },
+  ])
+  const [addOnOptions, setAddOnOptions] = useState<ServiceAddOnOption[]>([])
+  const [requiresQuote, setRequiresQuote] = useState(false)
+  const [quoteNotesTemplate, setQuoteNotesTemplate] = useState("")
+  const [packageImageAssignments, setPackageImageAssignments] = useState<Record<string, number[]>>({})
+
+  const addPackageOption = () => {
+    const nextId = makeOptionId()
+    setPackageOptions((prev) => [
+      ...prev,
+      {
+        id: nextId,
+        name: "",
+        description: "",
+        price: "",
+        duration: "",
+        pricingType: "fixed",
+        isDefault: prev.length === 0,
+        active: true,
+      },
+    ])
+    setPackageImageAssignments((prev) => ({
+      ...prev,
+      [nextId]: [],
+    }))
+  }
+
+  const removePackageOption = (id: string) => {
+    setPackageImageAssignments((prev) => {
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
+
+    setPackageOptions((prev) => {
+      const next = prev.filter((item) => item.id !== id)
+      if (!next.some((item) => item.isDefault) && next.length > 0) {
+        next[0] = { ...next[0], isDefault: true }
+      }
+      return next
+    })
+  }
+
+  const setDefaultPackageOption = (id: string) => {
+    setPackageOptions((prev) => prev.map((item) => ({ ...item, isDefault: item.id === id })))
+  }
+
+  const addAddOnOption = () => {
+    setAddOnOptions((prev) => [
+      ...prev,
+      {
+        id: makeOptionId(),
+        name: "",
+        description: "",
+        pricingType: "fixed",
+        amount: "",
+        optional: true,
+        active: true,
+      },
+    ])
+  }
+
+  const removeAddOnOption = (id: string) => {
+    setAddOnOptions((prev) => prev.filter((item) => item.id !== id))
+  }
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
@@ -88,6 +187,28 @@ export default function NewServicePage() {
   const removeImage = (index: number) => {
     setImages((prev) => prev.filter((_, i) => i !== index))
     setImageFiles((prev) => prev.filter((_, i) => i !== index))
+    setPackageImageAssignments((prev) => {
+      const next: Record<string, number[]> = {}
+      for (const [packageId, imageIndexes] of Object.entries(prev)) {
+        next[packageId] = imageIndexes
+          .filter((imgIndex) => imgIndex !== index)
+          .map((imgIndex) => (imgIndex > index ? imgIndex - 1 : imgIndex))
+      }
+      return next
+    })
+  }
+
+  const togglePackageImage = (packageId: string, imageIndex: number) => {
+    setPackageImageAssignments((prev) => {
+      const current = prev[packageId] || []
+      const exists = current.includes(imageIndex)
+      return {
+        ...prev,
+        [packageId]: exists
+          ? current.filter((idx) => idx !== imageIndex)
+          : [...current, imageIndex],
+      }
+    })
   }
 
   // Address autocomplete using Google Maps Places API
@@ -149,6 +270,49 @@ export default function NewServicePage() {
         locationValue = formData.location || "Not specified"
       }
 
+      const normalizedPackages = packageOptions
+        .filter((pkg) => pkg.name.trim() && pkg.price !== "")
+        .map((pkg) => {
+          const assignedIndexes = packageImageAssignments[pkg.id] || []
+          const assignedImages = assignedIndexes
+            .map((imgIndex) => imageUrls[imgIndex])
+            .filter((imgUrl): imgUrl is string => Boolean(imgUrl))
+
+          return {
+            id: pkg.id,
+            name: pkg.name.trim(),
+            description: pkg.description.trim(),
+            price: Number.parseFloat(pkg.price),
+            duration: pkg.duration ? Number.parseInt(pkg.duration, 10) : undefined,
+            pricingType: pkg.pricingType,
+            isDefault: pkg.isDefault,
+            active: pkg.active,
+            images: assignedImages,
+          }
+        })
+
+      const normalizedAddOns = addOnOptions
+        .filter((addOn) => addOn.name.trim() && addOn.amount !== "")
+        .map((addOn) => ({
+          id: addOn.id,
+          name: addOn.name.trim(),
+          description: addOn.description.trim(),
+          pricingType: addOn.pricingType,
+          amount: Number.parseFloat(addOn.amount),
+          optional: addOn.optional,
+          active: addOn.active,
+        }))
+
+      if (normalizedPackages.length === 0 && !formData.price) {
+        throw new Error("Add at least one package price or provide a base price")
+      }
+
+      const minPackagePrice = normalizedPackages.length > 0
+        ? Math.min(...normalizedPackages.map((pkg) => pkg.price))
+        : undefined
+
+      const defaultPackage = normalizedPackages.find((pkg) => pkg.isDefault) || normalizedPackages[0]
+
       const serviceData: any = {
         providerId: user.uid,
         providerName: userProfile.displayName,
@@ -156,8 +320,8 @@ export default function NewServicePage() {
         title: formData.title,
         description: formData.description,
         category: formData.category,
-        price: parseFloat(formData.price),
-        pricingType: formData.pricingType,
+        price: minPackagePrice ?? parseFloat(formData.price),
+        pricingType: defaultPackage?.pricingType || formData.pricingType,
         location: locationValue,
         locationType: formData.locationType,
         images: imageUrls,
@@ -165,6 +329,10 @@ export default function NewServicePage() {
         featured: false,
         status: "active" as const,
         tags: formData.tags.split(",").map((t) => t.trim()).filter(Boolean),
+        packageOptions: normalizedPackages,
+        addOnOptions: normalizedAddOns,
+        requiresQuote,
+        quoteNotesTemplate: quoteNotesTemplate.trim(),
       }
 
       // Only add duration if it's provided
@@ -301,48 +469,264 @@ export default function NewServicePage() {
               <CardTitle>Pricing & Duration</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="price">Price (₦) *</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    step="0.01"
-                    required
-                    placeholder="0.00"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  />
+              <div className="rounded-lg border p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label className="text-base">Service Packages</Label>
+                    <p className="text-xs text-muted-foreground">Create multiple package types with different prices.</p>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={addPackageOption}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Package
+                  </Button>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="pricingType">Pricing Type *</Label>
-                  <Select
-                    value={formData.pricingType}
-                    onValueChange={(value: any) => setFormData({ ...formData, pricingType: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="fixed">Fixed Price</SelectItem>
-                      <SelectItem value="hourly">Per Hour</SelectItem>
-                      <SelectItem value="per-session">Per Session</SelectItem>
-                      <SelectItem value="custom">Custom</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-3">
+                  {packageOptions.map((pkg, index) => (
+                    <div key={pkg.id} className="rounded-md border p-3 space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-medium">Package {index + 1}</p>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={pkg.isDefault ? "default" : "outline"}
+                            onClick={() => setDefaultPackageOption(pkg.id)}
+                          >
+                            {pkg.isDefault ? "Default" : "Set Default"}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            disabled={packageOptions.length === 1}
+                            onClick={() => removePackageOption(pkg.id)}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label>Package Name *</Label>
+                          <Input
+                            placeholder="Basic, Standard, Premium"
+                            value={pkg.name}
+                            onChange={(e) =>
+                              setPackageOptions((prev) =>
+                                prev.map((item) => (item.id === pkg.id ? { ...item, name: e.target.value } : item))
+                              )
+                            }
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Price (₦) *</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={pkg.price}
+                            onChange={(e) =>
+                              setPackageOptions((prev) =>
+                                prev.map((item) => (item.id === pkg.id ? { ...item, price: e.target.value } : item))
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label>Pricing Type</Label>
+                          <Select
+                            value={pkg.pricingType}
+                            onValueChange={(value: any) =>
+                              setPackageOptions((prev) =>
+                                prev.map((item) => (item.id === pkg.id ? { ...item, pricingType: value } : item))
+                              )
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="fixed">Fixed Price</SelectItem>
+                              <SelectItem value="hourly">Per Hour</SelectItem>
+                              <SelectItem value="per-session">Per Session</SelectItem>
+                              <SelectItem value="custom">Custom</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Duration (minutes)</Label>
+                          <Input
+                            type="number"
+                            placeholder="60"
+                            value={pkg.duration}
+                            onChange={(e) =>
+                              setPackageOptions((prev) =>
+                                prev.map((item) => (item.id === pkg.id ? { ...item, duration: e.target.value } : item))
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Description</Label>
+                        <Textarea
+                          rows={2}
+                          placeholder="What is included in this package"
+                          value={pkg.description}
+                          onChange={(e) =>
+                            setPackageOptions((prev) =>
+                              prev.map((item) => (item.id === pkg.id ? { ...item, description: e.target.value } : item))
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
+              <div className="rounded-lg border p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label className="text-base">Optional Add-ons</Label>
+                    <p className="text-xs text-muted-foreground">Allow customers to add extras at booking.</p>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={addAddOnOption}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Add-on
+                  </Button>
+                </div>
+
+                {addOnOptions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No add-ons yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {addOnOptions.map((addOn) => (
+                      <div key={addOn.id} className="rounded-md border p-3 space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div className="space-y-2 md:col-span-2">
+                            <Label>Name *</Label>
+                            <Input
+                              placeholder="Rush delivery, Extra revision"
+                              value={addOn.name}
+                              onChange={(e) =>
+                                setAddOnOptions((prev) =>
+                                  prev.map((item) => (item.id === addOn.id ? { ...item, name: e.target.value } : item))
+                                )
+                              }
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Amount *</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="0"
+                              value={addOn.amount}
+                              onChange={(e) =>
+                                setAddOnOptions((prev) =>
+                                  prev.map((item) => (item.id === addOn.id ? { ...item, amount: e.target.value } : item))
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label>Type</Label>
+                            <Select
+                              value={addOn.pricingType}
+                              onValueChange={(value: any) =>
+                                setAddOnOptions((prev) =>
+                                  prev.map((item) => (item.id === addOn.id ? { ...item, pricingType: value } : item))
+                                )
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="fixed">Fixed Amount (₦)</SelectItem>
+                                <SelectItem value="percentage">Percentage (%)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="flex items-end">
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => removeAddOnOption(addOn.id)}
+                            >
+                              Remove Add-on
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Description</Label>
+                          <Input
+                            placeholder="Optional details about this add-on"
+                            value={addOn.description}
+                            onChange={(e) =>
+                              setAddOnOptions((prev) =>
+                                prev.map((item) => (item.id === addOn.id ? { ...item, description: e.target.value } : item))
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-lg border p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label className="text-base">Quote Approval</Label>
+                    <p className="text-xs text-muted-foreground">Enable when final amount depends on job details.</p>
+                  </div>
+                  <Switch checked={requiresQuote} onCheckedChange={setRequiresQuote} />
+                </div>
+
+                {requiresQuote && (
+                  <div className="space-y-2">
+                    <Label htmlFor="quoteNotesTemplate">Quote Notes (Optional)</Label>
+                    <Textarea
+                      id="quoteNotesTemplate"
+                      rows={3}
+                      placeholder="Add details customers should provide for accurate quote approval"
+                      value={quoteNotesTemplate}
+                      onChange={(e) => setQuoteNotesTemplate(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-2">
-                <Label htmlFor="duration">Duration (minutes)</Label>
+                <Label htmlFor="price">Fallback Base Price (Legacy Support)</Label>
                 <Input
-                  id="duration"
+                  id="price"
                   type="number"
-                  placeholder="60"
-                  value={formData.duration}
-                  onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+                  step="0.01"
+                  required={packageOptions.every((pkg) => !pkg.name.trim() || pkg.price === "")}
+                  placeholder="0.00"
+                  value={formData.price}
+                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                 />
+                <p className="text-xs text-muted-foreground">Used only if no valid package is configured.</p>
               </div>
             </CardContent>
           </Card>
@@ -592,6 +976,42 @@ export default function NewServicePage() {
                   </label>
                 )}
               </div>
+
+              {images.length > 0 && packageOptions.length > 1 && (
+                <div className="rounded-lg border p-4 space-y-3">
+                  <div>
+                    <Label className="text-base">Assign Images To Packages</Label>
+                    <p className="text-xs text-muted-foreground">Select which uploaded images belong to each package.</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    {packageOptions.map((pkg) => (
+                      <div key={pkg.id} className="space-y-2">
+                        <p className="text-sm font-medium">{pkg.name || "Unnamed Package"}</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                          {images.map((img, imageIndex) => {
+                            const selectedForPackage = (packageImageAssignments[pkg.id] || []).includes(imageIndex)
+                            return (
+                              <button
+                                key={`${pkg.id}-${imageIndex}`}
+                                type="button"
+                                onClick={() => togglePackageImage(pkg.id, imageIndex)}
+                                className={`relative rounded-md overflow-hidden border-2 transition-colors ${selectedForPackage ? 'border-accent ring-2 ring-accent/30' : 'border-border hover:border-accent/60'}`}
+                              >
+                                <img src={img} alt={`${pkg.name || 'Package'} image ${imageIndex + 1}`} className="w-full h-20 object-cover" />
+                                <span className={`absolute top-1 right-1 text-[10px] px-1.5 py-0.5 rounded ${selectedForPackage ? 'bg-accent text-white' : 'bg-black/50 text-white'}`}>
+                                  {selectedForPackage ? 'Assigned' : 'Assign'}
+                                </span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {images.length < 5 && (
                 <p className="text-sm text-amber-600">
                   <svg className="inline w-4 h-4 text-yellow-500 mr-2 animate-pulse" fill="currentColor" viewBox="0 0 24 24">

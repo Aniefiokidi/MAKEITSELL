@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/contexts/AuthContext"
+import { useToast } from "@/hooks/use-toast"
 import { Calendar, Clock, MapPin, User, MessageSquare, CheckCircle, AlertCircle, XCircle } from "lucide-react"
 import { format } from "date-fns"
 
@@ -21,15 +22,21 @@ interface Appointment {
   endTime: string
   duration: number
   totalPrice: number
+  estimatedPrice?: number
+  finalPrice?: number | null
+  pricingStatus?: "estimated" | "quoted" | "accepted"
+  requiresQuote?: boolean
+  selectedPackageName?: string
   status: "pending" | "confirmed" | "completed" | "cancelled"
   location: string
-  locationType: "online" | "in-person" | "both"
+  locationType: "online" | "in-person" | "both" | "store" | "home-service"
   notes?: string
   customerPhone?: string
 }
 
 export default function AppointmentsPage() {
   const { user, userProfile } = useAuth()
+  const { toast } = useToast()
   const router = useRouter()
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
@@ -96,13 +103,88 @@ export default function AppointmentsPage() {
     }
   }
 
+  const handleAcceptQuote = async (appointmentId: string) => {
+    try {
+      const response = await fetch(`/api/database/bookings/${appointmentId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          pricingStatus: "accepted",
+          status: "confirmed",
+        }),
+      })
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null)
+        throw new Error(errorBody?.error || "Failed to accept quote")
+      }
+
+      setAppointments((prev) =>
+        prev.map((item) =>
+          item.id === appointmentId
+            ? { ...item, pricingStatus: "accepted", status: "confirmed" }
+            : item
+        )
+      )
+      toast({ title: "Quote accepted", description: "Your booking has been confirmed." })
+    } catch (error) {
+      console.error("Error accepting quote:", error)
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to accept quote.", variant: "destructive" })
+    }
+  }
+
+  const handleRejectQuote = async (appointmentId: string) => {
+    try {
+      const response = await fetch(`/api/database/bookings/${appointmentId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: "cancelled",
+        }),
+      })
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null)
+        throw new Error(errorBody?.error || "Failed to reject quote")
+      }
+
+      setAppointments((prev) =>
+        prev.map((item) =>
+          item.id === appointmentId
+            ? { ...item, status: "cancelled" }
+            : item
+        )
+      )
+      toast({ title: "Quote rejected", description: "This booking has been cancelled." })
+    } catch (error) {
+      console.error("Error rejecting quote:", error)
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to reject quote.", variant: "destructive" })
+    }
+  }
+
+  const getPricingStatusColor = (status?: string) => {
+    switch (status) {
+      case "accepted":
+        return "bg-green-100 text-green-800"
+      case "quoted":
+        return "bg-blue-100 text-blue-800"
+      case "estimated":
+      default:
+        return "bg-amber-100 text-amber-800"
+    }
+  }
+
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-background via-background to-accent/5">
+    <div className="min-h-screen flex flex-col bg-linear-to-b from-background via-background to-accent/5">
       <Header />
       
       <main className="flex-1 container mx-auto px-4 py-12">
         {/* Header */}
-        <div className="mb-8 p-6 md:p-8 bg-gradient-to-br from-accent/5 via-accent/15 to-accent/50 backdrop-blur-2xl rounded-3xl border border-accent/30 shadow-2xl shadow-accent/20 hover:shadow-3xl hover:shadow-accent/30 transition-all duration-500">
+        <div className="mb-8 p-6 md:p-8 bg-linear-to-br from-accent/5 via-accent/15 to-accent/50 backdrop-blur-2xl rounded-3xl border border-accent/30 shadow-2xl shadow-accent/20 hover:shadow-3xl hover:shadow-accent/30 transition-all duration-500">
           <div className="text-center md:text-left">
             <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-2 text-accent dark:text-white/70" style={{ 
               fontFamily: '"Bebas Neue", "Impact", sans-serif',
@@ -192,7 +274,9 @@ export default function AppointmentsPage() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <div className="text-3xl font-bold text-accent">₦{appointment.totalPrice.toLocaleString()}</div>
+                      <div className="text-3xl font-bold text-accent">
+                        ₦{Number(appointment.finalPrice ?? appointment.totalPrice ?? appointment.estimatedPrice ?? 0).toLocaleString('en-NG')}
+                      </div>
                       <p className="text-sm text-muted-foreground">{appointment.duration} mins</p>
                     </div>
                   </div>
@@ -203,7 +287,7 @@ export default function AppointmentsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {/* Date & Time */}
                     <div className="flex items-start gap-3 p-4 bg-accent/5 rounded-lg">
-                      <Calendar className="h-5 w-5 text-accent mt-1 flex-shrink-0" />
+                      <Calendar className="h-5 w-5 text-accent mt-1 shrink-0" />
                       <div>
                         <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Date</p>
                         <p className="text-lg font-bold">
@@ -214,7 +298,7 @@ export default function AppointmentsPage() {
 
                     {/* Time Slot */}
                     <div className="flex items-start gap-3 p-4 bg-accent/5 rounded-lg">
-                      <Clock className="h-5 w-5 text-accent mt-1 flex-shrink-0" />
+                      <Clock className="h-5 w-5 text-accent mt-1 shrink-0" />
                       <div>
                         <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Time</p>
                         <p className="text-lg font-bold">
@@ -225,7 +309,7 @@ export default function AppointmentsPage() {
 
                     {/* Location */}
                     <div className="flex items-start gap-3 p-4 bg-accent/5 rounded-lg">
-                      <MapPin className="h-5 w-5 text-accent mt-1 flex-shrink-0" />
+                      <MapPin className="h-5 w-5 text-accent mt-1 shrink-0" />
                       <div>
                         <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Location</p>
                         <p className="text-lg font-bold capitalize">{appointment.locationType}</p>
@@ -237,7 +321,7 @@ export default function AppointmentsPage() {
 
                     {/* Contact */}
                     <div className="flex items-start gap-3 p-4 bg-accent/5 rounded-lg">
-                      <User className="h-5 w-5 text-accent mt-1 flex-shrink-0" />
+                      <User className="h-5 w-5 text-accent mt-1 shrink-0" />
                       <div>
                         <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Contact</p>
                         {appointment.customerPhone && (
@@ -255,6 +339,22 @@ export default function AppointmentsPage() {
                     <div className="p-4 bg-card border border-border rounded-lg">
                       <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-2">Notes</p>
                       <p className="text-foreground">{appointment.notes}</p>
+                    </div>
+                  )}
+
+                  {appointment.requiresQuote && (
+                    <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
+                      <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-2">Quote</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm text-foreground">Status:</p>
+                        <Badge className={getPricingStatusColor(appointment.pricingStatus)}>
+                          {(appointment.pricingStatus || 'estimated').toUpperCase()}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Estimated: ₦{Number(appointment.estimatedPrice ?? appointment.totalPrice ?? 0).toLocaleString('en-NG')}
+                        {appointment.finalPrice != null ? ` • Final: ₦${Number(appointment.finalPrice).toLocaleString('en-NG')}` : ''}
+                      </p>
                     </div>
                   )}
 
@@ -290,6 +390,16 @@ export default function AppointmentsPage() {
                       >
                         Cancel Appointment
                       </Button>
+                    )}
+                    {appointment.status === "pending" && appointment.requiresQuote && appointment.pricingStatus === "quoted" && (
+                      <>
+                        <Button size="sm" onClick={() => handleAcceptQuote(appointment.id)}>
+                          Accept Quote
+                        </Button>
+                        <Button size="sm" variant="destructive" onClick={() => handleRejectQuote(appointment.id)}>
+                          Reject Quote
+                        </Button>
+                      </>
                     )}
                   </div>
                 </CardContent>

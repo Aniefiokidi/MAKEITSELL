@@ -108,6 +108,9 @@ function connectWithUri(uri: string) {
   return mongoose.connect(uri, {
     bufferCommands: false,
     serverSelectionTimeoutMS: 10000,
+    maxPoolSize: 30,
+    minPoolSize: 5,
+    maxIdleTimeMS: 30000,
   });
 }
 
