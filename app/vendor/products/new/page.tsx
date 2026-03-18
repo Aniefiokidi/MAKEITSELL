@@ -96,6 +96,7 @@ export default function NewProduct() {
   })
   const [images, setImages] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
+  const [productDocuments, setProductDocuments] = useState<File[]>([])
   const [colors, setColors] = useState<string[]>([])
   const [sizes, setSizes] = useState<string[]>([])
   const [newColor, setNewColor] = useState("")
@@ -191,10 +192,24 @@ export default function NewProduct() {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (files) {
-      const newFiles = Array.from(files)
-      setImages((prev) => [...prev, ...newFiles].slice(0, 5)) // Max 5 images
-      // Generate previews
-      newFiles.forEach((file) => {
+      const selectedFiles = Array.from(files)
+      const imageFiles = selectedFiles.filter((file) => file.type.startsWith("image/"))
+      const pdfFiles = selectedFiles.filter((file) => file.type === "application/pdf" || /\.pdf$/i.test(file.name))
+      const unsupportedCount = selectedFiles.length - imageFiles.length - pdfFiles.length
+
+      if (unsupportedCount > 0) {
+        warning("Unsupported files skipped", "Only images and PDFs can be uploaded.")
+      }
+
+      if (pdfFiles.length > 0) {
+        setProductDocuments((prev) => [...prev, ...pdfFiles].slice(0, 5)) // Max 5 PDFs
+      }
+
+      if (imageFiles.length === 0) return
+
+      setImages((prev) => [...prev, ...imageFiles].slice(0, 5)) // Max 5 images
+      // Generate previews for image files only
+      imageFiles.forEach((file) => {
         const reader = new FileReader()
         reader.onloadend = () => {
           setPreviews((prev) => [...prev, reader.result as string].slice(0, 5))
@@ -207,6 +222,10 @@ export default function NewProduct() {
   const removeImage = (index: number) => {
   setImages((prev) => prev.filter((_, i) => i !== index))
   setPreviews((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const removeDocument = (index: number) => {
+    setProductDocuments((prev) => prev.filter((_, i) => i !== index))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -236,6 +255,12 @@ export default function NewProduct() {
         imageUrls.push(url)
       }
 
+      const documentUrls: string[] = []
+      for (const file of productDocuments) {
+        const url = await uploadToCloudinary(file)
+        documentUrls.push(url)
+      }
+
       // Create color to image URL mapping
       const colorImageUrls: { [key: string]: string } = {}
       for (const [color, imageIndex] of Object.entries(colorImageMapping)) {
@@ -257,6 +282,7 @@ export default function NewProduct() {
           category: formData.category,
           subcategory: formData.subcategory || null,
           images: imageUrls,
+          productDocuments: documentUrls,
           vendorId: user.uid,
           vendorName: userProfile?.displayName || user.email || "Vendor",
           stock: Number(formData.stock) || 0,
@@ -440,7 +466,7 @@ export default function NewProduct() {
           <Card>
             <CardHeader>
               <CardTitle>Product Images</CardTitle>
-              <CardDescription>Upload up to 5 images of your product</CardDescription>
+              <CardDescription>Upload up to 5 images and up to 5 PDF files for your product</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -469,7 +495,7 @@ export default function NewProduct() {
                 {images.length < 5 && (
                   <label className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/25 flex flex-col items-center justify-center cursor-pointer hover:border-muted-foreground/50 transition-colors">
                     <Upload className="h-8 w-8 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground mt-2">Upload Image</span>
+                    <span className="text-sm text-muted-foreground mt-2">Upload Image/PDF</span>
                     <input
                       type="file"
                       accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
@@ -481,6 +507,22 @@ export default function NewProduct() {
                   </label>
                 )}
               </div>
+
+              {productDocuments.length > 0 && (
+                <div className="space-y-2 pt-2 border-t">
+                  <Label>PDF Files</Label>
+                  <div className="space-y-2">
+                    {productDocuments.map((doc, index) => (
+                      <div key={`${doc.name}-${index}`} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                        <span className="truncate">{doc.name}</span>
+                        <Button type="button" variant="destructive" size="sm" onClick={() => removeDocument(index)}>
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 

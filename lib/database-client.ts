@@ -248,6 +248,7 @@ export interface Product {
   price: number
   category: string
   images: string[]
+  productDocuments?: string[]
   vendorId: string
   vendorName: string
   stock: number

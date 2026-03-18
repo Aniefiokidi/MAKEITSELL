@@ -23,7 +23,30 @@ export default function SearchResults({ query }: { query: string }) {
   const [services, setServices] = React.useState<any[]>([]);
   const [stores, setStores] = React.useState<any[]>([]);
   const [recommendedProducts, setRecommendedProducts] = React.useState<any[]>([]);
+  const [didYouMean, setDidYouMean] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
+
+  const levenshteinDistance = React.useCallback((a: string, b: string) => {
+    const source = a.toLowerCase();
+    const target = b.toLowerCase();
+    const matrix: number[][] = Array.from({ length: source.length + 1 }, () => Array(target.length + 1).fill(0));
+
+    for (let i = 0; i <= source.length; i += 1) matrix[i][0] = i;
+    for (let j = 0; j <= target.length; j += 1) matrix[0][j] = j;
+
+    for (let i = 1; i <= source.length; i += 1) {
+      for (let j = 1; j <= target.length; j += 1) {
+        const cost = source[i - 1] === target[j - 1] ? 0 : 1;
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j - 1] + cost
+        );
+      }
+    }
+
+    return matrix[source.length][target.length];
+  }, []);
 
   const buildTokens = React.useCallback((searchQuery: string) => {
     return searchQuery
@@ -45,7 +68,19 @@ export default function SearchResults({ query }: { query: string }) {
       if (description.includes(token)) score += 1;
     }
 
-    if (product?.featured) score += 1;
+    const sales = Number(product?.sales || 0);
+    const rating = Number(product?.rating || 0);
+    const reviewCount = Number(product?.reviewCount || product?.reviews || 0);
+    const stock = Number(product?.stock || 0);
+
+    const popularityScore =
+      Math.min(sales, 200) / 12 +
+      Math.min(reviewCount, 100) / 10 +
+      Math.max(0, Math.min(rating, 5)) * 2 +
+      (stock > 0 ? 1.5 : -1.5) +
+      (product?.featured ? 2.5 : 0);
+
+    score += popularityScore;
     return score;
   }, []);
 
@@ -76,6 +111,7 @@ export default function SearchResults({ query }: { query: string }) {
       setServices([]);
       setStores([]);
       setRecommendedProducts([]);
+      setDidYouMean(null);
       setLoading(false);
       return;
     }
@@ -99,6 +135,36 @@ export default function SearchResults({ query }: { query: string }) {
           const allProducts = Array.isArray(recommendationPayload?.data) ? recommendationPayload.data : [];
           const tokens = buildTokens(query);
 
+          const candidateTerms: string[] = Array.from(
+            new Set(
+              allProducts
+                .flatMap((product: any) => [product?.title, product?.name, product?.category, product?.subcategory])
+                .filter(Boolean)
+                .map((term: any) => String(term).trim())
+                .filter((term: string) => term.length > 2)
+            )
+          );
+
+          let closestSuggestion: string | null = null;
+          let closestDistance = Number.POSITIVE_INFINITY;
+          for (const term of candidateTerms) {
+            const distance = levenshteinDistance(query, term);
+            if (distance < closestDistance) {
+              closestDistance = distance;
+              closestSuggestion = term;
+            }
+          }
+
+          if (
+            closestSuggestion &&
+            closestSuggestion.toLowerCase() !== query.toLowerCase() &&
+            closestDistance <= Math.max(2, Math.floor(query.length * 0.35))
+          ) {
+            setDidYouMean(closestSuggestion);
+          } else {
+            setDidYouMean(null);
+          }
+
           const scored = allProducts
             .map((product: any) => ({
               product,
@@ -120,6 +186,7 @@ export default function SearchResults({ query }: { query: string }) {
           }
         } else {
           setRecommendedProducts([]);
+          setDidYouMean(null);
         }
       })
       .catch(() => {
@@ -127,9 +194,10 @@ export default function SearchResults({ query }: { query: string }) {
         setServices([]);
         setStores([]);
         setRecommendedProducts([]);
+        setDidYouMean(null);
       })
       .finally(() => setLoading(false));
-  }, [buildTokens, getRecommendationScore, query]);
+  }, [buildTokens, getRecommendationScore, levenshteinDistance, query]);
 
   if (!query) return null;
   if (loading) return <div className="py-10 text-center text-muted-foreground">Loading results...</div>;
@@ -145,6 +213,19 @@ export default function SearchResults({ query }: { query: string }) {
             <p className="text-base sm:text-lg font-semibold text-foreground">
               No exact product matches found for "{query}".
             </p>
+            {didYouMean && (
+              <p className="text-sm mt-1">
+                Did you mean{" "}
+                <button
+                  type="button"
+                  className="text-accent font-semibold underline underline-offset-4"
+                  onClick={() => router.push(`/search?query=${encodeURIComponent(didYouMean)}`)}
+                >
+                  {didYouMean}
+                </button>
+                ?
+              </p>
+            )}
             <p className="text-sm text-muted-foreground mt-1">
               Try these similar products instead.
             </p>

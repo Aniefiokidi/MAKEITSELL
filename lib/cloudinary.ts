@@ -1,6 +1,7 @@
 // Cloudinary upload helper
 export async function uploadToCloudinary(file: File): Promise<string> {
-  const url = "https://api.cloudinary.com/v1_1/ddhtduti2/image/upload";
+  const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+  const url = `https://api.cloudinary.com/v1_1/ddhtduti2/${isPdf ? "raw" : "image"}/upload`;
   const formData = new FormData();
   formData.append("file", file);
   formData.append("upload_preset", "my_unsigned_preset");

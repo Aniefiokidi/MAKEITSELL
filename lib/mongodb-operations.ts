@@ -642,6 +642,7 @@ export interface Product {
   category?: string;
   subcategory?: string;
   images?: string[];
+  productDocuments?: string[];
   stock?: number;
   sku?: string;
   featured?: boolean;

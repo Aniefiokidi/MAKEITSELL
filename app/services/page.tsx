@@ -95,6 +95,11 @@ const parseCityFromLocation = (location: string): string => {
   return parts.length > 1 ? parts[parts.length - 2] : ""
 }
 
+const isPdfAsset = (url?: string) => {
+  if (!url) return false
+  return /\.pdf(\?|#|$)/i.test(url)
+}
+
 export default function ServicesPage() {
     // Slide-out state for page transition
     const [slideOut, setSlideOut] = useState(false);
@@ -562,7 +567,7 @@ export default function ServicesPage() {
                     <div className="absolute top-3 sm:top-4 left-1/2 -translate-x-1/2 z-20">
                       <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-white/20 backdrop-blur-md border-3 sm:border-4 border-white overflow-hidden shadow-2xl ring-3 sm:ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110">
                         <div className="w-full h-full relative flex items-center justify-center">
-                          {service.providerImage ? (
+                          {service.providerImage && !isPdfAsset(service.providerImage) ? (
                             <Image
                               src={service.providerImage}
                               alt={`${service.providerName || serviceName} logo`}

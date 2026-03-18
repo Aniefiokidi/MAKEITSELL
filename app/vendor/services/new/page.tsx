@@ -161,6 +161,8 @@ export default function NewServicePage() {
   const [imageFiles, setImageFiles] = useState<File[]>([])
   const [logoPreview, setLogoPreview] = useState<string>("")
   const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [logoIsPdf, setLogoIsPdf] = useState(false)
+  const [logoFileName, setLogoFileName] = useState("")
   const [loading, setLoading] = useState(false)
   const [packageOptions, setPackageOptions] = useState<ServicePackageOption[]>([
     {
@@ -342,6 +344,18 @@ export default function NewServicePage() {
     const file = e.target.files?.[0]
     if (!file) return
 
+    const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name)
+    const isImage = file.type.startsWith("image/")
+
+    if (!isPdf && !isImage) {
+      toast({
+        title: "Unsupported file type",
+        description: "Only image and PDF files are supported for logos",
+        variant: "destructive",
+      })
+      return
+    }
+
     if (file.size > 3 * 1024 * 1024) {
       toast({
         title: "Logo too large",
@@ -351,10 +365,18 @@ export default function NewServicePage() {
       return
     }
 
+    setLogoFile(file)
+    setLogoFileName(file.name)
+    setLogoIsPdf(isPdf)
+
+    if (isPdf) {
+      setLogoPreview("")
+      return
+    }
+
     const reader = new FileReader()
     reader.onloadend = () => {
       setLogoPreview(reader.result as string)
-      setLogoFile(file)
     }
     reader.readAsDataURL(file)
   }
@@ -1322,13 +1344,17 @@ export default function NewServicePage() {
           <Card>
             <CardHeader>
               <CardTitle>Provider Logo</CardTitle>
-              <CardDescription>Upload your brand logo for the service card (optional, max 3MB)</CardDescription>
+              <CardDescription>Upload your brand logo as an image or PDF (optional, max 3MB)</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-4">
                 <div className="w-20 h-20 rounded-full border-2 border-dashed border-muted-foreground/40 overflow-hidden bg-muted/30 flex items-center justify-center">
-                  {logoPreview ? (
+                  {logoPreview && !logoIsPdf ? (
                     <img src={logoPreview} alt="Service logo preview" className="w-full h-full object-cover" />
+                  ) : logoIsPdf ? (
+                    <div className="text-center px-2">
+                      <p className="text-[10px] font-semibold text-muted-foreground">PDF</p>
+                    </div>
                   ) : (
                     <Upload className="h-6 w-6 text-muted-foreground" />
                   )}
@@ -1337,12 +1363,17 @@ export default function NewServicePage() {
                 <div className="space-y-2">
                   <label className="inline-flex items-center px-4 py-2 rounded-md border border-input bg-background hover:bg-accent/10 cursor-pointer text-sm font-medium">
                     Upload Logo
-                    <input type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
+                    <input type="file" accept="image/*,application/pdf" onChange={handleLogoChange} className="hidden" />
                   </label>
-                  {logoPreview && (
+                  {logoFile && (
+                    <p className="text-xs text-muted-foreground truncate max-w-[220px]">{logoFileName}</p>
+                  )}
+                  {logoFile && (
                     <Button type="button" variant="ghost" size="sm" onClick={() => {
                       setLogoPreview("")
                       setLogoFile(null)
+                      setLogoIsPdf(false)
+                      setLogoFileName("")
                     }}>
                       Remove logo
                     </Button>
