@@ -53,6 +53,9 @@ interface Store {
   isOpen: boolean
   deliveryTime?: string
   address?: string
+  location?: string
+  city?: string
+  state?: string
   phone?: string
   email?: string
   // Optional computed fields that may not exist in database
@@ -114,6 +117,24 @@ export default function StorePage() {
   const { addItem } = useCart()
   const { user } = useAuth()
   const notification = useNotification()
+
+  const getStateFromAddress = (value?: string) => {
+    if (!value) return ""
+    const parts = value
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean)
+
+    if (!parts.length) return ""
+
+    const countries = new Set(["nigeria", "federal republic of nigeria", "ng", "nig"])
+    const filtered = [...parts]
+    while (filtered.length > 1 && countries.has(filtered[filtered.length - 1].toLowerCase())) {
+      filtered.pop()
+    }
+
+    return filtered[filtered.length - 1] || ""
+  }
 
   // Function to detect image brightness - focuses on bottom portion where frosted glass is
   const detectImageBrightness = (imageUrl: string, productId: string) => {
@@ -269,6 +290,12 @@ export default function StorePage() {
       console.error('Error checking follow status:', error)
     }
   }
+
+  const locationDisplay =
+    store?.state ||
+    getStateFromAddress(store?.address || store?.location) ||
+    store?.city ||
+    "Location not specified"
 
   // Handle follow/unfollow action
   const handleFollowToggle = async () => {
@@ -643,7 +670,7 @@ export default function StorePage() {
                   
                   <div className="flex items-center gap-2 text-xs sm:text-sm">
                     <MapPin className="w-4 h-4 shrink-0" />
-                    <span>Lagos, Nigeria</span>
+                    <span>{locationDisplay}</span>
                   </div>
                   
                   <div className="hidden sm:block">
