@@ -56,12 +56,17 @@ export async function POST(request: NextRequest) {
 
     const baseEstimated = Number.isFinite(normalizedEstimated) ? normalizedEstimated : 0
     const customerLocation = typeof bookingData?.customerLocation === 'string' ? bookingData.customerLocation.trim() : ''
+    const tripDistanceMiles = Number(bookingData?.tripDistanceMiles)
+    const normalizedTripDistanceMiles = Number.isFinite(tripDistanceMiles) && tripDistanceMiles > 0
+      ? tripDistanceMiles
+      : 0
     const locationPricing = await applyLocationPricing({
       basePrice: baseEstimated,
       customerLocation,
       serviceLocation: typeof service?.location === 'string' ? service.location : undefined,
       locationPricingRules: Array.isArray((service as any)?.locationPricingRules) ? (service as any).locationPricingRules : [],
       distanceRatePerMile: Number((service as any)?.distanceRatePerMile || 0),
+      tripDistanceMiles: normalizedTripDistanceMiles,
     })
 
     const locationAdjustedTotal = Math.max(0, Math.round(locationPricing.total))
@@ -76,6 +81,7 @@ export async function POST(request: NextRequest) {
       requiresQuote,
       selectedAddOns: Array.isArray(bookingData?.selectedAddOns) ? bookingData.selectedAddOns : [],
       customerLocation,
+      tripDistanceMiles: normalizedTripDistanceMiles > 0 ? normalizedTripDistanceMiles : undefined,
       serviceAddress: typeof service?.location === 'string' ? service.location : bookingData?.serviceAddress,
       cancellationPolicyPercent: Number((service as any)?.cancellationPolicyPercent || 30),
       cancellationWindowHours: Number((service as any)?.cancellationWindowHours || 24),

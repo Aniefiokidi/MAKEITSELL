@@ -61,7 +61,7 @@ export default function AdminOrdersPage() {
         }]
       }
       // Each item becomes its own row
-      return items.map((item, idx) => ({
+      return items.map((item: any, idx: number) => ({
         ...order,
         itemTitle: item.title || item.name || 'Product',
         itemQuantity: item.quantity || 1,

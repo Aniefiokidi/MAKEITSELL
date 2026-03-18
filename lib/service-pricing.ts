@@ -36,6 +36,7 @@ export async function applyLocationPricing(params: {
   serviceLocation?: string
   locationPricingRules?: LocationPricingRule[]
   distanceRatePerMile?: number
+  tripDistanceMiles?: number
 }): Promise<{ total: number; adjustment: number; notes: string[] }> {
   const {
     basePrice,
@@ -43,6 +44,7 @@ export async function applyLocationPricing(params: {
     serviceLocation,
     locationPricingRules = [],
     distanceRatePerMile = 0,
+    tripDistanceMiles = 0,
   } = params
 
   let adjustment = 0
@@ -66,7 +68,11 @@ export async function applyLocationPricing(params: {
     }
   }
 
-  if (distanceRatePerMile > 0 && locationText && serviceLocation) {
+  if (distanceRatePerMile > 0 && Number.isFinite(Number(tripDistanceMiles)) && Number(tripDistanceMiles) > 0) {
+    const tripFee = Math.max(0, Number(tripDistanceMiles) * distanceRatePerMile)
+    adjustment += tripFee
+    notes.push(`Trip distance fee applied (${Number(tripDistanceMiles).toFixed(2)}mi)`)
+  } else if (distanceRatePerMile > 0 && locationText && serviceLocation) {
     try {
       const parseAddress = (raw: string) => {
         const chunks = raw.split(",").map((part) => part.trim()).filter(Boolean)

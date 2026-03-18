@@ -1034,6 +1034,9 @@ export default function NewServicePage() {
                     value={distanceRatePerMile}
                     onChange={(e) => setDistanceRatePerMile(e.target.value)}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    For car rentals, customers can enter trip distance and this rate will be applied to their quote.
+                  </p>
                 </div>
 
                 {locationPricingRules.length > 0 && (

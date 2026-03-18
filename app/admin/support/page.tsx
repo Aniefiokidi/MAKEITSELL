@@ -9,7 +9,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AlertCircle, CheckCircle, Clock, Filter, ArrowUp, Loader2 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
-import type { SupportTicket } from "@/lib/firestore"
+
+type SupportTicket = {
+  id?: string
+  customerName?: string
+  vendorName?: string
+  vendorId?: string
+  status?: string
+  priority?: string
+  [key: string]: any
+}
 
 export default function AdminSupportPage() {
   const { user } = useAuth()

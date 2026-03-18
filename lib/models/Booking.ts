@@ -40,6 +40,7 @@ export interface IBooking extends Document {
   cancelledAt?: Date;
   cancellationReason?: string;
   customerLocation?: string;
+  tripDistanceMiles?: number;
   serviceAddress?: string;
   rescheduleCount?: number;
   rescheduledFromBookingId?: string;
@@ -97,6 +98,7 @@ const BookingSchema = new Schema<IBooking>({
   cancelledAt: { type: Date },
   cancellationReason: { type: String },
   customerLocation: { type: String },
+  tripDistanceMiles: { type: Number },
   serviceAddress: { type: String },
   rescheduleCount: { type: Number, default: 0 },
   rescheduledFromBookingId: { type: String },

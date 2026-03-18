@@ -46,6 +46,7 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
   const [notes, setNotes] = useState("")
   const [loading, setLoading] = useState(false)
   const [customerLocation, setCustomerLocation] = useState("")
+  const [tripDistanceMiles, setTripDistanceMiles] = useState("")
   const [blockedSlots, setBlockedSlots] = useState<string[]>([])
 
   const basePackagePrice = Number(selectedPackage?.price ?? service.price ?? 0)
@@ -55,7 +56,13 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
     }
     return sum + Number(addOn.amount || 0)
   }, 0)
-  const estimatedTotal = Math.max(0, Math.round(basePackagePrice + addOnTotal))
+  const distanceRatePerMile = Number((service as any)?.distanceRatePerMile || 0)
+  const isRentalLikeService = /car|vehicle|rental|hire/i.test(`${service.category || ""} ${service.title || ""} ${(service.tags || []).join(" ")}`)
+  const parsedTripDistanceMiles = Number(tripDistanceMiles)
+  const tripDistanceFee = distanceRatePerMile > 0 && Number.isFinite(parsedTripDistanceMiles) && parsedTripDistanceMiles > 0
+    ? parsedTripDistanceMiles * distanceRatePerMile
+    : 0
+  const estimatedTotal = Math.max(0, Math.round(basePackagePrice + addOnTotal + tripDistanceFee))
 
   // Generate available time slots based on service availability
   const getAvailableTimeSlots = () => {
@@ -131,6 +138,17 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
       return
     }
 
+    if (isRentalLikeService && distanceRatePerMile > 0) {
+      if (!Number.isFinite(parsedTripDistanceMiles) || parsedTripDistanceMiles <= 0) {
+        toast({
+          title: "Trip Distance Required",
+          description: "Enter the expected trip distance to calculate rental pricing.",
+          variant: "destructive",
+        })
+        return
+      }
+    }
+
     try {
       setLoading(true)
 
@@ -161,6 +179,7 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
         pricingStatus: service.requiresQuote ? "estimated" : "accepted",
         requiresQuote: Boolean(service.requiresQuote),
         customerLocation,
+        tripDistanceMiles: Number.isFinite(parsedTripDistanceMiles) && parsedTripDistanceMiles > 0 ? parsedTripDistanceMiles : undefined,
         cancellationPolicyPercent: 30,
         cancellationWindowHours: 24,
         customerId: user.uid,
@@ -330,6 +349,24 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
             </div>
           )}
 
+          {distanceRatePerMile > 0 && isRentalLikeService && (
+            <div className="space-y-2">
+              <Label htmlFor="tripDistanceMiles">Estimated Trip Distance (miles)</Label>
+              <Input
+                id="tripDistanceMiles"
+                type="number"
+                min="0"
+                step="0.1"
+                placeholder="e.g. 25"
+                value={tripDistanceMiles}
+                onChange={(e) => setTripDistanceMiles(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Distance fee rate: ₦{distanceRatePerMile.toLocaleString('en-NG')} per mile
+              </p>
+            </div>
+          )}
+
           {/* Notes */}
           <div className="space-y-2">
             <Label htmlFor="notes">Additional Notes (Optional)</Label>
@@ -354,6 +391,11 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
                 <p className="font-semibold text-accent">
                   {service.requiresQuote ? "Estimated Total" : "Total"}: ₦{estimatedTotal.toLocaleString('en-NG')}
                 </p>
+                {tripDistanceFee > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Includes trip distance fee: ₦{Math.round(tripDistanceFee).toLocaleString('en-NG')}
+                  </p>
+                )}
                 {service.requiresQuote && (
                   <p className="text-xs text-muted-foreground">Final amount will be confirmed by provider before acceptance.</p>
                 )}
