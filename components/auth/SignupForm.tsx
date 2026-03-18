@@ -109,30 +109,33 @@ export default function SignupForm() {
         setLoading(false)
         return
       }
-      if (!formData.storeName.trim()) {
-        setError("Store name is required for sellers")
-        setLoading(false)
-        return
-      }
-      if (!formData.storeDescription.trim()) {
-        setError("Store description is required for sellers")
-        setLoading(false)
-        return
-      }
-      if (!formData.storeCategory) {
-        setError("Store category is required for sellers")
-        setLoading(false)
-        return
-      }
-      if (!formData.storeAddress.trim()) {
-        setError("Store address is required for sellers")
-        setLoading(false)
-        return
-      }
-      if (!formData.storePhone.trim()) {
-        setError("Store phone number is required for sellers")
-        setLoading(false)
-        return
+      const requiresStoreSetup = formData.vendorType === "goods" || formData.vendorType === "both"
+      if (requiresStoreSetup) {
+        if (!formData.storeName.trim()) {
+          setError("Store name is required for goods sellers")
+          setLoading(false)
+          return
+        }
+        if (!formData.storeDescription.trim()) {
+          setError("Store description is required for goods sellers")
+          setLoading(false)
+          return
+        }
+        if (!formData.storeCategory) {
+          setError("Store category is required for goods sellers")
+          setLoading(false)
+          return
+        }
+        if (!formData.storeAddress.trim()) {
+          setError("Store address is required for goods sellers")
+          setLoading(false)
+          return
+        }
+        if (!formData.storePhone.trim()) {
+          setError("Store phone number is required for goods sellers")
+          setLoading(false)
+          return
+        }
       }
     }
 
@@ -155,29 +158,32 @@ export default function SignupForm() {
         )
 
         const vendorId = result?.user?.uid
-        const resolvedCity = storeCity || formData.storeAddress.split(',')[0]?.trim() || "Lagos"
+        const shouldCreateStore = formData.vendorType === "goods" || formData.vendorType === "both"
 
-        try {
-          await createStore({
-            vendorId,
-            storeName: formData.storeName,
-            storeDescription: formData.storeDescription,
-            storeImage: "/placeholder.svg",
-            category: formData.storeCategory,
-            address: formData.storeAddress,
-            location: formData.storeAddress,
-            city: resolvedCity,
-            storePhone: formData.storePhone,
-            email: formData.email,
-            deliveryTime: "1-3 days",
-            deliveryFee: 0,
-            minimumOrder: 0,
-            latitude: storeCoordinates?.lat,
-            longitude: storeCoordinates?.lng,
-          })
-          console.log("Step 2: Vendor store created successfully")
-        } catch (storeError) {
-          console.error("Step 2: Store setup failed, continuing with account creation:", storeError)
+        if (shouldCreateStore) {
+          const resolvedCity = storeCity || formData.storeAddress.split(',')[0]?.trim() || "Lagos"
+          try {
+            await createStore({
+              vendorId,
+              storeName: formData.storeName,
+              storeDescription: formData.storeDescription,
+              storeImage: "/placeholder.svg",
+              category: formData.storeCategory,
+              address: formData.storeAddress,
+              location: formData.storeAddress,
+              city: resolvedCity,
+              storePhone: formData.storePhone,
+              email: formData.email,
+              deliveryTime: "1-3 days",
+              deliveryFee: 0,
+              minimumOrder: 0,
+              latitude: storeCoordinates?.lat,
+              longitude: storeCoordinates?.lng,
+            })
+            console.log("Step 2: Vendor store created successfully")
+          } catch (storeError) {
+            console.error("Step 2: Store setup failed, continuing with account creation:", storeError)
+          }
         }
 
         console.log("Step 3: Redirecting to verification notice...")

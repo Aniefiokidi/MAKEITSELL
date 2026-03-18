@@ -241,10 +241,10 @@ export default function VendorDashboardPage() {
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-lg font-bold" style={{ textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))' }}>Dashboard</h1>
-            <p className="text-xs text-muted-foreground">Welcome back! Here's what's happening with your store.</p>
+            <p className="text-xs text-muted-foreground">Welcome back! Here's what's happening with your {vendorType === "services" ? "services" : "store"}.</p>
             <div className="mt-2">
               <Button asChild size="sm" variant="outline">
-                <Link href={vendorType === "services" ? "/vendor/services/setup-wizard" : "/vendor/setup-wizard"}>Open Setup Wizard</Link>
+                <Link href={vendorType === "services" ? "/vendor/services/setup-wizard" : "/vendor/setup-wizard"}>{vendorType === "services" ? "Open Service Settings" : "Open Setup Wizard"}</Link>
               </Button>
             </div>
           </div>
