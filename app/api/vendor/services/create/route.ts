@@ -95,6 +95,61 @@ function validateServicePayload(serviceData: any): { valid: boolean; message?: s
     return { valid: false, message: 'quoteNotesTemplate must be a string' }
   }
 
+  if (serviceData.quoteSlaHours !== undefined) {
+    const quoteSlaHours = Number(serviceData.quoteSlaHours)
+    if (!Number.isFinite(quoteSlaHours) || quoteSlaHours < 1 || quoteSlaHours > 168) {
+      return { valid: false, message: 'quoteSlaHours must be between 1 and 168 hours' }
+    }
+  }
+
+  if (serviceData.externalCalendarIcsUrl !== undefined) {
+    if (typeof serviceData.externalCalendarIcsUrl !== 'string') {
+      return { valid: false, message: 'externalCalendarIcsUrl must be a string' }
+    }
+    const trimmed = serviceData.externalCalendarIcsUrl.trim()
+    if (trimmed && !/^https?:\/\//i.test(trimmed)) {
+      return { valid: false, message: 'externalCalendarIcsUrl must be a valid URL' }
+    }
+  }
+
+  if (serviceData.calendarSyncEnabled !== undefined && typeof serviceData.calendarSyncEnabled !== 'boolean') {
+    return { valid: false, message: 'calendarSyncEnabled must be a boolean value' }
+  }
+
+  if (serviceData.locationPricingRules !== undefined) {
+    if (!Array.isArray(serviceData.locationPricingRules)) {
+      return { valid: false, message: 'locationPricingRules must be an array' }
+    }
+
+    for (const rule of serviceData.locationPricingRules) {
+      if (!rule || typeof rule !== 'object') {
+        return { valid: false, message: 'Invalid location pricing rule' }
+      }
+      if (!rule.id || typeof rule.id !== 'string') {
+        return { valid: false, message: 'Each location pricing rule must include id' }
+      }
+      if (!rule.label || typeof rule.label !== 'string') {
+        return { valid: false, message: 'Each location pricing rule must include label' }
+      }
+      if (rule.matchType !== 'state' && rule.matchType !== 'city' && rule.matchType !== 'contains') {
+        return { valid: false, message: 'Invalid location pricing rule matchType' }
+      }
+      if (!rule.matchValue || typeof rule.matchValue !== 'string') {
+        return { valid: false, message: 'Each location pricing rule must include matchValue' }
+      }
+      if (rule.fixedAdjustment !== undefined && !Number.isFinite(Number(rule.fixedAdjustment))) {
+        return { valid: false, message: 'Location fixedAdjustment must be a number' }
+      }
+      if (rule.percentageAdjustment !== undefined && !Number.isFinite(Number(rule.percentageAdjustment))) {
+        return { valid: false, message: 'Location percentageAdjustment must be a number' }
+      }
+    }
+  }
+
+  if (serviceData.distanceRatePerMile !== undefined && !Number.isFinite(Number(serviceData.distanceRatePerMile))) {
+    return { valid: false, message: 'distanceRatePerMile must be a number' }
+  }
+
   return { valid: true }
 }
 

@@ -18,6 +18,7 @@ import { useCart } from "@/contexts/CartContext"
 import { useAuth } from "@/contexts/AuthContext"
 import { useNotification } from "@/contexts/NotificationContext"
 import { ProductQuickView } from "@/components/ui/product-quick-view"
+import { trackFunnelEvent } from "@/lib/funnel-tracker"
 
 interface Product {
   id: string
@@ -91,6 +92,7 @@ export default function StorePage() {
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
   const [imageBrightness, setImageBrightness] = useState<{ [key: string]: 'light' | 'dark' }>({})
+  const [storeVisitTracked, setStoreVisitTracked] = useState(false)
     // Reset color and size selection when quick view opens or closes
     useEffect(() => {
       setSelectedColor(null)
@@ -193,6 +195,12 @@ export default function StorePage() {
     fetchStoreData()
   }, [storeId])
 
+  useEffect(() => {
+    if (!store?.vendorId || storeVisitTracked) return
+    setStoreVisitTracked(true)
+    void trackFunnelEvent(store.vendorId, "store_visit", { storeId })
+  }, [store?.vendorId, storeId, storeVisitTracked])
+
   const fetchStoreData = async () => {
     setLoading(true)
     try {
@@ -252,11 +260,7 @@ export default function StorePage() {
   // Handle follow/unfollow action
   const handleFollowToggle = async () => {
     if (!user) {
-      toast({
-        title: "Login Required",
-        description: "Please log in to follow stores.",
-        variant: "destructive"
-      })
+      notification.error("Login Required", "Please log in to follow stores.")
       return
     }
 
@@ -281,27 +285,18 @@ export default function StorePage() {
       const result = await response.json()
       if (result.success) {
         setIsFollowing(result.isFollowing)
-        toast({
-          title: result.isFollowing ? "Following Store!" : "Unfollowed Store",
-          description: result.isFollowing 
+        notification.success(
+          result.isFollowing ? "Following Store!" : "Unfollowed Store",
+          result.isFollowing
             ? `You're now following ${store.storeName}. You'll get updates on new products and deals.`
-            : `You've unfollowed ${store.storeName}.`,
-          variant: "default"
-        })
+            : `You've unfollowed ${store.storeName}.`
+        )
       } else {
-        toast({
-          title: "Action Failed",
-          description: result.error || "Something went wrong. Please try again.",
-          variant: "destructive"
-        })
+        notification.error("Action Failed", result.error || "Something went wrong. Please try again.")
       }
     } catch (error) {
       console.error('Error toggling follow:', error)
-      toast({
-        title: "Network Error",
-        description: "Please check your connection and try again.",
-        variant: "destructive"
-      })
+      notification.error("Network Error", "Please check your connection and try again.")
     } finally {
       setFollowLoading(false)
     }
@@ -372,6 +367,7 @@ export default function StorePage() {
       vendorId: product.vendorId,
       vendorName: product.vendorName || (product as any).vendor?.name || 'Unknown Vendor'
     })
+    void trackFunnelEvent(product.vendorId, "cart_add", { productId: product.id, storeId })
     notification.success(
       'Product added to cart',
       product.title || product.name || 'Added to cart',
@@ -622,7 +618,7 @@ export default function StorePage() {
                 {/* Store Stats - Stacked on mobile */}
                 <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-6 text-gray-300">
                   <div className="flex items-center gap-2 text-xs sm:text-sm">
-                    <Package className="w-4 h-4 flex-shrink-0" />
+                    <Package className="w-4 h-4 shrink-0" />
                     <span>({store.totalProducts || products.length || 0} products)</span>
                   </div>
                   
@@ -631,7 +627,7 @@ export default function StorePage() {
                   </div>
                   
                   <div className="flex items-center gap-2 text-xs sm:text-sm">
-                    <MapPin className="w-4 h-4 flex-shrink-0" />
+                    <MapPin className="w-4 h-4 shrink-0" />
                     <span>Lagos, Nigeria</span>
                   </div>
                   
@@ -640,7 +636,7 @@ export default function StorePage() {
                   </div>
                   
                   <div className="flex items-center gap-2 text-xs sm:text-sm">
-                    <MessageCircle className="w-4 h-4 flex-shrink-0" />
+                    <MessageCircle className="w-4 h-4 shrink-0" />
                     <span>Responds within {store.responseTime || '1 hour'}</span>
                   </div>
                 </div>
@@ -855,7 +851,7 @@ export default function StorePage() {
                         <Badge
                           variant="outline"
                           role="button"
-                          className={`inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow hover:opacity-90 transition min-h-[20px] sm:min-h-[24px] items-center justify-center text-center leading-tight ${
+                          className={`inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow hover:opacity-90 transition min-h-5 sm:min-h-6 items-center justify-center text-center leading-tight ${
                             imageBrightness[product.id] === 'light' ? 'bg-accent text-white' : 'bg-accent text-white'
                           }`}
                           style={{
@@ -977,7 +973,7 @@ export default function StorePage() {
                   <h4 className="font-semibold mb-4 text-sm sm:text-base">Shipping Information</h4>
                   <div className="space-y-4">
                     <div className="flex gap-3 items-start pb-3 border-b border-border/50">
-                      <Truck className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                      <Truck className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">Shipping Cost</p>
                         <span className="text-sm font-medium text-muted-foreground">TBD</span>
@@ -985,14 +981,14 @@ export default function StorePage() {
                       </div>
                     </div>
                     <div className="flex gap-3 items-start pb-3 border-b border-border/50">
-                      <Clock className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                      <Clock className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">Estimated Delivery</p>
                         <span className="text-sm font-medium">{store.shippingInfo?.estimatedDelivery || store.deliveryTime || '1-3 days'}</span>
                       </div>
                     </div>
                     <div className="flex gap-3 items-start">
-                      <Package className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                      <Package className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">Checkout Note</p>
                         <span className="text-sm font-medium">Order total excludes delivery fee.</span>

@@ -204,6 +204,19 @@ export interface Service {
   }>
   requiresQuote?: boolean
   quoteNotesTemplate?: string
+  quoteSlaHours?: number
+  externalCalendarIcsUrl?: string
+  calendarSyncEnabled?: boolean
+  locationPricingRules?: Array<{
+    id: string
+    label: string
+    matchType: "state" | "city" | "contains"
+    matchValue: string
+    fixedAdjustment?: number
+    percentageAdjustment?: number
+    active?: boolean
+  }>
+  distanceRatePerMile?: number
   defaultPackageId?: string
   images: string[]
   location: string

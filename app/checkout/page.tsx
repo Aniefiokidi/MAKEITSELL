@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useCart } from "@/contexts/CartContext"
 import { useAuth } from "@/contexts/AuthContext"
@@ -19,6 +19,7 @@ import Image from "next/image"
 import Link from "next/link"
 import Header from "@/components/Header"
 import ProtectedRoute from "@/components/auth/ProtectedRoute"
+import { trackFunnelEvent } from "@/lib/funnel-tracker"
 
 export default function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCart()
@@ -27,6 +28,7 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [paymentMethod, setPaymentMethod] = useState("paystack") // Default to Paystack for Nigerian marketplace
+  const [checkoutTracked, setCheckoutTracked] = useState(false)
 
   const [shippingInfo, setShippingInfo] = useState({
     firstName: "",
@@ -58,6 +60,19 @@ export default function CheckoutPage() {
   const vat = calculateVAT(subtotal)
   const shipping = 0 // Free shipping
   const total = subtotal + vat + shipping
+
+  useEffect(() => {
+    if (checkoutTracked || items.length === 0) return
+    setCheckoutTracked(true)
+
+    const vendorIds = Array.from(new Set(items.map((item) => item.vendorId).filter(Boolean)))
+    vendorIds.forEach((vendorId) => {
+      void trackFunnelEvent(vendorId, "checkout_start", {
+        itemCount: items.length,
+        subtotal,
+      })
+    })
+  }, [checkoutTracked, items, subtotal])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

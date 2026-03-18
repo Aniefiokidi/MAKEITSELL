@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getBookingsByProvider, getAllBookings, getBookingsByCustomer, createBooking, getUserById } from "@/lib/mongodb-operations"
 import { AppointmentEmailService } from "@/lib/appointment-emails"
+import { getServiceById } from "@/lib/mongodb-operations"
+import { applyLocationPricing } from "@/lib/service-pricing"
+import { getIcsBusyRanges, hasBusyOverlap } from "@/lib/calendar-sync"
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,6 +38,7 @@ export async function POST(request: NextRequest) {
   try {
     const bookingData = await request.json()
 
+    const service = bookingData?.serviceId ? await getServiceById(String(bookingData.serviceId)) : null
     const numericEstimated = Number(bookingData?.estimatedPrice)
     const numericFinal = Number(bookingData?.finalPrice)
     const numericTotal = Number(bookingData?.totalPrice)
@@ -50,14 +54,32 @@ export async function POST(request: NextRequest) {
       ? numericTotal
       : (Number.isFinite(normalizedFinal as any) ? Number(normalizedFinal) : normalizedEstimated)
 
+    const baseEstimated = Number.isFinite(normalizedEstimated) ? normalizedEstimated : 0
+    const customerLocation = typeof bookingData?.customerLocation === 'string' ? bookingData.customerLocation.trim() : ''
+    const locationPricing = await applyLocationPricing({
+      basePrice: baseEstimated,
+      customerLocation,
+      serviceLocation: typeof service?.location === 'string' ? service.location : undefined,
+      locationPricingRules: Array.isArray((service as any)?.locationPricingRules) ? (service as any).locationPricingRules : [],
+      distanceRatePerMile: Number((service as any)?.distanceRatePerMile || 0),
+    })
+
+    const locationAdjustedTotal = Math.max(0, Math.round(locationPricing.total))
+    const quoteSlaHours = Number((service as any)?.quoteSlaHours || 24)
+
     const normalizedBookingData = {
       ...bookingData,
-      estimatedPrice: normalizedEstimated,
+      estimatedPrice: locationAdjustedTotal,
       finalPrice: normalizedFinal,
-      totalPrice: normalizedTotal,
+      totalPrice: requiresQuote ? locationAdjustedTotal : (Number.isFinite(normalizedTotal) ? normalizedTotal : locationAdjustedTotal),
       pricingStatus: bookingData?.pricingStatus || (requiresQuote ? 'estimated' : 'accepted'),
       requiresQuote,
       selectedAddOns: Array.isArray(bookingData?.selectedAddOns) ? bookingData.selectedAddOns : [],
+      customerLocation,
+      serviceAddress: typeof service?.location === 'string' ? service.location : bookingData?.serviceAddress,
+      cancellationPolicyPercent: Number((service as any)?.cancellationPolicyPercent || 30),
+      cancellationWindowHours: Number((service as any)?.cancellationWindowHours || 24),
+      quoteExpiresAt: requiresQuote ? new Date(Date.now() + quoteSlaHours * 60 * 60 * 1000) : null,
     }
     
     // 1. Check for double-booking prevention
@@ -116,6 +138,38 @@ export async function POST(request: NextRequest) {
         },
         { status: 409 } // Conflict status
       )
+    }
+
+    // 1b. External calendar conflict check (Google/Outlook ICS feed).
+    const icsUrl = typeof (service as any)?.externalCalendarIcsUrl === 'string'
+      ? String((service as any).externalCalendarIcsUrl).trim()
+      : ''
+    const isCalendarSyncEnabled = Boolean((service as any)?.calendarSyncEnabled) && Boolean(icsUrl)
+
+    if (isCalendarSyncEnabled) {
+      const [startHour, startMinute] = String(startTime).split(':').map(Number)
+      const [endHour, endMinute] = String(endTime).split(':').map(Number)
+      const bookingDateObj = new Date(bookingDate)
+      const requestStart = new Date(bookingDateObj)
+      requestStart.setHours(startHour, startMinute, 0, 0)
+      const requestEnd = new Date(bookingDateObj)
+      requestEnd.setHours(endHour, endMinute, 0, 0)
+
+      const busyRanges = await getIcsBusyRanges({
+        icsUrl,
+        from: requestStart,
+        to: requestEnd,
+      })
+
+      if (hasBusyOverlap({ busyRanges, start: requestStart, end: requestEnd })) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Provider calendar shows this slot as unavailable. Please select another time.',
+          },
+          { status: 409 }
+        )
+      }
     }
     
     // 2. Create the booking (no conflicts found)

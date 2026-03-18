@@ -269,6 +269,24 @@ const ServiceSchema = new mongoose.Schema({
   },
   requiresQuote: { type: Boolean, default: false },
   quoteNotesTemplate: { type: String, default: '' },
+  quoteSlaHours: { type: Number, default: 24 },
+  externalCalendarIcsUrl: { type: String, default: '' },
+  calendarSyncEnabled: { type: Boolean, default: false },
+  locationPricingRules: {
+    type: [
+      {
+        id: { type: String, required: true },
+        label: { type: String, required: true },
+        matchType: { type: String, enum: ['state', 'city', 'contains'], default: 'contains' },
+        matchValue: { type: String, required: true },
+        fixedAdjustment: { type: Number, default: 0 },
+        percentageAdjustment: { type: Number, default: 0 },
+        active: { type: Boolean, default: true },
+      },
+    ],
+    default: [],
+  },
+  distanceRatePerMile: { type: Number, default: 0 },
   location: { type: String, required: true },
   locationType: { type: String, required: true },
   images: { type: [String], default: [] },
@@ -317,6 +335,11 @@ const normalizeServicePricing = (service: any) => {
     addOnOptions: Array.isArray(service?.addOnOptions) ? service.addOnOptions : [],
     requiresQuote: Boolean(service?.requiresQuote),
     quoteNotesTemplate: service?.quoteNotesTemplate || '',
+    quoteSlaHours: Number(service?.quoteSlaHours) > 0 ? Number(service.quoteSlaHours) : 24,
+    externalCalendarIcsUrl: service?.externalCalendarIcsUrl || '',
+    calendarSyncEnabled: Boolean(service?.calendarSyncEnabled),
+    locationPricingRules: Array.isArray(service?.locationPricingRules) ? service.locationPricingRules : [],
+    distanceRatePerMile: Number.isFinite(Number(service?.distanceRatePerMile)) ? Number(service.distanceRatePerMile) : 0,
     defaultPackageId: defaultPackage?.id || normalizedPackages[0]?.id || 'default',
     price: normalizedPrice,
     pricingType: defaultPackage?.pricingType || service?.pricingType || 'fixed',
@@ -547,6 +570,19 @@ export interface Service {
   }>;
   requiresQuote?: boolean;
   quoteNotesTemplate?: string;
+  quoteSlaHours?: number;
+  externalCalendarIcsUrl?: string;
+  calendarSyncEnabled?: boolean;
+  locationPricingRules?: Array<{
+    id: string;
+    label: string;
+    matchType: 'state' | 'city' | 'contains';
+    matchValue: string;
+    fixedAdjustment?: number;
+    percentageAdjustment?: number;
+    active?: boolean;
+  }>;
+  distanceRatePerMile?: number;
   rating: number;
   reviews: number;
 }

@@ -2,7 +2,7 @@ import { Schema, model, models } from 'mongoose'
 
 const WalletTransactionSchema = new Schema({
   userId: { type: String, required: true, index: true },
-  type: { type: String, enum: ['topup', 'withdrawal', 'vendor_credit', 'purchase_debit'], required: true },
+  type: { type: String, enum: ['topup', 'withdrawal', 'vendor_credit', 'purchase_debit', 'booking_cancellation_fee'], required: true },
   amount: { type: Number, required: true },
   status: { type: String, enum: ['pending', 'completed', 'failed'], default: 'pending', index: true },
   reference: { type: String, required: true, unique: true, index: true },

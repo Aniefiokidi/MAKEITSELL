@@ -45,6 +45,8 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
   const [phone, setPhone] = useState("")
   const [notes, setNotes] = useState("")
   const [loading, setLoading] = useState(false)
+  const [customerLocation, setCustomerLocation] = useState("")
+  const [blockedSlots, setBlockedSlots] = useState<string[]>([])
 
   const basePackagePrice = Number(selectedPackage?.price ?? service.price ?? 0)
   const addOnTotal = selectedAddOns.reduce((sum, addOn) => {
@@ -83,7 +85,40 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
       }
     }
     
-    return slots
+    if (blockedSlots.length === 0) return slots
+    return slots.filter((slot) => !blockedSlots.includes(slot))
+  }
+
+  const fetchBlockedSlots = async (date: Date) => {
+    try {
+      const dateParam = format(date, "yyyy-MM-dd")
+      const response = await fetch(
+        `/api/database/bookings/availability?providerId=${service.providerId}&serviceId=${service.id}&date=${dateParam}`
+      )
+      const payload = await response.json()
+      if (!payload?.success || !Array.isArray(payload.data)) {
+        setBlockedSlots([])
+        return
+      }
+
+      const blocked = new Set<string>()
+      for (const window of payload.data) {
+        const [startH, startM] = String(window.startTime || "00:00").split(":").map(Number)
+        const [endH, endM] = String(window.endTime || "00:00").split(":").map(Number)
+        let cursorMinutes = (startH * 60) + startM
+        const endMinutes = (endH * 60) + endM
+        while (cursorMinutes < endMinutes) {
+          const hours = Math.floor(cursorMinutes / 60)
+          const minutes = cursorMinutes % 60
+          blocked.add(`${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`)
+          cursorMinutes += 30
+        }
+      }
+
+      setBlockedSlots(Array.from(blocked))
+    } catch {
+      setBlockedSlots([])
+    }
   }
 
   const handleBooking = async () => {
@@ -125,6 +160,9 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
         finalPrice: service.requiresQuote ? null : estimatedTotal,
         pricingStatus: service.requiresQuote ? "estimated" : "accepted",
         requiresQuote: Boolean(service.requiresQuote),
+        customerLocation,
+        cancellationPolicyPercent: 30,
+        cancellationWindowHours: 24,
         customerId: user.uid,
         customerName: userProfile.displayName,
         customerEmail: userProfile.email,
@@ -188,6 +226,16 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
     return daySchedule?.available || false
   }
 
+  const handleDateSelect = (date?: Date) => {
+    setSelectedDate(date)
+    setSelectedTime("")
+    if (date) {
+      void fetchBlockedSlots(date)
+    } else {
+      setBlockedSlots([])
+    }
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -232,7 +280,7 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
             <Calendar
               mode="single"
               selected={selectedDate}
-              onSelect={setSelectedDate}
+              onSelect={handleDateSelect}
               disabled={(date) => date < new Date() || !isDateAvailable(date)}
               className="rounded-md border"
             />
@@ -269,6 +317,19 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
             />
           </div>
 
+          {(service.locationType === "home-service" || service.locationType === "store") && (
+            <div className="space-y-2">
+              <Label htmlFor="customerLocation">Your Location / Address</Label>
+              <Input
+                id="customerLocation"
+                type="text"
+                placeholder="Enter city, state or full address"
+                value={customerLocation}
+                onChange={(e) => setCustomerLocation(e.target.value)}
+              />
+            </div>
+          )}
+
           {/* Notes */}
           <div className="space-y-2">
             <Label htmlFor="notes">Additional Notes (Optional)</Label>
@@ -296,6 +357,9 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
                 {service.requiresQuote && (
                   <p className="text-xs text-muted-foreground">Final amount will be confirmed by provider before acceptance.</p>
                 )}
+                <p className="text-xs text-muted-foreground pt-1">
+                  Cancellation policy: 30% fee applies if cancelled within 24 hours of start time.
+                </p>
               </div>
             </div>
           )}
@@ -313,7 +377,7 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
             <Button
               onClick={handleBooking}
               className="flex-1"
-              disabled={!selectedDate || !selectedTime || !phone || loading}
+              disabled={!selectedDate || !selectedTime || !phone || loading || ((service.locationType === "home-service" || service.locationType === "store") && !customerLocation.trim())}
             >
               {loading ? "Booking..." : "Confirm Booking"}
             </Button>

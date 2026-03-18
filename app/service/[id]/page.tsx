@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
@@ -30,6 +30,7 @@ export default function ServiceDetailPage() {
       }, 600);
     };
   const params = useParams()
+  const searchParams = useSearchParams()
   const router = useRouter()
   const { user, userProfile } = useAuth()
   const [service, setService] = useState<Service | null>(null)
@@ -55,9 +56,21 @@ export default function ServiceDetailPage() {
         setService(json.data)
 
         const packages = (json.data?.packageOptions || []).filter((pkg: any) => pkg?.active !== false)
+        const requestedPackageId = searchParams.get("package") || ""
         const defaultPackage = packages.find((pkg: any) => pkg?.isDefault) || packages[0]
-        if (defaultPackage?.id) {
+        const packageToUse = packages.find((pkg: any) => pkg.id === requestedPackageId) || defaultPackage
+        if (packageToUse?.id) {
+          setSelectedPackageId(packageToUse.id)
+        } else if (defaultPackage?.id) {
           setSelectedPackageId(defaultPackage.id)
+        }
+
+        const requestedAddOns = (searchParams.get("addons") || "")
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean)
+        if (requestedAddOns.length > 0) {
+          setSelectedAddOnIds(requestedAddOns)
         }
       } catch (error) {
         console.error("Error fetching service:", error)
@@ -66,7 +79,7 @@ export default function ServiceDetailPage() {
       }
     }
     if (params.id) fetchService()
-  }, [params.id])
+  }, [params.id, searchParams])
 
   const handleMessageProvider = () => {
     if (!user || !userProfile) {

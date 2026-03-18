@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/switch"
 import { uploadToCloudinary } from "@/lib/cloudinary"
 import { useAuth } from "@/contexts/AuthContext"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, Plus, Upload, X } from "lucide-react"
+import { ArrowLeft, Plus, Upload, X, Sparkles } from "lucide-react"
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 
@@ -48,6 +48,16 @@ type ServiceAddOnOption = {
   pricingType: "fixed" | "percentage"
   amount: string
   optional: boolean
+  active: boolean
+}
+
+type LocationPricingRule = {
+  id: string
+  label: string
+  matchType: "state" | "city" | "contains"
+  matchValue: string
+  fixedAdjustment: string
+  percentageAdjustment: string
   active: boolean
 }
 
@@ -100,7 +110,70 @@ export default function NewServicePage() {
   const [addOnOptions, setAddOnOptions] = useState<ServiceAddOnOption[]>([])
   const [requiresQuote, setRequiresQuote] = useState(false)
   const [quoteNotesTemplate, setQuoteNotesTemplate] = useState("")
+  const [quoteSlaHours, setQuoteSlaHours] = useState("24")
+  const [calendarSyncEnabled, setCalendarSyncEnabled] = useState(false)
+  const [externalCalendarIcsUrl, setExternalCalendarIcsUrl] = useState("")
+  const [locationPricingRules, setLocationPricingRules] = useState<LocationPricingRule[]>([])
+  const [distanceRatePerMile, setDistanceRatePerMile] = useState("0")
+  const [generatingDescription, setGeneratingDescription] = useState(false)
   const [packageImageAssignments, setPackageImageAssignments] = useState<Record<string, number[]>>({})
+
+  const addLocationPricingRule = () => {
+    setLocationPricingRules((prev) => [
+      ...prev,
+      {
+        id: makeOptionId(),
+        label: "",
+        matchType: "contains",
+        matchValue: "",
+        fixedAdjustment: "0",
+        percentageAdjustment: "0",
+        active: true,
+      },
+    ])
+  }
+
+  const removeLocationPricingRule = (id: string) => {
+    setLocationPricingRules((prev) => prev.filter((item) => item.id !== id))
+  }
+
+  const handleGenerateDescription = async () => {
+    if (!formData.title.trim()) {
+      toast({
+        title: "Title required",
+        description: "Add a service title before generating description.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setGeneratingDescription(true)
+      const response = await fetch("/api/vendor/services/ai-description", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: formData.title,
+          category: formData.category,
+          tags: formData.tags,
+          locationType: formData.locationType,
+          packageNames: packageOptions.map((pkg) => pkg.name).filter(Boolean),
+        }),
+      })
+
+      const payload = await response.json().catch(() => null)
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || "Failed to generate description")
+      }
+
+      setFormData((prev) => ({ ...prev, description: payload.data.description || prev.description }))
+      toast({ title: "Description generated", description: "AI draft added. You can edit before publishing." })
+    } catch (error: any) {
+      toast({ title: "Generation failed", description: error.message || "Unable to generate description.", variant: "destructive" })
+    } finally {
+      setGeneratingDescription(false)
+    }
+  }
 
   const addPackageOption = () => {
     const nextId = makeOptionId()
@@ -333,6 +406,21 @@ export default function NewServicePage() {
         addOnOptions: normalizedAddOns,
         requiresQuote,
         quoteNotesTemplate: quoteNotesTemplate.trim(),
+        quoteSlaHours: Number.parseInt(quoteSlaHours, 10) || 24,
+        calendarSyncEnabled,
+        externalCalendarIcsUrl: externalCalendarIcsUrl.trim(),
+        locationPricingRules: locationPricingRules
+          .filter((rule) => rule.label.trim() && rule.matchValue.trim())
+          .map((rule) => ({
+            id: rule.id,
+            label: rule.label.trim(),
+            matchType: rule.matchType,
+            matchValue: rule.matchValue.trim(),
+            fixedAdjustment: Number.parseFloat(rule.fixedAdjustment) || 0,
+            percentageAdjustment: Number.parseFloat(rule.percentageAdjustment) || 0,
+            active: rule.active,
+          })),
+        distanceRatePerMile: Number.parseFloat(distanceRatePerMile) || 0,
       }
 
       // Only add duration if it's provided
@@ -419,6 +507,12 @@ export default function NewServicePage() {
 
               <div className="space-y-2">
                 <Label htmlFor="description">Description *</Label>
+                <div className="flex justify-end">
+                  <Button type="button" variant="outline" size="sm" onClick={handleGenerateDescription} disabled={generatingDescription}>
+                    <Sparkles className="h-4 w-4 mr-1" />
+                    {generatingDescription ? "Generating..." : "Generate With AI"}
+                  </Button>
+                </div>
                 <Textarea
                   id="description"
                   required
@@ -702,16 +796,30 @@ export default function NewServicePage() {
                 </div>
 
                 {requiresQuote && (
-                  <div className="space-y-2">
-                    <Label htmlFor="quoteNotesTemplate">Quote Notes (Optional)</Label>
-                    <Textarea
-                      id="quoteNotesTemplate"
-                      rows={3}
-                      placeholder="Add details customers should provide for accurate quote approval"
-                      value={quoteNotesTemplate}
-                      onChange={(e) => setQuoteNotesTemplate(e.target.value)}
-                    />
-                  </div>
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="quoteNotesTemplate">Quote Notes (Optional)</Label>
+                      <Textarea
+                        id="quoteNotesTemplate"
+                        rows={3}
+                        placeholder="Add details customers should provide for accurate quote approval"
+                        value={quoteNotesTemplate}
+                        onChange={(e) => setQuoteNotesTemplate(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="quoteSlaHours">Quote SLA (hours)</Label>
+                      <Input
+                        id="quoteSlaHours"
+                        type="number"
+                        min="1"
+                        max="168"
+                        value={quoteSlaHours}
+                        onChange={(e) => setQuoteSlaHours(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">Quotes automatically expire after this window.</p>
+                    </div>
+                  </>
                 )}
               </div>
 
@@ -882,6 +990,140 @@ export default function NewServicePage() {
                   </p>
                 </div>
               )}
+
+              <div className="rounded-lg border p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label className="text-base">Google/Outlook Calendar Sync</Label>
+                    <p className="text-xs text-muted-foreground">Paste your public iCal (.ics) URL to auto-block busy slots.</p>
+                  </div>
+                  <Switch checked={calendarSyncEnabled} onCheckedChange={setCalendarSyncEnabled} />
+                </div>
+                {calendarSyncEnabled && (
+                  <div className="space-y-2">
+                    <Label htmlFor="externalCalendarIcsUrl">Public iCal URL</Label>
+                    <Input
+                      id="externalCalendarIcsUrl"
+                      placeholder="https://calendar.google.com/calendar/ical/.../public/basic.ics"
+                      value={externalCalendarIcsUrl}
+                      onChange={(e) => setExternalCalendarIcsUrl(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-lg border p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label className="text-base">Multi-location Pricing Rules</Label>
+                    <p className="text-xs text-muted-foreground">Adjust pricing by state/city/location phrase and optional distance fee.</p>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={addLocationPricingRule}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Rule
+                  </Button>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="distanceRatePerMile">Distance Fee Rate (N per mile)</Label>
+                  <Input
+                    id="distanceRatePerMile"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={distanceRatePerMile}
+                    onChange={(e) => setDistanceRatePerMile(e.target.value)}
+                  />
+                </div>
+
+                {locationPricingRules.length > 0 && (
+                  <div className="space-y-3">
+                    {locationPricingRules.map((rule) => (
+                      <div key={rule.id} className="rounded-md border p-3 space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label>Rule Label</Label>
+                            <Input
+                              value={rule.label}
+                              onChange={(e) =>
+                                setLocationPricingRules((prev) =>
+                                  prev.map((item) => (item.id === rule.id ? { ...item, label: e.target.value } : item))
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Match Type</Label>
+                            <Select
+                              value={rule.matchType}
+                              onValueChange={(value: any) =>
+                                setLocationPricingRules((prev) =>
+                                  prev.map((item) => (item.id === rule.id ? { ...item, matchType: value } : item))
+                                )
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="state">State</SelectItem>
+                                <SelectItem value="city">City</SelectItem>
+                                <SelectItem value="contains">Contains</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div className="space-y-2 md:col-span-1">
+                            <Label>Match Value</Label>
+                            <Input
+                              value={rule.matchValue}
+                              onChange={(e) =>
+                                setLocationPricingRules((prev) =>
+                                  prev.map((item) => (item.id === rule.id ? { ...item, matchValue: e.target.value } : item))
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Fixed Adj. (N)</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={rule.fixedAdjustment}
+                              onChange={(e) =>
+                                setLocationPricingRules((prev) =>
+                                  prev.map((item) => (item.id === rule.id ? { ...item, fixedAdjustment: e.target.value } : item))
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>% Adj.</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={rule.percentageAdjustment}
+                              onChange={(e) =>
+                                setLocationPricingRules((prev) =>
+                                  prev.map((item) => (item.id === rule.id ? { ...item, percentageAdjustment: e.target.value } : item))
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-end">
+                          <Button type="button" variant="destructive" size="sm" onClick={() => removeLocationPricingRule(rule.id)}>
+                            Remove Rule
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
 

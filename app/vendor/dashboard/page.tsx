@@ -190,6 +190,9 @@ export default function VendorDashboardPage() {
   const pendingBookings = dashboard?.pendingBookings || 0;
   const activeServices = dashboard?.activeServices || 0;
   const recentBookings = dashboard?.recentBookings || [];
+  const customerSegmentation = dashboard?.customerSegmentation || { new: 0, repeat: 0, dormant: 0, highValue: 0, autoPromosTriggeredToday: 0 };
+  const conversionFunnel = dashboard?.conversionFunnel || { stages: [], hints: [] };
+  const smartCollections = dashboard?.smartCollections || { bestSellers: [], newArrivals: [], under5000: [] };
 
   const vendorType = userProfile?.vendorType || "both"
 
@@ -212,8 +215,8 @@ export default function VendorDashboardPage() {
             {vendorType === "both" ? (
               <>
                 <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg" variant="accent" onClick={() => setShowSetupPopup(false)}>
-                  <Link href="/vendor/store-settings">
-                    Go to Store Settings
+                  <Link href="/vendor/setup-wizard">
+                    Start Setup Wizard
                   </Link>
                 </Button>
                 <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg" variant="outline" onClick={() => setShowSetupPopup(false)}>
@@ -224,8 +227,8 @@ export default function VendorDashboardPage() {
               </>
             ) : (
               <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg" variant="accent" onClick={() => setShowSetupPopup(false)}>
-                <Link href={vendorType === "services" ? "/vendor/services/new" : "/vendor/store-settings"}>
-                  {vendorType === "services" ? "Go to Service Setup" : "Go to Store Settings"}
+                <Link href={vendorType === "services" ? "/vendor/services/new" : "/vendor/setup-wizard"}>
+                  {vendorType === "services" ? "Go to Service Setup" : "Start Setup Wizard"}
                 </Link>
               </Button>
             )}
@@ -241,6 +244,11 @@ export default function VendorDashboardPage() {
           <div>
             <h1 className="text-lg font-bold" style={{ textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))' }}>Dashboard</h1>
             <p className="text-xs text-muted-foreground">Welcome back! Here's what's happening with your store.</p>
+            <div className="mt-2">
+              <Button asChild size="sm" variant="outline">
+                <Link href="/vendor/setup-wizard">Open Setup Wizard</Link>
+              </Button>
+            </div>
           </div>
           <Button
             onClick={loadDashboard}
@@ -280,7 +288,7 @@ export default function VendorDashboardPage() {
 
             {/* GOODS TAB */}
             <TabsContent value="goods" className="space-y-6">
-              {renderGoodsDashboard(totalRevenue, totalProducts, totalOrders, conversionRate, lowStockProducts, recentOrders)}
+              {renderGoodsDashboard(totalRevenue, totalProducts, totalOrders, conversionRate, lowStockProducts, recentOrders, customerSegmentation, conversionFunnel, smartCollections)}
             </TabsContent>
 
             {/* SERVICES TAB */}
@@ -290,7 +298,7 @@ export default function VendorDashboardPage() {
           </Tabs>
         ) : vendorType === "goods" ? (
           /* GOODS ONLY: Direct Dashboard */
-          renderGoodsDashboard(totalRevenue, totalProducts, totalOrders, conversionRate, lowStockProducts, recentOrders)
+          renderGoodsDashboard(totalRevenue, totalProducts, totalOrders, conversionRate, lowStockProducts, recentOrders, customerSegmentation, conversionFunnel, smartCollections)
         ) : (
           /* SERVICES ONLY: Direct Dashboard */
           renderServicesDashboard(serviceRevenue, totalServices, totalBookings, pendingBookings, activeServices, recentBookings)
@@ -314,7 +322,10 @@ export default function VendorDashboardPage() {
     ordersCount: number,
     conversion: string | number,
     lowStock: any[],
-    recent: any[]
+    recent: any[],
+    segmentation: any,
+    funnel: any,
+    collections: any
   ) {
     // Defensive fallback for undefined/null values
     const safeRevenueChange = typeof revenueChange === 'number' ? revenueChange : 0;
@@ -511,6 +522,64 @@ export default function VendorDashboardPage() {
                   </Button>
                 </>
               )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Customer Segmentation</CardTitle>
+              <CardDescription>Behavior groups with automatic promo triggers.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <div className="flex justify-between"><span>New</span><Badge variant="outline">{segmentation.new}</Badge></div>
+              <div className="flex justify-between"><span>Repeat</span><Badge variant="outline">{segmentation.repeat}</Badge></div>
+              <div className="flex justify-between"><span>Dormant</span><Badge variant="outline">{segmentation.dormant}</Badge></div>
+              <div className="flex justify-between"><span>High-Value</span><Badge variant="outline">{segmentation.highValue}</Badge></div>
+              <div className="pt-2 border-t flex justify-between"><span>Auto Promos Today</span><Badge>{segmentation.autoPromosTriggeredToday}</Badge></div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Conversion Funnel</CardTitle>
+              <CardDescription>Visits to checkout performance.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {(funnel?.stages || []).map((stage: any) => (
+                <div key={stage.key} className="flex justify-between">
+                  <span>{stage.label}</span>
+                  <Badge variant="outline">{stage.value}</Badge>
+                </div>
+              ))}
+              {(funnel?.hints || []).slice(0, 2).map((hint: string, idx: number) => (
+                <p key={idx} className="text-xs text-muted-foreground">• {hint}</p>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Smart Collections</CardTitle>
+              <CardDescription>Auto-curated product groups.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div>
+                <p className="font-medium">Best Sellers</p>
+                <p className="text-xs text-muted-foreground">{(collections?.bestSellers || []).length} products</p>
+              </div>
+              <div>
+                <p className="font-medium">New Arrivals</p>
+                <p className="text-xs text-muted-foreground">{(collections?.newArrivals || []).length} products</p>
+              </div>
+              <div>
+                <p className="font-medium">Under N5,000</p>
+                <p className="text-xs text-muted-foreground">{(collections?.under5000 || []).length} products</p>
+              </div>
+              <Button asChild size="sm" variant="outline" className="w-full">
+                <Link href="/vendor/products">View Products</Link>
+              </Button>
             </CardContent>
           </Card>
         </div>

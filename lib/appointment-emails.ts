@@ -14,7 +14,7 @@ export interface AppointmentEmailData {
   duration: number
   totalPrice: number
   location: string
-  locationType: 'online' | 'in-person' | 'both'
+  locationType: 'online' | 'in-person' | 'both' | 'store' | 'home-service'
   notes?: string
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled'
 }
@@ -305,5 +305,82 @@ export const AppointmentEmailService = {
       subject: `💰 New Booking: ${data.serviceTitle} - ${formattedDate} at ${data.startTime}`,
       html: emailHtml
     })
+  },
+
+  async sendQuoteReminderEmail(params: {
+    customerEmail: string
+    customerName: string
+    providerName: string
+    serviceTitle: string
+    bookingDate: Date
+    startTime: string
+    quoteAmount?: number
+    quoteExpiresAt: Date
+  }): Promise<boolean> {
+    const bookingDate = new Date(params.bookingDate).toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
+    const expiresAt = new Date(params.quoteExpiresAt).toLocaleString('en-US')
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1f2937;">Quote Reminder</h2>
+        <p>Hi ${params.customerName},</p>
+        <p>Your provider <strong>${params.providerName}</strong> has sent a quote for <strong>${params.serviceTitle}</strong>.</p>
+        <p><strong>Booking:</strong> ${bookingDate} at ${params.startTime}</p>
+        <p><strong>Quote Amount:</strong> ${params.quoteAmount != null ? `N${Number(params.quoteAmount).toLocaleString('en-NG')}` : 'Check your dashboard'}</p>
+        <p><strong>Expires:</strong> ${expiresAt}</p>
+        <p>Please accept or reject this quote before it expires.</p>
+      </div>
+    `
+
+    return emailService.sendEmail({
+      to: params.customerEmail,
+      subject: `Quote Reminder: ${params.serviceTitle}`,
+      html,
+    })
+  },
+
+  async sendQuoteExpiredEmail(params: {
+    customerEmail: string
+    customerName: string
+    providerEmail: string
+    providerName: string
+    serviceTitle: string
+  }): Promise<boolean> {
+    const customerHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1f2937;">Quote Expired</h2>
+        <p>Hi ${params.customerName},</p>
+        <p>Your quote for <strong>${params.serviceTitle}</strong> from <strong>${params.providerName}</strong> has expired and the booking was cancelled.</p>
+        <p>You can rebook this service anytime.</p>
+      </div>
+    `
+
+    const providerHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1f2937;">Quote Expired</h2>
+        <p>Your quote for service <strong>${params.serviceTitle}</strong> expired without acceptance.</p>
+        <p>The booking was automatically cancelled.</p>
+      </div>
+    `
+
+    const [customerSent, providerSent] = await Promise.all([
+      emailService.sendEmail({
+        to: params.customerEmail,
+        subject: `Quote Expired: ${params.serviceTitle}`,
+        html: customerHtml,
+      }),
+      emailService.sendEmail({
+        to: params.providerEmail,
+        subject: `Quote Expired: ${params.serviceTitle}`,
+        html: providerHtml,
+      }),
+    ])
+
+    return customerSent && providerSent
   }
 }

@@ -24,12 +24,16 @@ interface Product {
   id: string
   name?: string
   title?: string
+  storeName?: string
   description: string
   price: number
   category: string
   images: string[]
   vendorId: string
   vendorName: string
+  vendor?: {
+    name?: string
+  }
   stock?: number
   rating?: number
   hasColorOptions?: boolean
@@ -50,9 +54,10 @@ interface ProductQuickViewProps {
   onClose: () => void
   onAddToCart: (product: Product) => void
   storeName?: string
+  className?: string
 }
 
-export function ProductQuickView({ product, open, onClose, onAddToCart, storeName }: ProductQuickViewProps) {
+export function ProductQuickView({ product, open, onClose, onAddToCart, storeName, className }: ProductQuickViewProps) {
   const [mainImage, setMainImage] = useState<string>("")
   const [selectedColor, setSelectedColor] = useState<string>("")
   const [selectedSize, setSelectedSize] = useState<string>("")
@@ -84,7 +89,7 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <style>{cursorStyle}</style>
-      <DialogContent className="max-w-6xl w-full product-quick-view-modal bg-white/30 backdrop-blur-xl border border-white/20 shadow-2xl shadow-accent/10 rounded-2xl p-2 sm:p-6">
+      <DialogContent className={`max-w-6xl w-full product-quick-view-modal bg-white/30 backdrop-blur-xl border border-white/20 shadow-2xl shadow-accent/10 rounded-2xl p-2 sm:p-6 ${className || ""}`}>
         <style>{`
           .product-quick-view-modal {
             min-width: 100vw;
@@ -132,7 +137,7 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
         <div className="flex flex-col md:flex-row gap-4 md:gap-8 pt-2 md:pt-6">
           {/* Left: Image Gallery */}
           <div className="w-full md:w-1/2 flex flex-col items-center">
-            <div className="relative w-full aspect-square rounded-2xl overflow-hidden bg-slate-100 min-h-[220px] sm:min-h-[320px]">
+            <div className="relative w-full aspect-square rounded-2xl overflow-hidden bg-slate-100 min-h-[220px] sm:min-h-80">
               <Image
                 src={displayImage}
                 alt={product.title || product.name || 'Product'}
@@ -225,7 +230,7 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
             {/* Description */}
             <div className="bg-slate-50 rounded-lg p-2 sm:p-3">
               <span className="font-semibold text-xs mb-2 block">Description</span>
-              <span className="text-xs text-slate-700 whitespace-pre-wrap break-words">{product.description}</span>
+              <span className="text-xs text-slate-700 whitespace-pre-wrap wrap-break-word">{product.description}</span>
             </div>
 
             {/* Action Buttons */}

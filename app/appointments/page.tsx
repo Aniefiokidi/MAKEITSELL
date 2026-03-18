@@ -1,20 +1,24 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Calendar as BookingCalendar } from "@/components/ui/calendar"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useAuth } from "@/contexts/AuthContext"
 import { useToast } from "@/hooks/use-toast"
-import { Calendar, Clock, MapPin, User, MessageSquare, CheckCircle, AlertCircle, XCircle } from "lucide-react"
+import { Calendar as CalendarIcon, Clock, MapPin, User, MessageSquare, CheckCircle, AlertCircle, XCircle } from "lucide-react"
 import { format } from "date-fns"
 
 interface Appointment {
   id: string
   serviceId: string
+  providerId?: string
   serviceTitle: string
   providerName: string
   bookingDate: Date
@@ -25,7 +29,12 @@ interface Appointment {
   estimatedPrice?: number
   finalPrice?: number | null
   pricingStatus?: "estimated" | "quoted" | "accepted"
+  quoteExpiresAt?: Date | string
   requiresQuote?: boolean
+  cancellationFeeApplied?: boolean
+  cancellationFeeAmount?: number
+  cancellationFeeStatus?: "none" | "charged" | "pending" | "waived"
+  rescheduleCount?: number
   selectedPackageName?: string
   status: "pending" | "confirmed" | "completed" | "cancelled"
   location: string
@@ -41,6 +50,13 @@ export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<"all" | "upcoming" | "completed" | "cancelled">("upcoming")
+  const [isRescheduleOpen, setIsRescheduleOpen] = useState(false)
+  const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null)
+  const [rescheduleDate, setRescheduleDate] = useState<Date | undefined>(undefined)
+  const [rescheduleTime, setRescheduleTime] = useState("")
+  const [rescheduleBlockedSlots, setRescheduleBlockedSlots] = useState<Array<{ startTime: string; endTime: string; source: string }>>([])
+  const [loadingRescheduleSlots, setLoadingRescheduleSlots] = useState(false)
+  const [rescheduleSubmitting, setRescheduleSubmitting] = useState(false)
 
   useEffect(() => {
     if (!user) {
@@ -166,6 +182,171 @@ export default function AppointmentsPage() {
     }
   }
 
+  const handleCancelAppointment = async (appointmentId: string) => {
+    try {
+      const response = await fetch(`/api/database/bookings/${appointmentId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ actionType: "cancel", reason: "Cancelled by customer" }),
+      })
+
+      const body = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(body?.error || "Failed to cancel appointment")
+      }
+
+      const updated = body?.data
+      setAppointments((prev) =>
+        prev.map((item) =>
+          item.id === appointmentId
+            ? {
+                ...item,
+                status: "cancelled",
+                cancellationFeeApplied: Boolean(updated?.cancellationFeeApplied),
+                cancellationFeeAmount: Number(updated?.cancellationFeeAmount || 0),
+                cancellationFeeStatus: updated?.cancellationFeeStatus || item.cancellationFeeStatus,
+              }
+            : item
+        )
+      )
+
+      const feeAmount = Number(updated?.cancellationFeeAmount || 0)
+      const feeMessage = feeAmount > 0
+        ? ` Cancellation fee: N${feeAmount.toLocaleString("en-NG")}.`
+        : ""
+      toast({ title: "Appointment cancelled", description: `The booking was cancelled.${feeMessage}` })
+    } catch (error) {
+      console.error("Error cancelling appointment:", error)
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to cancel appointment.", variant: "destructive" })
+    }
+  }
+
+  const fetchRescheduleAvailability = async (appointment: Appointment, date: Date) => {
+    if (!appointment.providerId) {
+      setRescheduleBlockedSlots([])
+      return
+    }
+
+    try {
+      setLoadingRescheduleSlots(true)
+      const query = new URLSearchParams({
+        providerId: appointment.providerId,
+        serviceId: appointment.serviceId,
+        date: format(date, "yyyy-MM-dd"),
+        excludeBookingId: appointment.id,
+      })
+      const response = await fetch(`/api/database/bookings/availability?${query.toString()}`)
+      const payload = await response.json()
+      if (payload?.success && Array.isArray(payload.data)) {
+        setRescheduleBlockedSlots(payload.data)
+      } else {
+        setRescheduleBlockedSlots([])
+      }
+    } catch {
+      setRescheduleBlockedSlots([])
+    } finally {
+      setLoadingRescheduleSlots(false)
+    }
+  }
+
+  const openRescheduleModal = (appointment: Appointment) => {
+    const currentDate = new Date(appointment.bookingDate)
+    setRescheduleTarget(appointment)
+    setRescheduleDate(currentDate)
+    setRescheduleTime(appointment.startTime)
+    setIsRescheduleOpen(true)
+    void fetchRescheduleAvailability(appointment, currentDate)
+  }
+
+  const blockedTimeSet = useMemo(() => {
+    const blocked = new Set<string>()
+    for (const window of rescheduleBlockedSlots) {
+      const [startH, startM] = String(window.startTime || "00:00").split(":").map(Number)
+      const [endH, endM] = String(window.endTime || "00:00").split(":").map(Number)
+      let cursor = (startH * 60) + startM
+      const end = (endH * 60) + endM
+      while (cursor < end) {
+        const h = Math.floor(cursor / 60)
+        const m = cursor % 60
+        blocked.add(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`)
+        cursor += 30
+      }
+    }
+    return blocked
+  }, [rescheduleBlockedSlots])
+
+  const rescheduleTimeOptions = useMemo(() => {
+    const slots: string[] = []
+    for (let hour = 0; hour < 24; hour++) {
+      for (const minute of [0, 30]) {
+        const slot = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`
+        if (!blockedTimeSet.has(slot)) {
+          slots.push(slot)
+        }
+      }
+    }
+    return slots
+  }, [blockedTimeSet])
+
+  const handleRescheduleSubmit = async () => {
+    if (!rescheduleTarget || !rescheduleDate || !rescheduleTime) {
+      toast({ title: "Incomplete details", description: "Select a date and time to reschedule.", variant: "destructive" })
+      return
+    }
+
+    const duration = Number(rescheduleTarget.duration || 60)
+    const [hour, minute] = rescheduleTime.split(":").map(Number)
+    const endMinutes = minute + duration
+    const endHour = hour + Math.floor(endMinutes / 60)
+    const endMinute = endMinutes % 60
+    const newEndTime = `${String(endHour).padStart(2, "0")}:${String(endMinute).padStart(2, "0")}`
+
+    try {
+      setRescheduleSubmitting(true)
+      const response = await fetch(`/api/database/bookings/${rescheduleTarget.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          actionType: "reschedule",
+          newBookingDate: format(rescheduleDate, "yyyy-MM-dd"),
+          newStartTime: rescheduleTime,
+          newEndTime,
+        }),
+      })
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null)
+        throw new Error(errorBody?.error || "Failed to reschedule")
+      }
+
+      const payload = await response.json()
+      setAppointments((prev) =>
+        prev.map((item) =>
+          item.id === rescheduleTarget.id
+            ? {
+                ...item,
+                bookingDate: payload?.data?.bookingDate || item.bookingDate,
+                startTime: payload?.data?.startTime || item.startTime,
+                endTime: payload?.data?.endTime || item.endTime,
+                status: payload?.data?.status || "pending",
+                rescheduleCount: Number(payload?.data?.rescheduleCount || item.rescheduleCount || 0),
+              }
+            : item
+        )
+      )
+      setIsRescheduleOpen(false)
+      setRescheduleTarget(null)
+      setRescheduleBlockedSlots([])
+      toast({ title: "Appointment rescheduled", description: "Your appointment has been moved and awaits provider confirmation." })
+    } catch (error) {
+      console.error("Error rescheduling appointment:", error)
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to reschedule appointment.", variant: "destructive" })
+    } finally {
+      setRescheduleSubmitting(false)
+    }
+  }
+
   const getPricingStatusColor = (status?: string) => {
     switch (status) {
       case "accepted":
@@ -228,7 +409,7 @@ export default function AppointmentsPage() {
         ) : filteredAppointments.length === 0 ? (
           <Card className="border-2 border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-16">
-              <Calendar className="h-16 w-16 text-muted-foreground mb-4 opacity-50" />
+              <CalendarIcon className="h-16 w-16 text-muted-foreground mb-4 opacity-50" />
               <h3 className="text-2xl font-bold mb-2">No Appointments Yet</h3>
               <p className="text-muted-foreground mb-6 text-center max-w-md">
                 {filter === "upcoming" 
@@ -287,7 +468,7 @@ export default function AppointmentsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {/* Date & Time */}
                     <div className="flex items-start gap-3 p-4 bg-accent/5 rounded-lg">
-                      <Calendar className="h-5 w-5 text-accent mt-1 shrink-0" />
+                      <CalendarIcon className="h-5 w-5 text-accent mt-1 shrink-0" />
                       <div>
                         <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Date</p>
                         <p className="text-lg font-bold">
@@ -355,6 +536,20 @@ export default function AppointmentsPage() {
                         Estimated: ₦{Number(appointment.estimatedPrice ?? appointment.totalPrice ?? 0).toLocaleString('en-NG')}
                         {appointment.finalPrice != null ? ` • Final: ₦${Number(appointment.finalPrice).toLocaleString('en-NG')}` : ''}
                       </p>
+                      {appointment.quoteExpiresAt && appointment.pricingStatus === "quoted" && (
+                        <p className="text-xs text-amber-700 mt-1">
+                          Quote expires: {format(new Date(appointment.quoteExpiresAt), "MMM d, yyyy HH:mm")}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {appointment.status === "cancelled" && appointment.cancellationFeeApplied && Number(appointment.cancellationFeeAmount || 0) > 0 && (
+                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-amber-900 mb-1">Cancellation Fee</p>
+                      <p className="text-sm text-amber-900">
+                        N{Number(appointment.cancellationFeeAmount || 0).toLocaleString('en-NG')} ({appointment.cancellationFeeStatus || 'pending'})
+                      </p>
                     </div>
                   )}
 
@@ -381,15 +576,14 @@ export default function AppointmentsPage() {
                       Message Provider
                     </Button>
                     {appointment.status === "confirmed" && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => {
-                          /* TODO: Cancel appointment */
-                        }}
-                      >
-                        Cancel Appointment
-                      </Button>
+                      <>
+                        <Button variant="outline" size="sm" onClick={() => openRescheduleModal(appointment)}>
+                          Reschedule
+                        </Button>
+                        <Button variant="destructive" size="sm" onClick={() => handleCancelAppointment(appointment.id)}>
+                          Cancel Appointment
+                        </Button>
+                      </>
                     )}
                     {appointment.status === "pending" && appointment.requiresQuote && appointment.pricingStatus === "quoted" && (
                       <>
@@ -401,6 +595,22 @@ export default function AppointmentsPage() {
                         </Button>
                       </>
                     )}
+                    {(appointment.status === "completed" || appointment.status === "cancelled") && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          const addOns = (appointment as any).selectedAddOns || []
+                          const addOnIds = Array.isArray(addOns) ? addOns.map((item: any) => item.id).filter(Boolean) : []
+                          const query = new URLSearchParams()
+                          if ((appointment as any).selectedPackageId) query.set("package", String((appointment as any).selectedPackageId))
+                          if (addOnIds.length > 0) query.set("addons", addOnIds.join(","))
+                          router.push(`/service/${appointment.serviceId}?${query.toString()}`)
+                        }}
+                      >
+                        Rebook
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -408,6 +618,75 @@ export default function AppointmentsPage() {
           </div>
         )}
       </main>
+
+      <Dialog open={isRescheduleOpen} onOpenChange={setIsRescheduleOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Reschedule Appointment</DialogTitle>
+            <DialogDescription>
+              Choose a new date and available slot. Conflicting slots are automatically blocked.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Select Date</p>
+              <BookingCalendar
+                mode="single"
+                selected={rescheduleDate}
+                onSelect={(date) => {
+                  setRescheduleDate(date)
+                  setRescheduleTime("")
+                  if (rescheduleTarget && date) {
+                    void fetchRescheduleAvailability(rescheduleTarget, date)
+                  }
+                }}
+                disabled={(date) => date < new Date()}
+                className="rounded-md border"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Select Time</p>
+              <Select value={rescheduleTime} onValueChange={setRescheduleTime}>
+                <SelectTrigger>
+                  <SelectValue placeholder={loadingRescheduleSlots ? "Loading available slots..." : "Choose available slot"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {rescheduleTimeOptions.map((slot) => (
+                    <SelectItem key={slot} value={slot}>{slot}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Conflict Preview</p>
+              {loadingRescheduleSlots ? (
+                <p className="text-xs text-muted-foreground">Loading conflicts...</p>
+              ) : rescheduleBlockedSlots.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No conflicts found for selected date.</p>
+              ) : (
+                <div className="max-h-32 overflow-y-auto rounded-md border p-2 space-y-1">
+                  {rescheduleBlockedSlots.map((slot, index) => (
+                    <div key={`${slot.startTime}-${slot.endTime}-${index}`} className="text-xs flex items-center justify-between">
+                      <span>{slot.startTime} - {slot.endTime}</span>
+                      <Badge variant="outline" className="text-[10px]">{slot.source === "external_calendar" ? "Calendar" : "Booking"}</Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRescheduleOpen(false)} disabled={rescheduleSubmitting}>Cancel</Button>
+            <Button onClick={handleRescheduleSubmit} disabled={!rescheduleDate || !rescheduleTime || rescheduleSubmitting}>
+              {rescheduleSubmitting ? "Rescheduling..." : "Confirm Reschedule"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Footer />
     </div>

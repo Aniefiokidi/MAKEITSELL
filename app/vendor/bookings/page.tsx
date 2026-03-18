@@ -28,6 +28,9 @@ interface Booking {
   estimatedPrice?: number
   finalPrice?: number | null
   pricingStatus?: "estimated" | "quoted" | "accepted"
+  quoteSentAt?: string | Date
+  quoteExpiresAt?: string | Date
+  quoteReminderCount?: number
   requiresQuote?: boolean
   selectedPackageName?: string
   status: "pending" | "confirmed" | "completed" | "cancelled"
@@ -43,6 +46,7 @@ export default function VendorBookingsPage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("pending")
   const [quoteValues, setQuoteValues] = useState<Record<string, string>>({})
+  const [quoteSlaHours, setQuoteSlaHours] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (user) {
@@ -84,10 +88,17 @@ export default function VendorBookingsPage() {
 
   const handleSendQuote = async (booking: Booking) => {
     const quoteValue = Number(quoteValues[booking.id])
+    const slaHours = Number(quoteSlaHours[booking.id] || 24)
     if (!Number.isFinite(quoteValue) || quoteValue <= 0) {
       toast({ title: "Invalid quote", description: "Enter a valid quote amount.", variant: "destructive" })
       return
     }
+    if (!Number.isFinite(slaHours) || slaHours < 1 || slaHours > 168) {
+      toast({ title: "Invalid SLA", description: "Quote SLA must be between 1 and 168 hours.", variant: "destructive" })
+      return
+    }
+
+    const quoteExpiresAt = new Date(Date.now() + (slaHours * 60 * 60 * 1000))
 
     try {
       const res = await fetch(`/api/database/bookings/${booking.id}`, {
@@ -98,6 +109,7 @@ export default function VendorBookingsPage() {
           finalPrice: quoteValue,
           estimatedPrice: booking.estimatedPrice ?? booking.totalPrice,
           status: "pending",
+          quoteExpiresAt,
         }),
       })
 
@@ -108,7 +120,7 @@ export default function VendorBookingsPage() {
       setBookings((prev) =>
         prev.map((item) =>
           item.id === booking.id
-            ? { ...item, pricingStatus: "quoted", finalPrice: quoteValue, totalPrice: quoteValue }
+            ? { ...item, pricingStatus: "quoted", finalPrice: quoteValue, totalPrice: quoteValue, quoteExpiresAt }
             : item
         )
       )
@@ -213,6 +225,11 @@ export default function VendorBookingsPage() {
               Est: ₦{Number(booking.estimatedPrice ?? booking.totalPrice ?? 0).toLocaleString('en-NG')}
               {booking.finalPrice != null ? ` • Final: ₦${Number(booking.finalPrice).toLocaleString('en-NG')}` : ''}
             </p>
+            {booking.quoteExpiresAt && booking.pricingStatus === "quoted" && (
+              <p className="text-xs text-amber-700 mt-1">
+                Expires: {format(new Date(booking.quoteExpiresAt), "MMM d, yyyy HH:mm")}
+              </p>
+            )}
           </div>
         )}
 
@@ -234,6 +251,20 @@ export default function VendorBookingsPage() {
                     }))
                   }
                   className="h-9 w-full sm:w-32 rounded-md border border-input bg-background px-3 text-sm"
+                />
+                <input
+                  type="number"
+                  min="1"
+                  max="168"
+                  placeholder="SLA hrs"
+                  value={quoteSlaHours[booking.id] ?? "24"}
+                  onChange={(e) =>
+                    setQuoteSlaHours((prev) => ({
+                      ...prev,
+                      [booking.id]: e.target.value,
+                    }))
+                  }
+                  className="h-9 w-full sm:w-24 rounded-md border border-input bg-background px-3 text-sm"
                 />
                 <Button size="sm" variant="default" onClick={() => handleSendQuote(booking)}>
                   Send Quote

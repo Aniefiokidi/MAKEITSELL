@@ -1,5 +1,7 @@
 import { getOrdersByVendor, getVendorProducts, getServices, getBookingsByProvider, getProductById, getStoreByVendorId } from "./mongodb-operations";
 import { User } from "./models/User";
+import { Cart } from "./models/Cart";
+import { buildConversionFunnel, buildCustomerSegments, buildSmartCollections, triggerAutomatedPromos } from "./vendor-insights";
 
 export async function getVendorDashboard(vendorId: string) {
   const orders = await getOrdersByVendor(vendorId);
@@ -137,6 +139,20 @@ export async function getVendorDashboard(vendorId: string) {
     })
   );
 
+  const carts = await Cart.find({}).select('items').lean();
+  const cartsWithVendorItems = carts.filter((cart: any) =>
+    Array.isArray(cart?.items) && cart.items.some((item: any) => String(item?.vendorId || '') === vendorId)
+  ).length;
+
+  const segmentResult = buildCustomerSegments({ vendorId, orders: orders as any[] });
+  const promoResult = await triggerAutomatedPromos({ vendorId, segmentResult });
+  const funnel = await buildConversionFunnel({
+    vendorId,
+    totalOrders,
+    cartsWithVendorItems,
+  });
+  const smartCollections = buildSmartCollections(products as any[]);
+
   return {
     totalRevenue,
     totalOrders,
@@ -159,5 +175,14 @@ export async function getVendorDashboard(vendorId: string) {
     storeWalletBalance: (typeof vendorAccount?.walletBalance === 'number' ? vendorAccount.walletBalance : 0)
       + (typeof store?.walletBalance === 'number' ? store.walletBalance : 0),
     linkedWalletUserId: store?.linkedWalletUserId || vendorId,
+    customerSegmentation: {
+      new: segmentResult.segments.new.length,
+      repeat: segmentResult.segments.repeat.length,
+      dormant: segmentResult.segments.dormant.length,
+      highValue: segmentResult.segments.highValue.length,
+      autoPromosTriggeredToday: promoResult.triggeredCount,
+    },
+    conversionFunnel: funnel,
+    smartCollections,
   };
 }

@@ -20,6 +20,7 @@ import {
   X,
   Wrench,
   Calendar,
+  ListChecks,
 } from "lucide-react"
 
 const sidebarItems = [
@@ -206,6 +207,17 @@ export default function VendorSidebar() {
             <span>Store Settings</span>
           </Link>
           <Link
+            href="/vendor/setup-wizard"
+            className={cn(
+              "flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+              pathname === "/vendor/setup-wizard" ? "bg-accent text-accent-foreground" : "text-muted-foreground",
+            )}
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <ListChecks className="h-4 w-4" />
+            <span>Setup Wizard</span>
+          </Link>
+          <Link
             href="/vendor/support"
             className={cn(
               "flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
@@ -304,6 +316,17 @@ export default function VendorSidebar() {
           >
             <Store className="h-4 w-4" />
             <span>Store Settings</span>
+          </Link>
+          <Link
+            href="/vendor/setup-wizard"
+            className={cn(
+              "flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+              pathname === "/vendor/setup-wizard" ? "bg-accent text-accent-foreground" : "text-muted-foreground",
+            )}
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <ListChecks className="h-4 w-4" />
+            <span>Setup Wizard</span>
           </Link>
           <Link
             href="/vendor/support"
@@ -406,6 +429,17 @@ export default function VendorSidebar() {
           >
             <Store className="h-4 w-4" />
             <span>Store Settings</span>
+          </Link>
+          <Link
+            href="/vendor/setup-wizard"
+            className={cn(
+              "flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+              pathname === "/vendor/setup-wizard" ? "bg-accent text-accent-foreground" : "text-muted-foreground",
+            )}
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <ListChecks className="h-4 w-4" />
+            <span>Setup Wizard</span>
           </Link>
           <Link
             href="/vendor/support"

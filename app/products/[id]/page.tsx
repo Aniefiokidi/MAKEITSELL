@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { notFound } from "next/navigation";
 import { useEffect } from "react";
 import Image from "next/image";
+import { trackFunnelEvent } from "@/lib/funnel-tracker";
 
 async function getProduct(id: string) {
   if (!id) return null;
@@ -19,6 +20,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
   const [selectedColor, setSelectedColor] = useState<string>("");
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [mainImage, setMainImage] = useState<string>("");
+  const [viewTracked, setViewTracked] = useState(false);
 
   useEffect(() => {
     async function fetchProduct() {
@@ -31,6 +33,12 @@ export default function ProductPage({ params }: { params: { id: string } }) {
     }
     fetchProduct();
   }, [params.id]);
+
+  useEffect(() => {
+    if (!product?.vendorId || viewTracked) return;
+    setViewTracked(true);
+    void trackFunnelEvent(product.vendorId, "product_view", { productId: product.id || params.id });
+  }, [product, params.id, viewTracked]);
 
   if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   if (!product) return notFound();

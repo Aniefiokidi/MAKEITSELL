@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react"
 import AdminLayout from "@/components/admin/AdminLayout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from "recharts"
+import { Loader2 } from "lucide-react"
 
 interface DashboardData {
   totals: {
@@ -25,6 +27,13 @@ interface AnalyticsData {
   paymentStatusStats: Record<string, number>
   totalServices: number
   totalServiceRevenue: number
+  quoteSlaMetrics?: {
+    totalQuoteBookings: number
+    remindersSent: number
+    expiredQuotes: number
+    acceptedQuotes: number
+    acceptanceRate: number
+  }
 }
 
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#6366f1']
@@ -34,23 +43,53 @@ export default function AdminAnalyticsPage() {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [slaRunning, setSlaRunning] = useState(false)
+  const [slaResult, setSlaResult] = useState<string | null>(null)
+
+  const loadAnalytics = async () => {
+    const [dashRes, analyticsRes] = await Promise.all([
+      fetch('/api/admin/dashboard', { credentials: 'include' }),
+      fetch('/api/admin/analytics', { credentials: 'include' }),
+    ])
+
+    const dashJson = await dashRes.json()
+    if (!dashJson.success) throw new Error(dashJson.error || 'Failed to load dashboard')
+    setData(dashJson.data)
+
+    const analyticsJson = await analyticsRes.json()
+    if (analyticsJson.success) {
+      setAnalytics(analyticsJson)
+    }
+  }
+
+  const runSlaJobNow = async () => {
+    setSlaRunning(true)
+    setSlaResult(null)
+
+    try {
+      const response = await fetch('/api/admin/booking-sla-job', {
+        method: 'POST',
+        credentials: 'include',
+      })
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to run SLA job')
+      }
+
+      setSlaResult(`SLA job completed: ${result.remindersSent || 0} reminders, ${result.quotesExpired || 0} expired quotes.`)
+      await loadAnalytics()
+    } catch (err: any) {
+      setSlaResult(err?.message || 'Failed to run SLA job')
+    } finally {
+      setSlaRunning(false)
+    }
+  }
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [dashRes, analyticsRes] = await Promise.all([
-          fetch('/api/admin/dashboard', { credentials: 'include' }),
-          fetch('/api/admin/analytics', { credentials: 'include' }),
-        ])
-        
-        const dashJson = await dashRes.json()
-        if (!dashJson.success) throw new Error(dashJson.error || 'Failed to load dashboard')
-        setData(dashJson.data)
-
-        const analyticsJson = await analyticsRes.json()
-        if (analyticsJson.success) {
-          setAnalytics(analyticsJson)
-        }
+        await loadAnalytics()
       } catch (err: any) {
         setError(err.message || 'Failed to load analytics')
       } finally {
@@ -66,6 +105,13 @@ export default function AdminAnalyticsPage() {
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold">Analytics</h1>
           <p className="text-muted-foreground text-sm lg:text-base">Marketplace performance at a glance.</p>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Button onClick={runSlaJobNow} disabled={slaRunning}>
+              {slaRunning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Run Quote SLA Job Now
+            </Button>
+            {slaResult ? <p className="text-sm text-muted-foreground">{slaResult}</p> : null}
+          </div>
         </div>
 
         {loading ? (
@@ -115,6 +161,43 @@ export default function AdminAnalyticsPage() {
                 </CardContent>
               </Card>
             </div>
+
+            {analytics?.quoteSlaMetrics && (
+              <div className="grid gap-4 lg:gap-6 grid-cols-2 lg:grid-cols-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-xs lg:text-sm font-medium">Quote Bookings</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-xl lg:text-3xl font-bold">{analytics.quoteSlaMetrics.totalQuoteBookings.toLocaleString()}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-xs lg:text-sm font-medium">Reminders Sent</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-xl lg:text-3xl font-bold">{analytics.quoteSlaMetrics.remindersSent.toLocaleString()}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-xs lg:text-sm font-medium">Expired Quotes</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-xl lg:text-3xl font-bold">{analytics.quoteSlaMetrics.expiredQuotes.toLocaleString()}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-xs lg:text-sm font-medium">Quote Acceptance</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-xl lg:text-3xl font-bold">{analytics.quoteSlaMetrics.acceptanceRate}%</p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
             {/* Charts Section */}
             <div className="grid gap-4 lg:gap-6 grid-cols-1 lg:grid-cols-2">
@@ -235,7 +318,7 @@ export default function AdminAnalyticsPage() {
                               <p className="font-medium text-sm truncate">{v.storeName || 'N/A'}</p>
                               <p className="text-xs text-muted-foreground">{v.sales} sales</p>
                             </div>
-                            <div className="text-right flex-shrink-0">
+                            <div className="text-right shrink-0">
                               <p className="font-bold text-sm">₦{v.revenue.toLocaleString()}</p>
                             </div>
                           </div>
@@ -285,7 +368,7 @@ export default function AdminAnalyticsPage() {
                               <p className="font-medium text-sm truncate">{c.name || c.customerId}</p>
                               <p className="text-xs text-muted-foreground truncate">{c.email || c.customerId}</p>
                             </div>
-                            <div className="text-right flex-shrink-0">
+                            <div className="text-right shrink-0">
                               <p className="font-bold text-sm">₦{c.spend.toLocaleString()}</p>
                             </div>
                           </div>

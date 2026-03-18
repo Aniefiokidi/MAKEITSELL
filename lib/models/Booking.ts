@@ -27,6 +27,24 @@ export interface IBooking extends Document {
   duration: number;
   totalPrice: number;
   status: "pending" | "confirmed" | "completed" | "cancelled";
+  quoteSentAt?: Date;
+  quoteExpiresAt?: Date;
+  quoteReminderSentAt?: Date;
+  quoteReminderCount?: number;
+  quoteExpiredAt?: Date;
+  cancellationPolicyPercent?: number;
+  cancellationWindowHours?: number;
+  cancellationFeeApplied?: boolean;
+  cancellationFeeAmount?: number;
+  cancellationFeeStatus?: "none" | "charged" | "pending" | "waived";
+  cancelledAt?: Date;
+  cancellationReason?: string;
+  customerLocation?: string;
+  serviceAddress?: string;
+  rescheduleCount?: number;
+  rescheduledFromBookingId?: string;
+  rescheduledToBookingId?: string;
+  lastRescheduledAt?: Date;
   locationType: "online" | "store" | "home-service" | "in-person" | "both";
   location: string;
   notes?: string;
@@ -66,6 +84,24 @@ const BookingSchema = new Schema<IBooking>({
   duration: { type: Number, required: true },
   totalPrice: { type: Number, required: true },
   status: { type: String, enum: ["pending", "confirmed", "completed", "cancelled"], default: "pending" },
+  quoteSentAt: { type: Date },
+  quoteExpiresAt: { type: Date, index: true },
+  quoteReminderSentAt: { type: Date },
+  quoteReminderCount: { type: Number, default: 0 },
+  quoteExpiredAt: { type: Date },
+  cancellationPolicyPercent: { type: Number, default: 30 },
+  cancellationWindowHours: { type: Number, default: 24 },
+  cancellationFeeApplied: { type: Boolean, default: false },
+  cancellationFeeAmount: { type: Number, default: 0 },
+  cancellationFeeStatus: { type: String, enum: ["none", "charged", "pending", "waived"], default: "none" },
+  cancelledAt: { type: Date },
+  cancellationReason: { type: String },
+  customerLocation: { type: String },
+  serviceAddress: { type: String },
+  rescheduleCount: { type: Number, default: 0 },
+  rescheduledFromBookingId: { type: String },
+  rescheduledToBookingId: { type: String },
+  lastRescheduledAt: { type: Date },
   // Keep legacy values (in-person/both) while accepting current service values.
   locationType: { type: String, enum: ["online", "store", "home-service", "in-person", "both"], required: true },
   location: { type: String, required: true },

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { getAllProducts, getAllOrders, getServices, getProductById } from '@/lib/mongodb-operations'
+import { getAllProducts, getAllOrders, getServices, getAllBookings } from '@/lib/mongodb-operations'
 import { requireAdminAccess } from '@/lib/server-route-auth'
 
 export async function GET(req: NextRequest) {
@@ -7,9 +7,10 @@ export async function GET(req: NextRequest) {
   if (unauthorized) return unauthorized
 
   try {
-    const [products, orders] = await Promise.all([
+    const [products, orders, bookings] = await Promise.all([
       getAllProducts(),
       getAllOrders(),
+      getAllBookings(),
     ])
 
     // Get all services
@@ -82,6 +83,17 @@ export async function GET(req: NextRequest) {
       ...data,
     }))
 
+    const quoteBookings = (bookings || []).filter((booking: any) => Boolean(booking?.requiresQuote))
+    const reminderCount = quoteBookings.reduce((sum: number, booking: any) => {
+      const reminder = Number(booking?.quoteReminderCount || 0)
+      return sum + (Number.isFinite(reminder) ? reminder : 0)
+    }, 0)
+    const expiredCount = quoteBookings.filter((booking: any) => Boolean(booking?.quoteExpiredAt)).length
+    const acceptedCount = quoteBookings.filter((booking: any) => String(booking?.pricingStatus || '') === 'accepted').length
+    const acceptanceRate = quoteBookings.length > 0
+      ? Math.round((acceptedCount / quoteBookings.length) * 100)
+      : 0
+
     // Order status distribution
     const orderStatusStats: Record<string, number> = {}
     orders.forEach((o: any) => {
@@ -105,6 +117,13 @@ export async function GET(req: NextRequest) {
         paymentStatusStats,
         totalServices: services.length,
         totalServiceRevenue,
+        quoteSlaMetrics: {
+          totalQuoteBookings: quoteBookings.length,
+          remindersSent: reminderCount,
+          expiredQuotes: expiredCount,
+          acceptedQuotes: acceptedCount,
+          acceptanceRate,
+        },
       }),
       { status: 200 }
     )
