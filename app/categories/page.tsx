@@ -263,7 +263,7 @@ export default function CategoriesPage() {
                     <div className={`${category.color} w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3 text-white`}>
                       <category.icon className="w-5 h-5 sm:w-6 sm:h-6" />
                     </div>
-                    <h3 className="font-medium text-xs sm:text-base group-hover:text-primary transition-colors truncate">
+                    <h3 className="font-medium text-xs sm:text-base group-hover:text-accent dark:group-hover:text-white transition-colors truncate">
                       {category.name}
                     </h3>
                   </div>

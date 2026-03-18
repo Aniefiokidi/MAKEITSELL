@@ -126,10 +126,16 @@ export default function VendorServicesPage() {
             <h1 className="text-3xl font-bold">My Services</h1>
             <p className="text-muted-foreground">Manage your service offerings</p>
           </div>
-          <Button onClick={() => router.push("/vendor/services/new")}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add New Service
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => router.push("/vendor/services/setup-wizard")}>
+              <Plus className="h-4 w-4 mr-2" />
+              Service Setup Wizard
+            </Button>
+            <Button onClick={() => router.push("/vendor/services/new")}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add New Service
+            </Button>
+          </div>
         </div>
 
         {/* Search */}
@@ -197,10 +203,16 @@ export default function VendorServicesPage() {
                 {searchQuery ? "No services match your search" : "Start by adding your first service"}
               </p>
               {!searchQuery && (
-                <Button onClick={() => router.push("/vendor/services/new")}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Service
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button variant="outline" onClick={() => router.push("/vendor/services/setup-wizard")}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Setup First Service
+                  </Button>
+                  <Button onClick={() => router.push("/vendor/services/new")}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Service
+                  </Button>
+                </div>
               )}
             </CardContent>
           </Card>

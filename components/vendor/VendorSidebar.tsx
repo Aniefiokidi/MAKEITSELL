@@ -207,15 +207,26 @@ export default function VendorSidebar() {
             <span>Store Settings</span>
           </Link>
           <Link
-            href="/vendor/setup-wizard"
+            href="/vendor/services/setup-wizard"
             className={cn(
               "flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
-              pathname === "/vendor/setup-wizard" ? "bg-accent text-accent-foreground" : "text-muted-foreground",
+              pathname === "/vendor/services/setup-wizard" ? "bg-accent text-accent-foreground" : "text-muted-foreground",
             )}
             onClick={() => setIsMobileMenuOpen(false)}
           >
             <ListChecks className="h-4 w-4" />
-            <span>Setup Wizard</span>
+            <span>Service Setup Wizard</span>
+          </Link>
+          <Link
+            href="/vendor/services/setup-wizard"
+            className={cn(
+              "flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+              pathname === "/vendor/services/setup-wizard" ? "bg-accent text-accent-foreground" : "text-muted-foreground",
+            )}
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <ListChecks className="h-4 w-4" />
+            <span>Service Setup Wizard</span>
           </Link>
           <Link
             href="/vendor/support"
@@ -318,15 +329,15 @@ export default function VendorSidebar() {
             <span>Store Settings</span>
           </Link>
           <Link
-            href="/vendor/setup-wizard"
+            href="/vendor/services/setup-wizard"
             className={cn(
               "flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
-              pathname === "/vendor/setup-wizard" ? "bg-accent text-accent-foreground" : "text-muted-foreground",
+              pathname === "/vendor/services/setup-wizard" ? "bg-accent text-accent-foreground" : "text-muted-foreground",
             )}
             onClick={() => setIsMobileMenuOpen(false)}
           >
             <ListChecks className="h-4 w-4" />
-            <span>Setup Wizard</span>
+            <span>Service Setup Wizard</span>
           </Link>
           <Link
             href="/vendor/support"

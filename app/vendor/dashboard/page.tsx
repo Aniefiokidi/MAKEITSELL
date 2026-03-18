@@ -35,56 +35,54 @@ export default function VendorDashboardPage() {
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
 
-  // Check if store setup is actually complete
-  const isStoreSetupComplete = (store: any) => {
-    if (!store) return false;
-    
-    // Check required payout information
-    const hasPayoutInfo = store.bankCode && 
-                         store.accountNumber && 
-                         store.accountVerified && 
-                         store.accountName;
-    
-    // Check required images
-    const hasImages = store.profileImage && store.storeImage;
-    
-    // Check basic store info
-    const hasBasicInfo = store.storeName;
-    
-    return hasPayoutInfo && hasImages && hasBasicInfo;
-  };
-
   useEffect(() => {
-    // Load store data to check setup completion
-    const loadStoreData = async () => {
+    // Load setup entities to determine if setup prompt is still needed
+    const loadSetupStatus = async () => {
       if (!user?.uid) return;
       
       try {
-        const res = await fetch(`/api/database/stores?vendorId=${encodeURIComponent(user.uid)}`);
-        const data = await res.json();
-        
-        if (data.success && data.data && data.data.length > 0) {
-          const store = data.data[0];
-          setStoreData(store);
-          
-          // Show popup only if store setup is actually incomplete
-          if (userProfile?.role === "vendor" && !isStoreSetupComplete(store)) {
-            setShowSetupPopup(true);
-          }
-        } else if (userProfile?.role === "vendor") {
-          // No store exists yet, definitely need setup
-          setShowSetupPopup(true);
+        const [storesRes, servicesRes] = await Promise.all([
+          fetch(`/api/database/stores?vendorId=${encodeURIComponent(user.uid)}`),
+          fetch(`/api/database/services?providerId=${encodeURIComponent(user.uid)}&limit=1`),
+        ]);
+
+        const [storesData, servicesData] = await Promise.all([
+          storesRes.json(),
+          servicesRes.json(),
+        ]);
+
+        const stores = Array.isArray(storesData?.data) ? storesData.data : [];
+        const services = Array.isArray(servicesData?.data) ? servicesData.data : [];
+
+        if (stores.length > 0) {
+          setStoreData(stores[0]);
         }
-      } catch (error) {
-        console.error("Error loading store data:", error);
-        // If we can't load store data and user is vendor, show popup to be safe
+
+        const hasStoreSetup = stores.length > 0;
+        const hasServiceSetup = services.length > 0;
+        const vendorType = userProfile?.vendorType || "both";
+
+        let shouldShowPopup = false;
         if (userProfile?.role === "vendor") {
-          setShowSetupPopup(true);
+          if (vendorType === "goods") {
+            shouldShowPopup = !hasStoreSetup;
+          } else if (vendorType === "services") {
+            shouldShowPopup = !hasServiceSetup;
+          } else {
+            // For vendors who do both, hide popup once either setup path is completed.
+            shouldShowPopup = !(hasStoreSetup || hasServiceSetup);
+          }
         }
+
+        setShowSetupPopup(shouldShowPopup);
+      } catch (error) {
+        console.error("Error loading setup status:", error);
+        // Avoid false-positive popup on transient network/API errors.
+        setShowSetupPopup(false);
       }
     };
 
-    loadStoreData();
+    loadSetupStatus();
   }, [user, userProfile]);
 
   // Format currency with commas
@@ -220,14 +218,14 @@ export default function VendorDashboardPage() {
                   </Link>
                 </Button>
                 <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg" variant="outline" onClick={() => setShowSetupPopup(false)}>
-                  <Link href="/vendor/services/new">
+                  <Link href="/vendor/services/setup-wizard">
                     Go to Service Setup
                   </Link>
                 </Button>
               </>
             ) : (
               <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg" variant="default" onClick={() => setShowSetupPopup(false)}>
-                <Link href={vendorType === "services" ? "/vendor/services/new" : "/vendor/setup-wizard"}>
+                <Link href={vendorType === "services" ? "/vendor/services/setup-wizard" : "/vendor/setup-wizard"}>
                   {vendorType === "services" ? "Go to Service Setup" : "Start Setup Wizard"}
                 </Link>
               </Button>
@@ -246,7 +244,7 @@ export default function VendorDashboardPage() {
             <p className="text-xs text-muted-foreground">Welcome back! Here's what's happening with your store.</p>
             <div className="mt-2">
               <Button asChild size="sm" variant="outline">
-                <Link href="/vendor/setup-wizard">Open Setup Wizard</Link>
+                <Link href={vendorType === "services" ? "/vendor/services/setup-wizard" : "/vendor/setup-wizard"}>Open Setup Wizard</Link>
               </Button>
             </div>
           </div>
@@ -653,7 +651,7 @@ export default function VendorDashboardPage() {
                   <Calendar className="h-10 w-10 lg:h-12 lg:w-12 text-muted-foreground mx-auto mb-3" />
                   <p className="text-sm lg:text-base text-gray-600 mb-4">No bookings yet</p>
                   <Button asChild variant="outline" size="sm" className="text-xs lg:text-sm">
-                    <Link href="/vendor/services/new">
+                    <Link href="/vendor/services/setup-wizard">
                       <Plus className="mr-2 h-3 w-3 lg:h-4 lg:w-4" />
                       Add Your First Service
                     </Link>

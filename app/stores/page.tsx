@@ -112,7 +112,7 @@ export default function ShopPage() {
     return /\.pdf(\?|#|$)/i.test(value)
   }
 
-  const resolveStoreImageSrc = (value?: string) => {
+  const resolveStoreImageSrc = (value?: string, fallbackValue?: string) => {
     if (!value) return "/placeholder.svg"
     const normalized = value.trim()
     if (!normalized) return "/placeholder.svg"
@@ -124,6 +124,11 @@ export default function ShopPage() {
     const looksLikeImageFile = /\.(avif|bmp|gif|ico|jpe?g|png|svg|webp)(\?|#|$)/i.test(normalized)
 
     if (isHttpUrl && looksLikeImageFile) return normalized
+
+    if (fallbackValue && fallbackValue !== value) {
+      return resolveStoreImageSrc(fallbackValue)
+    }
+
     return "/placeholder.svg"
   }
 
@@ -222,6 +227,10 @@ export default function ShopPage() {
 
   const StoreCard = ({ store }: { store: any }) => (
     (() => {
+      const firstProductImage = store.featuredProduct?.image || store.productImages?.[0]
+      const backgroundImageCandidate = store.profileImage || store.bannerImage || store.backgroundImage || firstProductImage
+      const logoImageCandidate = store.storeImage || store.logoImage || store.profileImage || firstProductImage
+
       const storeBrandingPdfUrl = [
         store.storeImage,
         store.logoImage,
@@ -234,9 +243,9 @@ export default function ShopPage() {
     <Card className="h-full hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02] transition-all duration-300 group overflow-hidden border-none rounded-[2.5rem] relative" style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}>
       {/* Full Image Background */}
       <div className="aspect-9/16 relative overflow-hidden rounded-[2.5rem]">
-        {store.profileImage || store.featuredProduct?.image || store.productImages?.[0] || store.bannerImage ? (
+        {backgroundImageCandidate ? (
           <Image
-            src={resolveStoreImageSrc(store.profileImage || store.featuredProduct?.image || store.productImages?.[0] || store.bannerImage)}
+            src={resolveStoreImageSrc(backgroundImageCandidate, firstProductImage)}
             alt={store.name}
             fill
             className="object-cover group-hover:scale-105 transition-transform duration-500"
@@ -253,9 +262,9 @@ export default function ShopPage() {
         {/* Logo in Center Top */}
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
           <div className="w-16 h-16 rounded-full bg-white border-4 border-white overflow-hidden shadow-2xl ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110">
-            {store.storeImage || store.logoImage ? (
+            {logoImageCandidate ? (
               <Image
-                src={resolveStoreImageSrc(store.storeImage || store.logoImage)}
+                src={resolveStoreImageSrc(logoImageCandidate, firstProductImage)}
                 alt={`${store.name} logo`}
                 width={64}
                 height={64}
