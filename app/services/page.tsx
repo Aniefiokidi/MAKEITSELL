@@ -10,8 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getServices, Service } from "@/lib/database-client"
-import { Search, MapPin, Clock, Banknote, Verified, RefreshCw, Camera, Briefcase, Wrench, Palette, Dumbbell, GraduationCap, Scissors, Sparkles, Laptop, Settings, Store, ArrowRight } from "lucide-react"
-import { Skeleton } from "@/components/ui/skeleton"
+import { Search, Clock, Banknote, Verified, RefreshCw, Camera, Briefcase, Wrench, Palette, Dumbbell, GraduationCap, Scissors, Sparkles, Laptop, Settings, Store, ArrowRight, Car, Megaphone, Shield, HeartPulse, Truck, Home, CarTaxiFront, Music2 } from "lucide-react"
 import Image from "next/image"
 
 // Function to get icon component based on category
@@ -35,6 +34,22 @@ const getCategoryIcon = (category: string) => {
       return <Sparkles className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
     case "tech":
       return <Laptop className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+    case "rentals":
+      return <Car className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+    case "marketing":
+      return <Megaphone className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+    case "legal":
+      return <Shield className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+    case "healthcare":
+      return <HeartPulse className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+    case "logistics":
+      return <Truck className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+    case "home-improvement":
+      return <Home className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+    case "automotive":
+      return <CarTaxiFront className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+    case "event-planning":
+      return <Music2 className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
     default:
       return <Settings className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
   }
@@ -51,8 +66,34 @@ const SERVICE_CATEGORIES = [
   { value: "beauty", label: "Beauty" },
   { value: "cleaning", label: "Cleaning Services" },
   { value: "tech", label: "Tech Support" },
+  { value: "rentals", label: "Rentals" },
+  { value: "marketing", label: "Marketing" },
+  { value: "legal", label: "Legal Services" },
+  { value: "healthcare", label: "Healthcare & Wellness" },
+  { value: "logistics", label: "Logistics & Delivery" },
+  { value: "home-improvement", label: "Home Improvement" },
+  { value: "automotive", label: "Automotive Services" },
+  { value: "event-planning", label: "Event Planning" },
   { value: "other", label: "Other Services" },
 ]
+
+const parseStateFromLocation = (location: string): string => {
+  if (!location) return ""
+  const parts = location
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+  return parts.length ? parts[parts.length - 1] : ""
+}
+
+const parseCityFromLocation = (location: string): string => {
+  if (!location) return ""
+  const parts = location
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+  return parts.length > 1 ? parts[parts.length - 2] : ""
+}
 
 export default function ServicesPage() {
     // Slide-out state for page transition
@@ -95,7 +136,8 @@ export default function ServicesPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
-  const [selectedLocation, setSelectedLocation] = useState("all")
+  const [selectedState, setSelectedState] = useState("all")
+  const [selectedCity, setSelectedCity] = useState("all")
   const [showMobileSearch, setShowMobileSearch] = useState(false)
 
   useEffect(() => {
@@ -104,7 +146,30 @@ export default function ServicesPage() {
 
   useEffect(() => {
     filterServices()
-  }, [searchQuery, selectedCategory, selectedLocation, services])
+  }, [searchQuery, selectedCategory, selectedState, selectedCity, services])
+
+  const availableStates = Array.from(
+    new Set(
+      services
+        .map((service) => service.state || parseStateFromLocation(service.location || ""))
+        .map((state) => state.trim())
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b))
+
+  const availableCities = Array.from(
+    new Set(
+      services
+        .filter((service) => {
+          if (selectedState === "all") return true
+          const stateValue = (service.state || parseStateFromLocation(service.location || "")).toLowerCase()
+          return stateValue === selectedState.toLowerCase()
+        })
+        .map((service) => service.city || parseCityFromLocation(service.location || ""))
+        .map((city) => city.trim())
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b))
 
   const fetchServices = async () => {
     try {
@@ -184,11 +249,21 @@ export default function ServicesPage() {
     }
 
     if (selectedCategory !== "all") {
-      filtered = filtered.filter((service) => service.category.includes(selectedCategory))
+      filtered = filtered.filter((service) => service.category.toLowerCase() === selectedCategory.toLowerCase())
     }
 
-    if (selectedLocation !== "all") {
-      filtered = filtered.filter((service) => service.location.toLowerCase().includes(selectedLocation.toLowerCase()))
+    if (selectedState !== "all") {
+      filtered = filtered.filter((service) => {
+        const stateValue = (service.state || parseStateFromLocation(service.location || "")).toLowerCase()
+        return stateValue === selectedState.toLowerCase()
+      })
+    }
+
+    if (selectedCity !== "all") {
+      filtered = filtered.filter((service) => {
+        const cityValue = (service.city || parseCityFromLocation(service.location || "")).toLowerCase()
+        return cityValue === selectedCity.toLowerCase()
+      })
     }
 
     setFilteredServices(filtered)
@@ -319,16 +394,39 @@ export default function ServicesPage() {
               </SelectContent>
             </Select>
 
-            {/* Location Filter */}
-            <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-              <SelectTrigger className="w-[70px] sm:w-[110px] md:w-[140px] lg:w-[160px] h-8 sm:h-9 md:h-10 lg:h-12 border-accent/20 text-[9px] sm:text-xs md:text-sm p-1">
-                <SelectValue placeholder="Loc" />
+            {/* State Filter */}
+            <Select
+              value={selectedState}
+              onValueChange={(value) => {
+                setSelectedState(value)
+                setSelectedCity("all")
+              }}
+            >
+              <SelectTrigger className="w-[75px] sm:w-[120px] md:w-[150px] lg:w-[170px] h-8 sm:h-9 md:h-10 lg:h-12 border-accent/20 text-[9px] sm:text-xs md:text-sm p-1">
+                <SelectValue placeholder="State" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all" className="text-xs sm:text-sm">All Locations</SelectItem>
-                <SelectItem value="online" className="text-xs sm:text-sm">Online</SelectItem>
-                <SelectItem value="home-service" className="text-xs sm:text-sm">Home Service</SelectItem>
-                <SelectItem value="store" className="text-xs sm:text-sm">Store/Office</SelectItem>
+                <SelectItem value="all" className="text-xs sm:text-sm">All States</SelectItem>
+                {availableStates.map((state) => (
+                  <SelectItem key={state} value={state} className="text-xs sm:text-sm">{state}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* City Filter */}
+            <Select
+              value={selectedCity}
+              onValueChange={setSelectedCity}
+              disabled={selectedState === "all"}
+            >
+              <SelectTrigger className="w-[70px] sm:w-[110px] md:w-[140px] lg:w-40 h-8 sm:h-9 md:h-10 lg:h-12 border-accent/20 text-[9px] sm:text-xs md:text-sm p-1">
+                <SelectValue placeholder="City" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs sm:text-sm">All Cities</SelectItem>
+                {availableCities.map((city) => (
+                  <SelectItem key={city} value={city} className="text-xs sm:text-sm">{city}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
@@ -372,7 +470,7 @@ export default function ServicesPage() {
 
         {/* Services Grid */}
         {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <Card key={i} className="animate-pulse">
                 <div className="h-32 sm:h-48 bg-muted rounded-t-lg" />
@@ -420,7 +518,8 @@ export default function ServicesPage() {
                 <Button onClick={() => {
                   setSearchQuery("")
                   setSelectedCategory("all")
-                  setSelectedLocation("all")
+                  setSelectedState("all")
+                  setSelectedCity("all")
                 }} size="lg" className="bg-linear-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-black text-xl px-8 py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all uppercase tracking-wider">
                   CLEAR FILTERS FR
                 </Button>
@@ -428,7 +527,7 @@ export default function ServicesPage() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4 animate-in fade-in duration-500">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4 animate-in fade-in duration-500">
             {filteredServices.map((service, index) => {
               const serviceName = service.title || 'Service'
               
@@ -462,8 +561,17 @@ export default function ServicesPage() {
                     {/* Provider Icon in Center Top */}
                     <div className="absolute top-3 sm:top-4 left-1/2 -translate-x-1/2 z-20">
                       <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-white/20 backdrop-blur-md border-3 sm:border-4 border-white overflow-hidden shadow-2xl ring-3 sm:ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110">
-                        <div className="w-full h-full flex items-center justify-center">
-                          {getCategoryIcon(service.category)}
+                        <div className="w-full h-full relative flex items-center justify-center">
+                          {service.providerImage ? (
+                            <Image
+                              src={service.providerImage}
+                              alt={`${service.providerName || serviceName} logo`}
+                              fill
+                              className="object-cover"
+                            />
+                          ) : (
+                            getCategoryIcon(service.category)
+                          )}
                         </div>
                       </div>
                     </div>

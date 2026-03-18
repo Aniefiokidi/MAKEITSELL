@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -33,6 +33,7 @@ export default function ShopPage() {
   const [stores, setStores] = useState<any[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
+  const [selectedLocation, setSelectedLocation] = useState("all")
   const [sortBy, setSortBy] = useState("name")
   const [refreshing, setRefreshing] = useState(false)
   const [showFilters, setShowFilters] = useState(true)
@@ -79,20 +80,33 @@ export default function ShopPage() {
   }
 
   const filteredStores = stores.filter((store) => {
+    const locationValue = String(store.location || store.city || store.state || "").toLowerCase()
     const matchesSearch = searchQuery === "" || 
       (store.name || store.storeName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       (store.description || store.storeDescription || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       (store.category || "").toLowerCase().includes(searchQuery.toLowerCase())
+
+    const matchesLocation = selectedLocation === "all" || locationValue.includes(selectedLocation.toLowerCase())
     
-    return matchesSearch
+    return matchesSearch && matchesLocation
   })
+
+  const locationOptions = useMemo(() => {
+    const unique = new Set<string>()
+    for (const store of stores) {
+      const raw = String(store.location || store.city || store.state || "").trim()
+      if (!raw) continue
+      unique.add(raw)
+    }
+    return Array.from(unique).sort((a, b) => a.localeCompare(b))
+  }, [stores])
 
   const handleStoreClick = (storeId: string) => {
     setTransitionDirection("left")
     setIsTransitioning(true)
     setTimeout(() => {
       router.push(`/store/${storeId}`)
-    }, 600) // Duration matches the CSS animation
+    }, 220)
   }
 
   const handlePageSwitch = (target: string, direction: "left" | "right") => {
@@ -100,7 +114,7 @@ export default function ShopPage() {
     setIsTransitioning(true)
     setTimeout(() => {
       router.push(target)
-    }, 600)
+    }, 220)
   }
 
   const sortedStores = [...filteredStores].sort((a, b) => {
@@ -337,6 +351,20 @@ export default function ShopPage() {
                 </SelectContent>
               </Select>
 
+              <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                <SelectTrigger className="flex-1 sm:w-auto border-2 border-accent/20 hover:border-accent/40 transition-colors h-10 text-xs sm:text-sm p-2">
+                  <SelectValue placeholder="Location" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs sm:text-sm">All Locations</SelectItem>
+                  {locationOptions.map((location) => (
+                    <SelectItem key={location} value={location} className="text-xs sm:text-sm">
+                      {location}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               {/* Sort */}
               <Select value={sortBy} onValueChange={setSortBy}>
                 <SelectTrigger className="flex-1 sm:w-auto h-10 text-xs sm:text-sm border-2 border-accent/20 hover:border-accent/40 transition-colors p-2">
@@ -363,15 +391,18 @@ export default function ShopPage() {
           </div>
 
           {/* Clear Button Row (only when category filter is active) */}
-          {selectedCategory !== "all" && (
+          {(selectedCategory !== "all" || selectedLocation !== "all") && (
             <div className="flex justify-end">
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setSelectedCategory("all")}
+                onClick={() => {
+                  setSelectedCategory("all")
+                  setSelectedLocation("all")
+                }}
                 className="text-[10px] sm:text-xs hover:text-accent hover:bg-accent/10 transition-all h-7 sm:h-8"
               >
-                Clear Filter
+                Clear Filters
               </Button>
             </div>
           )}

@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import Image from "next/image"
-import { X, ShoppingCart, Heart } from "lucide-react"
+import { X, ShoppingCart, Heart, Copy, Check } from "lucide-react"
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 
 const cursorStyle = `
@@ -61,6 +61,7 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
   const [mainImage, setMainImage] = useState<string>("")
   const [selectedColor, setSelectedColor] = useState<string>("")
   const [selectedSize, setSelectedSize] = useState<string>("")
+  const [copied, setCopied] = useState(false)
 
   // Compute the best store name fallback
   const fallbackStoreName = storeName
@@ -73,6 +74,7 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
     setSelectedColor("")
     setSelectedSize("")
     setMainImage("")
+    setCopied(false)
   }, [open, product])
 
   if (!product) return null
@@ -85,6 +87,21 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
   }
 
   const displayImage = mainImage || product.images?.[0] || "/placeholder.svg"
+  const productSlug = String(product.id || product._id || "").trim()
+  const shareUrl = typeof window !== "undefined"
+    ? `${window.location.origin}/products/${encodeURIComponent(productSlug)}`
+    : ""
+
+  const handleCopyLink = async () => {
+    if (!shareUrl) return
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1600)
+    } catch {
+      setCopied(false)
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -259,8 +276,16 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
             <div className="bg-slate-50 rounded-lg p-2 sm:p-3 flex flex-col gap-2">
               <span className="text-xs text-slate-600 font-semibold mb-1">Share this product</span>
               <div className="flex gap-3 mt-1">
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  aria-label="Copy product link"
+                  className="text-slate-700 p-2 rounded-full hover:bg-slate-100 transition-all"
+                >
+                  {copied ? <Check className="h-7 w-7" /> : <Copy className="h-7 w-7" />}
+                </button>
                 <a
-                  href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(typeof window !== 'undefined' ? window.location.href : '')}`}
+                  href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Share on Facebook"
@@ -269,16 +294,16 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
                   <svg width="28" height="28" fill="currentColor" viewBox="0 0 24 24"><path d="M22.675 0h-21.35C.595 0 0 .592 0 1.326v21.348C0 23.408.595 24 1.325 24h11.495v-9.294H9.692v-3.622h3.128V8.413c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.797.143v3.24l-1.918.001c-1.504 0-1.797.715-1.797 1.763v2.313h3.587l-.467 3.622h-3.12V24h6.116C23.406 24 24 23.408 24 22.674V1.326C24 .592 23.406 0 22.675 0"/></svg>
                 </a>
                 <a
-                  href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(typeof window !== 'undefined' ? window.location.href : '')}&text=${encodeURIComponent(product.title || product.name || 'Check this product!')}`}
+                  href={`https://x.com/intent/post?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(product.title || product.name || 'Check this product!')}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label="Share on Twitter"
-                  className="text-blue-400 p-2 rounded-full hover:bg-blue-50 transition-all"
+                  aria-label="Share on X"
+                  className="text-black p-2 rounded-full hover:bg-slate-100 transition-all"
                 >
-                  <svg width="28" height="28" fill="currentColor" viewBox="0 0 24 24"><path d="M24 4.557a9.93 9.93 0 0 1-2.828.775 4.932 4.932 0 0 0 2.165-2.724c-.951.564-2.005.974-3.127 1.195a4.92 4.92 0 0 0-8.384 4.482C7.691 8.095 4.066 6.13 1.64 3.161c-.542.929-.856 2.01-.857 3.17 0 2.188 1.115 4.117 2.823 5.254a4.904 4.904 0 0 1-2.229-.616c-.054 2.281 1.581 4.415 3.949 4.89a4.936 4.936 0 0 1-2.224.084c.627 1.956 2.444 3.377 4.6 3.417A9.867 9.867 0 0 1 0 21.543a13.94 13.94 0 0 0 7.548 2.209c9.058 0 14.009-7.496 14.009-13.986 0-.21 0-.423-.016-.634A9.936 9.936 0 0 0 24 4.557z"/></svg>
+                  <svg width="28" height="28" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2H21l-6.56 7.496L22.5 22h-6.3l-4.934-6.458L5.53 22H2.77l7.014-8.014L1.5 2h6.46l4.46 5.893L18.244 2zm-2.208 18h1.64L7.067 3.896H5.31L16.036 20z"/></svg>
                 </a>
                 <a
-                  href={`https://wa.me/?text=${encodeURIComponent((product.title || product.name || 'Check this product!') + ' ' + (typeof window !== 'undefined' ? window.location.href : ''))}`}
+                  href={`https://wa.me/?text=${encodeURIComponent((product.title || product.name || 'Check this product!') + ' ' + shareUrl)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Share on WhatsApp"
@@ -287,7 +312,7 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
                   <svg width="28" height="28" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.149-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.151-.174.2-.298.3-.497.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.372-.01-.571-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.363.709.306 1.262.489 1.694.626.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.617h-.001a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.999-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.987c-.003 5.451-4.437 9.885-9.888 9.885m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .06 5.435.057 12.086c0 2.13.557 4.21 1.615 6.032L0 24l6.064-1.594a11.888 11.888 0 0 0 5.983 1.528h.005c6.554 0 11.89-5.435 11.893-12.086a11.82 11.82 0 0 0-3.48-8.465"/></svg>
                 </a>
                 <a
-                  href={`https://www.instagram.com/?url=${encodeURIComponent(typeof window !== 'undefined' ? window.location.href : '')}`}
+                  href={`https://www.instagram.com/?url=${encodeURIComponent(shareUrl)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Share on Instagram"
@@ -296,7 +321,7 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
                   <svg width="28" height="28" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 1.366.062 2.633.334 3.608 1.308.974.974 1.246 2.241 1.308 3.608.058 1.266.069 1.646.069 4.85s-.012 3.584-.07 4.85c-.062 1.366-.334 2.633-1.308 3.608-.974.974-2.241 1.246-3.608 1.308-1.266.058-1.646.069-4.85.069s-3.584-.012-4.85-.07c-1.366-.062-2.633-.334-3.608-1.308-.974-.974-1.246-2.241-1.308-3.608C2.175 15.647 2.163 15.267 2.163 12s.012-3.584.07-4.85c.062-1.366.334-2.633 1.308-3.608C4.515 2.567 5.782 2.295 7.148 2.233 8.414 2.175 8.794 2.163 12 2.163zm0-2.163C8.741 0 8.332.013 7.052.072 5.771.131 4.659.363 3.678 1.344c-.98.98-1.213 2.092-1.272 3.373C2.013 5.668 2 6.077 2 12c0 5.923.013 6.332.072 7.613.059 1.281.292 2.393 1.272 3.373.98.98 2.092 1.213 3.373 1.272C8.332 23.987 8.741 24 12 24s3.668-.013 4.948-.072c1.281-.059 2.393-.292 3.373-1.272.98-.98 1.213-2.092 1.272-3.373.059-1.281.072-1.69.072-7.613 0-5.923-.013-6.332-.072-7.613-.059-1.281-.292-2.393-1.272-3.373-.98-.98-2.092-1.213-3.373-1.272C15.668.013 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zm0 10.162a3.999 3.999 0 1 1 0-7.998 3.999 3.999 0 0 1 0 7.998zm6.406-11.845a1.44 1.44 0 1 0 0 2.88 1.44 1.44 0 0 0 0-2.88z"/></svg>
                 </a>
                 <a
-                  href={`https://www.snapchat.com/scan?attachmentUrl=${encodeURIComponent(typeof window !== 'undefined' ? window.location.href : '')}`}
+                  href={`https://www.snapchat.com/scan?attachmentUrl=${encodeURIComponent(shareUrl)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Share on Snapchat"

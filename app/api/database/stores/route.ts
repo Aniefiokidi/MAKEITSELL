@@ -12,8 +12,9 @@ export async function GET(request: NextRequest) {
     const isOpen = searchParams.get('isOpen') === 'true' ? true : undefined
     const limitCount = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined
     const vendorId = searchParams.get('vendorId') || undefined
+    const search = (searchParams.get('search') || '').trim().toLowerCase()
 
-    console.log('Filter parameters:', { category, isOpen, limitCount, vendorId })
+    console.log('Filter parameters:', { category, isOpen, limitCount, vendorId, search })
 
     const stores = await mongoGetStores({
       category,
@@ -40,8 +41,25 @@ export async function GET(request: NextRequest) {
 
     // Only use real stores from the database
     const allStores = stores || [];
+    const filteredStores = search
+      ? allStores.filter((store: any) => {
+          const haystack = [
+            store.storeName,
+            store.storeDescription,
+            store.category,
+            store.address,
+            store.storeCategory,
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase()
+
+          return haystack.includes(search)
+        })
+      : allStores
+
     // Map MongoDB store fields to UI expected fields and add product count
-    const mappedStores = await Promise.all(allStores.map(async store => {
+    const mappedStores = await Promise.all(filteredStores.map(async store => {
       // DEBUG: Log full store object to check for profileImage
       console.log('DEBUG: Raw store from DB:', JSON.stringify(store, null, 2));
       // Get products for this store

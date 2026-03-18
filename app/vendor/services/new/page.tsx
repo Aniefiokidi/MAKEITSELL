@@ -27,7 +27,70 @@ const SERVICE_CATEGORIES = [
   "beauty",
   "cleaning",
   "tech",
+  "rentals",
+  "marketing",
+  "legal",
+  "healthcare",
+  "logistics",
+  "home-improvement",
+  "automotive",
+  "event-planning",
   "other",
+]
+
+const RENTAL_SUBCATEGORIES = [
+  "car-rentals",
+  "event-equipment",
+  "party-supplies",
+  "fashion-rentals",
+  "camera-gear",
+  "audio-visual",
+  "furniture-rentals",
+  "short-let-spaces",
+  "construction-tools",
+  "generator-power",
+  "baby-kids-gear",
+  "outdoor-camping",
+]
+
+const NIGERIA_STATES = [
+  "Abia",
+  "Adamawa",
+  "Akwa Ibom",
+  "Anambra",
+  "Bauchi",
+  "Bayelsa",
+  "Benue",
+  "Borno",
+  "Cross River",
+  "Delta",
+  "Ebonyi",
+  "Edo",
+  "Ekiti",
+  "Enugu",
+  "FCT",
+  "Gombe",
+  "Imo",
+  "Jigawa",
+  "Kaduna",
+  "Kano",
+  "Katsina",
+  "Kebbi",
+  "Kogi",
+  "Kwara",
+  "Lagos",
+  "Nasarawa",
+  "Niger",
+  "Ogun",
+  "Ondo",
+  "Osun",
+  "Oyo",
+  "Plateau",
+  "Rivers",
+  "Sokoto",
+  "Taraba",
+  "Yobe",
+  "Zamfara",
 ]
 
 type ServicePackageOption = {
@@ -72,11 +135,13 @@ export default function NewServicePage() {
     title: "",
     description: "",
     category: "",
+    subcategory: "",
     price: "",
     pricingType: "fixed" as "fixed" | "hourly" | "per-session" | "custom",
     duration: "",
     location: "",
     state: "",
+    city: "",
     locationType: "online" as "online" | "home-service" | "store",
     tags: "",
   })
@@ -94,6 +159,8 @@ export default function NewServicePage() {
 
   const [images, setImages] = useState<string[]>([])
   const [imageFiles, setImageFiles] = useState<File[]>([])
+  const [logoPreview, setLogoPreview] = useState<string>("")
+  const [logoFile, setLogoFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [packageOptions, setPackageOptions] = useState<ServicePackageOption[]>([
     {
@@ -271,6 +338,27 @@ export default function NewServicePage() {
     })
   }
 
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 3 * 1024 * 1024) {
+      toast({
+        title: "Logo too large",
+        description: "Please upload a logo smaller than 3MB",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setLogoPreview(reader.result as string)
+      setLogoFile(file)
+    }
+    reader.readAsDataURL(file)
+  }
+
   const togglePackageImage = (packageId: string, imageIndex: number) => {
     setPackageImageAssignments((prev) => {
       const current = prev[packageId] || []
@@ -334,6 +422,7 @@ export default function NewServicePage() {
       const imageUrls = await Promise.all(
         imageFiles.map((file) => uploadToCloudinary(file))
       )
+      const providerImageUrl = logoFile ? await uploadToCloudinary(logoFile) : ""
 
       // Prepare service data
       let locationValue = "Online"
@@ -389,13 +478,16 @@ export default function NewServicePage() {
       const serviceData: any = {
         providerId: user.uid,
         providerName: userProfile.displayName,
-        providerImage: "",
+        providerImage: providerImageUrl,
         title: formData.title,
         description: formData.description,
         category: formData.category,
+        subcategory: formData.subcategory,
         price: minPackagePrice ?? parseFloat(formData.price),
         pricingType: defaultPackage?.pricingType || formData.pricingType,
         location: locationValue,
+        state: formData.state,
+        city: formData.city,
         locationType: formData.locationType,
         images: imageUrls,
         availability,
@@ -528,7 +620,13 @@ export default function NewServicePage() {
                   <Label htmlFor="category">Category *</Label>
                   <Select
                     value={formData.category}
-                    onValueChange={(value) => setFormData({ ...formData, category: value })}
+                    onValueChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        category: value,
+                        subcategory: value === "rentals" ? formData.subcategory : "",
+                      })
+                    }
                     required
                   >
                     <SelectTrigger>
@@ -538,6 +636,28 @@ export default function NewServicePage() {
                       {SERVICE_CATEGORIES.map((cat) => (
                         <SelectItem key={cat} value={cat} className="capitalize">
                           {cat}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="subcategory">Subcategory</Label>
+                  <Select
+                    value={formData.subcategory}
+                    onValueChange={(value) => setFormData({ ...formData, subcategory: value })}
+                    disabled={formData.category !== "rentals"}
+                  >
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={formData.category === "rentals" ? "Select rental type" : "Available for rentals only"}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RENTAL_SUBCATEGORIES.map((subcategory) => (
+                        <SelectItem key={subcategory} value={subcategory} className="capitalize">
+                          {subcategory.replace(/-/g, " ")}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -851,7 +971,7 @@ export default function NewServicePage() {
                 <Select
                   value={formData.locationType}
                   onValueChange={(value: any) => {
-                    setFormData({ ...formData, locationType: value, location: "", state: "" })
+                    setFormData({ ...formData, locationType: value, location: "", state: "", city: "" })
                   }}
                 >
                   <SelectTrigger>
@@ -866,62 +986,75 @@ export default function NewServicePage() {
               </div>
 
               {formData.locationType === "home-service" && (
-                <div className="space-y-2">
-                  <Label htmlFor="state">State/Region *</Label>
-                  <Select
-                    value={formData.state}
-                    onValueChange={(value) => setFormData({ ...formData, state: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select state" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[300px]">
-                      <SelectItem value="Abia">Abia</SelectItem>
-                      <SelectItem value="Adamawa">Adamawa</SelectItem>
-                      <SelectItem value="Akwa Ibom">Akwa Ibom</SelectItem>
-                      <SelectItem value="Anambra">Anambra</SelectItem>
-                      <SelectItem value="Bauchi">Bauchi</SelectItem>
-                      <SelectItem value="Bayelsa">Bayelsa</SelectItem>
-                      <SelectItem value="Benue">Benue</SelectItem>
-                      <SelectItem value="Borno">Borno</SelectItem>
-                      <SelectItem value="Cross River">Cross River</SelectItem>
-                      <SelectItem value="Delta">Delta</SelectItem>
-                      <SelectItem value="Ebonyi">Ebonyi</SelectItem>
-                      <SelectItem value="Edo">Edo</SelectItem>
-                      <SelectItem value="Ekiti">Ekiti</SelectItem>
-                      <SelectItem value="Enugu">Enugu</SelectItem>
-                      <SelectItem value="FCT">FCT - Abuja</SelectItem>
-                      <SelectItem value="Gombe">Gombe</SelectItem>
-                      <SelectItem value="Imo">Imo</SelectItem>
-                      <SelectItem value="Jigawa">Jigawa</SelectItem>
-                      <SelectItem value="Kaduna">Kaduna</SelectItem>
-                      <SelectItem value="Kano">Kano</SelectItem>
-                      <SelectItem value="Katsina">Katsina</SelectItem>
-                      <SelectItem value="Kebbi">Kebbi</SelectItem>
-                      <SelectItem value="Kogi">Kogi</SelectItem>
-                      <SelectItem value="Kwara">Kwara</SelectItem>
-                      <SelectItem value="Lagos">Lagos</SelectItem>
-                      <SelectItem value="Nasarawa">Nasarawa</SelectItem>
-                      <SelectItem value="Niger">Niger</SelectItem>
-                      <SelectItem value="Ogun">Ogun</SelectItem>
-                      <SelectItem value="Ondo">Ondo</SelectItem>
-                      <SelectItem value="Osun">Osun</SelectItem>
-                      <SelectItem value="Oyo">Oyo</SelectItem>
-                      <SelectItem value="Plateau">Plateau</SelectItem>
-                      <SelectItem value="Rivers">Rivers</SelectItem>
-                      <SelectItem value="Sokoto">Sokoto</SelectItem>
-                      <SelectItem value="Taraba">Taraba</SelectItem>
-                      <SelectItem value="Yobe">Yobe</SelectItem>
-                      <SelectItem value="Zamfara">Zamfara</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">Select the state where you provide home services</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="state">State/Region *</Label>
+                    <Select
+                      value={formData.state}
+                      onValueChange={(value) => setFormData({ ...formData, state: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select state" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        {NIGERIA_STATES.map((state) => (
+                          <SelectItem key={state} value={state}>
+                            {state === "FCT" ? "FCT - Abuja" : state}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Select the state where you provide home services</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="city">City</Label>
+                    <Input
+                      id="city"
+                      placeholder="e.g. Ikeja"
+                      value={formData.city}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    />
+                    <p className="text-xs text-muted-foreground">Optional: helps customers filter by city inside the selected state.</p>
+                  </div>
                 </div>
               )}
 
               {formData.locationType === "store" && (
-                <div className="space-y-2 relative">
-                  <Label htmlFor="location">Store/Office Address *</Label>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="state">State/Region *</Label>
+                      <Select
+                        value={formData.state}
+                        onValueChange={(value) => setFormData({ ...formData, state: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select state" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[300px]">
+                          {NIGERIA_STATES.map((state) => (
+                            <SelectItem key={state} value={state}>
+                              {state === "FCT" ? "FCT - Abuja" : state}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="city">City *</Label>
+                      <Input
+                        id="city"
+                        required={formData.locationType === "store"}
+                        placeholder="e.g. Port Harcourt"
+                        value={formData.city}
+                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 relative">
+                    <Label htmlFor="location">Store/Office Address *</Label>
                   <div className="relative">
                     <Input
                       id="location"
@@ -980,6 +1113,7 @@ export default function NewServicePage() {
                     </svg>
                     Verified by Mapbox - Start typing to see suggestions
                   </p>
+                </div>
                 </div>
               )}
 
@@ -1185,6 +1319,39 @@ export default function NewServicePage() {
           </Card>
 
           {/* Images */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Provider Logo</CardTitle>
+              <CardDescription>Upload your brand logo for the service card (optional, max 3MB)</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="w-20 h-20 rounded-full border-2 border-dashed border-muted-foreground/40 overflow-hidden bg-muted/30 flex items-center justify-center">
+                  {logoPreview ? (
+                    <img src={logoPreview} alt="Service logo preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <Upload className="h-6 w-6 text-muted-foreground" />
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="inline-flex items-center px-4 py-2 rounded-md border border-input bg-background hover:bg-accent/10 cursor-pointer text-sm font-medium">
+                    Upload Logo
+                    <input type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
+                  </label>
+                  {logoPreview && (
+                    <Button type="button" variant="ghost" size="sm" onClick={() => {
+                      setLogoPreview("")
+                      setLogoFile(null)
+                    }}>
+                      Remove logo
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Service Portfolio Images</CardTitle>

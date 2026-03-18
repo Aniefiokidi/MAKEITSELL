@@ -501,14 +501,14 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
   // Handle smart search
   const handleSearch = (query: string) => {
     // Navigate to search results
-    window.location.href = `/stores?search=${encodeURIComponent(query)}`
+    window.location.href = `/search?query=${encodeURIComponent(query)}`
   }
 
   return (
     <header
       className={
         `sticky top-0 z-50 w-full pt-1.5 pb-2 ${homeBg
-          ? 'bg-white/45 dark:bg-black/35 supports-[backdrop-filter]:bg-white/30 dark:supports-[backdrop-filter]:bg-black/25 backdrop-blur-xl border-b border-white/40 dark:border-white/10' 
+          ? 'bg-white/45 dark:bg-black/35 supports-backdrop-filter:bg-white/30 dark:supports-backdrop-filter:bg-black/25 backdrop-blur-xl border-b border-white/40 dark:border-white/10' 
           : 'bg-white/95 dark:bg-background dark:text-foreground backdrop-blur-md'}
         `
         

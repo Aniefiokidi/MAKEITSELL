@@ -534,7 +534,13 @@ function TrendingProducts() {
 
 // Move HeroButtons here, above HomePage
 function HeroButtons({ isLoggedIn }: { isLoggedIn: boolean }) {
-  // Instead of local state, dispatch a custom event to parent
+  const router = useRouter()
+
+  useEffect(() => {
+    router.prefetch('/stores')
+    router.prefetch(isLoggedIn ? '/services' : '/signup?type=vendor')
+  }, [isLoggedIn, router])
+
   return (
     <>
       <div className="flex flex-col sm:flex-row gap-3 justify-center mt-2">
@@ -542,7 +548,7 @@ function HeroButtons({ isLoggedIn }: { isLoggedIn: boolean }) {
           className="inline-block px-8 py-3 text-lg font-semibold rounded-full shadow-2xl bg-accent text-white border-2 border-accent transition-all duration-300 hover:bg-accent/10 hover:text-accent hover:border-accent flex items-center gap-2 group overflow-hidden relative"
           onClick={e => {
             e.preventDefault();
-            window.dispatchEvent(new CustomEvent('slideOutNavigate', { detail: { target: '/stores' } }));
+            router.push('/stores')
           }}
           style={{ minWidth: 200 }}
         >
@@ -562,7 +568,7 @@ function HeroButtons({ isLoggedIn }: { isLoggedIn: boolean }) {
           className="inline-block px-8 py-3 text-lg font-semibold rounded-full shadow-2xl border-2 border-accent text-accent bg-white hover:bg-accent/10 transition-all duration-300 flex items-center gap-2 group overflow-hidden relative"
           onClick={e => {
             e.preventDefault();
-            window.dispatchEvent(new CustomEvent('slideOutNavigate', { detail: { target: isLoggedIn ? '/services' : '/signup?type=vendor' } }));
+            router.push(isLoggedIn ? '/services' : '/signup?type=vendor')
           }}
           style={{ minWidth: 200 }}
         >

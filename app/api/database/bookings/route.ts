@@ -36,6 +36,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const toLocalDateKey = (value: Date) => {
+      const year = value.getFullYear()
+      const month = String(value.getMonth() + 1).padStart(2, '0')
+      const day = String(value.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+
     const bookingData = await request.json()
 
     const service = bookingData?.serviceId ? await getServiceById(String(bookingData.serviceId)) : null
@@ -102,13 +109,13 @@ export async function POST(request: NextRequest) {
     const existingBookings = await getBookingsByProvider(providerId)
     
     // Convert booking date to string for comparison (YYYY-MM-DD format)
-    const requestedDate = new Date(bookingDate).toISOString().split('T')[0]
+    const requestedDate = toLocalDateKey(new Date(bookingDate))
     
     // Check for time conflicts
     const conflictingBooking = existingBookings.find(booking => {
       if (!booking.bookingDate) return false
       
-      const existingDate = new Date(booking.bookingDate).toISOString().split('T')[0]
+      const existingDate = toLocalDateKey(new Date(booking.bookingDate))
       
       // Only check bookings on the same date that aren't cancelled
       if (existingDate !== requestedDate || booking.status === 'cancelled') {

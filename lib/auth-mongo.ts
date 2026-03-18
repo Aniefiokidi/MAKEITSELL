@@ -27,7 +27,7 @@ export const signUp = async (
       businessType: vendorType || "both"
     } : undefined
 
-    const result = await mongoAuth.signUp({
+    const result = await (mongoAuth as any).signUp({
       email,
       password,
       name: displayName,
@@ -83,7 +83,7 @@ export const signUp = async (
 // Sign in user with MongoDB
 export const signIn = async (email: string, password: string) => {
   try {
-    const result = await mongoAuth.signIn(email, password)
+    const result = await (mongoAuth as any).signIn(email, password)
 
     if (result.success) {
       const userProfile: UserProfile = {
@@ -139,7 +139,7 @@ export const logOut = async () => {
     const sessionToken = typeof window !== 'undefined' ? localStorage.getItem('sessionToken') : null
     
     if (sessionToken) {
-      await mongoAuth.signOut(sessionToken)
+      await (mongoAuth as any).signOut(sessionToken)
     }
   } catch (error) {
     console.warn("MongoDB signout error:", error)
@@ -163,7 +163,7 @@ export const getCurrentUser = async () => {
     const sessionToken = localStorage.getItem('sessionToken')
     if (sessionToken) {
       try {
-        const result = await mongoAuth.getCurrentUser(sessionToken)
+        const result = await (mongoAuth as any).getCurrentUser(sessionToken)
         if (result.success && result.user) {
           // Update localStorage
           localStorage.setItem('currentUser', JSON.stringify({
@@ -207,7 +207,7 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
       return null
     }
 
-    const user = await mongoAuth.getUserById(uid)
+    const user = await (mongoAuth as any).getUserById(uid)
     if (user) {
       return {
         uid: user._id.toString(),
@@ -241,7 +241,7 @@ export const updateUserProfile = async (uid: string, profileData: any) => {
       return { success: false }
     }
 
-    await mongoAuth.updateUserProfile(uid, profileData)
+    await (mongoAuth as any).updateUserProfile(uid, profileData)
     return { success: true }
   } catch (error) {
     console.error("Error updating user profile:", error)
@@ -251,7 +251,7 @@ export const updateUserProfile = async (uid: string, profileData: any) => {
 
 // Auth utilities
 export const isAuthAvailable = async (): Promise<boolean> => {
-  return await mongoAuth.isMongoAuthAvailable()
+  return await (mongoAuth as any).isMongoAuthAvailable()
 }
 
 // For backward compatibility

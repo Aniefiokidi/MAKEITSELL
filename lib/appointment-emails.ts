@@ -60,22 +60,22 @@ export const AppointmentEmailService = {
     const emailHtml = `
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
         <!-- Header -->
-        <div style="text-align: center; margin-bottom: 30px; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px;">
-          <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700;">📅 Appointment Confirmed!</h1>
-          <p style="color: white; margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Your booking has been successfully scheduled</p>
+        <div style="text-align: center; margin-bottom: 30px; padding: 20px; background: #111827; border-left: 4px solid #f97316; border-radius: 10px;">
+          <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700;">Appointment Confirmed</h1>
+          <p style="color: #e5e7eb; margin: 10px 0 0 0; font-size: 16px;">Your booking has been successfully scheduled</p>
         </div>
 
         <!-- Greeting -->
         <div style="text-align: center; margin-bottom: 30px;">
           <h2 style="color: #333; margin: 0 0 10px 0; font-size: 24px;">Hi ${data.customerName}!</h2>
           <p style="color: #666; margin: 0; font-size: 16px; line-height: 1.5;">
-            Great news! Your appointment with <strong>${data.providerName}</strong> has been confirmed.
+            Your appointment with <strong>${data.providerName}</strong> has been confirmed.
           </p>
         </div>
 
         <!-- Appointment Details -->
         <div style="background: #f8f9fa; padding: 25px; border-radius: 10px; margin-bottom: 25px; border: 1px solid #e9ecef;">
-          <h3 style="color: #333; margin: 0 0 15px 0; font-size: 20px; border-bottom: 2px solid #667eea; padding-bottom: 5px;">📋 Appointment Details</h3>
+          <h3 style="color: #333; margin: 0 0 15px 0; font-size: 20px; border-bottom: 2px solid #f97316; padding-bottom: 5px;">Appointment Details</h3>
           
           <div style="display: grid; gap: 15px;">
             <div style="display: flex; align-items: center; gap: 10px;">
@@ -130,7 +130,7 @@ export const AppointmentEmailService = {
 
         <!-- Provider Contact -->
         <div style="background: #e7f3ff; padding: 20px; border-radius: 10px; margin-bottom: 25px; border-left: 4px solid #667eea;">
-          <h3 style="color: #333; margin: 0 0 10px 0; font-size: 18px;">👨‍💼 Your Service Provider</h3>
+          <h3 style="color: #333; margin: 0 0 10px 0; font-size: 18px;">Your Service Provider</h3>
           <p style="margin: 0; color: #333;"><strong>Name:</strong> ${data.providerName}</p>
           <p style="margin: 5px 0; color: #333;"><strong>Contact:</strong> ${data.providerEmail}</p>
           <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">Feel free to reach out if you have any questions!</p>
@@ -138,7 +138,7 @@ export const AppointmentEmailService = {
 
         <!-- Next Steps -->
         <div style="background: #d4edda; padding: 20px; border-radius: 10px; margin-bottom: 25px; border-left: 4px solid #28a745;">
-          <h3 style="color: #155724; margin: 0 0 10px 0; font-size: 18px;">✅ What's Next?</h3>
+          <h3 style="color: #155724; margin: 0 0 10px 0; font-size: 18px;">Next Steps</h3>
           <ul style="margin: 0; padding-left: 20px; color: #155724; line-height: 1.6;">
             <li>Your provider will confirm the appointment shortly</li>
             <li>You'll receive a confirmation call if a phone number was provided</li>
@@ -153,7 +153,7 @@ export const AppointmentEmailService = {
             Need help or want to reschedule? Contact us!
           </p>
           <p style="margin: 0;">
-            📧 <a href="mailto:noreply@makeitsell.org" style="color: #667eea; text-decoration: none; font-weight: 600;">noreply@makeitsell.org</a>
+            📧 <a href="mailto:noreply@makeitsell.org" style="color: #f97316; text-decoration: none; font-weight: 600;">noreply@makeitsell.org</a>
           </p>
         </div>
 
@@ -169,7 +169,7 @@ export const AppointmentEmailService = {
 
     return await emailService.sendEmail({
       to: data.customerEmail,
-      subject: `🎉 Appointment Confirmed - ${data.serviceTitle} on ${formattedDate}`,
+      subject: `Appointment Confirmed - ${data.serviceTitle} on ${formattedDate}`,
       html: emailHtml
     })
   },
@@ -193,22 +193,22 @@ export const AppointmentEmailService = {
     const emailHtml = `
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
         <!-- Header -->
-        <div style="text-align: center; margin-bottom: 30px; padding: 20px; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border-radius: 10px;">
-          <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700;">🎉 New Booking Received!</h1>
-          <p style="color: white; margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">You have a new appointment request</p>
+        <div style="text-align: center; margin-bottom: 30px; padding: 20px; background: #111827; border-left: 4px solid #f97316; border-radius: 10px;">
+          <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700;">New Booking Received</h1>
+          <p style="color: #e5e7eb; margin: 10px 0 0 0; font-size: 16px;">You have a new appointment request</p>
         </div>
 
         <!-- Greeting -->
         <div style="text-align: center; margin-bottom: 30px;">
           <h2 style="color: #333; margin: 0 0 10px 0; font-size: 24px;">Hi ${data.providerName}!</h2>
           <p style="color: #666; margin: 0; font-size: 16px; line-height: 1.5;">
-            Great news! You have a new appointment booking for your service.
+            You have a new appointment booking for your service.
           </p>
         </div>
 
         <!-- Booking Details -->
         <div style="background: #f8f9fa; padding: 25px; border-radius: 10px; margin-bottom: 25px; border: 1px solid #e9ecef;">
-          <h3 style="color: #333; margin: 0 0 15px 0; font-size: 20px; border-bottom: 2px solid #28a745; padding-bottom: 5px;">📋 Booking Details</h3>
+          <h3 style="color: #333; margin: 0 0 15px 0; font-size: 20px; border-bottom: 2px solid #f97316; padding-bottom: 5px;">Booking Details</h3>
           
           <div style="display: grid; gap: 15px;">
             <div style="display: flex; align-items: center; gap: 10px;">
@@ -255,7 +255,7 @@ export const AppointmentEmailService = {
 
         <!-- Customer Information -->
         <div style="background: #e7f3ff; padding: 20px; border-radius: 10px; margin-bottom: 25px; border-left: 4px solid #1e90ff;">
-          <h3 style="color: #333; margin: 0 0 10px 0; font-size: 18px;">👤 Customer Information</h3>
+          <h3 style="color: #333; margin: 0 0 10px 0; font-size: 18px;">Customer Information</h3>
           <p style="margin: 0; color: #333;"><strong>Name:</strong> ${data.customerName}</p>
           <p style="margin: 5px 0; color: #333;"><strong>Email:</strong> ${data.customerEmail}</p>
           ${data.customerPhone ? `<p style="margin: 5px 0; color: #333;"><strong>Phone:</strong> ${data.customerPhone}</p>` : ''}
@@ -271,7 +271,7 @@ export const AppointmentEmailService = {
 
         <!-- Action Required -->
         <div style="background: #fff3cd; padding: 20px; border-radius: 10px; margin-bottom: 25px; border-left: 4px solid #ffc107;">
-          <h3 style="color: #856404; margin: 0 0 10px 0; font-size: 18px;">⚡ Action Required</h3>
+          <h3 style="color: #856404; margin: 0 0 10px 0; font-size: 18px;">Action Required</h3>
           <ul style="margin: 0; padding-left: 20px; color: #856404; line-height: 1.6;">
             <li>Confirm or reschedule this appointment through your dashboard</li>
             <li>Contact the customer if you need additional information</li>
@@ -286,7 +286,7 @@ export const AppointmentEmailService = {
             Questions about this booking? Need help with your account?
           </p>
           <p style="margin: 0;">
-            📧 <a href="mailto:noreply@makeitsell.org" style="color: #28a745; text-decoration: none; font-weight: 600;">noreply@makeitsell.org</a>
+            📧 <a href="mailto:noreply@makeitsell.org" style="color: #f97316; text-decoration: none; font-weight: 600;">noreply@makeitsell.org</a>
           </p>
         </div>
 
@@ -302,7 +302,7 @@ export const AppointmentEmailService = {
 
     return await emailService.sendEmail({
       to: data.providerEmail,
-      subject: `💰 New Booking: ${data.serviceTitle} - ${formattedDate} at ${data.startTime}`,
+      subject: `New Booking: ${data.serviceTitle} - ${formattedDate} at ${data.startTime}`,
       html: emailHtml
     })
   },
