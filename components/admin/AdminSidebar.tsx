@@ -8,6 +8,7 @@ import {
   Users,
   Package,
   ShoppingCart,
+  ArrowLeftRight,
   MessageSquare,
   Settings,
   Shield,
@@ -48,6 +49,11 @@ const adminNavItems = [
     title: "Orders",
     href: "/admin/orders",
     icon: ShoppingCart,
+  },
+  {
+    title: "Transactions",
+    href: "/admin/transactions",
+    icon: ArrowLeftRight,
   },
   {
     title: "Services",
@@ -109,7 +115,7 @@ export default function AdminSidebar({ onNavigate }: { onNavigate?: () => void }
                 pathname === item.href ? "bg-accent text-accent-foreground" : "text-muted-foreground",
               )}
             >
-              <Icon className="h-4 w-4 flex-shrink-0" />
+              <Icon className="h-4 w-4 shrink-0" />
               <span className="truncate">{item.title}</span>
             </Link>
           )
