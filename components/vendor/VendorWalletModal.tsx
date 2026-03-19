@@ -26,6 +26,17 @@ interface VendorWalletModalProps {
   onBalanceUpdated?: (balance: number) => void
 }
 
+const FALLBACK_BANKS: Array<{ name: string; code: string }> = [
+  { name: 'Access Bank', code: '044' },
+  { name: 'GTBank', code: '058' },
+  { name: 'First Bank of Nigeria', code: '011' },
+  { name: 'United Bank For Africa', code: '033' },
+  { name: 'Zenith Bank', code: '057' },
+  { name: 'Fidelity Bank', code: '070' },
+  { name: 'FCMB', code: '214' },
+  { name: 'Wema Bank', code: '035' },
+]
+
 export function VendorWalletModal({
   open,
   onOpenChange,
@@ -108,8 +119,8 @@ export function VendorWalletModal({
           method: 'GET',
           credentials: 'include',
         })
-        const data = await res.json()
-        if (res.ok && data?.success && Array.isArray(data.banks)) {
+        const data = await res.json().catch(() => ({}))
+        if (res.ok && data?.success && Array.isArray(data.banks) && data.banks.length > 0) {
           const uniqueByCode = new Map<string, { name: string; code: string }>()
           data.banks.forEach((bank: any) => {
             const code = String(bank?.code || '').trim()
@@ -118,10 +129,13 @@ export function VendorWalletModal({
               uniqueByCode.set(code, { name, code })
             }
           })
-          setBanks(Array.from(uniqueByCode.values()))
+          const normalized = Array.from(uniqueByCode.values())
+          setBanks(normalized.length > 0 ? normalized : FALLBACK_BANKS)
+        } else {
+          setBanks(FALLBACK_BANKS)
         }
       } catch {
-        setBanks([])
+        setBanks(FALLBACK_BANKS)
       }
     }
 
@@ -429,7 +443,7 @@ export function VendorWalletModal({
                             {tx.direction === 'credit' ? '+' : tx.direction === 'debit' ? '-' : ''}
                             {currencyFormatter.format(Number(tx.amount || 0))}
                           </p>
-                          <p className='text-muted-foreground'>{tx.status}</p>
+                          <p className='text-muted-foreground'>{String(tx.status || '').replace(/_/g, ' ')}</p>
                         </div>
                       </div>
                     ))}
@@ -532,7 +546,7 @@ export function VendorWalletModal({
                   <button
                     type='button'
                     onClick={() => setShowCurrentPin(!showCurrentPin)}
-                    className='absolute right-3 top-8 text-muted-foreground hover:text-foreground'
+                    className='absolute right-3 top-1/2 mt-3 -translate-y-1/2 text-muted-foreground hover:text-foreground'
                   >
                     {showCurrentPin ? <EyeOff className='h-4 w-4' /> : <Eye className='h-4 w-4' />}
                   </button>
@@ -553,7 +567,7 @@ export function VendorWalletModal({
                 <button
                   type='button'
                   onClick={() => setShowNewPin(!showNewPin)}
-                  className='absolute right-3 top-8 text-muted-foreground hover:text-foreground'
+                  className='absolute right-3 top-1/2 mt-3 -translate-y-1/2 text-muted-foreground hover:text-foreground'
                 >
                   {showNewPin ? <EyeOff className='h-4 w-4' /> : <Eye className='h-4 w-4' />}
                 </button>
@@ -573,7 +587,7 @@ export function VendorWalletModal({
                 <button
                   type='button'
                   onClick={() => setShowConfirmNewPin(!showConfirmNewPin)}
-                  className='absolute right-3 top-8 text-muted-foreground hover:text-foreground'
+                  className='absolute right-3 top-1/2 mt-3 -translate-y-1/2 text-muted-foreground hover:text-foreground'
                 >
                   {showConfirmNewPin ? <EyeOff className='h-4 w-4' /> : <Eye className='h-4 w-4' />}
                 </button>
@@ -693,7 +707,7 @@ export function VendorWalletModal({
                     <button
                       type='button'
                       onClick={() => setShowWithdrawalPin(!showWithdrawalPin)}
-                      className='absolute right-3 top-8 text-muted-foreground hover:text-foreground'
+                      className='absolute right-3 top-1/2 mt-3 -translate-y-1/2 text-muted-foreground hover:text-foreground'
                     >
                       {showWithdrawalPin ? <EyeOff className='h-4 w-4' /> : <Eye className='h-4 w-4' />}
                     </button>

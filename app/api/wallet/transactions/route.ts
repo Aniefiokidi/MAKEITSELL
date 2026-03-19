@@ -119,18 +119,29 @@ export async function GET(request: NextRequest) {
       .limit(20)
       .lean()
 
-    const data = transactions.map((tx: any) => ({
+    const data = transactions.map((tx: any) => {
+      const isManualReview =
+        tx?.type === 'withdrawal'
+        && tx?.status === 'pending'
+        && (
+          tx?.provider === 'manual_transfer'
+          || tx?.metadata?.manualProcessingRequired === true
+          || tx?.metadata?.transferStatus === 'manual_review'
+        )
+
+      return {
       id: tx?._id?.toString?.() || '',
       type: tx.type,
       amount: Number(tx.amount || 0),
-      status: tx.status,
+      status: isManualReview ? 'manual_review' : tx.status,
       reference: tx.reference,
       note: tx.note || '',
       provider: tx.provider || '',
       orderId: tx.orderId || '',
       createdAt: tx.createdAt,
       direction: getDirection(String(tx.type || '')),
-    }))
+      }
+    })
 
     return NextResponse.json({ success: true, transactions: data })
   } catch (error: any) {

@@ -12,6 +12,9 @@ const hashWithdrawalPin = (pin: string, userId: string) => {
   return crypto.createHash('sha256').update(`${pin}:${userId}`).digest('hex')
 }
 
+const normalizeAccountNumber = (value: any) => String(value || '').replace(/\D/g, '')
+const normalizeText = (value: any) => String(value || '').trim()
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -48,9 +51,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!bankName?.trim() || !bankCode?.trim() || !accountName?.trim() || !accountNumber?.trim()) {
+    const minimumWithdrawal = Number(process.env.XORO_MIN_WITHDRAWAL_NGN || 1000)
+    if (normalizedAmount < minimumWithdrawal) {
+      return NextResponse.json(
+        { success: false, error: `Minimum withdrawal is ${minimumWithdrawal}` },
+        { status: 400 }
+      )
+    }
+
+    if (!bankName?.trim() || !bankCode?.trim() || !accountName?.trim() || !String(accountNumber || '').trim()) {
       return NextResponse.json(
         { success: false, error: 'Enter bank name, bank code, account number and account name' },
+        { status: 400 }
+      )
+    }
+
+    const cleanAccountNumber = normalizeAccountNumber(accountNumber)
+    let bankCodeForPayout = String(bankCode || '').trim()
+    if (!/^\d{10}$/.test(cleanAccountNumber)) {
+      return NextResponse.json(
+        { success: false, error: 'Account number must be 10 digits' },
         { status: 400 }
       )
     }
@@ -63,9 +83,10 @@ export async function POST(request: NextRequest) {
     }
 
     await connectToDatabase()
+    bankCodeForPayout = await xoroPayService.normalizeBankCodeForPayout(bankCodeForPayout)
 
     // Get user for PIN verification
-    const userForPin = await User.findById(currentUser.id).select('withdrawalPinHash walletBalance').lean()
+    const userForPin = await User.findById(currentUser.id).select('withdrawalPinHash walletBalance payoutProfile').lean()
 
     if (!userForPin?.withdrawalPinHash) {
       return NextResponse.json(
@@ -144,56 +165,119 @@ export async function POST(request: NextRequest) {
     let xoroError = ''
 
     try {
-      const recipient = await xoroPayService.createTransferRecipient({
-        name: accountName,
-        accountNumber: accountNumber.trim(),
-        bankCode: bankCode.trim(),
+      const storedProfile = userForPin?.payoutProfile && typeof userForPin.payoutProfile === 'object'
+        ? userForPin.payoutProfile
+        : {}
+      const storedBankCode = normalizeText((storedProfile as any).bankCode)
+      const storedAccountNumber = normalizeAccountNumber((storedProfile as any).accountNumber)
+      const storedAccountName = normalizeText((storedProfile as any).accountName)
+      const storedRecipientCode = normalizeText((storedProfile as any).xoroRecipientCode)
+
+      const accountChanged = (
+        storedBankCode !== normalizeText(bankCode)
+        || storedAccountNumber !== cleanAccountNumber
+        || storedAccountName.toLowerCase() !== normalizeText(accountName).toLowerCase()
+      )
+
+      const recipientCode = !accountChanged ? storedRecipientCode : ''
+
+      const nextPayoutProfile: Record<string, any> = {
+        provider: 'xoro',
+        bankName,
+        bankCode,
+        accountNumber: cleanAccountNumber,
+        accountName,
+        updatedAt: new Date(),
+      }
+      if (recipientCode) {
+        nextPayoutProfile.xoroRecipientCode = recipientCode
+        nextPayoutProfile.recipientCreatedAt = (storedProfile as any).recipientCreatedAt || new Date()
+      }
+
+      await User.updateOne(
+        { _id: currentUser.id },
+        {
+          $set: {
+            payoutProfile: nextPayoutProfile,
+            updatedAt: new Date(),
+          },
+        }
+      )
+
+      const transfer = await xoroPayService.initiateTransfer({
+        amount: normalizedAmount,
+        recipientCode,
+        reference: payoutReference,
+        reason: transferReason,
+        accountNumber: cleanAccountNumber,
+        bankCode: bankCodeForPayout,
+        accountName,
+        customerEmail: currentUser.email,
+        customerName: currentUser.name || currentUser.email,
       })
 
-      if (recipient.success && recipient.recipientCode) {
-        const transfer = await xoroPayService.initiateTransfer({
-          amount: normalizedAmount,
-          recipientCode: recipient.recipientCode,
-          reference: payoutReference,
-          reason: transferReason,
-        })
-
-        if (transfer.success && transfer.transferCode && transfer.status !== 'otp') {
-          transferProvider = 'xoro_payout'
-          transferCode = transfer.transferCode
-          transferStatus = transfer.status || 'pending'
-          transferRecipientCode = recipient.recipientCode
-          transferMeta = {
-            xoroRecipientRaw: recipient.raw || null,
-            xoroTransferRaw: transfer.raw || null,
-          }
-        } else {
-          xoroError = transfer.message || 'Xoro payout initiation failed'
+      if (transfer.success && transfer.transferCode && transfer.status !== 'otp') {
+        transferProvider = 'xoro_payout'
+        transferCode = transfer.transferCode
+        transferStatus = transfer.status || 'pending'
+        transferRecipientCode = recipientCode
+        transferMeta = {
+          payoutProfileUsed: {
+            bankName,
+            bankCode,
+            accountNumber: cleanAccountNumber,
+            accountName,
+            recipientCode,
+            reusedStoredRecipient: Boolean(storedRecipientCode) && !accountChanged,
+            accountChanged,
+          },
+          xoroTransferRaw: transfer.raw || null,
         }
       } else {
-        xoroError = recipient.message || 'Xoro payout recipient creation failed'
+        const transferMsg = transfer.message || 'Xoro payout initiation failed'
+        xoroError = transferMsg
       }
     } catch (xoroFailure: any) {
       xoroError = xoroFailure?.message || 'Xoro payout request failed'
     }
 
     if (!transferCode) {
-      transferProvider = 'manual_transfer'
-      transferStatus = 'manual_review'
-      transferRecipientCode = ''
-      transferMeta = {
-        autoTransferInitiated: false,
-        manualProcessingRequired: true,
-        xoroError,
+      if (withdrawFromStore > 0 && store?._id) {
+        await Store.updateOne(
+          { _id: store._id },
+          {
+            $inc: { walletBalance: withdrawFromStore },
+            $set: { updatedAt: new Date() },
+          }
+        )
       }
 
-      console.warn('[vendor/wallet/withdraw] auto-transfer unavailable, queued for manual processing', {
+      if (withdrawFromUser > 0) {
+        await User.updateOne(
+          { _id: currentUser.id },
+          {
+            $inc: { walletBalance: withdrawFromUser },
+            $set: { updatedAt: new Date() },
+          }
+        )
+      }
+
+      console.warn('[vendor/wallet/withdraw] auto-transfer unavailable, debit rolled back', {
         userId: String(currentUser.id),
         amount: normalizedAmount,
         bankCode,
+        bankCodeForPayout,
         payoutReference,
         xoroError,
       })
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: xoroError || 'Automatic payout failed. No funds were deducted. Please try again shortly.',
+        },
+        { status: 502 }
+      )
     }
 
     await WalletTransaction.create({
@@ -207,7 +291,8 @@ export async function POST(request: NextRequest) {
       metadata: {
         bankName,
         bankCode,
-        accountNumber,
+        bankCodeForPayout,
+        accountNumber: cleanAccountNumber,
         accountName,
         payoutReference,
         transferCode,
@@ -234,7 +319,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: transferCode
         ? 'Withdrawal request submitted. Transfer is being processed.'
-        : 'Withdrawal request submitted for manual processing.',
+        : 'Withdrawal request submitted.',
       reference,
       newBalance,
       balance: newBalance,

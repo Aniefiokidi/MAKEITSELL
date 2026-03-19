@@ -57,7 +57,9 @@ export async function POST(request: NextRequest) {
     await connectToDatabase()
 
     const reference = `vendor_wallet_topup_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`
-    const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.org'}/api/vendor/wallet/topup/callback`
+    const requestOrigin = request.nextUrl?.origin || ''
+    const appBaseUrl = requestOrigin || process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.org'
+    const callbackUrl = `${appBaseUrl}/api/vendor/wallet/topup/callback`
 
     const paymentResult = await xoroPayService.initializePayment({
       email: currentUser.email,

@@ -15,6 +15,7 @@ const UserSchema = new Schema({
   walletBalance: { type: Number, default: 0 },
   withdrawalPinHash: { type: String },
   withdrawalPinSetAt: { type: Date },
+  payoutProfile: { type: Schema.Types.Mixed },
   vendorInfo: { type: Schema.Types.Mixed },
   sessionToken: { type: String },
   isEmailVerified: { type: Boolean, default: false },

@@ -92,9 +92,17 @@ export default function VendorWalletTransactionsPage() {
     const colors: Record<string, string> = {
       completed: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
       pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+      manual_review: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
       failed: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
     }
     return colors[status] || 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+  }
+
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      manual_review: 'manual review',
+    }
+    return labels[status] || status.replace(/_/g, ' ')
   }
 
   return (
@@ -150,6 +158,7 @@ export default function VendorWalletTransactionsPage() {
                         <SelectItem value="all">All Statuses</SelectItem>
                         <SelectItem value="completed">Completed</SelectItem>
                         <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="manual_review">Manual Review</SelectItem>
                         <SelectItem value="failed">Failed</SelectItem>
                       </SelectContent>
                     </Select>
@@ -187,7 +196,7 @@ export default function VendorWalletTransactionsPage() {
                             <span
                               className={`text-xs px-2 py-0.5 rounded-full ${getStatusBadge(tx.status)}`}
                             >
-                              {tx.status}
+                              {getStatusLabel(tx.status)}
                             </span>
                           </div>
                           <p className="text-sm text-muted-foreground">{tx.note || 'No description'}</p>

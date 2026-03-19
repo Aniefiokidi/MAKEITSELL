@@ -27,6 +27,17 @@ interface WalletTx {
   direction?: "credit" | "debit" | "neutral"
 }
 
+const FALLBACK_BANKS: Array<{ name: string; code: string }> = [
+  { name: "Access Bank", code: "044" },
+  { name: "GTBank", code: "058" },
+  { name: "First Bank of Nigeria", code: "011" },
+  { name: "United Bank For Africa", code: "033" },
+  { name: "Zenith Bank", code: "057" },
+  { name: "Fidelity Bank", code: "070" },
+  { name: "FCMB", code: "214" },
+  { name: "Wema Bank", code: "035" },
+]
+
 export default function Header({ homeBg = false }: { homeBg?: boolean }) {
   const { user, userProfile, loading } = useAuth()
   const notification = useNotification()
@@ -238,8 +249,8 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
           method: "GET",
           credentials: "include",
         })
-        const data = await res.json()
-        if (res.ok && data?.success && Array.isArray(data.banks)) {
+        const data = await res.json().catch(() => ({}))
+        if (res.ok && data?.success && Array.isArray(data.banks) && data.banks.length > 0) {
           const uniqueByCode = new Map<string, { name: string; code: string }>()
           data.banks.forEach((bank: any) => {
             const code = String(bank?.code || "").trim()
@@ -248,10 +259,13 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
               uniqueByCode.set(code, { name, code })
             }
           })
-          setBanks(Array.from(uniqueByCode.values()))
+          const normalized = Array.from(uniqueByCode.values())
+          setBanks(normalized.length > 0 ? normalized : FALLBACK_BANKS)
+        } else {
+          setBanks(FALLBACK_BANKS)
         }
       } catch {
-        setBanks([])
+        setBanks(FALLBACK_BANKS)
       }
     }
 
@@ -752,7 +766,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                               {tx.direction === "credit" ? "+" : tx.direction === "debit" ? "-" : ""}
                               {currencyFormatter.format(Number(tx.amount || 0))}
                             </p>
-                            <p className="text-muted-foreground">{tx.status}</p>
+                              <p className="text-muted-foreground">{String(tx.status || '').replace(/_/g, ' ')}</p>
                           </div>
                         </div>
                       ))}

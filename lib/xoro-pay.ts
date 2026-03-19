@@ -47,6 +47,11 @@ interface XoroTransferParams {
   recipientCode: string
   reference: string
   reason: string
+  accountNumber?: string
+  bankCode?: string
+  accountName?: string
+  customerEmail?: string
+  customerName?: string
 }
 
 interface XoroTransferResult {
@@ -69,6 +74,7 @@ interface XoroResolveAccountResult {
 interface XoroBank {
   name: string
   code: string
+  nibssBankCode?: string
 }
 
 interface XoroBankListResult {
@@ -79,6 +85,17 @@ interface XoroBankListResult {
 }
 
 const DEFAULT_XORO_BASE_URL = 'https://api.xoropay.com'
+
+const XORO_BANK_CODE_ALIASES: Record<string, string> = {
+  // OPay aliases (Paystack and NIBSS variants) -> Xoropay payout code
+  '999992': '305',
+  '100004': '305',
+}
+
+const normalizeBankCode = (code: string, aliases: Record<string, string> = XORO_BANK_CODE_ALIASES) => {
+  const clean = String(code || '').trim()
+  return aliases[clean] || clean
+}
 
 const normalizeBaseUrl = (url: string) => {
   return url.replace(/\/+$/, '')
@@ -133,6 +150,10 @@ class XoroPayService {
   private webhookSecret: string
   private baseUrl: string
   private defaultProcessor: string
+  private bankCodeAliasCache: {
+    expiresAt: number
+    aliases: Record<string, string>
+  } | null
 
   constructor() {
     this.secretKey = String(process.env.XORO_PAY_SECRET_KEY || '').trim()
@@ -140,6 +161,74 @@ class XoroPayService {
     this.webhookSecret = String(process.env.XORO_PAY_WEBHOOK_SECRET || this.secretKey).trim()
     this.baseUrl = normalizeBaseUrl(String(process.env.XORO_PAY_BASE_URL || DEFAULT_XORO_BASE_URL).trim())
     this.defaultProcessor = String(process.env.XORO_PAY_PROCESSOR || 'xoropay').trim().toLowerCase()
+    this.bankCodeAliasCache = null
+  }
+
+  private buildBankCodeAliases(rawBanks: any[]): Record<string, string> {
+    const aliases: Record<string, string> = {
+      ...XORO_BANK_CODE_ALIASES,
+    }
+
+    for (const bank of rawBanks) {
+      const code = String(bank?.code || bank?.bank_code || '').trim()
+      const nibss = String(bank?.nibss_bank_code || bank?.nibssBankCode || '').trim()
+      if (!code) continue
+      aliases[code] = code
+      if (nibss) {
+        aliases[nibss] = code
+      }
+    }
+
+    return aliases
+  }
+
+  private async getBankCodeAliases(): Promise<Record<string, string>> {
+    const now = Date.now()
+    if (this.bankCodeAliasCache && this.bankCodeAliasCache.expiresAt > now) {
+      return this.bankCodeAliasCache.aliases
+    }
+
+    const fallbackAliases = { ...XORO_BANK_CODE_ALIASES }
+    const paths = [
+      '/banks?country=nigeria&use_cursor=false',
+      '/api/v1/banks?country=nigeria&use_cursor=false',
+    ]
+
+    let aliases = fallbackAliases
+    for (const path of paths) {
+      try {
+        const result = await this.call(path, { method: 'GET' })
+        const payload = result.payload
+        const rawBanks = pick<any[]>(payload, ['data', 'banks', 'result'], []) || (Array.isArray(payload) ? payload : [])
+
+        if (!Array.isArray(rawBanks) || rawBanks.length === 0) {
+          continue
+        }
+
+        aliases = this.buildBankCodeAliases(rawBanks)
+        if (result.ok || isSuccess(payload)) {
+          break
+        }
+      } catch {
+        // Keep fallback aliases when bank directory fetch is unavailable.
+      }
+    }
+
+    this.bankCodeAliasCache = {
+      expiresAt: now + 1000 * 60 * 60,
+      aliases,
+    }
+
+    return aliases
+  }
+
+  async normalizeBankCodeForPayout(code: string): Promise<string> {
+    try {
+      const aliases = await this.getBankCodeAliases()
+      return normalizeBankCode(code, aliases)
+    } catch {
+      return normalizeBankCode(code)
+    }
   }
 
   private hasCredentials() {
@@ -444,13 +533,14 @@ class XoroPayService {
       const result = await this.call(path, { method: 'GET' })
       const payload = result.payload
       lastPayload = payload
-      const rawBanks = pick<any[]>(payload, ['data', 'banks', 'result'], []) || []
+      const rawBanks = pick<any[]>(payload, ['data', 'banks', 'result'], []) || (Array.isArray(payload) ? payload : [])
 
       const banks = Array.isArray(rawBanks)
         ? rawBanks
             .map((bank: any) => ({
               name: String(bank?.name || bank?.bank_name || '').trim(),
               code: String(bank?.code || bank?.bank_code || '').trim(),
+              nibssBankCode: String(bank?.nibss_bank_code || bank?.nibssBankCode || '').trim() || undefined,
             }))
             .filter((bank: XoroBank) => bank.name && bank.code)
         : []
@@ -473,7 +563,8 @@ class XoroPayService {
   }
 
   async resolveAccount(bankCode: string, accountNumber: string): Promise<XoroResolveAccountResult> {
-    const query = `account_number=${encodeURIComponent(accountNumber)}&bank_code=${encodeURIComponent(bankCode)}`
+    const normalizedBankCode = await this.normalizeBankCodeForPayout(bankCode)
+    const query = `account_number=${encodeURIComponent(accountNumber)}&bank_code=${encodeURIComponent(normalizedBankCode)}`
     const paths = [
       `/api/v1/banks/resolve?${query}`,
       `/banks/resolve?${query}`,
@@ -495,7 +586,7 @@ class XoroPayService {
           success: true,
           accountName,
           accountNumber: pick<string>(data, ['account_number', 'accountNumber'], accountNumber),
-          bankCode: pick<string>(data, ['bank_code', 'bankCode'], bankCode),
+          bankCode: pick<string>(data, ['bank_code', 'bankCode'], normalizedBankCode),
           raw: payload,
         }
       }
@@ -509,6 +600,7 @@ class XoroPayService {
   }
 
   async createTransferRecipient(params: XoroTransferRecipientParams): Promise<XoroTransferRecipientResult> {
+    const normalizedBankCode = await this.normalizeBankCodeForPayout(params.bankCode)
     const attempts = [
       {
         path: '/api/v1/payout/recipient',
@@ -516,7 +608,47 @@ class XoroPayService {
           type: 'nuban',
           name: params.name,
           account_number: params.accountNumber,
-          bank_code: params.bankCode,
+          bank_code: normalizedBankCode,
+          currency: 'NGN',
+        },
+      },
+      {
+        path: '/api/v1/payout/recipients',
+        body: {
+          type: 'nuban',
+          name: params.name,
+          account_number: params.accountNumber,
+          bank_code: normalizedBankCode,
+          currency: 'NGN',
+        },
+      },
+      {
+        path: '/api/v1/transferrecipient',
+        body: {
+          type: 'nuban',
+          name: params.name,
+          account_number: params.accountNumber,
+          bank_code: normalizedBankCode,
+          currency: 'NGN',
+        },
+      },
+      {
+        path: '/api/v1/transfer-recipient',
+        body: {
+          type: 'nuban',
+          name: params.name,
+          account_number: params.accountNumber,
+          bank_code: normalizedBankCode,
+          currency: 'NGN',
+        },
+      },
+      {
+        path: '/api/v1/transfer/recipient',
+        body: {
+          type: 'nuban',
+          name: params.name,
+          account_number: params.accountNumber,
+          bank_code: normalizedBankCode,
           currency: 'NGN',
         },
       },
@@ -544,6 +676,8 @@ class XoroPayService {
       const data = asObject(pick(payload, ['data', 'result'], {}))
       const recipientCode = pick<string>(data, ['recipient_code', 'recipientCode', 'code'])
         || pick<string>(payload, ['recipient_code', 'recipientCode'])
+        || pick<string>(data, ['id', '_id', 'reference'])
+        || pick<string>(payload, ['id', '_id', 'reference'])
 
       const ok = (result.ok || isSuccess(payload)) && Boolean(recipientCode)
       if (ok) {
@@ -563,30 +697,104 @@ class XoroPayService {
   }
 
   async initiateTransfer(params: XoroTransferParams): Promise<XoroTransferResult> {
-    const attempts = [
-      {
-        path: '/api/v1/payout',
-        body: {
-          amount: Math.round(Number(params.amount)),
-          recipient: params.recipientCode,
-          reference: params.reference,
-          reason: params.reason,
-          currency: 'NGN',
+    const amountMajor = Math.round(Number(params.amount))
+    const amountMinor = Math.round(Number(params.amount) * 100)
+    const normalizedBankCode = await this.normalizeBankCodeForPayout(String(params.bankCode || ''))
+
+    const attempts: Array<{ path: string; body: Record<string, any> }> = []
+
+    if (params.accountNumber && params.bankCode) {
+      const customer = {
+        email: params.customerEmail || `${params.reference}@makeitsell.local`,
+        name: params.customerName || params.accountName || 'Customer',
+      }
+
+      const destinationBase = {
+        bank_code: normalizedBankCode,
+        account_number: params.accountNumber,
+      }
+
+      attempts.push(
+        {
+          path: '/api/v1/payout',
+          body: {
+            amount: amountMajor,
+            currency: 'NGN',
+            reference: params.reference,
+            customer,
+            destination: destinationBase,
+            narration: params.reason,
+          },
         },
-      },
-      {
-        path: '/transfers',
-        body: {
-          source: 'balance',
-          amount: Math.round(Number(params.amount) * 100),
-          recipient: params.recipientCode,
-          reason: params.reason,
-          reference: params.reference,
+        {
+          path: '/api/v1/payout',
+          body: {
+            amount: amountMinor,
+            currency: 'NGN',
+            reference: params.reference,
+            customer,
+            destination: {
+              ...destinationBase,
+              account_name: params.accountName,
+            },
+            narration: params.reason,
+          },
         },
-      },
-    ]
+        {
+          path: '/api/v1/payout',
+          body: {
+            amount: amountMajor,
+            currency: 'ngn',
+            reference: params.reference,
+            customer,
+            destination: {
+              ...destinationBase,
+              account_name: params.accountName,
+            },
+            reason: params.reason,
+          },
+        },
+        {
+          path: '/api/v1/payout',
+          body: {
+            amount: amountMinor,
+            currency: 'ngn',
+            reference: params.reference,
+            customer,
+            destination: destinationBase,
+            reason: params.reason,
+          },
+        }
+      )
+    }
+
+    if (params.recipientCode) {
+      attempts.push(
+        {
+          path: '/api/v1/payout',
+          body: {
+            amount: amountMajor,
+            recipient: params.recipientCode,
+            reference: params.reference,
+            reason: params.reason,
+            currency: 'ngn',
+          },
+        },
+        {
+          path: '/api/v1/payout',
+          body: {
+            amount: amountMinor,
+            recipient: params.recipientCode,
+            reference: params.reference,
+            narration: params.reason,
+            currency: 'ngn',
+          },
+        }
+      )
+    }
 
     let lastPayload: any = {}
+    let firstMeaningfulFailure: any = null
     for (const attempt of attempts) {
       const result = await this.call(attempt.path, {
         method: 'POST',
@@ -598,6 +806,8 @@ class XoroPayService {
       const data = asObject(pick(payload, ['data', 'result'], {}))
       const transferCode = pick<string>(data, ['transfer_code', 'transferCode', 'code'])
         || pick<string>(payload, ['transfer_code', 'transferCode'])
+        || pick<string>(data, ['id', '_id', 'reference', 'transaction_reference', 'transactionReference'])
+        || pick<string>(payload, ['id', '_id', 'reference', 'transaction_reference', 'transactionReference'])
 
       const status = String(
         pick(data, ['status', 'transfer_status', 'transferStatus'])
@@ -605,7 +815,12 @@ class XoroPayService {
         || ''
       ).toLowerCase()
 
-      const ok = (result.ok || isSuccess(payload)) && Boolean(transferCode) && status !== 'failed'
+      const boolStatus = pick<boolean>(payload, ['status'], false) === true
+      const apiSuccess = result.ok || isSuccess(payload) || boolStatus
+      const message = String(pick(payload, ['message', 'detail', 'error'], '') || '').toLowerCase()
+      const explicitlyFailed = status === 'failed' || message.includes('failed')
+
+      const ok = apiSuccess && !explicitlyFailed && Boolean(transferCode)
       if (ok) {
         return {
           success: true,
@@ -614,12 +829,41 @@ class XoroPayService {
           raw: payload,
         }
       }
+
+      const notFoundMessage = String(pick(payload, ['message', 'error', 'detail', 'details'], '') || '').toLowerCase()
+      const canRetryLowercaseCurrencyWalletError = (
+        result.status === 400
+        && notFoundMessage.includes('wallet not found for ngn')
+        && String(attempt.body?.currency || '').toLowerCase() === 'ngn'
+      )
+
+      if (canRetryLowercaseCurrencyWalletError) {
+        continue
+      }
+
+      if (result.status !== 404 || !notFoundMessage.includes('not found')) {
+        firstMeaningfulFailure = {
+          ...payload,
+          _status: result.status,
+          _path: attempt.path,
+        }
+        break
+      }
     }
 
+    const failurePayload = firstMeaningfulFailure || lastPayload
+    const failureMessage = toErrorMessage(
+      pick(failurePayload, ['message', 'error', 'detail', 'details']),
+      'Unable to initiate transfer'
+    )
+    const failureStatus = Number(pick(failurePayload, ['_status'], 0))
+    const failurePath = String(pick(failurePayload, ['_path'], '') || '')
     return {
       success: false,
-      message: toErrorMessage(pick(lastPayload, ['message', 'error', 'detail', 'details']), 'Unable to initiate transfer'),
-      raw: lastPayload,
+      message: failurePath
+        ? `${failureMessage} (HTTP ${failureStatus || 'unknown'} ${failurePath})`
+        : failureMessage,
+      raw: failurePayload,
     }
   }
 
