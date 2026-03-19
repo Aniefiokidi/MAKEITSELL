@@ -11,6 +11,17 @@ const hashWithdrawalPin = (pin: string, userId: string) => {
   return crypto.createHash('sha256').update(`${pin}:${userId}`).digest('hex')
 }
 
+const mapTransferStatusToTxStatus = (status: string) => {
+  const normalized = String(status || '').trim().toLowerCase()
+  if (['success', 'successful', 'completed', 'paid', 'approved'].includes(normalized)) {
+    return 'completed'
+  }
+  if (['failed', 'reversed', 'declined', 'cancelled', 'canceled'].includes(normalized)) {
+    return 'failed'
+  }
+  return 'pending'
+}
+
 const normalizeAccountNumber = (value: any) => String(value || '').replace(/\D/g, '')
 const normalizeText = (value: any) => String(value || '').trim()
 
@@ -237,7 +248,7 @@ export async function POST(request: NextRequest) {
       userId: String(currentUser.id),
       type: 'withdrawal',
       amount: normalizedAmount,
-      status: 'pending',
+      status: mapTransferStatusToTxStatus(transferStatus),
       reference,
       provider: transferProvider,
       note: `Customer withdrawal to ${accountName} (${bankName})`,
@@ -265,9 +276,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: transferCode
-        ? 'Withdrawal request submitted. Transfer is being processed.'
-        : 'Withdrawal request submitted.',
+      message: mapTransferStatusToTxStatus(transferStatus) === 'completed'
+        ? 'Withdrawal completed successfully.'
+        : transferCode
+          ? 'Withdrawal request submitted. Transfer is being processed.'
+          : 'Withdrawal request submitted.',
       reference,
       balance: typeof refreshedUser?.walletBalance === 'number' ? refreshedUser.walletBalance : 0,
     })

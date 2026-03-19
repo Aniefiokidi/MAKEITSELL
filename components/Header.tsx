@@ -754,11 +754,11 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                   ) : walletTransactions.length === 0 ? (
                     <p className="text-xs text-muted-foreground">No transactions yet.</p>
                   ) : (
-                    <div className="space-y-2 max-h-44 overflow-y-auto">
+                    <div className="space-y-2 max-h-44 overflow-y-auto pr-2 [scrollbar-gutter:stable]">
                       {walletTransactions.slice(0, 8).map((tx) => (
                         <div key={tx.id} className="flex items-start justify-between gap-3 text-xs">
-                          <div>
-                            <p className="font-medium text-foreground">{tx.note || tx.type.replace(/_/g, " ")}</p>
+                          <div className="min-w-0 pr-1">
+                            <p className="font-medium text-foreground break-words">{tx.note || tx.type.replace(/_/g, " ")}</p>
                             <p className="text-muted-foreground">{tx.createdAt ? new Date(tx.createdAt).toLocaleString() : ""}</p>
                           </div>
                           <div className="text-right">

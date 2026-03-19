@@ -29,6 +29,8 @@ type AdminTransaction = {
 export default function AdminTransactionsPage() {
   const [transactions, setTransactions] = useState<AdminTransaction[]>([])
   const [loading, setLoading] = useState(true)
+  const [reconciling, setReconciling] = useState(false)
+  const [reconcileMessage, setReconcileMessage] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [sourceFilter, setSourceFilter] = useState("all")
   const [typeFilter, setTypeFilter] = useState("all")
@@ -66,26 +68,56 @@ export default function AdminTransactionsPage() {
     setToDate(end)
   }
 
-  useEffect(() => {
-    const loadTransactions = async () => {
-      try {
-        const response = await fetch("/api/admin/transactions", {
-          method: "GET",
-          credentials: "include",
-        })
-        const result = await response.json()
-        if (response.ok && result?.success && Array.isArray(result.transactions)) {
-          setTransactions(result.transactions)
-        }
-      } catch (error) {
-        console.error("Failed to load admin transactions:", error)
-      } finally {
-        setLoading(false)
+  const loadTransactions = async () => {
+    try {
+      const response = await fetch("/api/admin/transactions", {
+        method: "GET",
+        credentials: "include",
+      })
+      const result = await response.json()
+      if (response.ok && result?.success && Array.isArray(result.transactions)) {
+        setTransactions(result.transactions)
       }
+    } catch (error) {
+      console.error("Failed to load admin transactions:", error)
+    } finally {
+      setLoading(false)
     }
+  }
 
+  useEffect(() => {
     loadTransactions()
   }, [])
+
+  const runWithdrawalReconcile = async () => {
+    try {
+      setReconciling(true)
+      setReconcileMessage("")
+
+      const response = await fetch("/api/admin/wallet/reconcile-withdrawals", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dryRun: false, limit: 2000 }),
+      })
+
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Failed to reconcile withdrawals")
+      }
+
+      const summary = result?.summary || {}
+      setReconcileMessage(
+        `Reconciled withdrawals. Updated ${Number(summary.updated || 0)} out of ${Number(summary.scanned || 0)} scanned.`
+      )
+
+      await loadTransactions()
+    } catch (error: any) {
+      setReconcileMessage(error?.message || "Failed to reconcile withdrawals")
+    } finally {
+      setReconciling(false)
+    }
+  }
 
   const sourceOptions = useMemo(() => {
     const set = new Set<string>()
@@ -246,6 +278,12 @@ export default function AdminTransactionsPage() {
             <CardTitle className="text-base lg:text-lg">Filters</CardTitle>
           </CardHeader>
           <CardContent>
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <Button type="button" variant="secondary" onClick={runWithdrawalReconcile} disabled={reconciling}>
+                {reconciling ? "Reconciling..." : "Reconcile Withdrawal Statuses"}
+              </Button>
+              {reconcileMessage ? <p className="text-xs text-muted-foreground">{reconcileMessage}</p> : null}
+            </div>
             <div className="grid grid-cols-1 lg:grid-cols-7 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
