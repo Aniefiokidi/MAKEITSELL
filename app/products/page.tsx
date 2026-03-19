@@ -48,17 +48,33 @@ interface Product {
   storeId?: string
 }
 
-interface ProductsByCategory {
-  [category: string]: Product[]
+const getCompactPagination = (currentPage: number, totalPages: number): Array<number | string> => {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, idx) => idx + 1)
+  }
+
+  if (currentPage <= 3) {
+    return [1, 2, 3, 4, "ellipsis-right", totalPages]
+  }
+
+  if (currentPage >= totalPages - 2) {
+    return [1, "ellipsis-left", totalPages - 3, totalPages - 2, totalPages - 1, totalPages]
+  }
+
+  return [1, "ellipsis-left", currentPage - 1, currentPage, currentPage + 1, "ellipsis-right", totalPages]
 }
 
 export default function AllProductsPage() {
   const [loading, setLoading] = useState(true)
   const [products, setProducts] = useState<Product[]>([])
   const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [priceRange, setPriceRange] = useState("all")
   const [sortBy, setSortBy] = useState("featured")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalProducts, setTotalProducts] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null)
   const [showQuickView, setShowQuickView] = useState(false)
@@ -68,22 +84,63 @@ export default function AllProductsPage() {
   const notification = useNotification()
   const isMobile = useIsMobile()
   const router = useRouter()
+  const itemsPerPage = 40
 
   const handleBackToStores = () => {
     setIsTransitioning(true)
     setTimeout(() => {
-      window.location.href = '/stores'
+      router.push('/stores')
     }, 600)
   }
 
   useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim())
+    }, 250)
+
+    return () => clearTimeout(timeout)
+  }, [searchQuery])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [debouncedSearchQuery, selectedCategory, priceRange, sortBy])
+
+  useEffect(() => {
     fetchAllProducts()
-  }, [])
+  }, [debouncedSearchQuery, selectedCategory, priceRange, sortBy, currentPage])
 
   const fetchAllProducts = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/database/products?limit=100&page=1`)
+      const params = new URLSearchParams()
+      params.set("limit", String(itemsPerPage))
+      params.set("page", String(currentPage))
+      params.set("sortBy", sortBy)
+
+      if (debouncedSearchQuery) {
+        params.set("search", debouncedSearchQuery)
+      }
+
+      if (selectedCategory !== "all") {
+        params.set("category", selectedCategory)
+      }
+
+      if (priceRange !== "all") {
+        if (priceRange === "0-5000") {
+          params.set("minPrice", "0")
+          params.set("maxPrice", "5000")
+        } else if (priceRange === "5000-20000") {
+          params.set("minPrice", "5000")
+          params.set("maxPrice", "20000")
+        } else if (priceRange === "20000-100000") {
+          params.set("minPrice", "20000")
+          params.set("maxPrice", "100000")
+        } else if (priceRange === "100000+") {
+          params.set("minPrice", "100000")
+        }
+      }
+
+      const response = await fetch(`/api/database/products?${params.toString()}`)
       const data = await response.json()
       if (data.success) {
         const productsRaw = data.data || []
@@ -93,13 +150,19 @@ export default function AllProductsPage() {
           vendorName: prod.vendorName || prod.storeName || 'Premium Vendor',
         }))
         setProducts(normalizedProducts)
+        setTotalProducts(Math.max(0, Number(data?.pagination?.total || 0)))
+        setTotalPages(Math.max(1, Number(data?.pagination?.totalPages || 1)))
       } else {
         console.error("Failed to fetch products:", data.error)
         setProducts([])
+        setTotalProducts(0)
+        setTotalPages(1)
       }
     } catch (error) {
       console.error("Error fetching products:", error)
       setProducts([])
+      setTotalProducts(0)
+      setTotalPages(1)
     } finally {
       setLoading(false)
     }
@@ -142,56 +205,7 @@ export default function AllProductsPage() {
     }
   })
 
-  // Filter products
-  const filteredProducts = products.filter((product) => {
-    const matchesSearch = searchQuery === "" || 
-      (product.title || product.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (product.description || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (product.category || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (product.vendorName || "").toLowerCase().includes(searchQuery.toLowerCase())
-    
-    const matchesCategory = selectedCategory === "all" || 
-      (product.category || "").toLowerCase() === selectedCategory.toLowerCase()
-    
-    let matchesPrice = true
-    if (priceRange !== "all") {
-      const price = product.price
-      if (priceRange === "0-5000") matchesPrice = price <= 5000
-      else if (priceRange === "5000-20000") matchesPrice = price > 5000 && price <= 20000
-      else if (priceRange === "20000-100000") matchesPrice = price > 20000 && price <= 100000
-      else if (priceRange === "100000+") matchesPrice = price > 100000
-    }
-    
-    return matchesSearch && matchesCategory && matchesPrice
-  })
-
-  // Sort products
-  const sortedProducts = [...filteredProducts].sort((a, b) => {
-    switch (sortBy) {
-      case "price-low":
-        return a.price - b.price
-      case "price-high":
-        return b.price - a.price
-      case "newest":
-        return new Date(b.sales || 0).getTime() - new Date(a.sales || 0).getTime()
-      case "popular":
-        return (b.sales || 0) - (a.sales || 0)
-      case "name":
-        return (a.title || a.name || "").localeCompare(b.title || b.name || "")
-      default:
-        return b.featured ? 1 : -1
-    }
-  })
-
-  // Group products by category
-  const productsByCategory: ProductsByCategory = sortedProducts.reduce((acc, product) => {
-    const category = product.category || "other"
-    if (!acc[category]) {
-      acc[category] = []
-    }
-    acc[category].push(product)
-    return acc
-  }, {} as ProductsByCategory)
+  const paginationItems = getCompactPagination(currentPage, totalPages)
 
   // Image Cycler Component for Product Cards
   const ImageCycler = ({ product }: { product: Product }) => {
@@ -328,10 +342,11 @@ export default function AllProductsPage() {
     }, [])
 
     React.useEffect(() => {
+      if (isMobile) return
       if (product.images?.[0] && !imageBrightness[product.id]) {
         detectImageBrightness(product.images[0], product.id)
       }
-    }, [product.id, detectImageBrightness])
+    }, [product.id, detectImageBrightness, isMobile])
 
     const formatCurrency = (price: number) => {
       return new Intl.NumberFormat('en-NG', {
@@ -524,7 +539,7 @@ export default function AllProductsPage() {
                 </div>
                 <div className="flex items-center gap-4 text-sm md:text-base ">
                   <div className="bg-accent/20 backdrop-blur-sm px-4 py-2 rounded-full border border-accent/40 shadow-lg">
-                    <span className="font-bold text-accent dark:text-white drop-shadow-sm">{filteredProducts.length}</span>
+                    <span className="font-bold text-accent dark:text-white drop-shadow-sm">{totalProducts}</span>
                     <span className="text-accent dark:text-white ml-1">Products</span>
                   </div>
                   <Button
@@ -595,6 +610,42 @@ export default function AllProductsPage() {
             </div>
           </div>
 
+        {!loading && totalPages > 1 && (
+          <div className="mb-4 flex items-center justify-center gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+            >
+              Previous
+            </Button>
+            {paginationItems.map((item, idx) =>
+              typeof item === "number" ? (
+                <Button
+                  key={`product-page-${item}`}
+                  variant={item === currentPage ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrentPage(item)}
+                  className="min-w-9"
+                >
+                  {item}
+                </Button>
+              ) : (
+                <span key={`product-ellipsis-${idx}`} className="px-1 text-sm text-muted-foreground select-none">...</span>
+              )
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+            >
+              Next
+            </Button>
+          </div>
+        )}
+
         {/* Products Grid */}
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -609,9 +660,9 @@ export default function AllProductsPage() {
               </Card>
             ))}
           </div>
-        ) : filteredProducts.length > 0 ? (
+        ) : products.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-6">
-            {sortedProducts.map((product) => (
+            {products.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
@@ -627,6 +678,42 @@ export default function AllProductsPage() {
             <Button onClick={handleRefresh} size="lg" className="bg-linear-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-black text-xl px-8 py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all uppercase tracking-wider">
               <RefreshCw className="h-5 w-5 mr-2" />
               REFRESH
+            </Button>
+          </div>
+        )}
+
+        {!loading && totalPages > 1 && (
+          <div className="mt-6 flex items-center justify-center gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+            >
+              Previous
+            </Button>
+            {paginationItems.map((item, idx) =>
+              typeof item === "number" ? (
+                <Button
+                  key={`product-bottom-page-${item}`}
+                  variant={item === currentPage ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrentPage(item)}
+                  className="min-w-9"
+                >
+                  {item}
+                </Button>
+              ) : (
+                <span key={`product-bottom-ellipsis-${idx}`} className="px-1 text-sm text-muted-foreground select-none">...</span>
+              )
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+            >
+              Next
             </Button>
           </div>
         )}

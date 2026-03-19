@@ -48,8 +48,10 @@ export default function ShopPage() {
   const [loading, setLoading] = useState(true)
   const [stores, setStores] = useState<any[]>([])
   const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [selectedLocation, setSelectedLocation] = useState("all")
+  const [locationOptions, setLocationOptions] = useState<string[]>([])
   const [sortBy, setSortBy] = useState("name")
   const [refreshing, setRefreshing] = useState(false)
   const [showFilters, setShowFilters] = useState(true)
@@ -57,11 +59,25 @@ export default function ShopPage() {
   const [transitionDirection, setTransitionDirection] = useState<"left" | "right">("left")
   const [showMobileSearch, setShowMobileSearch] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalStores, setTotalStores] = useState(0)
   const itemsPerPage = 20
 
   useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim())
+    }, 250)
+
+    return () => clearTimeout(timeout)
+  }, [searchQuery])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [debouncedSearchQuery, selectedCategory, selectedLocation, sortBy])
+
+  useEffect(() => {
     fetchStores()
-  }, [selectedCategory])
+  }, [debouncedSearchQuery, selectedCategory, selectedLocation, sortBy, currentPage])
 
   const fetchStores = async () => {
     try {
@@ -71,19 +87,40 @@ export default function ShopPage() {
       if (selectedCategory !== "all") {
         params.append("category", selectedCategory)
       }
+
+      if (debouncedSearchQuery) {
+        params.append("search", debouncedSearchQuery)
+      }
+
+      if (selectedLocation !== "all") {
+        params.append("location", selectedLocation)
+      }
+
+      params.append("sortBy", sortBy)
+      params.append("page", String(currentPage))
+      params.append("limit", String(itemsPerPage))
       
       const response = await fetch(`/api/database/stores?${params}`)
       const data = await response.json()
       
       if (data.success) {
         setStores(data.data || [])
+        setLocationOptions(Array.isArray(data.locationOptions) ? data.locationOptions : [])
+        setTotalPages(Math.max(1, Number(data?.pagination?.totalPages || 1)))
+        setTotalStores(Math.max(0, Number(data?.pagination?.total || 0)))
       } else {
         console.error("Failed to fetch stores:", data.error)
         setStores([])
+        setLocationOptions([])
+        setTotalPages(1)
+        setTotalStores(0)
       }
     } catch (error) {
       console.error("Error fetching stores:", error)
       setStores([])
+      setLocationOptions([])
+      setTotalPages(1)
+      setTotalStores(0)
     } finally {
       setLoading(false)
     }
@@ -94,18 +131,6 @@ export default function ShopPage() {
     await fetchStores()
     setRefreshing(false)
   }
-
-  const filteredStores = stores.filter((store) => {
-    const locationValue = String(store.location || store.city || store.state || "").toLowerCase()
-    const matchesSearch = searchQuery === "" || 
-      (store.name || store.storeName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (store.description || store.storeDescription || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (store.category || "").toLowerCase().includes(searchQuery.toLowerCase())
-
-    const matchesLocation = selectedLocation === "all" || locationValue.includes(selectedLocation.toLowerCase())
-    
-    return matchesSearch && matchesLocation
-  })
 
   const isPdfAsset = (value?: string) => {
     if (!value) return false
@@ -132,16 +157,6 @@ export default function ShopPage() {
     return "/placeholder.svg"
   }
 
-  const locationOptions = useMemo(() => {
-    const unique = new Set<string>()
-    for (const store of stores) {
-      const raw = String(store.location || store.city || store.state || "").trim()
-      if (!raw) continue
-      unique.add(raw)
-    }
-    return Array.from(unique).sort((a, b) => a.localeCompare(b))
-  }, [stores])
-
   const handleStoreClick = (storeId: string) => {
     setTransitionDirection("left")
     setIsTransitioning(true)
@@ -158,26 +173,7 @@ export default function ShopPage() {
     }, 220)
   }
 
-  const sortedStores = [...filteredStores].sort((a, b) => {
-    switch (sortBy) {
-      case "name":
-        return (a.name || "").localeCompare(b.name || "")
-      case "newest":
-        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-      case "products":
-        return (b.productCount || 0) - (a.productCount || 0)
-      default:
-        return 0
-    }
-  })
-
-  const totalPages = Math.max(1, Math.ceil(sortedStores.length / itemsPerPage))
-  const paginatedStores = sortedStores.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
   const paginationItems = useMemo(() => getCompactPagination(currentPage, totalPages), [currentPage, totalPages])
-
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchQuery, selectedCategory, selectedLocation, sortBy])
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -186,7 +182,7 @@ export default function ShopPage() {
   }, [currentPage, totalPages])
 
   const renderPaginationControls = () => {
-    if (loading || sortedStores.length <= itemsPerPage) return null
+    if (loading || totalPages <= 1) return null
 
     return (
       <div className="flex items-center justify-center gap-2 flex-wrap">
@@ -554,7 +550,7 @@ export default function ShopPage() {
         {/* Results Count */}
         <div className="mb-6 sm:mb-8">
           <p className="text-xs sm:text-sm text-muted-foreground">
-            {loading ? "Loading stores..." : `Showing ${sortedStores.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}-${Math.min(currentPage * itemsPerPage, sortedStores.length)} of ${sortedStores.length} store${sortedStores.length !== 1 ? 's' : ''}`}
+            {loading ? "Loading stores..." : `Showing ${totalStores === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}-${Math.min(currentPage * itemsPerPage, totalStores)} of ${totalStores} store${totalStores !== 1 ? 's' : ''}`}
           </p>
         </div>
 
@@ -582,9 +578,9 @@ export default function ShopPage() {
               </Card>
             ))}
           </div>
-        ) : sortedStores.length > 0 ? (
+        ) : stores.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5 lg:gap-6 animate-in fade-in duration-500">
-            {paginatedStores.map((store) => (
+            {stores.map((store) => (
               <StoreCard key={store._id || store.id} store={store} />
             ))}
           </div>

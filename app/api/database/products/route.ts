@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getProducts, createProduct } from "@/lib/mongodb-operations"
+import { getProducts, createProduct, countProducts } from "@/lib/mongodb-operations"
 import { requireRoles } from '@/lib/server-route-auth'
 import { cacheNamespaces, getCachedPayload, invalidateCacheNamespace, setCachedPayload } from '@/lib/cache-store'
 import { logApiPerformance } from '@/lib/performance-logs'
@@ -18,6 +18,9 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || undefined
     const limit = searchParams.get('limit')
     const page = searchParams.get('page')
+    const sortBy = searchParams.get('sortBy') || undefined
+    const minPrice = searchParams.get('minPrice')
+    const maxPrice = searchParams.get('maxPrice')
 
     const parsedLimit = Number.parseInt(limit || '24', 10)
     const safeLimit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 100) : 24
@@ -63,6 +66,9 @@ export async function GET(request: NextRequest) {
     if (vendorId) filters.vendorId = vendorId
     if (featured) filters.featured = featured === 'true'
     if (search) filters.search = search
+    if (sortBy) filters.sortBy = sortBy
+    if (minPrice !== null) filters.minPrice = Number(minPrice)
+    if (maxPrice !== null) filters.maxPrice = Number(maxPrice)
     filters.limitCount = safeLimit
     filters.skipCount = skipCount
 
@@ -71,6 +77,9 @@ export async function GET(request: NextRequest) {
       vendorId: vendorId || null,
       featured: typeof featured === 'string' ? featured : null,
       search: search || null,
+      sortBy: sortBy || null,
+      minPrice: minPrice !== null ? Number(minPrice) : null,
+      maxPrice: maxPrice !== null ? Number(maxPrice) : null,
       page: safePage,
       limit: safeLimit,
     })
@@ -87,7 +96,10 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const products = await getProducts(filters)
+    const [products, total] = await Promise.all([
+      getProducts(filters),
+      countProducts(filters),
+    ])
     const mappedProducts = products?.map((product: any) => ({
       ...product,
       id: product?._id?.toString?.() || product?.id
@@ -100,6 +112,8 @@ export async function GET(request: NextRequest) {
       pagination: {
         page: safePage,
         limit: safeLimit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / safeLimit)),
         count: mappedProducts.length,
         hasMore: mappedProducts.length === safeLimit
       }

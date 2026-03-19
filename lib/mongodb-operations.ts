@@ -659,13 +659,21 @@ export interface Product {
   updatedAt?: string;
 }
 
-export const getProducts = async (filters?: any): Promise<Product[]> => {
-  await connectToDatabase();
+const buildProductQuery = (filters?: any) => {
   const query: any = {};
   if (filters?.category) query.category = new RegExp(`^${filters.category}$`, 'i');
   if (filters?.vendorId) query.vendorId = filters.vendorId;
   if (filters?.featured !== undefined) query.featured = filters.featured;
   if (filters?.status) query.status = filters.status;
+
+  const minPrice = Number(filters?.minPrice);
+  const maxPrice = Number(filters?.maxPrice);
+  if (Number.isFinite(minPrice) || Number.isFinite(maxPrice)) {
+    query.price = {};
+    if (Number.isFinite(minPrice)) query.price.$gte = minPrice;
+    if (Number.isFinite(maxPrice)) query.price.$lte = maxPrice;
+  }
+
   if (filters?.search) {
     const searchRegex = new RegExp(String(filters.search).trim(), 'i');
     query.$or = [
@@ -678,6 +686,37 @@ export const getProducts = async (filters?: any): Promise<Product[]> => {
       { vendorName: searchRegex },
     ];
   }
+
+  return query;
+};
+
+const getProductSort = (sortBy?: string): Record<string, 1 | -1> => {
+  switch (String(sortBy || 'featured')) {
+    case 'price-low':
+      return { price: 1, createdAt: -1 };
+    case 'price-high':
+      return { price: -1, createdAt: -1 };
+    case 'popular':
+      return { sales: -1, createdAt: -1 };
+    case 'name':
+      return { name: 1, createdAt: -1 };
+    case 'newest':
+      return { createdAt: -1 };
+    case 'featured':
+    default:
+      return { featured: -1, createdAt: -1 };
+  }
+};
+
+export const countProducts = async (filters?: any): Promise<number> => {
+  await connectToDatabase();
+  const query = buildProductQuery(filters);
+  return ProductModel.countDocuments(query);
+};
+
+export const getProducts = async (filters?: any): Promise<Product[]> => {
+  await connectToDatabase();
+  const query = buildProductQuery(filters);
   const limitCount = Number(filters?.limitCount);
   const skipCount = Number(filters?.skipCount || 0);
   const hasLimit = Number.isFinite(limitCount) && limitCount > 0;
@@ -689,7 +728,7 @@ export const getProducts = async (filters?: any): Promise<Product[]> => {
     name: p.name || p.title || '',
   });
 
-  let dbQuery = ProductModel.find(query).sort({ createdAt: -1 });
+  let dbQuery = ProductModel.find(query).sort(getProductSort(filters?.sortBy));
   if (hasSkip) dbQuery = dbQuery.skip(skipCount);
   if (hasLimit) dbQuery = dbQuery.limit(limitCount);
 
