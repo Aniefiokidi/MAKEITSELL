@@ -297,18 +297,75 @@ async function handleSuccessfulPayment(data: any) {
 
       const paymentReference = data?.reference || data?.metadata?.paymentReference || data?.metadata?.payment_reference
       const orderIdFromMeta = data?.metadata?.orderId || data?.metadata?.orderID
+      const referenceCandidates = Array.from(
+        new Set(
+          [
+            paymentReference,
+            orderIdFromMeta,
+            data?.metadata?.transaction_reference,
+            data?.metadata?.transactionReference,
+          ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        )
+      )
+
+      if (referenceCandidates.length === 0) {
+        console.error('Wallet top-up verification skipped due to missing reference in webhook payload')
+        return
+      }
 
       const transaction = await WalletTransaction.findOne({
         type: 'topup',
         $or: [
-          { paymentReference },
-          { reference: orderIdFromMeta },
+          { paymentReference: { $in: referenceCandidates } },
+          { reference: { $in: referenceCandidates } },
         ],
       })
 
       if (!transaction) {
-        console.error('Wallet top-up transaction not found for webhook reference:', paymentReference)
+        console.error('Wallet top-up transaction not found for webhook references:', referenceCandidates)
         return
+      }
+
+      let verifiedPaymentReference = paymentReference || transaction.paymentReference || transaction.reference
+      let verifiedPaymentData = data
+      const provider = String(transaction.provider || '').toLowerCase()
+
+      if (provider.includes('xoro')) {
+        const verificationCandidates = Array.from(
+          new Set(
+            [
+              ...referenceCandidates,
+              transaction.paymentReference,
+              transaction.reference,
+              transaction?.metadata?.orderId,
+              transaction?.metadata?.orderID,
+            ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+          )
+        )
+
+        let verificationResult: Awaited<ReturnType<typeof xoroPayService.verifyPayment>> | null = null
+        for (const candidate of verificationCandidates) {
+          try {
+            const attempt = await xoroPayService.verifyPayment(candidate)
+            if (attempt.success) {
+              verificationResult = attempt
+              break
+            }
+            if (!verificationResult) {
+              verificationResult = attempt
+            }
+          } catch {
+            // Continue trying other candidate references.
+          }
+        }
+
+        if (!verificationResult?.success) {
+          console.error('Wallet top-up verification failed for references:', verificationCandidates)
+          return
+        }
+
+        verifiedPaymentReference = verificationResult.reference || verifiedPaymentReference
+        verifiedPaymentData = verificationResult.raw || data
       }
 
       const completeUpdate = await WalletTransaction.updateOne(
@@ -316,10 +373,10 @@ async function handleSuccessfulPayment(data: any) {
         {
           $set: {
             status: 'completed',
-            paymentReference,
+            paymentReference: verifiedPaymentReference,
             metadata: {
               ...(transaction.metadata || {}),
-              paystackData: data,
+              xoroPayData: verifiedPaymentData,
             },
             updatedAt: new Date(),
           },
@@ -340,7 +397,7 @@ async function handleSuccessfulPayment(data: any) {
         )
       }
 
-      console.log(`Wallet top-up successful: ${paymentReference}`)
+      console.log(`Wallet top-up successful: ${verifiedPaymentReference}`)
       return
     }
 
