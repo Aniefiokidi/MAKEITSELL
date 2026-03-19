@@ -4,6 +4,7 @@ import { getUserBySessionToken } from '@/lib/auth'
 import { xoroPayService } from '@/lib/xoro-pay'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { connectToDatabase } from '@/lib/mongodb'
+import { calculateTopupAmounts } from '@/lib/topup-fee'
 import crypto from 'crypto'
 
 export async function POST(request: NextRequest) {
@@ -18,10 +19,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const amount = Math.round(rawAmount * 100) / 100
-    if (amount > 10000000) {
+    const requestedAmount = Math.round(rawAmount * 100) / 100
+    if (requestedAmount > 10000000) {
       return NextResponse.json(
         { success: false, error: 'Amount exceeds maximum allowed value' },
+        { status: 400 }
+      )
+    }
+
+    const { walletCreditAmount, feeAmount, payableAmount } = calculateTopupAmounts(requestedAmount)
+    if (walletCreditAmount <= 0 || payableAmount <= 0) {
+      return NextResponse.json(
+        { success: false, error: 'Amount must be greater than zero' },
         { status: 400 }
       )
     }
@@ -52,18 +61,21 @@ export async function POST(request: NextRequest) {
 
     const paymentResult = await xoroPayService.initializePayment({
       email: currentUser.email,
-      amount,
+      amount: payableAmount,
       reference,
       callbackUrl,
       metadata: {
         orderId: reference,
         customerId: String(currentUser.id),
+        walletCreditAmount,
+        topupFeeAmount: feeAmount,
+        payableAmount,
         items: [
           {
             productId: 'wallet-topup',
             title: 'Wallet Top Up',
             quantity: 1,
-            price: amount,
+            price: walletCreditAmount,
             vendorId: 'makeitsell',
             vendorName: 'Make It Sell',
           },
@@ -91,13 +103,16 @@ export async function POST(request: NextRequest) {
     await WalletTransaction.create({
       userId: String(currentUser.id),
       type: 'topup',
-      amount,
+      amount: walletCreditAmount,
       status: 'pending',
       reference,
       paymentReference: paymentResult.reference,
       provider: 'xoro_pay',
       metadata: {
         customerEmail: currentUser.email,
+        walletCreditAmount,
+        topupFeeAmount: feeAmount,
+        payableAmount,
       },
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -110,6 +125,9 @@ export async function POST(request: NextRequest) {
         authorization_url: paymentResult.authorizationUrl,
         reference,
         paymentReference: paymentResult.reference,
+        walletCreditAmount,
+        feeAmount,
+        payableAmount,
       },
       { status: 200 }
     )

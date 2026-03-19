@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { paystackService } from '@/lib/payment'
+import { xoroPayService } from '@/lib/xoro-pay'
 import { emailService } from '@/lib/email'
 import { updateOrder, getOrderById, creditVendorWalletsForOrder } from '@/lib/mongodb-operations'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
@@ -7,52 +8,279 @@ import { User } from '@/lib/models/User'
 import { connectToDatabase } from '@/lib/mongodb'
 import mongoose from 'mongoose'
 
+const pickFirstString = (source: any, keys: string[]) => {
+  for (const key of keys) {
+    const value = source?.[key]
+    if (typeof value === 'string' && value.trim()) {
+      return value
+    }
+  }
+  return ''
+}
+
+const asObject = (value: any) => (value && typeof value === 'object' ? value : {})
+
+const safeParseJson = (value: any) => {
+  if (typeof value !== 'string') return value
+  try {
+    return JSON.parse(value)
+  } catch {
+    return value
+  }
+}
+
+const hasWalletTopupMarker = (data: any) => {
+  const metadata = asObject(data?.metadata)
+  const metadataItemsRaw = metadata?.items
+  const metadataItems = safeParseJson(metadataItemsRaw)
+
+  const hasWalletTopupItem = Array.isArray(metadataItems)
+    && metadataItems.some((item: any) => item?.productId === 'wallet-topup' || item?.productId === 'vendor-wallet-topup')
+
+  const metadataType = String(metadata?.type || '').toLowerCase()
+  const ref = String(data?.reference || '').toLowerCase()
+  const orderId = String(metadata?.orderId || metadata?.orderID || '').toLowerCase()
+
+  return hasWalletTopupItem
+    || metadataType === 'wallet_topup'
+    || metadataType === 'vendor_wallet_topup'
+    || ref.startsWith('wallet_topup_')
+    || ref.startsWith('vendor_wallet_topup_')
+    || orderId.startsWith('wallet_topup_')
+    || orderId.startsWith('vendor_wallet_topup_')
+}
+
+const normalizeToPaystackLikePayload = (payload: any) => {
+  const root = asObject(payload)
+  const data = asObject(root.data || root.result || root.payload || root)
+  const metadata = asObject(data.metadata || root.metadata)
+
+  const reference = pickFirstString(data, [
+    'reference',
+    'payment_reference',
+    'paymentReference',
+    'tx_ref',
+    'trxref',
+    'transaction_reference',
+    'transactionReference',
+    'id',
+  ]) || pickFirstString(root, [
+    'reference',
+    'payment_reference',
+    'paymentReference',
+    'tx_ref',
+    'trxref',
+    'transaction_reference',
+    'transactionReference',
+    'id',
+  ])
+
+  return {
+    reference,
+    metadata,
+    amount: data.amount,
+    currency: data.currency,
+    status: pickFirstString(data, ['status', 'payment_status', 'paymentStatus']) || pickFirstString(root, ['status', 'payment_status', 'paymentStatus']),
+    raw: root,
+  }
+}
+
+const isXoroSuccessEvent = (event: string) => {
+  const normalized = event.toLowerCase()
+  return [
+    'charge.success',
+    'payment.success',
+    'payment.completed',
+    'transaction.success',
+    'transaction.completed',
+    'checkout.success',
+  ].includes(normalized)
+}
+
+const isXoroFailureEvent = (event: string) => {
+  const normalized = event.toLowerCase()
+  return [
+    'charge.failed',
+    'payment.failed',
+    'transaction.failed',
+    'checkout.failed',
+  ].includes(normalized)
+}
+
+const isXoroTransferSuccessEvent = (event: string) => {
+  return ['transfer.success', 'payout.success', 'payout.completed'].includes(event.toLowerCase())
+}
+
+const isXoroTransferFailureEvent = (event: string) => {
+  return ['transfer.failed', 'transfer.reversed', 'payout.failed', 'payout.reversed'].includes(event.toLowerCase())
+}
+
+async function handleXoroWebhook(payload: any) {
+  const event = pickFirstString(payload, ['event', 'type', 'name', 'action']).toLowerCase()
+  const normalizedData = normalizeToPaystackLikePayload(payload)
+
+  if (!event) {
+    const status = String(normalizedData.status || '').toLowerCase()
+    if (status === 'success' || status === 'successful' || status === 'completed' || status === 'paid') {
+      await handleSuccessfulPayment(normalizedData)
+      return
+    }
+    if (status === 'failed' || status === 'abandoned' || status === 'cancelled' || status === 'canceled') {
+      await handleFailedPayment(normalizedData)
+      return
+    }
+    return
+  }
+
+  if (isXoroSuccessEvent(event)) {
+    await handleSuccessfulPayment(normalizedData)
+    return
+  }
+
+  if (isXoroFailureEvent(event)) {
+    await handleFailedPayment(normalizedData)
+    return
+  }
+
+  if (isXoroTransferSuccessEvent(event)) {
+    await handleTransferSuccess(normalizedData)
+    return
+  }
+
+  if (isXoroTransferFailureEvent(event)) {
+    await handleTransferFailure(normalizedData)
+    return
+  }
+}
+
+const maybeHandleUnsignedXoroWebhook = async (payload: any) => {
+  const event = pickFirstString(payload, ['event', 'type', 'name', 'action']).toLowerCase()
+  const normalizedData = normalizeToPaystackLikePayload(payload)
+  const metadata = asObject(normalizedData.metadata)
+
+  const referenceCandidates = Array.from(
+    new Set(
+      [
+        normalizedData.reference,
+        pickFirstString(asObject(payload?.data), ['reference', 'payment_reference', 'paymentReference', 'tx_ref', 'trxref', 'id']),
+        pickFirstString(payload, ['reference', 'payment_reference', 'paymentReference', 'tx_ref', 'trxref', 'id']),
+        String(metadata?.orderId || ''),
+        String(metadata?.orderID || ''),
+      ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    )
+  )
+
+  if (referenceCandidates.length === 0) {
+    return false
+  }
+
+  const successLikeEvent = !event || isXoroSuccessEvent(event)
+  const failureLikeEvent = Boolean(event) && isXoroFailureEvent(event)
+
+  if (!successLikeEvent && !failureLikeEvent) {
+    return false
+  }
+
+  if (failureLikeEvent) {
+    await handleFailedPayment(normalizedData)
+    return true
+  }
+
+  for (const reference of referenceCandidates) {
+    try {
+      const verify = await xoroPayService.verifyPayment(reference)
+      if (!verify.success) {
+        continue
+      }
+
+      const verifiedData = {
+        ...normalizedData,
+        reference: verify.reference || normalizedData.reference || reference,
+        metadata: {
+          ...metadata,
+          ...(verify.metadata || {}),
+        },
+      }
+
+      await handleSuccessfulPayment(verifiedData)
+      return true
+    } catch {
+      // Continue with other candidate references.
+    }
+  }
+
+  return false
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.text()
-    const signature = request.headers.get('x-paystack-signature') || ''
-
-    // Verify webhook signature
     const payload = JSON.parse(body)
-    const isValid = paystackService.verifyWebhook(payload, signature)
 
-    if (!isValid) {
-      console.error('Invalid webhook signature')
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+    const paystackSignature = request.headers.get('x-paystack-signature') || ''
+    const xoroSignature = request.headers.get('x-xoro-signature')
+      || request.headers.get('x-signature')
+      || request.headers.get('xoropay-signature')
+      || ''
+
+    if (paystackSignature) {
+      const isValidPaystack = paystackService.verifyWebhook(payload, paystackSignature)
+      if (!isValidPaystack) {
+        console.error('Invalid Paystack webhook signature')
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+      }
+
+      const { event, data } = payload
+
+      switch (event) {
+        case 'charge.success':
+          await handleSuccessfulPayment(data)
+          break
+
+        case 'charge.failed':
+          await handleFailedPayment(data)
+          break
+
+        case 'charge.dispute':
+          await handleDispute(data)
+          break
+
+        case 'transfer.success':
+          await handleTransferSuccess(data)
+          break
+
+        case 'transfer.failed':
+          await handleTransferFailure(data)
+          break
+
+        case 'transfer.reversed':
+          await handleTransferFailure(data)
+          break
+
+        default:
+          console.log(`Unhandled webhook event: ${event}`)
+      }
+
+      return NextResponse.json({ success: true })
     }
 
-    const { event, data } = payload
+    if (xoroSignature) {
+      const isValidXoro = xoroPayService.verifyWebhook(body, xoroSignature)
+      if (!isValidXoro) {
+        console.error('Invalid Xoro webhook signature')
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+      }
 
-    switch (event) {
-      case 'charge.success':
-        await handleSuccessfulPayment(data)
-        break
-      
-      case 'charge.failed':
-        await handleFailedPayment(data)
-        break
-      
-      case 'charge.dispute':
-        await handleDispute(data)
-        break
-
-      case 'transfer.success':
-        await handleTransferSuccess(data)
-        break
-
-      case 'transfer.failed':
-        await handleTransferFailure(data)
-        break
-
-      case 'transfer.reversed':
-        await handleTransferFailure(data)
-        break
-      
-      default:
-        console.log(`Unhandled webhook event: ${event}`)
+      await handleXoroWebhook(payload)
+      return NextResponse.json({ success: true })
     }
 
-    return NextResponse.json({ success: true })
+    const handledUnsignedXoro = await maybeHandleUnsignedXoroWebhook(payload)
+    if (handledUnsignedXoro) {
+      return NextResponse.json({ success: true, unsigned: true })
+    }
+
+    return NextResponse.json({ error: 'Missing webhook signature' }, { status: 400 })
 
   } catch (error) {
     console.error('Webhook processing error:', error)
@@ -62,17 +290,12 @@ export async function POST(request: NextRequest) {
 
 async function handleSuccessfulPayment(data: any) {
   try {
-    const metadataItemsRaw = data?.metadata?.items
-    const metadataItems = typeof metadataItemsRaw === 'string'
-      ? JSON.parse(metadataItemsRaw)
-      : metadataItemsRaw
-    const hasWalletTopupItem = Array.isArray(metadataItems)
-      && metadataItems.some((item: any) => item?.productId === 'wallet-topup' || item?.productId === 'vendor-wallet-topup')
+    const hasWalletTopupItem = hasWalletTopupMarker(data)
 
     if (hasWalletTopupItem) {
       await connectToDatabase()
 
-      const paymentReference = data?.reference
+      const paymentReference = data?.reference || data?.metadata?.paymentReference || data?.metadata?.payment_reference
       const orderIdFromMeta = data?.metadata?.orderId || data?.metadata?.orderID
 
       const transaction = await WalletTransaction.findOne({
@@ -166,12 +389,7 @@ async function handleSuccessfulPayment(data: any) {
 
 async function handleFailedPayment(data: any) {
   try {
-    const metadataItemsRaw = data?.metadata?.items
-    const metadataItems = typeof metadataItemsRaw === 'string'
-      ? JSON.parse(metadataItemsRaw)
-      : metadataItemsRaw
-    const hasWalletTopupItem = Array.isArray(metadataItems)
-      && metadataItems.some((item: any) => item?.productId === 'wallet-topup' || item?.productId === 'vendor-wallet-topup')
+    const hasWalletTopupItem = hasWalletTopupMarker(data)
 
     if (hasWalletTopupItem) {
       await connectToDatabase()

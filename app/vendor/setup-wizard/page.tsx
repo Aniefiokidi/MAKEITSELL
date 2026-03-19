@@ -79,6 +79,7 @@ export default function VendorSetupWizardPage() {
   const [storeId, setStoreId] = useState<string | null>(null)
   const [productsCount, setProductsCount] = useState(0)
   const [banks, setBanks] = useState<{ name: string; code: string }[]>([])
+  const [banksLoading, setBanksLoading] = useState(false)
   const [verifyingAccount, setVerifyingAccount] = useState(false)
   const [profileUploading, setProfileUploading] = useState(false)
   const [bannerUploading, setBannerUploading] = useState(false)
@@ -93,6 +94,7 @@ export default function VendorSetupWizardPage() {
     const load = async () => {
       if (!user?.uid) return
       setLoading(true)
+      setBanksLoading(true)
       try {
         const [storeRes, productsRes, banksRes] = await Promise.all([
           fetch(`/api/database/stores?vendorId=${user.uid}`),
@@ -153,11 +155,15 @@ export default function VendorSetupWizardPage() {
             }
           })
           setBanks(Array.from(uniqueBanks.values()))
+        } else {
+          setBanks([])
         }
       } catch (err) {
         console.error("Failed to load setup wizard data", err)
+        setBanks([])
       } finally {
         setLoading(false)
+        setBanksLoading(false)
       }
     }
 
@@ -525,6 +531,7 @@ export default function VendorSetupWizardPage() {
                     <Label htmlFor="bankCode">Bank</Label>
                     <Select
                       value={settings.bankCode || undefined}
+                      disabled={banksLoading}
                       onValueChange={(value) => {
                         const selectedBank = banks.find((bank) => bank.code === value)
                         setSettings((prev) => ({
@@ -536,7 +543,7 @@ export default function VendorSetupWizardPage() {
                         }))
                       }}
                     >
-                      <SelectTrigger id="bankCode"><SelectValue placeholder="Select bank" /></SelectTrigger>
+                      <SelectTrigger id="bankCode"><SelectValue placeholder={banksLoading ? "Loading banks..." : "Select bank"} /></SelectTrigger>
                       <SelectContent>
                         {banks.map((bank) => (
                           <SelectItem key={`${bank.code}-${bank.name}`} value={bank.code}>{bank.name}</SelectItem>

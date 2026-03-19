@@ -7,6 +7,7 @@ import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import crypto from 'crypto'
+import { calculatePaystackCheckoutAmounts } from '@/lib/paystack-charges'
 
 export async function POST(request: NextRequest) {
   try {
@@ -102,9 +103,17 @@ export async function POST(request: NextRequest) {
 
     // Initialize payment with Paystack
     if (paymentMethod === 'paystack') {
+      const paystackAmounts = calculatePaystackCheckoutAmounts(Number(totalAmount))
+      if (paystackAmounts.payableAmount <= 0) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid order amount for payment initialization' },
+          { status: 400 }
+        )
+      }
+
       console.log('Initializing Paystack payment with data:', {
         email: shippingInfo.email,
-        amount: totalAmount,
+        amount: paystackAmounts.payableAmount,
         orderId,
         customerId,
         itemCount: items.length
@@ -112,10 +121,20 @@ export async function POST(request: NextRequest) {
 
       const paymentResult = await paystackService.initializePayment({
         email: shippingInfo.email,
-        amount: totalAmount,
+        amount: paystackAmounts.payableAmount,
         orderId,
         customerId,
-        items
+        items: [
+          ...items,
+          {
+            productId: 'paystack-processing-charge',
+            title: 'Paystack Processing Charge',
+            quantity: 1,
+            price: paystackAmounts.chargeAmount,
+            vendorId: 'system',
+            vendorName: 'Make It Sell',
+          },
+        ]
       })
 
       console.log('Paystack result:', paymentResult)
@@ -128,7 +147,10 @@ export async function POST(request: NextRequest) {
           success: true,
           orderId,
           authorization_url: paymentResult.authUrl,
-          reference: paymentResult.data?.reference
+          reference: paymentResult.data?.reference,
+          orderAmount: paystackAmounts.orderAmount,
+          paystackChargeAmount: paystackAmounts.chargeAmount,
+          payableAmount: paystackAmounts.payableAmount,
         }
         console.log('API returning successful response:', response)
         return NextResponse.json(response)

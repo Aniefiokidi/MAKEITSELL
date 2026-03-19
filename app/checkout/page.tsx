@@ -20,6 +20,7 @@ import Link from "next/link"
 import Header from "@/components/Header"
 import ProtectedRoute from "@/components/auth/ProtectedRoute"
 import { trackFunnelEvent } from "@/lib/funnel-tracker"
+import { calculatePaystackCheckoutAmounts } from "@/lib/paystack-charges"
 
 export default function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCart()
@@ -60,6 +61,8 @@ export default function CheckoutPage() {
   const vat = calculateVAT(subtotal)
   const shipping = 0 // Free shipping
   const total = subtotal + vat + shipping
+  const paystackQuote = calculatePaystackCheckoutAmounts(total)
+  const checkoutPayableTotal = paymentMethod === "paystack" ? paystackQuote.payableAmount : total
 
   useEffect(() => {
     if (checkoutTracked || items.length === 0) return
@@ -493,6 +496,18 @@ export default function CheckoutPage() {
                           <span>Total</span>
                           <span>₦{formatCurrency(total)}</span>
                         </div>
+                        {paymentMethod === "paystack" && paystackQuote.chargeAmount > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Paystack charge</span>
+                            <span>₦{formatCurrency(paystackQuote.chargeAmount)}</span>
+                          </div>
+                        )}
+                        {paymentMethod === "paystack" && paystackQuote.chargeAmount > 0 && (
+                          <div className="flex justify-between text-base font-semibold">
+                            <span>Total payable</span>
+                            <span>₦{formatCurrency(paystackQuote.payableAmount)}</span>
+                          </div>
+                        )}
                         <div className="text-xs text-muted-foreground text-right">
                           *Excluding delivery fee (to be determined by rider)
                         </div>
@@ -505,7 +520,7 @@ export default function CheckoutPage() {
                             ? "Processing..."
                             : paymentMethod === "wallet"
                             ? `Pay with Wallet - ₦${formatCurrency(total)}`
-                            : `Place Order - ₦${formatCurrency(total)}`}
+                            : `Place Order - ₦${formatCurrency(checkoutPayableTotal)}`}
                         </Button>
                       </div>
 

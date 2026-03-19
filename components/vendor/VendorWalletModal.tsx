@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Eye, EyeOff } from 'lucide-react'
 import { useNotification } from '@/contexts/NotificationContext'
+import { calculateTopupAmounts } from '@/lib/topup-fee'
 
 interface WalletTx {
   id: string
@@ -71,6 +72,10 @@ export function VendorWalletModal({
   })
 
   const formattedWalletBalance = currencyFormatter.format(walletBalance || 0)
+  const parsedTopupAmount = Number(topupAmount)
+  const topupQuote = Number.isFinite(parsedTopupAmount) && parsedTopupAmount > 0
+    ? calculateTopupAmounts(parsedTopupAmount)
+    : null
 
   const fetchWalletTransactions = async () => {
     try {
@@ -469,6 +474,23 @@ export function VendorWalletModal({
                   placeholder='Enter amount'
                 />
               </div>
+
+              {topupQuote && (
+                <div className='rounded-md border bg-muted/40 p-3 text-xs space-y-1'>
+                  <div className='flex items-center justify-between'>
+                    <span className='text-muted-foreground'>Wallet credit</span>
+                    <span className='font-medium text-foreground'>{currencyFormatter.format(topupQuote.walletCreditAmount)}</span>
+                  </div>
+                  <div className='flex items-center justify-between'>
+                    <span className='text-muted-foreground'>Payment charge</span>
+                    <span className='font-medium text-foreground'>{currencyFormatter.format(topupQuote.feeAmount)}</span>
+                  </div>
+                  <div className='flex items-center justify-between pt-1 border-t'>
+                    <span className='text-foreground font-medium'>Total to pay</span>
+                    <span className='font-semibold text-foreground'>{currencyFormatter.format(topupQuote.payableAmount)}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <DialogFooter>

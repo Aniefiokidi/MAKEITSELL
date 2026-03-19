@@ -4,6 +4,9 @@ import { getUserBySessionToken } from '@/lib/auth'
 import { connectToDatabase } from '@/lib/mongodb'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { Store } from '@/lib/models/Store'
+import { User } from '@/lib/models/User'
+import { xoroPayService } from '@/lib/xoro-pay'
+import mongoose from 'mongoose'
 
 const getDirection = (type: string) => {
   if (type === 'vendor_credit' || type === 'topup') return 'credit'
@@ -30,6 +33,87 @@ export async function GET(request: NextRequest) {
     }
 
     await connectToDatabase()
+
+    const pendingTopups = await WalletTransaction.find({
+      userId: String(currentUser.id),
+      type: 'topup',
+      status: 'pending',
+    })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean()
+
+    for (const pendingTopup of pendingTopups as any[]) {
+      const candidates = Array.from(
+        new Set(
+          [
+            pendingTopup.paymentReference,
+            pendingTopup.reference,
+            pendingTopup?.metadata?.orderId,
+            pendingTopup?.metadata?.orderID,
+            pendingTopup?.metadata?.paymentReference,
+            pendingTopup?.metadata?.payment_reference,
+          ]
+            .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+            .map((value) => value.trim())
+        )
+      )
+
+      if (candidates.length === 0) {
+        continue
+      }
+
+      let verification: Awaited<ReturnType<typeof xoroPayService.verifyPayment>> | null = null
+      for (const candidate of candidates) {
+        try {
+          const attempt = await xoroPayService.verifyPayment(candidate)
+          if (attempt.success) {
+            verification = attempt
+            break
+          }
+          if (!verification) {
+            verification = attempt
+          }
+        } catch {
+          // Ignore verification transport errors for this candidate and continue.
+        }
+      }
+
+      if (!verification?.success) {
+        continue
+      }
+
+      const resolvedReference = verification.reference || candidates[0]
+
+      const completeUpdate = await WalletTransaction.updateOne(
+        { _id: pendingTopup._id, status: 'pending' },
+        {
+          $set: {
+            status: 'completed',
+            paymentReference: resolvedReference,
+            metadata: {
+              ...(pendingTopup.metadata || {}),
+              xoroPayData: verification.raw || {},
+            },
+            updatedAt: new Date(),
+          },
+        }
+      )
+
+      if (completeUpdate.modifiedCount > 0) {
+        const userIdObject = mongoose.Types.ObjectId.isValid(String(pendingTopup.userId))
+          ? new mongoose.Types.ObjectId(String(pendingTopup.userId))
+          : pendingTopup.userId
+
+        await User.updateOne(
+          { _id: userIdObject, role: 'vendor' },
+          {
+            $inc: { walletBalance: Number(pendingTopup.amount || 0) },
+            $set: { updatedAt: new Date() },
+          }
+        )
+      }
+    }
 
     const transactions = await WalletTransaction.find({ userId: String(currentUser.id) })
       .sort({ createdAt: -1 })

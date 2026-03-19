@@ -412,8 +412,11 @@ class XoroPayService {
 
     const succeeded = resolved.ok && (
       status === 'success'
+      || status === 'successful'
+      || status === 'succeeded'
       || status === 'completed'
       || status === 'paid'
+      || status === 'approved'
       || isSuccess(payload)
     )
 

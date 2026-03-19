@@ -8,19 +8,52 @@ import mongoose from 'mongoose'
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const paymentReference = searchParams.get('reference')
+    const referencesFromQuery = Array.from(
+      new Set(
+        [
+          searchParams.get('reference'),
+          searchParams.get('trxref'),
+          searchParams.get('tx_ref'),
+          searchParams.get('payment_reference'),
+          searchParams.get('paymentReference'),
+          searchParams.get('transaction_reference'),
+          searchParams.get('transactionReference'),
+          searchParams.get('transaction_id'),
+          searchParams.get('transactionId'),
+          searchParams.get('orderId'),
+          searchParams.get('orderID'),
+        ].filter((value): value is string => Boolean(value))
+      )
+    )
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.org'
     const successRedirect = new URL('/stores', appUrl)
     const errorRedirect = new URL('/stores', appUrl)
 
-    if (!paymentReference) {
+    if (referencesFromQuery.length === 0) {
       errorRedirect.searchParams.set('wallet', 'failed')
       errorRedirect.searchParams.set('reason', 'missing_reference')
       return NextResponse.redirect(errorRedirect.toString())
     }
 
-    const verificationResult = await xoroPayService.verifyPayment(paymentReference)
+    let verificationResult: Awaited<ReturnType<typeof xoroPayService.verifyPayment>> | null = null
+    for (const reference of referencesFromQuery) {
+      const attempt = await xoroPayService.verifyPayment(reference)
+      if (attempt.success) {
+        verificationResult = attempt
+        break
+      }
+      if (!verificationResult) {
+        verificationResult = attempt
+      }
+    }
+
+    if (!verificationResult) {
+      errorRedirect.searchParams.set('wallet', 'failed')
+      errorRedirect.searchParams.set('reason', 'verification_failed')
+      return NextResponse.redirect(errorRedirect.toString())
+    }
+
     if (!verificationResult.success) {
       errorRedirect.searchParams.set('wallet', 'failed')
       errorRedirect.searchParams.set('reason', 'verification_failed')
@@ -30,11 +63,25 @@ export async function GET(request: NextRequest) {
     const paymentData = verificationResult.raw || {}
     const metadata = verificationResult.metadata || {}
     const orderIdFromMeta = metadata?.orderId || metadata?.orderID
+    const resolvedReference = verificationResult.reference || referencesFromQuery[0]
 
     await connectToDatabase()
 
+    const referenceMatchers = Array.from(
+      new Set(
+        [
+          ...referencesFromQuery,
+          resolvedReference,
+          orderIdFromMeta,
+        ].filter((value): value is string => Boolean(value))
+      )
+    )
+
     const transaction = await WalletTransaction.findOne({
-      $or: [{ paymentReference }, { reference: orderIdFromMeta }],
+      $or: [
+        { paymentReference: { $in: referenceMatchers } },
+        { reference: { $in: referenceMatchers } },
+      ],
       type: 'topup',
     })
 
@@ -54,7 +101,7 @@ export async function GET(request: NextRequest) {
       {
         $set: {
           status: 'completed',
-          paymentReference,
+          paymentReference: resolvedReference,
           metadata: {
             ...(transaction.metadata || {}),
             xoroPayData: paymentData,

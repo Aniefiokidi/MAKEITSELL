@@ -562,7 +562,7 @@ export default function VendorStoreSettingsPage() {
                   <Select
                     value={settings.bankCode}
                     onValueChange={handleBankChange}
-                    disabled={banksLoading || settings.accountVerified}
+                    disabled={banksLoading}
                   >
                     <SelectTrigger id="bank" className="mt-2">
                       <SelectValue placeholder={banksLoading ? "Loading banks..." : "Select bank"} />
@@ -589,7 +589,6 @@ export default function VendorStoreSettingsPage() {
                       placeholder="Enter 10-digit account number"
                       maxLength={10}
                       inputMode="numeric"
-                      disabled={settings.accountVerified}
                       style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}
                     />
                     {verifyLoading && <Loader2 className="h-4 w-4 animate-spin mt-2" />}
