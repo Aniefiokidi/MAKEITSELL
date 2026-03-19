@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion } from "framer-motion"
 import { Wallet, Menu, X, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -59,6 +59,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
   const [showWithdrawalPin, setShowWithdrawalPin] = useState(false)
   const [walletTransactions, setWalletTransactions] = useState<WalletTx[]>([])
   const [walletTxLoading, setWalletTxLoading] = useState(false)
+  const [mobileDrawerWidth, setMobileDrawerWidth] = useState("85vw")
 
   const profileWalletBalance =
     userProfile?.role === "customer"
@@ -496,7 +497,24 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
   // Prevent body scroll when mobile menu is open
   useEffect(() => {
     document.body.style.overflow = isMenuOpen ? "hidden" : ""
+    return () => {
+      document.body.style.overflow = ""
+    }
   }, [isMenuOpen])
+
+  // Use a slightly narrower drawer on very small phones for smoother UX.
+  useEffect(() => {
+    const updateDrawerWidth = () => {
+      setMobileDrawerWidth(window.innerWidth <= 380 ? "80vw" : "85vw")
+    }
+
+    updateDrawerWidth()
+    window.addEventListener("resize", updateDrawerWidth)
+
+    return () => {
+      window.removeEventListener("resize", updateDrawerWidth)
+    }
+  }, [])
 
   // Handle smart search
   const handleSearch = (query: string) => {
@@ -1025,28 +1043,26 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
         onBalanceUpdated={setVendorWalletBalance}
       />
 
-      <AnimatePresence>
-        {isMenuOpen && (
-          <>
-            {/* Background overlay */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.5 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.18, ease: "easeOut" }}
-              className="fixed inset-0 bg-black z-90"
-              onClick={() => setIsMenuOpen(false)}
-            />
+      {/* Background overlay */}
+      <div
+        className={`fixed inset-0 bg-black z-90 transition-opacity duration-150 ease-out ${
+          isMenuOpen ? "opacity-50 pointer-events-auto" : "opacity-0 pointer-events-none"
+        }`}
+        onClick={() => setIsMenuOpen(false)}
+      />
 
-            {/* Drawer Panel */}
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "tween", duration: 0.22, ease: "easeOut" }}
-              className="fixed top-0 right-0 w-[85vw] max-w-xs h-screen transform-gpu bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 shadow-2xl z-100 flex flex-col overflow-hidden"
-              style={{ willChange: "transform" }}
-            >
+      {/* Drawer Panel */}
+      <div
+        className={`fixed top-0 right-0 h-screen max-w-xs transform-gpu bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 shadow-xl z-100 flex flex-col overflow-hidden transition-transform duration-200 ease-out ${
+          isMenuOpen ? "translate-x-0" : "translate-x-full pointer-events-none"
+        }`}
+        style={{
+          width: mobileDrawerWidth,
+          height: "100dvh",
+          willChange: "transform",
+          contain: "layout paint style",
+        }}
+      >
               {/* Header */}
               <div className="flex items-center justify-between p-3 sm:p-6 border-b border-gray-200 dark:border-gray-700">
                 <img
@@ -1153,10 +1169,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                   </p>
                 </div>
               )}
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      </div>
     </header>
   )
 }
