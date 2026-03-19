@@ -4,7 +4,7 @@ import { getUserBySessionToken } from '@/lib/auth'
 import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
-import { createTransferRecipient, initiateTransfer } from '@/lib/paystack-transfer'
+import { xoroPayService } from '@/lib/xoro-pay'
 import crypto from 'crypto'
 
 const hashWithdrawalPin = (pin: string, userId: string) => {
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
 
     const reference = `wallet_withdraw_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`
 
-    const recipientResult = await createTransferRecipient({
+    const recipientResult = await xoroPayService.createTransferRecipient({
       name: accountName,
       accountNumber,
       bankCode,
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const transferResult = await initiateTransfer({
+    const transferResult = await xoroPayService.initiateTransfer({
       amount: normalizedAmount,
       recipientCode: recipientResult.recipientCode,
       reference,
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
       )
 
       const otpRequiredMessage = transferResult.status === 'otp'
-        ? 'Withdrawals are temporarily unavailable because transfer OTP is enabled on the payout account. Please disable transfer OTP in Paystack or finalize transfers manually.'
+        ? 'Withdrawals are temporarily unavailable because payout OTP is enabled. Disable transfer OTP in your Xoro Pay dashboard or complete transfers manually.'
         : null
 
       return NextResponse.json(
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
       amount: normalizedAmount,
       status: 'pending',
       reference,
-      provider: 'paystack_transfer',
+      provider: 'xoro_transfer',
       note: `Customer withdrawal to ${accountName} (${bankName})`,
       metadata: {
         bankName,

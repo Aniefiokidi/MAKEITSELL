@@ -27,7 +27,7 @@ export default function CheckoutPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [paymentMethod, setPaymentMethod] = useState("paystack") // Default to Paystack for Nigerian marketplace
+  const [paymentMethod, setPaymentMethod] = useState("paystack") // Keep Paystack as default checkout method
   const [checkoutTracked, setCheckoutTracked] = useState(false)
 
   const [shippingInfo, setShippingInfo] = useState({
@@ -196,7 +196,7 @@ export default function CheckoutPage() {
       const { authorization_url } = result
 
       console.log('Redirecting to:', authorization_url)
-      // Redirect to Paystack payment page
+      // Redirect to Xoro Pay checkout page
       window.location.href = authorization_url
     } catch (error: any) {
       console.error('Payment initialization error:', error)
@@ -389,6 +389,14 @@ export default function CheckoutPage() {
                         </div>
 
                         <div className="flex items-start space-x-2 rounded-md border p-3">
+                          <RadioGroupItem value="xoro_pay" id="xoro_pay" className="mt-1" />
+                          <div>
+                            <Label htmlFor="xoro_pay" className="font-medium text-foreground">Xoro Pay (Card/Bank)</Label>
+                            <p className="text-xs text-muted-foreground">You will be redirected to Xoro Pay to complete payment</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start space-x-2 rounded-md border p-3">
                           <RadioGroupItem value="wallet" id="wallet" className="mt-1" />
                           <div>
                             <Label htmlFor="wallet" className="font-medium text-foreground">Wallet Balance</Label>
@@ -404,6 +412,16 @@ export default function CheckoutPage() {
                           <Shield className="h-4 w-4 text-green-600" />
                           <div className="text-center">
                             <p className="font-medium text-foreground">Secure Payment with Paystack</p>
+                            <p className="text-xs">You will be redirected to complete your payment securely</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {paymentMethod === "xoro_pay" && (
+                        <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg">
+                          <Shield className="h-4 w-4 text-green-600" />
+                          <div className="text-center">
+                            <p className="font-medium text-foreground">Secure Payment with Xoro Pay</p>
                             <p className="text-xs">You will be redirected to complete your payment securely</p>
                           </div>
                         </div>

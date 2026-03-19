@@ -1,9 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { xoroPayService } from '@/lib/xoro-pay'
 import { paystackService } from '@/lib/payment'
 import { emailService } from '@/lib/email'
 import { updateOrder, getOrderById, getUserById, getStores, creditVendorWalletsForOrder } from '@/lib/mongodb-operations'
 import connectToDatabase from '@/lib/mongodb'
 import mongoose from 'mongoose'
+
+type NormalizedVerification = {
+  success: boolean
+  orderId?: string
+  paymentData?: any
+  message?: string
+}
+
+const verifyWithAnyProvider = async (reference: string): Promise<NormalizedVerification> => {
+  const xoroResult = await xoroPayService.verifyPayment(reference)
+  if (xoroResult.success) {
+    const metadata = xoroResult.metadata || {}
+    const orderId = String(metadata.orderId || '')
+    return {
+      success: Boolean(orderId),
+      orderId,
+      paymentData: xoroResult.raw || {},
+      message: orderId ? undefined : 'Order ID not found in Xoro payment metadata',
+    }
+  }
+
+  const paystackResult = await paystackService.verifyPayment(reference)
+  if (paystackResult.success) {
+    const paymentData = paystackResult.data || {}
+    const orderId = String(paymentData?.metadata?.orderId || '')
+    return {
+      success: Boolean(orderId),
+      orderId,
+      paymentData,
+      message: orderId ? undefined : 'Order ID not found in Paystack payment metadata',
+    }
+  }
+
+  return {
+    success: false,
+    message: xoroResult.message || paystackResult.message || 'Payment verification failed',
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,8 +59,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(errorUrl.toString())
     }
 
-    // Verify payment with Paystack
-    const verificationResult = await paystackService.verifyPayment(reference)
+    const verificationResult = await verifyWithAnyProvider(reference)
 
     if (!verificationResult.success) {
       const errorUrl = new URL('/checkout', process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.org')
@@ -29,8 +67,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(errorUrl.toString())
     }
 
-    const paymentData = verificationResult.data
-    const orderId = paymentData.metadata.orderId
+    const paymentData = verificationResult.paymentData || {}
+    const orderId = String(verificationResult.orderId || '')
+
+    if (!orderId) {
+      const errorUrl = new URL('/checkout', process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.org')
+      errorUrl.searchParams.set('error', 'missing_order_reference')
+      return NextResponse.redirect(errorUrl.toString())
+    }
 
     // Get order details before updating
     const order = await getOrderById(orderId)
@@ -184,12 +228,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify payment with Paystack
-    const verificationResult = await paystackService.verifyPayment(reference)
+    const verificationResult = await verifyWithAnyProvider(reference)
 
     if (verificationResult.success) {
-      const paymentData = verificationResult.data
-      const orderId = paymentData.metadata.orderId
+      const paymentData = verificationResult.paymentData || {}
+      const orderId = String(verificationResult.orderId || '')
+
+      if (!orderId) {
+        return NextResponse.json(
+          { error: 'Order ID not found in payment metadata' },
+          { status: 400 }
+        )
+      }
 
       // Get order details before updating
       const order = await getOrderById(orderId)

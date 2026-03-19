@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { xoroPayService } from '@/lib/xoro-pay'
 
 interface ResolveBody {
   bankCode?: string
@@ -15,27 +16,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'bankCode and accountNumber are required' }, { status: 400 })
     }
 
-    const secret = process.env.PAYSTACK_SECRET_KEY
-    if (!secret) {
-      return NextResponse.json({ success: false, error: 'PAYSTACK_SECRET_KEY missing' }, { status: 500 })
-    }
-
-    const url = `https://api.paystack.co/bank/resolve?account_number=${accountNumber}&bank_code=${bankCode}`
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${secret}`,
-        Accept: 'application/json',
-      },
-      cache: 'no-store',
-    })
-
-    const data = await res.json()
-    if (!res.ok || data?.status === false) {
-      const msg = data?.message || 'Failed to resolve account'
+    const result = await xoroPayService.resolveAccount(bankCode, accountNumber)
+    if (!result.success || !result.accountName) {
+      const msg = result.message || 'Failed to resolve account'
       return NextResponse.json({ success: false, error: msg }, { status: 400 })
     }
 
-    return NextResponse.json({ success: true, accountName: data?.data?.account_name, accountNumber: data?.data?.account_number, bankCode })
+    return NextResponse.json({
+      success: true,
+      accountName: result.accountName,
+      accountNumber: result.accountNumber || accountNumber,
+      bankCode: result.bankCode || bankCode,
+    })
   } catch (error: any) {
     console.error('[resolve-account] error', error)
     return NextResponse.json({ success: false, error: 'Failed to resolve account' }, { status: 500 })

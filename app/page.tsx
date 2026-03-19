@@ -450,21 +450,23 @@ function TrendingProducts() {
 // Move HeroButtons here, above HomePage
 function HeroButtons({ isLoggedIn }: { isLoggedIn: boolean }) {
   const router = useRouter()
+  const storesHref = '/stores'
+  const servicesHref = isLoggedIn ? '/services' : '/signup?type=vendor'
 
   useEffect(() => {
-    router.prefetch('/stores')
-    router.prefetch(isLoggedIn ? '/services' : '/signup?type=vendor')
+    router.prefetch(storesHref)
+    router.prefetch(servicesHref)
   }, [isLoggedIn, router])
 
   return (
     <>
       <div className="flex flex-col sm:flex-row gap-3 justify-center mt-2">
-        <button
-          className="inline-block px-8 py-3 text-lg font-semibold rounded-full shadow-2xl bg-accent text-white border-2 border-accent transition-all duration-300 hover:bg-accent/10 hover:text-accent hover:border-accent flex items-center gap-2 group overflow-hidden relative"
-          onClick={e => {
-            e.preventDefault();
-            router.push('/stores')
-          }}
+        <Link
+          href={storesHref}
+          prefetch
+          className="px-8 py-3 text-lg font-semibold rounded-full shadow-2xl bg-accent text-white border-2 border-accent transition-all duration-300 hover:bg-accent/10 hover:text-accent hover:border-accent flex items-center gap-2 group overflow-hidden relative"
+          onMouseEnter={() => router.prefetch(storesHref)}
+          onTouchStart={() => router.prefetch(storesHref)}
           style={{ minWidth: 200 }}
         >
           {isLoggedIn ? 'Check out Stores' : 'Start Shopping'}
@@ -478,13 +480,13 @@ function HeroButtons({ isLoggedIn }: { isLoggedIn: boolean }) {
               <path d="M5 12h14M13 6l6 6-6 6" />
             </svg>
           </span>
-        </button>
-        <button
-          className="inline-block px-8 py-3 text-lg font-semibold rounded-full shadow-2xl border-2 border-accent text-accent bg-white hover:bg-accent/10 transition-all duration-300 flex items-center gap-2 group overflow-hidden relative"
-          onClick={e => {
-            e.preventDefault();
-            router.push(isLoggedIn ? '/services' : '/signup?type=vendor')
-          }}
+        </Link>
+        <Link
+          href={servicesHref}
+          prefetch
+          className="px-8 py-3 text-lg font-semibold rounded-full shadow-2xl border-2 border-accent text-accent bg-white hover:bg-accent/10 transition-all duration-300 flex items-center gap-2 group overflow-hidden relative"
+          onMouseEnter={() => router.prefetch(servicesHref)}
+          onTouchStart={() => router.prefetch(servicesHref)}
           style={{ minWidth: 200 }}
         >
           {isLoggedIn ? 'Check out Services' : 'Become a Seller'}
@@ -498,7 +500,7 @@ function HeroButtons({ isLoggedIn }: { isLoggedIn: boolean }) {
               <path d="M5 12h14M13 6l6 6-6 6" />
             </svg>
           </span>
-        </button>
+        </Link>
       </div>
       <style jsx global>{`
         @keyframes bounce-x {

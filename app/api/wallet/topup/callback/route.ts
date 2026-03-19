@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { paystackService } from '@/lib/payment'
+import { xoroPayService } from '@/lib/xoro-pay'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { User } from '@/lib/models/User'
 import { connectToDatabase } from '@/lib/mongodb'
@@ -20,15 +20,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(errorRedirect.toString())
     }
 
-    const verificationResult = await paystackService.verifyPayment(paymentReference)
-    if (!verificationResult.success || !verificationResult.data) {
+    const verificationResult = await xoroPayService.verifyPayment(paymentReference)
+    if (!verificationResult.success) {
       errorRedirect.searchParams.set('wallet', 'failed')
       errorRedirect.searchParams.set('reason', 'verification_failed')
       return NextResponse.redirect(errorRedirect.toString())
     }
 
-    const paymentData = verificationResult.data
-    const orderIdFromMeta = paymentData?.metadata?.orderId || paymentData?.metadata?.orderID
+    const paymentData = verificationResult.raw || {}
+    const metadata = verificationResult.metadata || {}
+    const orderIdFromMeta = metadata?.orderId || metadata?.orderID
 
     await connectToDatabase()
 
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
           paymentReference,
           metadata: {
             ...(transaction.metadata || {}),
-            paystackData: paymentData,
+            xoroPayData: paymentData,
           },
           updatedAt: new Date(),
         },

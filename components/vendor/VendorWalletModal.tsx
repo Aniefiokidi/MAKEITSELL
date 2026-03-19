@@ -449,7 +449,7 @@ export function VendorWalletModal({
           <>
             <DialogHeader>
               <DialogTitle>Top up wallet</DialogTitle>
-              <DialogDescription>Add funds to your vendor wallet via Paystack.</DialogDescription>
+              <DialogDescription>Add funds to your vendor wallet via Xoro Pay.</DialogDescription>
             </DialogHeader>
 
             <div className='space-y-4'>

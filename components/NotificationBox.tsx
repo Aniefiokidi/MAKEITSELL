@@ -64,6 +64,7 @@ function NotificationItem({ notification }: { notification: Notification }) {
 
   // Only make message notifications clickable
   const isMessageNotification = notification.type === "info" && notification.title === "New Message"
+  const safeMessage = typeof notification.message === "string" ? notification.message : String(notification.message ?? "")
   const handleNotificationClick = () => {
     if (isMessageNotification) {
       router.push("/messages")
@@ -85,19 +86,19 @@ function NotificationItem({ notification }: { notification: Notification }) {
       role={isMessageNotification ? "button" : undefined}
       tabIndex={isMessageNotification ? 0 : undefined}
     >
-      <div className="flex-shrink-0 mt-0.5">{styles.icon}</div>
+      <div className="shrink-0 mt-0.5">{styles.icon}</div>
       <div className="flex-1 min-w-0">
         {notification.title && (
           <h4 className={cn("text-sm font-semibold mb-1", styles.textColor)}>
             {notification.title}
           </h4>
         )}
-        <p className={cn("text-sm", styles.textColor)}>{notification.message}</p>
+        <p className={cn("text-sm", styles.textColor)}>{safeMessage}</p>
       </div>
       <button
         onClick={e => { e.stopPropagation(); handleClose(); }}
         className={cn(
-          "flex-shrink-0 p-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 transition-colors",
+          "shrink-0 p-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 transition-colors",
           styles.textColor
         )}
       >
@@ -113,7 +114,7 @@ export function NotificationBox() {
   if (notifications.length === 0) return null
 
   return (
-    <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-3 pointer-events-none">
+    <div className="fixed bottom-4 right-4 z-100 flex flex-col gap-3 pointer-events-none">
       {notifications.map((notification) => (
         <div key={notification.id} className="pointer-events-auto">
           <NotificationItem notification={notification} />

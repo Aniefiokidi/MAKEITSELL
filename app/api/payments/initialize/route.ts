@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { xoroPayService } from '@/lib/xoro-pay'
 import { paystackService } from '@/lib/payment'
 import { createOrder, updateOrder, creditVendorWalletsForOrder } from '@/lib/mongodb-operations'
 import { v4 as uuidv4 } from 'uuid'
@@ -108,7 +109,7 @@ export async function POST(request: NextRequest) {
         customerId,
         itemCount: items.length
       })
-      
+
       const paymentResult = await paystackService.initializePayment({
         email: shippingInfo.email,
         amount: totalAmount,
@@ -135,6 +136,54 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json(
         { success: false, error: paymentResult.message || 'Payment initialization failed', paystack: paymentResult },
+        { status: 400 }
+      )
+    }
+
+    // Initialize payment with Xoro Pay
+    if (paymentMethod === 'xoro_pay') {
+      console.log('Initializing Xoro Pay payment with data:', {
+        email: shippingInfo.email,
+        amount: totalAmount,
+        orderId,
+        customerId,
+        itemCount: items.length
+      })
+      
+      const paymentReference = `${orderId}-${Date.now()}`
+      const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.org'}/api/payments/verify`
+
+      const paymentResult = await xoroPayService.initializePayment({
+        email: shippingInfo.email,
+        amount: totalAmount,
+        reference: paymentReference,
+        callbackUrl,
+        metadata: {
+          orderId,
+          customerId,
+          items,
+          type: 'order',
+        },
+      })
+
+      console.log('Xoro Pay result:', paymentResult)
+      if (!paymentResult.success) {
+        console.error('Full Xoro Pay error response:', paymentResult)
+      }
+
+      if (paymentResult.success) {
+        const response = {
+          success: true,
+          orderId,
+          authorization_url: paymentResult.authorizationUrl,
+          reference: paymentResult.reference || paymentReference,
+        }
+        console.log('API returning successful response:', response)
+        return NextResponse.json(response)
+      }
+
+      return NextResponse.json(
+        { success: false, error: paymentResult.message || 'Payment initialization failed', xoroPay: paymentResult },
         { status: 400 }
       )
     }

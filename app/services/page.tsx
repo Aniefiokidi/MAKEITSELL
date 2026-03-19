@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import Header from "@/components/Header"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -101,6 +102,7 @@ const isPdfAsset = (url?: string) => {
 }
 
 export default function ServicesPage() {
+  const router = useRouter()
     // Slide-out state for page transition
     const [slideOut, setSlideOut] = useState(false);
     const [slideTarget, setSlideTarget] = useState('');
@@ -130,11 +132,15 @@ export default function ServicesPage() {
     useEffect(() => {
       if (slideOut && slideTarget) {
         const timer = setTimeout(() => {
-          window.location.href = slideTarget;
-        }, 600);
+          router.push(slideTarget);
+        }, 220);
         return () => clearTimeout(timer);
       }
-    }, [slideOut, slideTarget]);
+    }, [slideOut, slideTarget, router]);
+
+  useEffect(() => {
+    router.prefetch('/stores')
+  }, [router])
   const [services, setServices] = useState<Service[]>([])
   const [filteredServices, setFilteredServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)

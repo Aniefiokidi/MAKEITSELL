@@ -772,7 +772,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
               <DialogHeader>
                 <DialogTitle>Top up wallet</DialogTitle>
                 <DialogDescription>
-                  Add funds to your wallet via Paystack.
+                  Add funds to your wallet via Xoro Pay.
                 </DialogDescription>
               </DialogHeader>
 
