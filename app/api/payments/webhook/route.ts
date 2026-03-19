@@ -480,7 +480,10 @@ async function handleTransferSuccess(data: any) {
 
     const transaction = await WalletTransaction.findOne({
       type: 'withdrawal',
-      reference,
+      $or: [
+        { reference },
+        { 'metadata.payoutReference': reference },
+      ],
     })
 
     if (!transaction) {
@@ -518,7 +521,10 @@ async function handleTransferFailure(data: any) {
 
     const transaction = await WalletTransaction.findOne({
       type: 'withdrawal',
-      reference,
+      $or: [
+        { reference },
+        { 'metadata.payoutReference': reference },
+      ],
     })
 
     if (!transaction) {

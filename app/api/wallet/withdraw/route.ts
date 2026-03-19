@@ -5,6 +5,7 @@ import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { xoroPayService } from '@/lib/xoro-pay'
+import { createTransferRecipient, initiateTransfer } from '@/lib/paystack-transfer'
 import crypto from 'crypto'
 
 const hashWithdrawalPin = (pin: string, userId: string) => {
@@ -107,52 +108,106 @@ export async function POST(request: NextRequest) {
     }
 
     const reference = `wallet_withdraw_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`
+    const payoutReference = `wd_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`
+    const transferReason = `Customer wallet withdrawal to ${accountName}`
 
-    const recipientResult = await xoroPayService.createTransferRecipient({
-      name: accountName,
-      accountNumber,
-      bankCode,
-    })
+    let transferProvider = 'xoro_transfer'
+    let transferCode = ''
+    let transferStatus = 'pending'
+    let transferRecipientCode = ''
+    let transferMeta: Record<string, any> = {}
+    let xoroError = ''
+    let paystackError = ''
 
-    if (!recipientResult.success || !recipientResult.recipientCode) {
-      await User.updateOne(
-        { _id: currentUser.id, role: 'customer' },
-        {
-          $inc: { walletBalance: normalizedAmount },
-          $set: { updatedAt: new Date() },
+    try {
+      const xoroRecipient = await xoroPayService.createTransferRecipient({
+        name: accountName,
+        accountNumber,
+        bankCode,
+      })
+
+      if (xoroRecipient.success && xoroRecipient.recipientCode) {
+        const xoroTransfer = await xoroPayService.initiateTransfer({
+          amount: normalizedAmount,
+          recipientCode: xoroRecipient.recipientCode,
+          reference: payoutReference,
+          reason: transferReason,
+        })
+
+        if (xoroTransfer.success && xoroTransfer.transferCode && xoroTransfer.status !== 'otp') {
+          transferProvider = 'xoro_transfer'
+          transferCode = xoroTransfer.transferCode
+          transferStatus = xoroTransfer.status || 'pending'
+          transferRecipientCode = xoroRecipient.recipientCode
+          transferMeta = {
+            xoroRecipientRaw: xoroRecipient.raw || null,
+            xoroTransferRaw: xoroTransfer.raw || null,
+          }
+        } else {
+          xoroError = xoroTransfer.message || 'Xoro transfer initiation failed'
         }
-      )
-
-      return NextResponse.json(
-        { success: false, error: recipientResult.message || 'Unable to set up bank transfer at the moment' },
-        { status: 400 }
-      )
+      } else {
+        xoroError = xoroRecipient.message || 'Xoro recipient creation failed'
+      }
+    } catch (xoroFailure: any) {
+      xoroError = xoroFailure?.message || 'Xoro transfer request failed'
     }
 
-    const transferResult = await xoroPayService.initiateTransfer({
-      amount: normalizedAmount,
-      recipientCode: recipientResult.recipientCode,
-      reference,
-      reason: `Customer wallet withdrawal to ${accountName}`,
-    })
+    if (!transferCode) {
+      try {
+        const paystackRecipient = await createTransferRecipient({
+          name: accountName,
+          accountNumber,
+          bankCode,
+        })
 
-    if (!transferResult.success || !transferResult.transferCode || transferResult.status === 'otp') {
-      await User.updateOne(
-        { _id: currentUser.id, role: 'customer' },
-        {
-          $inc: { walletBalance: normalizedAmount },
-          $set: { updatedAt: new Date() },
+        if (paystackRecipient.success && paystackRecipient.recipientCode) {
+          const paystackTransfer = await initiateTransfer({
+            amount: normalizedAmount,
+            recipientCode: paystackRecipient.recipientCode,
+            reference: payoutReference,
+            reason: transferReason,
+          })
+
+          if (paystackTransfer.success && paystackTransfer.transferCode && paystackTransfer.status !== 'otp') {
+            transferProvider = 'paystack_transfer'
+            transferCode = paystackTransfer.transferCode
+            transferStatus = paystackTransfer.status || 'pending'
+            transferRecipientCode = paystackRecipient.recipientCode
+            transferMeta = {
+              paystackRecipientRaw: paystackRecipient.raw || null,
+              paystackTransferRaw: paystackTransfer.raw || null,
+            }
+          } else {
+            paystackError = paystackTransfer.message || 'Paystack transfer initiation failed'
+          }
+        } else {
+          paystackError = paystackRecipient.message || 'Paystack recipient creation failed'
         }
-      )
+      } catch (paystackFailure: any) {
+        paystackError = paystackFailure?.message || 'Paystack transfer request failed'
+      }
+    }
 
-      const otpRequiredMessage = transferResult.status === 'otp'
-        ? 'Withdrawals are temporarily unavailable because payout OTP is enabled. Disable transfer OTP in your Xoro Pay dashboard or complete transfers manually.'
-        : null
+    if (!transferCode) {
+      transferProvider = 'manual_transfer'
+      transferStatus = 'manual_review'
+      transferRecipientCode = ''
+      transferMeta = {
+        autoTransferInitiated: false,
+        manualProcessingRequired: true,
+        xoroError,
+        paystackError,
+      }
 
-      return NextResponse.json(
-        { success: false, error: otpRequiredMessage || transferResult.message || 'Unable to initiate bank transfer right now' },
-        { status: 400 }
-      )
+      console.warn('[wallet/withdraw] auto-transfer unavailable, queued for manual processing', {
+        userId: String(currentUser.id),
+        amount: normalizedAmount,
+        bankCode,
+        payoutReference,
+        xoroError,
+        paystackError,
+      })
     }
 
     await WalletTransaction.create({
@@ -161,17 +216,19 @@ export async function POST(request: NextRequest) {
       amount: normalizedAmount,
       status: 'pending',
       reference,
-      provider: 'xoro_transfer',
+      provider: transferProvider,
       note: `Customer withdrawal to ${accountName} (${bankName})`,
       metadata: {
         bankName,
         bankCode,
         accountNumber,
         accountName,
-        transferCode: transferResult.transferCode,
-        transferStatus: transferResult.status || 'pending',
-        transferRecipientCode: recipientResult.recipientCode,
+        payoutReference,
+        transferCode,
+        transferStatus,
+        transferRecipientCode,
         requestedBy: currentUser.email,
+        ...transferMeta,
       },
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -184,7 +241,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Withdrawal request submitted. Transfer is being processed.',
+      message: transferCode
+        ? 'Withdrawal request submitted. Transfer is being processed.'
+        : 'Withdrawal request submitted for manual processing.',
       reference,
       balance: typeof refreshedUser?.walletBalance === 'number' ? refreshedUser.walletBalance : 0,
     })

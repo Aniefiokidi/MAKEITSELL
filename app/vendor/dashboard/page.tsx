@@ -34,6 +34,7 @@ export default function VendorDashboardPage() {
   const [storeData, setStoreData] = useState<any>(null);
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [activeTab, setActiveTab] = useState<"goods" | "services">("goods");
 
   useEffect(() => {
     // Load setup entities to determine if setup prompt is still needed
@@ -244,7 +245,7 @@ export default function VendorDashboardPage() {
             <p className="text-xs text-muted-foreground">Welcome back! Here's what's happening with your {vendorType === "services" ? "services" : "store"}.</p>
             <div className="mt-2">
               <Button asChild size="sm" variant="outline">
-                <Link href={vendorType === "services" ? "/vendor/services/setup-wizard" : "/vendor/setup-wizard"}>{vendorType === "services" ? "Open Service Settings" : "Open Setup Wizard"}</Link>
+                <Link href={(vendorType === "services" || (vendorType === "both" && activeTab === "services")) ? "/vendor/services/setup-wizard" : "/vendor/setup-wizard"}>{(vendorType === "services" || (vendorType === "both" && activeTab === "services")) ? "Open Service Setup Wizard" : "Open Setup Wizard"}</Link>
               </Button>
             </div>
           </div>
@@ -272,7 +273,7 @@ export default function VendorDashboardPage() {
       <div className="mt-8">
         {vendorType === "both" ? (
           /* BOTH: Tabbed Dashboard */
-          <Tabs defaultValue="goods" className="space-y-6">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "goods" | "services")} className="space-y-6">
             <TabsList className="grid w-full max-w-md grid-cols-2">
               <TabsTrigger value="goods" className="flex items-center gap-2">
                 <Package className="h-4 w-4" />
