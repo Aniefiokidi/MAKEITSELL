@@ -5,16 +5,12 @@ import { requireRoles } from '@/lib/server-route-auth'
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('Stores API called with params:', request.url)
-    
     const { searchParams } = new URL(request.url)
     const category = searchParams.get('category') || undefined
     const isOpen = searchParams.get('isOpen') === 'true' ? true : undefined
     const limitCount = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined
     const vendorId = searchParams.get('vendorId') || undefined
     const search = (searchParams.get('search') || '').trim().toLowerCase()
-
-    console.log('Filter parameters:', { category, isOpen, limitCount, vendorId, search })
 
     const stores = await mongoGetStores({
       category,
@@ -25,19 +21,6 @@ export async function GET(request: NextRequest) {
       // Only suspended stores will be explicitly filtered out by the database query
     })
 
-    console.log('MongoDB returned stores:', stores?.length || 0, 'stores')
-    if (stores && stores.length > 0) {
-      console.log('First store sample:', {
-        id: stores[0]._id,
-        name: stores[0].storeName,
-        vendorId: stores[0].vendorId,
-        subscriptionStatus: stores[0].subscriptionStatus,
-        accountStatus: stores[0].accountStatus,
-        isActive: stores[0].isActive
-      })
-    } else {
-      console.log('No stores returned from database query')
-    }
 
     // Only use real stores from the database
     const allStores = stores || [];
@@ -60,8 +43,6 @@ export async function GET(request: NextRequest) {
 
     // Map MongoDB store fields to UI expected fields and add product count
     const mappedStores = await Promise.all(filteredStores.map(async store => {
-      // DEBUG: Log full store object to check for profileImage
-      console.log('DEBUG: Raw store from DB:', JSON.stringify(store, null, 2));
       // Get products for this store
       const storeProducts = await getProducts({ vendorId: store.vendorId })
       const productCount = storeProducts?.length || 0

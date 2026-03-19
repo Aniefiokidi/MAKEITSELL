@@ -152,104 +152,19 @@ function TrendingProducts() {
   
 
   useEffect(() => {
-    async function fetchTrendingWithStoreNames() {
+    async function fetchTrending() {
       try {
-        const [productsRes, servicesRes, bookingsRes] = await Promise.all([
-          fetch("/api/database/products?limit=100"),
-          fetch("/api/database/services?limit=100"),
-          fetch("/api/database/bookings")
-        ])
+        const response = await fetch("/api/home/trending")
+        const data = await response.json()
 
-        const [productsData, servicesData, bookingsData] = await Promise.all([
-          productsRes.json(),
-          servicesRes.json(),
-          bookingsRes.json()
-        ])
-
-        if (productsData.success && Array.isArray(productsData.data)) {
-          // Keep only in-stock products with stock > 1, then take top 5 by sales.
-          const sorted = [...productsData.data]
-            .filter((product: any) => (product?.stock ?? 0) > 1)
-            .sort((a, b) => (b.sales || 0) - (a.sales || 0))
-            .slice(0, 5)
-          // Fetch store for each product
-          const withStoreNames = await Promise.all(sorted.map(async (product) => {
-            let storeName = ''
-            let vendorName = ''
-            console.log('🔍 TrendingNow: Processing product', product.name, 'vendorId:', product.vendorId)
-            try {
-              const storeRes = await fetch(`/api/database/stores/${product.vendorId}`)
-              const storeData = await storeRes.json()
-              console.log('🏪 Store API response:', storeRes.status, storeData)
-              if (storeData.success && storeData.data) {
-                storeName = storeData.data.storeName || storeData.data.name || ''
-                vendorName = storeData.data.storeName || storeData.data.name || ''
-                console.log('✅ Store found:', storeName)
-              } else {
-                console.log('❌ Store not found, trying user fallback...')
-                // fallback: try fetching user by vendorId
-                const userRes = await fetch(`/api/database/users/${product.vendorId}`)
-                const userData = await userRes.json()
-                console.log('👤 User API response:', userRes.status, userData)
-                if (userData.success && userData.data) {
-                  storeName = userData.data.displayName || userData.data.name || (userData.data.email ? userData.data.email.split('@')[0] : '')
-                  vendorName = storeName
-                  console.log('✅ User found:', storeName)
-                } else {
-                  console.log('❌ User not found either')
-                }
-              }
-            } catch (err) {
-              console.log('💥 Fetch error:', err)
-            }
-            // fallback: if product.vendorName exists, use it
-            if (!storeName && product.vendorName) {
-              storeName = product.vendorName
-              console.log('📋 Using product vendorName:', storeName)
-            }
-            if (!vendorName && product.vendorName) vendorName = product.vendorName
-            
-            // Final fallback: show vendorId if nothing else works
-            if (!storeName) {
-              storeName = `Store ${product.vendorId.slice(-6)}`
-              console.log('🆔 Using vendorId fallback:', storeName)
-            }
-            if (!vendorName) vendorName = storeName
-            
-            console.log('🏷️ Final result for', product.name, ':', { storeName, vendorName })
-            return { ...product, storeName, vendorName }
-          }))
-          setProducts(withStoreNames)
-        } else {
+        if (!response.ok || !data?.success) {
           setProducts([])
-        }
-
-        if (servicesData.success && Array.isArray(servicesData.data)) {
-          const bookings = Array.isArray(bookingsData?.data) ? bookingsData.data : []
-          const bookingCountMap = bookings.reduce((acc: Record<string, number>, booking: any) => {
-            if (!booking || booking.status === 'cancelled') return acc
-            const serviceId = booking.serviceId || booking.service?.id || booking.service?._id
-            if (!serviceId) return acc
-            const key = String(serviceId)
-            acc[key] = (acc[key] || 0) + 1
-            return acc
-          }, {})
-
-          const topServices = [...servicesData.data]
-            .map((service: any) => {
-              const serviceKey = String(service.id || service._id || '')
-              return {
-                ...service,
-                bookingCount: bookingCountMap[serviceKey] || 0
-              }
-            })
-            .sort((a: any, b: any) => (b.bookingCount || 0) - (a.bookingCount || 0))
-            .slice(0, 5)
-
-          setServices(topServices)
-        } else {
           setServices([])
+          return
         }
+
+        setProducts(Array.isArray(data?.data?.products) ? data.data.products : [])
+        setServices(Array.isArray(data?.data?.services) ? data.data.services : [])
       } catch {
         setProducts([])
         setServices([])
@@ -257,7 +172,7 @@ function TrendingProducts() {
         setLoading(false)
       }
     }
-    fetchTrendingWithStoreNames()
+    fetchTrending()
   }, [])
 
   if (loading) {

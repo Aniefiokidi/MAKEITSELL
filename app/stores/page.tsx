@@ -72,7 +72,7 @@ export default function ShopPage() {
         params.append("category", selectedCategory)
       }
       
-      const response = await fetch(`/api/database/stores?${params}&t=${Date.now()}`)
+      const response = await fetch(`/api/database/stores?${params}`)
       const data = await response.json()
       
       if (data.success) {
