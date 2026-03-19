@@ -1033,7 +1033,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.5 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
               className="fixed inset-0 bg-black z-90"
               onClick={() => setIsMenuOpen(false)}
             />
@@ -1043,8 +1043,9 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
-              transition={{ type: "spring", stiffness: 120, damping: 15 }}
-              className="fixed top-0 right-0 w-[85vw] max-w-xs h-screen bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 shadow-2xl z-100 flex flex-col overflow-hidden"
+              transition={{ type: "tween", duration: 0.22, ease: "easeOut" }}
+              className="fixed top-0 right-0 w-[85vw] max-w-xs h-screen transform-gpu bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 shadow-2xl z-100 flex flex-col overflow-hidden"
+              style={{ willChange: "transform" }}
             >
               {/* Header */}
               <div className="flex items-center justify-between p-3 sm:p-6 border-b border-gray-200 dark:border-gray-700">
