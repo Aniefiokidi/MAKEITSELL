@@ -72,6 +72,10 @@ export default function Footer() {
                 <Phone className="h-4 w-4 text-accent" />
                 <span className="text-accent">+234 7031984441</span>
               </li>
+              <li className="flex justify-center sm:justify-start items-center space-x-3">
+                <Phone className="h-4 w-4 text-accent" />
+                <span className="text-accent">+234 8025282040</span>
+              </li>
             </ul>
           </div>
         </div>
