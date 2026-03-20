@@ -156,6 +156,7 @@ const isSuccessLikeStatus = (status: string) => {
     || normalized === 'paid'
     || normalized === 'approved'
     || normalized === 'ok'
+    || normalized === 'true'
     || normalized.includes('success')
     || normalized.includes('succeed')
     || normalized.includes('complete')
