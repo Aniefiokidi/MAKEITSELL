@@ -306,7 +306,7 @@ export default function ServiceSetupWizardPage() {
       description: formData.description.trim(),
       category: formData.category,
       subcategory: formData.subcategory,
-      price: minPackagePrice ?? Number(formData.price) || 0,
+      price: minPackagePrice ?? (Number(formData.price) || 0),
       pricingType: defaultPackage?.pricingType || formData.pricingType,
       duration: defaultPackage?.duration || Number(formData.duration) || 60,
       locationType: formData.locationType,
