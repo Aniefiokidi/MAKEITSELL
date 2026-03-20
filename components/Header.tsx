@@ -1082,7 +1082,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
 
       {/* Background overlay */}
       <div
-        className={`fixed inset-0 bg-black z-90 transition-opacity duration-150 ease-out ${
+        className={`fixed inset-0 bg-black z-90 transition-opacity duration-150 ease-out xl:hidden ${
           isMenuOpen ? "opacity-50 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
         onClick={() => setIsMenuOpen(false)}
@@ -1090,7 +1090,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
 
       {/* Drawer Panel */}
       <div
-        className={`fixed top-0 right-0 h-screen max-w-xs transform-gpu bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 shadow-xl z-100 flex flex-col overflow-hidden transition-transform duration-200 ease-out ${
+        className={`fixed top-0 right-0 h-screen max-w-xs transform-gpu bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 shadow-xl z-100 flex flex-col overflow-hidden transition-transform duration-200 ease-out xl:hidden ${
           isMenuOpen ? "translate-x-0" : "translate-x-full pointer-events-none"
         }`}
         style={{
