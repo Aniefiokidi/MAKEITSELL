@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useRef, useLayoutEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,8 +13,8 @@ import Header from "@/components/Header"
 import { useCart } from "@/contexts/CartContext"
 import { useNotification } from "@/contexts/NotificationContext"
 import { ProductQuickView } from "@/components/ui/product-quick-view"
-import { useIsMobile } from "@/hooks/use-mobile"
 import { useRouter } from "next/navigation"
+import { initPersonalizationSync, personalizeProducts, trackProductQuickView, trackSearch } from "@/lib/personalization"
 
 // Static categories - fallback if API fails
 const defaultCategories = [
@@ -65,28 +65,33 @@ const getCompactPagination = (currentPage: number, totalPages: number): Array<nu
 }
 
 export default function AllProductsPage() {
+  const PRODUCTS_SCROLL_KEY = "mis:scroll:products:list:v1"
   const [loading, setLoading] = useState(true)
   const [products, setProducts] = useState<Product[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [priceRange, setPriceRange] = useState("all")
-  const [sortBy, setSortBy] = useState("featured")
+  const [sortBy, setSortBy] = useState("for-you")
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalProducts, setTotalProducts] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null)
   const [showQuickView, setShowQuickView] = useState(false)
-  const [imageBrightness, setImageBrightness] = useState<{ [key: string]: 'light' | 'dark' }>({})
   const [isTransitioning, setIsTransitioning] = useState(false)
   const { addItem } = useCart()
   const notification = useNotification()
-  const isMobile = useIsMobile()
   const router = useRouter()
-  const itemsPerPage = 40
+  const itemsPerPage = 24
+
+  const saveScrollPosition = () => {
+    if (typeof window === "undefined") return
+    sessionStorage.setItem(PRODUCTS_SCROLL_KEY, String(window.scrollY))
+  }
 
   const handleBackToStores = () => {
+    saveScrollPosition()
     setIsTransitioning(true)
     setTimeout(() => {
       router.push('/stores')
@@ -106,6 +111,15 @@ export default function AllProductsPage() {
   }, [debouncedSearchQuery, selectedCategory, priceRange, sortBy])
 
   useEffect(() => {
+    void initPersonalizationSync()
+  }, [])
+
+  useEffect(() => {
+    if (!debouncedSearchQuery) return
+    trackSearch(debouncedSearchQuery, "products")
+  }, [debouncedSearchQuery])
+
+  useEffect(() => {
     fetchAllProducts()
   }, [debouncedSearchQuery, selectedCategory, priceRange, sortBy, currentPage])
 
@@ -115,7 +129,7 @@ export default function AllProductsPage() {
       const params = new URLSearchParams()
       params.set("limit", String(itemsPerPage))
       params.set("page", String(currentPage))
-      params.set("sortBy", sortBy)
+      params.set("sortBy", sortBy === "for-you" ? "featured" : sortBy)
 
       if (debouncedSearchQuery) {
         params.set("search", debouncedSearchQuery)
@@ -149,7 +163,10 @@ export default function AllProductsPage() {
           storeName: prod.storeName || prod.vendorName || 'Premium Vendor',
           vendorName: prod.vendorName || prod.storeName || 'Premium Vendor',
         }))
-        setProducts(normalizedProducts)
+        const shouldPersonalize = sortBy === "for-you" && selectedCategory === "all"
+        const rankedProducts = shouldPersonalize ? personalizeProducts(normalizedProducts) : normalizedProducts
+
+        setProducts(rankedProducts)
         setTotalProducts(Math.max(0, Number(data?.pagination?.total || 0)))
         setTotalPages(Math.max(1, Number(data?.pagination?.totalPages || 1)))
       } else {
@@ -198,12 +215,42 @@ export default function AllProductsPage() {
     )
   }
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (typeof window !== 'undefined' && lastScrollY.current !== null) {
       window.scrollTo({ top: lastScrollY.current, behavior: 'auto' })
       lastScrollY.current = null
     }
-  })
+  }, [products])
+
+  useEffect(() => {
+    if (loading || typeof window === "undefined") return
+
+    const savedScroll = sessionStorage.getItem(PRODUCTS_SCROLL_KEY)
+    if (!savedScroll) return
+
+    const targetScroll = Number(savedScroll)
+    if (Number.isNaN(targetScroll)) {
+      sessionStorage.removeItem(PRODUCTS_SCROLL_KEY)
+      return
+    }
+
+    let attempts = 0
+    const maxAttempts = 8
+
+    const restore = () => {
+      window.scrollTo({ top: targetScroll, behavior: "auto" })
+      attempts += 1
+
+      if (attempts < maxAttempts && Math.abs(window.scrollY - targetScroll) > 2) {
+        window.requestAnimationFrame(restore)
+        return
+      }
+
+      sessionStorage.removeItem(PRODUCTS_SCROLL_KEY)
+    }
+
+    window.requestAnimationFrame(restore)
+  }, [loading])
 
   const paginationItems = getCompactPagination(currentPage, totalPages)
 
@@ -295,58 +342,6 @@ export default function AllProductsPage() {
 
   const ProductCard = React.memo(({ product }: { product: Product }) => {
     const isElectronics = product.category?.toLowerCase().includes('electronics')
-    const productBrightness = imageBrightness[product.id] || 'dark'
-
-    const detectImageBrightness = React.useCallback((imageUrl: string, productId: string) => {
-      if (typeof window === 'undefined') return
-      
-      // Skip if brightness already detected for this product
-      if (imageBrightness[productId]) return
-      
-      const img = new window.Image()
-      img.crossOrigin = 'anonymous'
-      img.onload = () => {
-        try {
-          const canvas = document.createElement('canvas')
-          const ctx = canvas.getContext('2d')
-          if (!ctx) return
-          
-          canvas.width = img.width
-          canvas.height = img.height
-          ctx.drawImage(img, 0, 0)
-          
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-          const data = imageData.data
-          const sampleSize = Math.floor(data.length / 1000) * 4
-          const startPixelIndex = Math.floor(data.length * 0.1)
-          
-          let r = 0, g = 0, b = 0, totalPixels = 0
-          
-          for (let i = startPixelIndex; i < data.length; i += sampleSize) {
-            r += data[i]
-            g += data[i + 1] 
-            b += data[i + 2]
-            totalPixels++
-          }
-          
-          const avgBrightness = (r + g + b) / (totalPixels * 3)
-          setImageBrightness(prev => ({
-            ...prev,
-            [productId]: avgBrightness > 128 ? 'light' : 'dark'
-          }))
-        } catch (error) {
-          console.error('Error detecting brightness:', error)
-        }
-      }
-      img.src = imageUrl
-    }, [])
-
-    React.useEffect(() => {
-      if (isMobile) return
-      if (product.images?.[0] && !imageBrightness[product.id]) {
-        detectImageBrightness(product.images[0], product.id)
-      }
-    }, [product.id, detectImageBrightness, isMobile])
 
     const formatCurrency = (price: number) => {
       return new Intl.NumberFormat('en-NG', {
@@ -414,13 +409,12 @@ export default function AllProductsPage() {
           <Badge
             variant="outline"
             role="button"
-            className={`inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow cursor-pointer hover:opacity-90 transition min-h-5 sm:min-h-6 items-center justify-center text-center leading-tight ${
-              productBrightness === 'light' ? 'bg-accent text-white' : 'bg-accent text-white'
-            }`}
+            className="inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow cursor-pointer hover:opacity-90 transition min-h-5 sm:min-h-6 items-center justify-center text-center leading-tight bg-accent text-white"
             onClick={(e) => {
               e.stopPropagation()
               setQuickViewProduct(product)
               setShowQuickView(true)
+              trackProductQuickView(product)
             }}
             style={{
               whiteSpace: 'normal',
@@ -435,17 +429,13 @@ export default function AllProductsPage() {
           </Badge>
           
           <div className="flex items-center justify-between gap-1 sm:gap-2">
-            <Badge variant="outline" className={`text-[9px] sm:text-[10px] md:text-xs backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 ${
-              productBrightness === 'light' ? 'text-white bg-accent' : 'text-white bg-accent'
-            }`}>
+            <Badge variant="outline" className="text-[9px] sm:text-[10px] md:text-xs backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 text-white bg-accent">
               {product.category}
             </Badge>
             
             <Badge
               variant="outline"
-              className={`text-[9px] sm:text-[10px] md:text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 backdrop-blur-sm ${
-                productBrightness === 'light' ? 'bg-white/80 text-accent' : 'bg-white/70 text-accent'
-              }`}
+              className="text-[9px] sm:text-[10px] md:text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 backdrop-blur-sm bg-white/70 text-accent"
             >
               {formatCurrency(product.price)}
             </Badge>
@@ -460,11 +450,7 @@ export default function AllProductsPage() {
               handleAddToCart(product);
             }}
             disabled={(product.stock ?? 0) === 0}
-            className={`w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 ${
-              productBrightness === 'light' 
-                ? 'bg-white/20 hover:bg-white/80 text-accent' 
-                : 'bg-white/50 hover:bg-white text-black'
-            }`}
+            className="w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black"
           >
             <img src="/images/logo3.png" alt="Add" className="w-6 sm:w-7 md:w-8 h-6 sm:h-7 md:h-8 -mt-1 sm:-mt-2" />
             <span className="leading-none text-accent">Add to cart</span>
@@ -515,7 +501,7 @@ export default function AllProductsPage() {
             {/* Header Section */}
             <div className="mb-4 sm:mb-8 animate-fade-in">
               <nav className="text-xs sm:text-sm text-accent mb-2 sm:mb-4">
-                <Link href="/" className="hover:text-accent text-accent dark:text-white">
+                <Link href="/" onClick={saveScrollPosition} className="hover:text-accent text-accent dark:text-white">
                   Home
                 </Link>
                 <span className="mx-2 text-accent dark:text-white">/</span>
@@ -556,8 +542,28 @@ export default function AllProductsPage() {
               </div>
             </div>
 
+            {/* Category Toggle */}
+            <div className="mb-4 overflow-x-auto">
+              <div className="inline-flex gap-2 min-w-max">
+                {defaultCategories.map((category) => (
+                  <button
+                    key={category.id}
+                    type="button"
+                    onClick={() => setSelectedCategory(category.id)}
+                    className={`px-3 py-1.5 text-xs sm:text-sm rounded-full border transition-colors whitespace-nowrap ${
+                      selectedCategory === category.id
+                        ? "bg-accent text-white border-accent"
+                        : "bg-white/70 text-accent border-accent/30 hover:bg-accent/10"
+                    }`}
+                  >
+                    {category.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Search and Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-accent/60" />
                 <Input
@@ -567,19 +573,6 @@ export default function AllProductsPage() {
                   className="pl-10 bg-accent/5 border-accent/30 focus:border-accent/50 backdrop-blur-sm"
                 />
               </div>
-              
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="bg-accent/5 border-accent/30 focus:border-accent/50 backdrop-blur-sm">
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {defaultCategories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
 
               <Select value={priceRange} onValueChange={setPriceRange}>
                 <SelectTrigger className="bg-accent/5 border-accent/30 focus:border-accent/50 backdrop-blur-sm">
@@ -599,6 +592,7 @@ export default function AllProductsPage() {
                   <SelectValue placeholder="Sort By" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="for-you">For You</SelectItem>
                   <SelectItem value="featured">Featured First</SelectItem>
                   <SelectItem value="name">Name A-Z</SelectItem>
                   <SelectItem value="price-low">Price: Low to High</SelectItem>

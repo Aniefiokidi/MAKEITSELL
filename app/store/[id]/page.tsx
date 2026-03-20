@@ -19,6 +19,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { useNotification } from "@/contexts/NotificationContext"
 import { ProductQuickView } from "@/components/ui/product-quick-view"
 import { trackFunnelEvent } from "@/lib/funnel-tracker"
+import { trackStoreView } from "@/lib/personalization"
 
 interface Product {
   id: string
@@ -231,6 +232,12 @@ export default function StorePage() {
 
   useEffect(() => {
     if (!store?.vendorId || storeVisitTracked) return
+    trackStoreView({
+      id: store.id || storeId,
+      storeName: store.storeName,
+      category: store.category,
+      location: store.location || store.city || store.state,
+    })
     setStoreVisitTracked(true)
     void trackFunnelEvent(store.vendorId, "store_visit", { storeId })
   }, [store?.vendorId, storeId, storeVisitTracked])

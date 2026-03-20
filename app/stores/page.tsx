@@ -13,6 +13,7 @@ import Footer from "@/components/Footer"
 import { Skeleton } from "@/components/ui/skeleton"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
+import { initPersonalizationSync, personalizeStores, trackSearch, trackStoreView } from "@/lib/personalization"
 
 const categories = [
   { id: "all", name: "All Categories" },
@@ -24,6 +25,16 @@ const categories = [
   { id: "automotive", name: "Automotive" },
   { id: "books", name: "Books & Media" },
   { id: "food", name: "Food & Beverages" },
+  { id: "groceries", name: "Groceries" },
+  { id: "pharmacy", name: "Pharmacy & Health" },
+  { id: "furniture", name: "Furniture" },
+  { id: "appliances", name: "Appliances" },
+  { id: "toys", name: "Toys & Games" },
+  { id: "baby", name: "Baby & Kids" },
+  { id: "office-supplies", name: "Office Supplies" },
+  { id: "pet-supplies", name: "Pet Supplies" },
+  { id: "jewelry", name: "Jewelry & Accessories" },
+  { id: "hardware", name: "Hardware & Tools" },
   { id: "other", name: "Other" },
 ]
 
@@ -44,6 +55,7 @@ const getCompactPagination = (currentPage: number, totalPages: number): Array<nu
 }
 
 export default function ShopPage() {
+  const STORES_SCROLL_KEY = "mis:scroll:stores:list:v1"
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [stores, setStores] = useState<any[]>([])
@@ -52,7 +64,7 @@ export default function ShopPage() {
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [selectedLocation, setSelectedLocation] = useState("all")
   const [locationOptions, setLocationOptions] = useState<string[]>([])
-  const [sortBy, setSortBy] = useState("name")
+  const [sortBy, setSortBy] = useState("for-you")
   const [refreshing, setRefreshing] = useState(false)
   const [showFilters, setShowFilters] = useState(true)
   const [isTransitioning, setIsTransitioning] = useState(false)
@@ -76,6 +88,15 @@ export default function ShopPage() {
   }, [debouncedSearchQuery, selectedCategory, selectedLocation, sortBy])
 
   useEffect(() => {
+    void initPersonalizationSync()
+  }, [])
+
+  useEffect(() => {
+    if (!debouncedSearchQuery) return
+    trackSearch(debouncedSearchQuery, "stores")
+  }, [debouncedSearchQuery])
+
+  useEffect(() => {
     fetchStores()
   }, [debouncedSearchQuery, selectedCategory, selectedLocation, sortBy, currentPage])
 
@@ -96,7 +117,7 @@ export default function ShopPage() {
         params.append("location", selectedLocation)
       }
 
-      params.append("sortBy", sortBy)
+      params.append("sortBy", sortBy === "for-you" ? "name" : sortBy)
       params.append("page", String(currentPage))
       params.append("limit", String(itemsPerPage))
       
@@ -104,7 +125,11 @@ export default function ShopPage() {
       const data = await response.json()
       
       if (data.success) {
-        setStores(data.data || [])
+        const rawStores = data.data || []
+        const shouldPersonalize = sortBy === "for-you" && selectedCategory === "all"
+        const rankedStores = shouldPersonalize ? personalizeStores(rawStores) : rawStores
+
+        setStores(rankedStores)
         setLocationOptions(Array.isArray(data.locationOptions) ? data.locationOptions : [])
         setTotalPages(Math.max(1, Number(data?.pagination?.totalPages || 1)))
         setTotalStores(Math.max(0, Number(data?.pagination?.total || 0)))
@@ -125,6 +150,41 @@ export default function ShopPage() {
       setLoading(false)
     }
   }
+
+  const saveScrollPosition = () => {
+    if (typeof window === "undefined") return
+    sessionStorage.setItem(STORES_SCROLL_KEY, String(window.scrollY))
+  }
+
+  useEffect(() => {
+    if (loading || typeof window === "undefined") return
+
+    const savedScroll = sessionStorage.getItem(STORES_SCROLL_KEY)
+    if (!savedScroll) return
+
+    const targetScroll = Number(savedScroll)
+    if (Number.isNaN(targetScroll)) {
+      sessionStorage.removeItem(STORES_SCROLL_KEY)
+      return
+    }
+
+    let attempts = 0
+    const maxAttempts = 8
+
+    const restore = () => {
+      window.scrollTo({ top: targetScroll, behavior: "auto" })
+      attempts += 1
+
+      if (attempts < maxAttempts && Math.abs(window.scrollY - targetScroll) > 2) {
+        window.requestAnimationFrame(restore)
+        return
+      }
+
+      sessionStorage.removeItem(STORES_SCROLL_KEY)
+    }
+
+    window.requestAnimationFrame(restore)
+  }, [loading])
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -157,10 +217,13 @@ export default function ShopPage() {
     return "/placeholder.svg"
   }
 
-  const handleStoreClick = (storeId: string) => {
+  const handleStoreClick = (store: any) => {
+    trackStoreView(store)
+    saveScrollPosition()
     setTransitionDirection("left")
     setIsTransitioning(true)
     setTimeout(() => {
+      const storeId = store?._id || store?.id
       router.push(`/store/${storeId}`)
     }, 220)
   }
@@ -296,7 +359,7 @@ export default function ShopPage() {
             {/* Arrow Button */}
             <Link href={`/store/${store._id || store.id}`} onClick={(e) => {
               e.preventDefault()
-              handleStoreClick(store._id || store.id)
+              handleStoreClick(store)
             }}>
               <div className="shrink-0 w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full bg-white flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 hover:bg-accent hover:text-white transition-all duration-200 cursor-pointer group/arrow">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent group-hover/arrow:text-white transition-colors group-hover/arrow:translate-x-0.5">
@@ -492,6 +555,7 @@ export default function ShopPage() {
                   <SelectValue placeholder="Sort" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="for-you" className="text-xs sm:text-sm">For You</SelectItem>
                   <SelectItem value="name" className="text-xs sm:text-sm">Name A-Z</SelectItem>
                   <SelectItem value="newest" className="text-xs sm:text-sm">Newest</SelectItem>
                   <SelectItem value="products" className="text-xs sm:text-sm">Most Products</SelectItem>

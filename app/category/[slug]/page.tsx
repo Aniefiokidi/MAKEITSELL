@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Slider } from "@/components/ui/slider"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { Search, ShoppingCart, Heart, ArrowLeft, Filter, Star, X, ChevronDown, ChevronUp, Clock } from "lucide-react"
+import { Search, ShoppingCart, Heart, ArrowLeft, Filter, Star, X, ChevronDown, ChevronUp, Clock, Verified, Banknote, MapPin, Users, Store } from "lucide-react"
 import { useCart } from "@/contexts/CartContext"
 import { useNotification } from "@/contexts/NotificationContext"
 import { ProductQuickView } from "@/components/ui/product-quick-view"
@@ -28,24 +28,46 @@ const categoryNames: { [key: string]: string } = {
   home: "Home & Garden",
   accessories: "Accessories",
   sports: "Sports & Fitness",
+  audio: "Audio & Music",
   automotive: "Automotive",
   photography: "Photography",
   books: "Books & Media",
   gaming: "Gaming",
   beauty: "Beauty",
+  "home-services": "Home Services",
+  "logistics-delivery": "Logistics & Delivery",
+  "health-wellness": "Health & Wellness",
+  "business-services": "Business Services",
+  events: "Events & Catering",
+  "pet-care": "Pet Care",
+  groceries: "Groceries",
+  pharmacy: "Pharmacy",
+  furniture: "Furniture",
+  "toys-baby": "Toys & Baby",
 }
 
 const categoryToServiceCategories: Record<string, string[]> = {
-  electronics: ["tech", "repairs"],
+  electronics: ["tech", "repairs", "software-development"],
   fashion: ["beauty", "design"],
   home: ["home-improvement", "cleaning", "repairs"],
   accessories: ["design", "other"],
   sports: ["fitness"],
-  automotive: ["automotive", "logistics"],
+  audio: ["event-planning"],
+  automotive: ["automotive", "logistics", "moving-relocation"],
   photography: ["photography", "design"],
-  books: ["education"],
-  gaming: ["tech", "other"],
+  books: ["education", "writing-translation"],
+  gaming: ["tech", "software-development"],
   beauty: ["beauty"],
+  "home-services": ["home-improvement", "cleaning", "repairs", "laundry-drycleaning"],
+  "logistics-delivery": ["logistics", "moving-relocation"],
+  "health-wellness": ["healthcare", "fitness", "elderly-care"],
+  "business-services": ["consulting", "accounting-tax", "virtual-assistant", "writing-translation", "software-development"],
+  events: ["event-planning", "catering"],
+  "pet-care": ["pet-care"],
+  groceries: ["catering"],
+  pharmacy: ["healthcare"],
+  furniture: ["home-improvement"],
+  "toys-baby": ["childcare"],
 }
 
 const categoryToStoreCategories: Record<string, string[]> = {
@@ -54,11 +76,22 @@ const categoryToStoreCategories: Record<string, string[]> = {
   home: ["home", "home-garden"],
   accessories: ["fashion", "other"],
   sports: ["sports"],
+  audio: ["electronics"],
   automotive: ["automotive"],
   photography: ["other"],
   books: ["books"],
   gaming: ["electronics"],
   beauty: ["beauty"],
+  "home-services": ["home", "hardware"],
+  "logistics-delivery": ["other"],
+  "health-wellness": ["beauty", "pharmacy"],
+  "business-services": ["office-supplies"],
+  events: ["food", "other"],
+  "pet-care": ["pet-supplies"],
+  groceries: ["groceries", "food"],
+  pharmacy: ["pharmacy"],
+  furniture: ["furniture", "home"],
+  "toys-baby": ["toys", "baby"],
 }
 
 const dedupeById = <T extends { id?: string; _id?: string }>(items: T[]) => {
@@ -88,6 +121,9 @@ const fashionSubcategories = [
   "Socks & Underwear",
 ]
 
+const CATEGORY_SLUG_PRODUCTS_CACHE_TTL_MS = 5 * 60 * 1000
+const CATEGORY_SLUG_SEGMENT_CACHE_TTL_MS = 10 * 60 * 1000
+
 export default function CategoryPage() {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [quickViewOpen, setQuickViewOpen] = useState(false);
@@ -98,6 +134,8 @@ export default function CategoryPage() {
   const [filteredProducts, setFilteredProducts] = useState<any[]>([])
   const [categoryServices, setCategoryServices] = useState<any[]>([])
   const [categoryStores, setCategoryStores] = useState<any[]>([])
+  const [servicesLoaded, setServicesLoaded] = useState(false)
+  const [storesLoaded, setStoresLoaded] = useState(false)
   const [auxLoading, setAuxLoading] = useState(true)
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
@@ -142,25 +180,58 @@ export default function CategoryPage() {
 
   useEffect(() => {
     async function fetchProducts() {
+      if (typeof window !== "undefined") {
+        try {
+          const cached = sessionStorage.getItem(`mis:category:${categorySlug}:products:v1`)
+          if (cached) {
+            const parsed = JSON.parse(cached)
+            const isFresh = Date.now() - Number(parsed?.timestamp || 0) < CATEGORY_SLUG_PRODUCTS_CACHE_TTL_MS
+            if (isFresh && Array.isArray(parsed?.products)) {
+              const cachedProducts = parsed.products
+              setProducts(cachedProducts)
+              const brands: string[] = Array.from(
+                new Set(cachedProducts.map((p: any) => String(p.storeName || "Store")))
+              )
+              setAvailableBrands(brands)
+              const prices = cachedProducts.map((p: any) => p.price).filter(Boolean)
+              if (prices.length > 0) {
+                setPriceRange([Math.min(...prices), Math.max(...prices)])
+              }
+              setLoading(false)
+              return
+            }
+          }
+        } catch {
+          // ignore corrupt cache and proceed with network fetch
+        }
+      }
+
       try {
         const response = await fetch(`/api/database/products?category=${categorySlug}`)
         const result = await response.json()
         if (result.success && result.data) {
           // Get unique vendor IDs
           const vendorIds = [...new Set(result.data.map((p: any) => p.vendorId))]
-          // Fetch store names for all vendors
+          // Fetch all vendor stores in parallel to reduce blocking load time
           const storeNamesMap: { [key: string]: string } = {}
-          for (const vendorId of vendorIds) {
-            try {
-              const storeRes = await fetch(`/api/database/stores?vendorId=${vendorId}`)
-              const storeData = await storeRes.json()
-              if (storeData.success && storeData.data && storeData.data.length > 0) {
-                storeNamesMap[vendorId as string] = storeData.data[0].storeName || "Store"
+          const vendorStoreResults = await Promise.all(
+            vendorIds.map(async (vendorId) => {
+              try {
+                const storeRes = await fetch(`/api/database/stores?vendorId=${vendorId}`)
+                const storeData = await storeRes.json()
+                return { vendorId, storeData }
+              } catch {
+                return { vendorId, storeData: null }
               }
-            } catch (err) {
-              console.error('Error fetching store:', err)
+            })
+          )
+
+          vendorStoreResults.forEach(({ vendorId, storeData }) => {
+            if (storeData?.success && Array.isArray(storeData?.data) && storeData.data.length > 0) {
+              storeNamesMap[vendorId as string] = storeData.data[0].storeName || "Store"
             }
-          }
+          })
+
           const mappedProducts = result.data.map((p: any) => {
             const storeName = storeNamesMap[p.vendorId] || "Store";
             return {
@@ -196,6 +267,18 @@ export default function CategoryPage() {
             };
           });
           setProducts(mappedProducts)
+
+          if (typeof window !== "undefined") {
+            try {
+              sessionStorage.setItem(
+                `mis:category:${categorySlug}:products:v1`,
+                JSON.stringify({ timestamp: Date.now(), products: mappedProducts })
+              )
+            } catch {
+              // ignore storage quota errors
+            }
+          }
+
           // Set available brands and price range
           const brands: string[] = Array.from(
             new Set(mappedProducts.map((p: any) => String(p.storeName || "Store")))
@@ -220,50 +303,130 @@ export default function CategoryPage() {
   }, [categorySlug])
 
   useEffect(() => {
-    async function fetchRelatedSegments() {
+    setServicesLoaded(false)
+    setStoresLoaded(false)
+    setCategoryServices([])
+    setCategoryStores([])
+    setAuxLoading(false)
+  }, [categorySlug])
+
+  useEffect(() => {
+    const shouldLoadServices = activeSegment === "services" && !servicesLoaded
+    const shouldLoadStores = activeSegment === "stores" && !storesLoaded
+
+    if (!shouldLoadServices && !shouldLoadStores) return
+
+    async function fetchActiveSegmentData() {
+      let loadServicesFromNetwork = shouldLoadServices
+      let loadStoresFromNetwork = shouldLoadStores
+
+      if (typeof window !== "undefined") {
+        if (shouldLoadServices) {
+          try {
+            const cachedServices = sessionStorage.getItem(`mis:category:${categorySlug}:services:v1`)
+            if (cachedServices) {
+              const parsed = JSON.parse(cachedServices)
+              const isFresh = Date.now() - Number(parsed?.timestamp || 0) < CATEGORY_SLUG_SEGMENT_CACHE_TTL_MS
+              if (isFresh && Array.isArray(parsed?.items)) {
+                setCategoryServices(parsed.items)
+                setServicesLoaded(true)
+                loadServicesFromNetwork = false
+              }
+            }
+          } catch {
+            // ignore corrupt cache
+          }
+        }
+
+        if (shouldLoadStores) {
+          try {
+            const cachedStores = sessionStorage.getItem(`mis:category:${categorySlug}:stores:v1`)
+            if (cachedStores) {
+              const parsed = JSON.parse(cachedStores)
+              const isFresh = Date.now() - Number(parsed?.timestamp || 0) < CATEGORY_SLUG_SEGMENT_CACHE_TTL_MS
+              if (isFresh && Array.isArray(parsed?.items)) {
+                setCategoryStores(parsed.items)
+                setStoresLoaded(true)
+                loadStoresFromNetwork = false
+              }
+            }
+          } catch {
+            // ignore corrupt cache
+          }
+        }
+      }
+
+      if (!loadServicesFromNetwork && !loadStoresFromNetwork) {
+        setAuxLoading(false)
+        return
+      }
+
       setAuxLoading(true)
       try {
-        const serviceCategories = categoryToServiceCategories[categorySlug] || []
-        const storeCategories = categoryToStoreCategories[categorySlug] || [categorySlug]
+        if (loadServicesFromNetwork) {
+          const serviceCategories = categoryToServiceCategories[categorySlug] || []
+          const serviceResponses = await Promise.all(
+            serviceCategories.map((serviceCategory) =>
+              fetch(`/api/database/services?category=${encodeURIComponent(serviceCategory)}&limit=12`)
+                .then((response) => response.json())
+                .catch(() => ({ success: false, data: [] }))
+            )
+          )
 
-        const serviceRequests = serviceCategories.map((serviceCategory) =>
-          fetch(`/api/database/services?category=${encodeURIComponent(serviceCategory)}&limit=12`)
-            .then((response) => response.json())
-            .catch(() => ({ success: false, data: [] }))
-        )
+          const mergedServices = dedupeById(
+            serviceResponses.flatMap((result: any) => (result?.success && Array.isArray(result?.data) ? result.data : []))
+          )
+          setCategoryServices(mergedServices)
+          setServicesLoaded(true)
 
-        const storeRequests = storeCategories.map((storeCategory) =>
-          fetch(`/api/database/stores?category=${encodeURIComponent(storeCategory)}&limit=12`)
-            .then((response) => response.json())
-            .catch(() => ({ success: false, data: [] }))
-        )
+          if (typeof window !== "undefined") {
+            try {
+              sessionStorage.setItem(
+                `mis:category:${categorySlug}:services:v1`,
+                JSON.stringify({ timestamp: Date.now(), items: mergedServices })
+              )
+            } catch {
+              // ignore storage quota errors
+            }
+          }
+        }
 
-        const [serviceResponses, storeResponses] = await Promise.all([
-          Promise.all(serviceRequests),
-          Promise.all(storeRequests),
-        ])
+        if (loadStoresFromNetwork) {
+          const storeCategories = categoryToStoreCategories[categorySlug] || [categorySlug]
+          const storeResponses = await Promise.all(
+            storeCategories.map((storeCategory) =>
+              fetch(`/api/database/stores?category=${encodeURIComponent(storeCategory)}&limit=12`)
+                .then((response) => response.json())
+                .catch(() => ({ success: false, data: [] }))
+            )
+          )
 
-        const mergedServices = dedupeById(
-          serviceResponses.flatMap((result: any) => (result?.success && Array.isArray(result?.data) ? result.data : []))
-        )
+          const mergedStores = dedupeById(
+            storeResponses.flatMap((result: any) => (result?.success && Array.isArray(result?.data) ? result.data : []))
+          )
+          setCategoryStores(mergedStores)
+          setStoresLoaded(true)
 
-        const mergedStores = dedupeById(
-          storeResponses.flatMap((result: any) => (result?.success && Array.isArray(result?.data) ? result.data : []))
-        )
-
-        setCategoryServices(mergedServices)
-        setCategoryStores(mergedStores)
+          if (typeof window !== "undefined") {
+            try {
+              sessionStorage.setItem(
+                `mis:category:${categorySlug}:stores:v1`,
+                JSON.stringify({ timestamp: Date.now(), items: mergedStores })
+              )
+            } catch {
+              // ignore storage quota errors
+            }
+          }
+        }
       } catch (error) {
         console.error("Error loading related category segments:", error)
-        setCategoryServices([])
-        setCategoryStores([])
       } finally {
         setAuxLoading(false)
       }
     }
 
-    fetchRelatedSegments()
-  }, [categorySlug])
+    fetchActiveSegmentData()
+  }, [activeSegment, categorySlug, servicesLoaded, storesLoaded])
 
   // Search suggestions logic
   useEffect(() => {
@@ -936,16 +1099,62 @@ export default function CategoryPage() {
           ) : categoryServices.length === 0 ? (
             <Card className="p-4 text-sm text-muted-foreground">No services found in this category yet.</Card>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
               {categoryServices.slice(0, 9).map((service) => (
                 <Link key={service.id || service._id} href={`/service/${service.id || service._id}`}>
-                  <Card className="h-full hover:shadow-lg transition-all duration-200 border-accent/20 hover:border-accent/40">
-                    <CardContent className="p-4 space-y-2">
-                      <Badge className="bg-accent text-white">{service.category || "Service"}</Badge>
-                      <h3 className="font-semibold line-clamp-1">{service.title || "Untitled service"}</h3>
-                      <p className="text-sm text-muted-foreground line-clamp-2">{service.description || "No description"}</p>
-                      <p className="text-sm font-medium">{service.providerName || "Service Provider"}</p>
-                    </CardContent>
+                  <Card className="h-full p-0 gap-0 hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02] transition-all duration-300 group overflow-hidden border-none rounded-[2.25rem] relative" style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}>
+                    <div className="aspect-9/16 relative overflow-hidden rounded-[2.25rem]">
+                      {Array.isArray(service.images) && service.images.length > 0 ? (
+                        <img
+                          src={service.images[0]}
+                          alt={service.title || 'Service'}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full bg-linear-to-br from-accent/90 via-orange-500/90 to-red-600/90">
+                          <Store className="h-10 w-10 sm:h-16 sm:w-16 text-white drop-shadow-lg animate-pulse" />
+                        </div>
+                      )}
+
+                      <div className="absolute inset-0 bg-linear-to-b rounded-[2.25rem] from-black/20 via-transparent via-50% to-black/90" />
+
+                      <div className="absolute top-3 sm:top-4 left-1/2 -translate-x-1/2 z-20">
+                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-white/20 backdrop-blur-md border-3 sm:border-4 border-white overflow-hidden shadow-2xl ring-3 sm:ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110 flex items-center justify-center">
+                          <Store className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+                        </div>
+                      </div>
+
+                      <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-[2.25rem] border-t border-white/10 p-2 sm:p-4">
+                        <div className="flex items-start justify-between gap-2 sm:gap-3 mb-1 sm:mb-2">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-xs sm:text-lg md:text-xl font-bold tracking-tight mb-0.5 sm:mb-1 text-white drop-shadow-lg leading-tight wrap-break-word whitespace-normal">
+                              {service.title || "Untitled service"}
+                            </h3>
+                            {service.providerName && (
+                              <div className="flex items-center gap-0.5 text-[7px] sm:text-xs font-medium text-white/90 tracking-wide mb-1 sm:mb-2">
+                                <Verified className="h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0" />
+                                <span className="leading-tight wrap-break-word whitespace-normal">{service.providerName}</span>
+                              </div>
+                            )}
+
+                            <Badge variant="outline" className="w-fit text-[7px] sm:text-[10px] font-semibold py-0.5 px-1.5 sm:px-2 h-4 sm:h-5 tracking-wide border-2 border-white/40 bg-white/10 text-white backdrop-blur-sm">
+                              {service.category || "Service"}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 text-[11px] font-medium text-white/80 tracking-wide">
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            <span>{service.duration || "Flexible"}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Banknote className="h-3 w-3" />
+                            <span>₦{Number(service.price || 0).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </Card>
                 </Link>
               ))}
@@ -973,16 +1182,62 @@ export default function CategoryPage() {
           ) : categoryStores.length === 0 ? (
             <Card className="p-4 text-sm text-muted-foreground">No stores found in this category yet.</Card>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
               {categoryStores.slice(0, 9).map((store) => (
                 <Link key={store.id || store._id} href={`/store/${store.id || store._id}`}>
-                  <Card className="h-full hover:shadow-lg transition-all duration-200 border-accent/20 hover:border-accent/40">
-                    <CardContent className="p-4 space-y-2">
-                      <Badge variant="outline">{store.category || "Store"}</Badge>
-                      <h3 className="font-semibold line-clamp-1">{store.storeName || store.name || "Store"}</h3>
-                      <p className="text-sm text-muted-foreground line-clamp-2">{store.storeDescription || store.description || "No description"}</p>
-                      <p className="text-sm">{store.location || store.address || "Nigeria"}</p>
-                    </CardContent>
+                  <Card className="h-full hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02] transition-all duration-300 group overflow-hidden border-none rounded-[2.5rem] relative" style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}>
+                    <div className="aspect-9/16 relative overflow-hidden rounded-[2.5rem]">
+                      {store.profileImage || store.bannerImage || store.storeImage ? (
+                        <img
+                          src={store.profileImage || store.bannerImage || store.storeImage}
+                          alt={store.storeName || store.name || "Store"}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full bg-linear-to-br from-accent/90 via-orange-500/90 to-red-600/90">
+                          <Store className="h-12 w-12 sm:h-20 sm:w-20 text-white drop-shadow-lg animate-pulse" />
+                        </div>
+                      )}
+
+                      <div className="absolute inset-0 bg-linear-to-b from-black/20 via-transparent via-50% to-black/90" />
+
+                      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
+                        <div className="w-16 h-16 rounded-full bg-white border-4 border-white overflow-hidden shadow-2xl ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110 flex items-center justify-center">
+                          <Store className="h-8 w-8 text-accent" />
+                        </div>
+                      </div>
+
+                      <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-b-[2.5rem] border-t border-white/10 p-3 sm:p-4">
+                        <div className="flex items-start justify-between w-full gap-1 mb-1">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-xs sm:text-base md:text-lg font-bold tracking-tight mb-0.5 text-white drop-shadow-lg truncate">
+                              {store.storeName || store.name || "Store"}
+                            </h3>
+                            <div className="flex items-center text-[8px] sm:text-xs font-medium text-white/90 tracking-wide mb-1">
+                              <MapPin className="h-2.5 w-2.5 mr-0.5 shrink-0" />
+                              <span className="truncate">{store.location || store.city || store.address || "Location not specified"}</span>
+                            </div>
+
+                            {store.category && (
+                              <Badge variant="outline" className="w-fit text-[7px] sm:text-[10px] font-semibold py-0.5 px-1.5 sm:px-2 h-4 sm:h-5 tracking-wide border-2 border-white/40 bg-white/10 text-white backdrop-blur-sm">
+                                {store.category}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 sm:gap-2 md:gap-3 text-[7px] sm:text-[10px] md:text-[11px] font-medium text-white/80 tracking-wide">
+                          <div className="flex items-center gap-0.5">
+                            <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                            <span>{store.productCount || 0} products</span>
+                          </div>
+                          <div className="flex items-center gap-0.5">
+                            <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                            <span>Est. {new Date(store.createdAt || Date.now()).getFullYear()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </Card>
                 </Link>
               ))}

@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { useEffect } from "react";
 import Image from "next/image";
 import { trackFunnelEvent } from "@/lib/funnel-tracker";
+import { trackProductQuickView } from "@/lib/personalization";
 
 async function getProduct(id: string) {
   if (!id) return null;
@@ -36,6 +37,13 @@ export default function ProductPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     if (!product?.vendorId || viewTracked) return;
+    trackProductQuickView({
+      id: product.id || params.id,
+      category: product.category,
+      title: product.title || product.name,
+      vendorName: product.vendorName,
+      storeName: product.storeName,
+    });
     setViewTracked(true);
     void trackFunnelEvent(product.vendorId, "product_view", { productId: product.id || params.id });
   }, [product, params.id, viewTracked]);

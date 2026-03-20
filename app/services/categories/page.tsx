@@ -21,6 +21,8 @@ import {
   Home,
   CarTaxiFront,
   Music2,
+  Coffee,
+  Users,
   Settings,
   ArrowRight,
 } from "lucide-react"
@@ -43,6 +45,18 @@ const SERVICE_CATEGORIES = [
   { value: "home-improvement", label: "Home Improvement", description: "Renovation and home projects", icon: Home },
   { value: "automotive", label: "Automotive Services", description: "Vehicle repairs and maintenance", icon: CarTaxiFront },
   { value: "event-planning", label: "Event Planning", description: "Planning and event coordination", icon: Music2 },
+  { value: "moving-relocation", label: "Moving & Relocation", description: "Packing, moving and setup support", icon: Truck },
+  { value: "pet-care", label: "Pet Care", description: "Pet grooming, walking and sitter services", icon: HeartPulse },
+  { value: "childcare", label: "Childcare", description: "Babysitting and child support services", icon: Users },
+  { value: "elderly-care", label: "Elderly Care", description: "Home support and care assistance", icon: Users },
+  { value: "laundry-drycleaning", label: "Laundry & Dry Cleaning", description: "Clothing wash and care services", icon: Sparkles },
+  { value: "catering", label: "Catering & Food Services", description: "Cooks, catering and meal prep", icon: Coffee },
+  { value: "real-estate", label: "Real Estate Services", description: "Property management and advisory", icon: Home },
+  { value: "accounting-tax", label: "Accounting & Tax", description: "Bookkeeping, payroll and tax support", icon: Shield },
+  { value: "writing-translation", label: "Writing & Translation", description: "Content writing and language services", icon: GraduationCap },
+  { value: "software-development", label: "Software Development", description: "Web, app and software engineering", icon: Laptop },
+  { value: "virtual-assistant", label: "Virtual Assistant", description: "Admin and online business support", icon: Briefcase },
+  { value: "security-services", label: "Security Services", description: "Guarding, surveillance and safety", icon: Shield },
   { value: "other", label: "Other Services", description: "Browse all additional services", icon: Settings },
 ]
 

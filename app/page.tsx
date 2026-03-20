@@ -525,6 +525,7 @@ function HeroButtons({ isLoggedIn }: { isLoggedIn: boolean }) {
 }
 
 export default function HomePage() {
+  const HOME_SCROLL_KEY = "mis:scroll:home:v1"
   const { user } = useAuth()
   const [searchValue, setSearchValue] = useState("");
   const router = useRouter();
@@ -555,6 +556,41 @@ export default function HomePage() {
   const [slideTarget, setSlideTarget] = useState('');
   const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('right');
 
+  const saveHomeScrollPosition = () => {
+    if (typeof window === "undefined") return
+    sessionStorage.setItem(HOME_SCROLL_KEY, String(window.scrollY))
+  }
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const savedScroll = sessionStorage.getItem(HOME_SCROLL_KEY)
+    if (!savedScroll) return
+
+    const targetScroll = Number(savedScroll)
+    if (Number.isNaN(targetScroll)) {
+      sessionStorage.removeItem(HOME_SCROLL_KEY)
+      return
+    }
+
+    let attempts = 0
+    const maxAttempts = 12
+
+    const restore = () => {
+      window.scrollTo({ top: targetScroll, behavior: "auto" })
+      attempts += 1
+
+      if (attempts < maxAttempts && Math.abs(window.scrollY - targetScroll) > 2) {
+        window.requestAnimationFrame(restore)
+        return
+      }
+
+      sessionStorage.removeItem(HOME_SCROLL_KEY)
+    }
+
+    window.requestAnimationFrame(restore)
+  }, [])
+
   // Listen for slide trigger from HeroButtons
   useEffect(() => {
     const handler = (e: any) => {
@@ -572,6 +608,7 @@ export default function HomePage() {
   useEffect(() => {
     if (slideOut && slideTarget) {
       const timer = setTimeout(() => {
+        saveHomeScrollPosition()
         window.location.href = slideTarget;
       }, 600);
       return () => clearTimeout(timer);
@@ -585,7 +622,19 @@ export default function HomePage() {
         style={{ willChange: 'transform, opacity' }}
       >
         <Header homeBg={true} />
-        <main className="flex-1 relative z-20">
+        <main
+          className="flex-1 relative z-20"
+          onClickCapture={(event) => {
+            const target = event.target as HTMLElement | null
+            const anchor = target?.closest("a[href]") as HTMLAnchorElement | null
+            if (!anchor) return
+
+            const href = anchor.getAttribute("href")
+            if (!href || !href.startsWith("/")) return
+
+            saveHomeScrollPosition()
+          }}
+        >
           {showDeletedMessage && (
             <div className="container mx-auto px-4 pt-4">
               <Alert className="bg-green-50 border-green-200">

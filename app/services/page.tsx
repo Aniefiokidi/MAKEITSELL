@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getServices, Service } from "@/lib/database-client"
-import { Search, Clock, Banknote, Verified, RefreshCw, Camera, Briefcase, Wrench, Palette, Dumbbell, GraduationCap, Scissors, Sparkles, Laptop, Settings, Store, ArrowRight, Car, Megaphone, Shield, HeartPulse, Truck, Home, CarTaxiFront, Music2 } from "lucide-react"
+import { Search, Clock, Banknote, Verified, RefreshCw, Camera, Briefcase, Wrench, Palette, Dumbbell, GraduationCap, Scissors, Sparkles, Laptop, Settings, Store, ArrowRight, Car, Megaphone, Shield, HeartPulse, Truck, Home, CarTaxiFront, Music2, Coffee, Users } from "lucide-react"
 import Image from "next/image"
 
 // Function to get icon component based on category
@@ -51,6 +51,30 @@ const getCategoryIcon = (category: string) => {
       return <CarTaxiFront className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
     case "event-planning":
       return <Music2 className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+    case "moving-relocation":
+      return <Truck className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+    case "pet-care":
+      return <HeartPulse className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+    case "childcare":
+      return <Users className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+    case "elderly-care":
+      return <Users className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+    case "laundry-drycleaning":
+      return <Sparkles className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+    case "catering":
+      return <Coffee className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+    case "real-estate":
+      return <Home className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+    case "accounting-tax":
+      return <Banknote className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+    case "writing-translation":
+      return <GraduationCap className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+    case "software-development":
+      return <Laptop className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+    case "virtual-assistant":
+      return <Briefcase className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+    case "security-services":
+      return <Shield className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
     default:
       return <Settings className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
   }
@@ -75,14 +99,28 @@ const SERVICE_CATEGORIES = [
   { value: "home-improvement", label: "Home Improvement" },
   { value: "automotive", label: "Automotive Services" },
   { value: "event-planning", label: "Event Planning" },
+  { value: "moving-relocation", label: "Moving & Relocation" },
+  { value: "pet-care", label: "Pet Care" },
+  { value: "childcare", label: "Childcare" },
+  { value: "elderly-care", label: "Elderly Care" },
+  { value: "laundry-drycleaning", label: "Laundry & Dry Cleaning" },
+  { value: "catering", label: "Catering & Food Services" },
+  { value: "real-estate", label: "Real Estate Services" },
+  { value: "accounting-tax", label: "Accounting & Tax" },
+  { value: "writing-translation", label: "Writing & Translation" },
+  { value: "software-development", label: "Software Development" },
+  { value: "virtual-assistant", label: "Virtual Assistant" },
+  { value: "security-services", label: "Security Services" },
   { value: "other", label: "Other Services" },
 ]
 
 const CATEGORY_ALIASES: Record<string, string> = {
   freelancers: "consulting",
-  food: "other",
+  food: "catering",
   "home-services": "home-improvement",
   homeservices: "home-improvement",
+  security: "security-services",
+  childcareservices: "childcare",
 }
 
 const VALID_SERVICE_CATEGORIES = new Set(SERVICE_CATEGORIES.map((category) => category.value))
@@ -117,6 +155,7 @@ const isPdfAsset = (url?: string) => {
 }
 
 export default function ServicesPage() {
+  const SERVICES_SCROLL_KEY = "mis:scroll:services:list:v1"
   const router = useRouter()
   const searchParams = useSearchParams()
     // Slide-out state for page transition
@@ -179,6 +218,41 @@ export default function ServicesPage() {
   useEffect(() => {
     fetchServices()
   }, [])
+
+  const saveScrollPosition = () => {
+    if (typeof window === "undefined") return
+    sessionStorage.setItem(SERVICES_SCROLL_KEY, String(window.scrollY))
+  }
+
+  useEffect(() => {
+    if (loading || typeof window === "undefined") return
+
+    const savedScroll = sessionStorage.getItem(SERVICES_SCROLL_KEY)
+    if (!savedScroll) return
+
+    const targetScroll = Number(savedScroll)
+    if (Number.isNaN(targetScroll)) {
+      sessionStorage.removeItem(SERVICES_SCROLL_KEY)
+      return
+    }
+
+    let attempts = 0
+    const maxAttempts = 8
+
+    const restore = () => {
+      window.scrollTo({ top: targetScroll, behavior: "auto" })
+      attempts += 1
+
+      if (attempts < maxAttempts && Math.abs(window.scrollY - targetScroll) > 2) {
+        window.requestAnimationFrame(restore)
+        return
+      }
+
+      sessionStorage.removeItem(SERVICES_SCROLL_KEY)
+    }
+
+    window.requestAnimationFrame(restore)
+  }, [loading])
 
   useEffect(() => {
     filterServices()
@@ -636,6 +710,7 @@ export default function ServicesPage() {
                         {/* Arrow Button */}
                         <div
                           onClick={() => {
+                            saveScrollPosition()
                             window.dispatchEvent(new CustomEvent('slideOutNavigate', { detail: { target: `/service/${service.id}` } }));
                           }}
                           className="shrink-0 w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-xl hover:scale-110 hover:bg-accent hover:text-white transition-all cursor-pointer group/arrow"
