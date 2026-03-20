@@ -526,6 +526,11 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
   useEffect(() => {
     const updateDrawerWidth = () => {
       setMobileDrawerWidth(window.innerWidth <= 380 ? "80vw" : "85vw")
+
+      // Ensure mobile drawer never remains open after switching to desktop.
+      if (window.innerWidth >= 1280) {
+        setIsMenuOpen(false)
+      }
     }
 
     updateDrawerWidth()
@@ -535,6 +540,11 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
       window.removeEventListener("resize", updateDrawerWidth)
     }
   }, [])
+
+  // Close mobile drawer on route change to avoid stale open state.
+  useEffect(() => {
+    setIsMenuOpen(false)
+  }, [pathname])
 
   // Handle smart search
   const handleSearch = (query: string) => {
@@ -1082,7 +1092,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
 
       {/* Background overlay */}
       <div
-        className={`fixed inset-0 bg-black z-90 transition-opacity duration-150 ease-out xl:hidden ${
+        className={`fixed inset-0 bg-black z-90 xl:hidden transition-opacity duration-200 ease-out ${
           isMenuOpen ? "opacity-50 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
         onClick={() => setIsMenuOpen(false)}
@@ -1090,14 +1100,17 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
 
       {/* Drawer Panel */}
       <div
-        className={`fixed top-0 right-0 h-screen max-w-xs transform-gpu bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 shadow-xl z-100 flex flex-col overflow-hidden transition-transform duration-200 ease-out xl:hidden ${
-          isMenuOpen ? "translate-x-0" : "translate-x-full pointer-events-none"
+        className={`fixed top-0 right-0 h-screen max-w-xs transform-gpu bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 shadow-xl z-100 flex flex-col overflow-hidden xl:hidden ${
+          isMenuOpen ? "pointer-events-auto" : "pointer-events-none"
         }`}
         style={{
           width: mobileDrawerWidth,
           height: "100dvh",
+          transform: isMenuOpen ? "translate3d(0,0,0)" : "translate3d(100%,0,0)",
+          transition: "transform 280ms cubic-bezier(0.22, 1, 0.36, 1)",
           willChange: "transform",
-          contain: "layout paint style",
+          contain: "paint",
+          backfaceVisibility: "hidden",
         }}
       >
               {/* Header */}
