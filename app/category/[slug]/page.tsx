@@ -102,6 +102,7 @@ export default function CategoryPage() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState("featured")
+  const [activeSegment, setActiveSegment] = useState<"products" | "services" | "stores">("products")
   const [fashionSubcategory, setFashionSubcategory] = useState("All Fashion")
   
   // Advanced filtering states
@@ -396,6 +397,10 @@ export default function CategoryPage() {
   const categoryProducts = products.filter((p) => p.category === categorySlug)
   const categoryName = categoryNames[categorySlug] || "Category"
 
+  useEffect(() => {
+    setActiveSegment("products")
+  }, [categorySlug])
+
   return (
     <>
       <Header />
@@ -452,6 +457,47 @@ export default function CategoryPage() {
             </div>
           </div>
 
+        {/* Segmented Switch */}
+        <div className="mb-6 sm:mb-8">
+          <div className="inline-flex w-full sm:w-auto rounded-lg border border-border bg-muted/40 p-1">
+            <button
+              type="button"
+              onClick={() => setActiveSegment("products")}
+              className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
+                activeSegment === "products"
+                  ? "bg-white text-accent shadow"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              My Goods ({filteredProducts.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveSegment("services")}
+              className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
+                activeSegment === "services"
+                  ? "bg-white text-accent shadow"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              My Services ({categoryServices.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveSegment("stores")}
+              className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
+                activeSegment === "stores"
+                  ? "bg-white text-accent shadow"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              My Stores ({categoryStores.length})
+            </button>
+          </div>
+        </div>
+
+        {activeSegment === "products" && (
+        <>
         {/* Search, Filters and Sort */}
         <div className="mb-8 space-y-4">
           {/* Search with suggestions and filters button */}
@@ -868,8 +914,11 @@ export default function CategoryPage() {
             ))}
           </div>
         )}
+        </>
+        )}
 
         {/* Services Section */}
+        {activeSegment === "services" && (
         <div className="mt-10">
           <h2 className="text-xl font-bold mb-1">Services</h2>
           <p className="text-muted-foreground mb-4">Service providers related to {categoryName.toLowerCase()}.</p>
@@ -903,8 +952,10 @@ export default function CategoryPage() {
             </div>
           )}
         </div>
+        )}
 
         {/* Stores Section */}
+        {activeSegment === "stores" && (
         <div className="mt-10">
           <h2 className="text-xl font-bold mb-1">Stores</h2>
           <p className="text-muted-foreground mb-4">Stores that sell in the {categoryName.toLowerCase()} category.</p>
@@ -938,10 +989,12 @@ export default function CategoryPage() {
             </div>
           )}
         </div>
+        )}
       </div>
        {/* Product Cards Grid and Recently Viewed */}
         {/* ...existing code for product grid... */}
         {(() => {
+          if (activeSegment !== "products") return null;
           // Fallback: show recently viewed if category matches or if product was viewed in this session
           const filteredRecentlyViewed = recentlyViewed.filter(
             (product) => product.category === categorySlug || product.categorySlug === categorySlug
