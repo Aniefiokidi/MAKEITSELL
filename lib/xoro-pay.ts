@@ -144,6 +144,43 @@ const toErrorMessage = (value: any, fallback: string): string => {
   return fallback
 }
 
+const isSuccessLikeStatus = (status: string) => {
+  const normalized = String(status || '').trim().toLowerCase()
+  if (!normalized) return false
+  return (
+    normalized === 'success'
+    || normalized === 'successful'
+    || normalized === 'succeeded'
+    || normalized === 'completed'
+    || normalized === 'complete'
+    || normalized === 'paid'
+    || normalized === 'approved'
+    || normalized === 'ok'
+    || normalized.includes('success')
+    || normalized.includes('succeed')
+    || normalized.includes('complete')
+    || normalized.includes('paid')
+    || normalized.includes('approve')
+  )
+}
+
+const isFailureLikeStatus = (status: string) => {
+  const normalized = String(status || '').trim().toLowerCase()
+  if (!normalized) return false
+  return (
+    normalized === 'failed'
+    || normalized === 'failure'
+    || normalized === 'declined'
+    || normalized === 'cancelled'
+    || normalized === 'canceled'
+    || normalized === 'reversed'
+    || normalized.includes('fail')
+    || normalized.includes('declin')
+    || normalized.includes('cancel')
+    || normalized.includes('revers')
+  )
+}
+
 class XoroPayService {
   private secretKey: string
   private publicKey: string
@@ -499,19 +536,12 @@ class XoroPayService {
       || ''
     ).toLowerCase()
 
-    const succeeded = resolved.ok && (
-      status === 'success'
-      || status === 'successful'
-      || status === 'succeeded'
-      || status === 'completed'
-      || status === 'paid'
-      || status === 'approved'
-      || isSuccess(payload)
-    )
+    const succeeded = (resolved.ok || isSuccess(payload)) && (isSuccessLikeStatus(status) || isSuccess(payload))
+    const failed = isFailureLikeStatus(status)
 
     return {
-      success: succeeded,
-      message: succeeded ? undefined : toErrorMessage(pick(payload, ['message', 'error', 'detail', 'details']), 'Payment verification failed'),
+      success: succeeded && !failed,
+      message: succeeded && !failed ? undefined : toErrorMessage(pick(payload, ['message', 'error', 'detail', 'details']), 'Payment verification failed'),
       status,
       reference: pick<string>(data, ['reference', 'payment_reference', 'paymentReference']) || reference,
       amount: Number(pick(data, ['amount', 'amount_paid', 'amountPaid']) || 0) / 100,

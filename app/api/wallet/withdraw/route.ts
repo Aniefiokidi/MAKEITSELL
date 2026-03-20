@@ -13,10 +13,24 @@ const hashWithdrawalPin = (pin: string, userId: string) => {
 
 const mapTransferStatusToTxStatus = (status: string) => {
   const normalized = String(status || '').trim().toLowerCase()
-  if (['success', 'successful', 'completed', 'paid', 'approved'].includes(normalized)) {
+  if (
+    ['success', 'successful', 'succeeded', 'completed', 'complete', 'paid', 'approved', 'ok', 'transferred', 'done', 'true'].includes(normalized)
+    || normalized.includes('success')
+    || normalized.includes('succeed')
+    || normalized.includes('complete')
+    || normalized.includes('paid')
+    || normalized.includes('approve')
+    || normalized.includes('transfer success')
+  ) {
     return 'completed'
   }
-  if (['failed', 'reversed', 'declined', 'cancelled', 'canceled'].includes(normalized)) {
+  if (
+    ['failed', 'failure', 'reversed', 'declined', 'cancelled', 'canceled'].includes(normalized)
+    || normalized.includes('fail')
+    || normalized.includes('declin')
+    || normalized.includes('cancel')
+    || normalized.includes('revers')
+  ) {
     return 'failed'
   }
   return 'pending'

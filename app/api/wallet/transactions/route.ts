@@ -13,6 +13,43 @@ const getDirection = (type: string) => {
   return 'neutral'
 }
 
+const mapTransferStatusToTxStatus = (status: string) => {
+  const normalized = String(status || '').trim().toLowerCase()
+  if (
+    ['success', 'successful', 'succeeded', 'completed', 'complete', 'paid', 'approved', 'ok', 'transferred', 'done', 'true'].includes(normalized)
+    || normalized.includes('success')
+    || normalized.includes('succeed')
+    || normalized.includes('complete')
+    || normalized.includes('paid')
+    || normalized.includes('approve')
+    || normalized.includes('transfer success')
+  ) {
+    return 'completed'
+  }
+  if (
+    ['failed', 'failure', 'reversed', 'declined', 'cancelled', 'canceled'].includes(normalized)
+    || normalized.includes('fail')
+    || normalized.includes('declin')
+    || normalized.includes('cancel')
+    || normalized.includes('revers')
+  ) {
+    return 'failed'
+  }
+  return 'pending'
+}
+
+const pickTransferStatus = (tx: any) => {
+  const rawStatus =
+    tx?.metadata?.transferData?.status
+    || tx?.metadata?.transferStatus
+    || tx?.metadata?.xoroTransferRaw?.status
+    || tx?.metadata?.xoroTransferRaw?.transfer_status
+    || tx?.metadata?.xoroTransferRaw?.transferStatus
+    || ''
+
+  return String(rawStatus || '').trim()
+}
+
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies()
@@ -112,6 +149,42 @@ export async function GET(request: NextRequest) {
           }
         )
       }
+    }
+
+    const pendingWithdrawals = await WalletTransaction.find({
+      userId: String(currentUser.id),
+      type: 'withdrawal',
+      status: 'pending',
+    })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean()
+
+    for (const pendingWithdrawal of pendingWithdrawals as any[]) {
+      const transferStatus = pickTransferStatus(pendingWithdrawal)
+      const mappedStatus = mapTransferStatusToTxStatus(transferStatus)
+      if (mappedStatus === 'pending') {
+        continue
+      }
+
+      await WalletTransaction.updateOne(
+        { _id: pendingWithdrawal._id, status: 'pending' },
+        {
+          $set: {
+            status: mappedStatus,
+            metadata: {
+              ...(pendingWithdrawal.metadata || {}),
+              autoStatusReconcile: {
+                source: 'wallet-transactions-read',
+                transferStatus,
+                mappedStatus,
+                at: new Date().toISOString(),
+              },
+            },
+            updatedAt: new Date(),
+          },
+        }
+      )
     }
 
     const transactions = await WalletTransaction.find({ userId: String(currentUser.id) })
