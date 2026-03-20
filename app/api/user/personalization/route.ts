@@ -67,7 +67,7 @@ const sanitizeActivity = (value: any): UserActivity => {
   const productViewsRaw = Array.isArray(parsed.productQuickViews) ? parsed.productQuickViews : []
   const storeViewsRaw = Array.isArray(parsed.storeViews) ? parsed.storeViews : []
 
-  const searches = uniqueRecent(
+  const searches = uniqueRecent<ActivitySearch>(
     searchesRaw
       .map((entry: any) => ({
         query: normalizeText(entry?.query),
@@ -75,11 +75,11 @@ const sanitizeActivity = (value: any): UserActivity => {
         ts: Number(entry?.ts) || Date.now(),
       }))
       .filter((entry: ActivitySearch) => entry.query.length >= 2),
-    (entry) => `${entry.scope}:${entry.query}`,
+    (entry: ActivitySearch) => `${entry.scope}:${entry.query}`,
     MAX_SEARCH_EVENTS
   )
 
-  const productQuickViews = uniqueRecent(
+  const productQuickViews = uniqueRecent<ActivityProductQuickView>(
     productViewsRaw
       .map((entry: any) => ({
         id: toId(entry?.id),
@@ -89,11 +89,11 @@ const sanitizeActivity = (value: any): UserActivity => {
         ts: Number(entry?.ts) || Date.now(),
       }))
       .filter((entry: ActivityProductQuickView) => !!entry.id),
-    (entry) => entry.id,
+    (entry: ActivityProductQuickView) => entry.id,
     MAX_PRODUCT_QUICK_VIEWS
   )
 
-  const storeViews = uniqueRecent(
+  const storeViews = uniqueRecent<ActivityStoreView>(
     storeViewsRaw
       .map((entry: any) => ({
         id: toId(entry?.id),
@@ -103,7 +103,7 @@ const sanitizeActivity = (value: any): UserActivity => {
         ts: Number(entry?.ts) || Date.now(),
       }))
       .filter((entry: ActivityStoreView) => !!entry.id),
-    (entry) => entry.id,
+    (entry: ActivityStoreView) => entry.id,
     MAX_STORE_VIEWS
   )
 
@@ -112,19 +112,19 @@ const sanitizeActivity = (value: any): UserActivity => {
 
 const mergeActivities = (current: UserActivity, incoming: UserActivity): UserActivity => {
   return {
-    searches: uniqueRecent(
+    searches: uniqueRecent<ActivitySearch>(
       [...incoming.searches, ...current.searches],
-      (entry) => `${entry.scope}:${entry.query}`,
+      (entry: ActivitySearch) => `${entry.scope}:${entry.query}`,
       MAX_SEARCH_EVENTS
     ),
-    productQuickViews: uniqueRecent(
+    productQuickViews: uniqueRecent<ActivityProductQuickView>(
       [...incoming.productQuickViews, ...current.productQuickViews],
-      (entry) => entry.id,
+      (entry: ActivityProductQuickView) => entry.id,
       MAX_PRODUCT_QUICK_VIEWS
     ),
-    storeViews: uniqueRecent(
+    storeViews: uniqueRecent<ActivityStoreView>(
       [...incoming.storeViews, ...current.storeViews],
-      (entry) => entry.id,
+      (entry: ActivityStoreView) => entry.id,
       MAX_STORE_VIEWS
     ),
   }
@@ -147,9 +147,13 @@ export async function GET(request: NextRequest) {
 
     await connectToDatabase()
     const db = mongoose.connection.db
+    if (!db) {
+      return NextResponse.json({ success: false, error: "Database connection unavailable" }, { status: 500 })
+    }
+    const safeDb: NonNullable<typeof db> = db
     const selector = buildUserSelector(sessionUser.id)
 
-    const user = await db.collection("users").findOne(selector, {
+    const user = await safeDb.collection("users").findOne(selector, {
       projection: { personalizationActivity: 1 },
     })
 
@@ -174,15 +178,19 @@ export async function PUT(request: NextRequest) {
 
     await connectToDatabase()
     const db = mongoose.connection.db
+    if (!db) {
+      return NextResponse.json({ success: false, error: "Database connection unavailable" }, { status: 500 })
+    }
+    const safeDb: NonNullable<typeof db> = db
     const selector = buildUserSelector(sessionUser.id)
 
-    const existing = await db.collection("users").findOne(selector, {
+    const existing = await safeDb.collection("users").findOne(selector, {
       projection: { personalizationActivity: 1 },
     })
 
     const merged = mergeActivities(sanitizeActivity(existing?.personalizationActivity), incoming)
 
-    const updateResult = await db.collection("users").updateOne(
+    const updateResult = await safeDb.collection("users").updateOne(
       selector,
       {
         $set: {
