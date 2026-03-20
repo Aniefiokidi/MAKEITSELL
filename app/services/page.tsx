@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import dynamic from "next/dynamic"
 import Header from "@/components/Header"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -78,6 +78,21 @@ const SERVICE_CATEGORIES = [
   { value: "other", label: "Other Services" },
 ]
 
+const CATEGORY_ALIASES: Record<string, string> = {
+  freelancers: "consulting",
+  food: "other",
+  "home-services": "home-improvement",
+  homeservices: "home-improvement",
+}
+
+const VALID_SERVICE_CATEGORIES = new Set(SERVICE_CATEGORIES.map((category) => category.value))
+
+const normalizeServiceCategory = (value?: string | null): string => {
+  if (!value) return "all"
+  const normalized = value.toLowerCase().trim().replace(/\s+/g, "-")
+  return CATEGORY_ALIASES[normalized] || normalized
+}
+
 const parseStateFromLocation = (location: string): string => {
   if (!location) return ""
   const parts = location
@@ -103,6 +118,7 @@ const isPdfAsset = (url?: string) => {
 
 export default function ServicesPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
     // Slide-out state for page transition
     const [slideOut, setSlideOut] = useState(false);
     const [slideTarget, setSlideTarget] = useState('');
@@ -150,6 +166,15 @@ export default function ServicesPage() {
   const [selectedState, setSelectedState] = useState("all")
   const [selectedCity, setSelectedCity] = useState("all")
   const [showMobileSearch, setShowMobileSearch] = useState(false)
+
+  useEffect(() => {
+    const requestedCategory = normalizeServiceCategory(searchParams.get("category"))
+    const nextCategory = VALID_SERVICE_CATEGORIES.has(requestedCategory) ? requestedCategory : "all"
+
+    setSelectedCategory((currentCategory) =>
+      currentCategory === nextCategory ? currentCategory : nextCategory
+    )
+  }, [searchParams])
 
   useEffect(() => {
     fetchServices()
@@ -260,7 +285,9 @@ export default function ServicesPage() {
     }
 
     if (selectedCategory !== "all") {
-      filtered = filtered.filter((service) => service.category.toLowerCase() === selectedCategory.toLowerCase())
+      filtered = filtered.filter(
+        (service) => normalizeServiceCategory(service.category) === selectedCategory.toLowerCase()
+      )
     }
 
     if (selectedState !== "all") {

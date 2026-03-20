@@ -28,6 +28,48 @@ const categoryNames: { [key: string]: string } = {
   home: "Home & Garden",
   accessories: "Accessories",
   sports: "Sports & Fitness",
+  automotive: "Automotive",
+  photography: "Photography",
+  books: "Books & Media",
+  gaming: "Gaming",
+  beauty: "Beauty",
+}
+
+const categoryToServiceCategories: Record<string, string[]> = {
+  electronics: ["tech", "repairs"],
+  fashion: ["beauty", "design"],
+  home: ["home-improvement", "cleaning", "repairs"],
+  accessories: ["design", "other"],
+  sports: ["fitness"],
+  automotive: ["automotive", "logistics"],
+  photography: ["photography", "design"],
+  books: ["education"],
+  gaming: ["tech", "other"],
+  beauty: ["beauty"],
+}
+
+const categoryToStoreCategories: Record<string, string[]> = {
+  electronics: ["electronics"],
+  fashion: ["fashion", "beauty"],
+  home: ["home", "home-garden"],
+  accessories: ["fashion", "other"],
+  sports: ["sports"],
+  automotive: ["automotive"],
+  photography: ["other"],
+  books: ["books"],
+  gaming: ["electronics"],
+  beauty: ["beauty"],
+}
+
+const dedupeById = <T extends { id?: string; _id?: string }>(items: T[]) => {
+  const map = new Map<string, T>()
+  items.forEach((item, index) => {
+    const key = item.id || item._id || `idx-${index}`
+    if (!map.has(key)) {
+      map.set(key, item)
+    }
+  })
+  return Array.from(map.values())
 }
 
 const fashionSubcategories = [
@@ -54,6 +96,9 @@ export default function CategoryPage() {
   const categorySlug = params.slug as string
   const [products, setProducts] = useState<any[]>([])
   const [filteredProducts, setFilteredProducts] = useState<any[]>([])
+  const [categoryServices, setCategoryServices] = useState<any[]>([])
+  const [categoryStores, setCategoryStores] = useState<any[]>([])
+  const [auxLoading, setAuxLoading] = useState(true)
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState("featured")
@@ -171,6 +216,52 @@ export default function CategoryPage() {
       }
     }
     fetchProducts()
+  }, [categorySlug])
+
+  useEffect(() => {
+    async function fetchRelatedSegments() {
+      setAuxLoading(true)
+      try {
+        const serviceCategories = categoryToServiceCategories[categorySlug] || []
+        const storeCategories = categoryToStoreCategories[categorySlug] || [categorySlug]
+
+        const serviceRequests = serviceCategories.map((serviceCategory) =>
+          fetch(`/api/database/services?category=${encodeURIComponent(serviceCategory)}&limit=12`)
+            .then((response) => response.json())
+            .catch(() => ({ success: false, data: [] }))
+        )
+
+        const storeRequests = storeCategories.map((storeCategory) =>
+          fetch(`/api/database/stores?category=${encodeURIComponent(storeCategory)}&limit=12`)
+            .then((response) => response.json())
+            .catch(() => ({ success: false, data: [] }))
+        )
+
+        const [serviceResponses, storeResponses] = await Promise.all([
+          Promise.all(serviceRequests),
+          Promise.all(storeRequests),
+        ])
+
+        const mergedServices = dedupeById(
+          serviceResponses.flatMap((result: any) => (result?.success && Array.isArray(result?.data) ? result.data : []))
+        )
+
+        const mergedStores = dedupeById(
+          storeResponses.flatMap((result: any) => (result?.success && Array.isArray(result?.data) ? result.data : []))
+        )
+
+        setCategoryServices(mergedServices)
+        setCategoryStores(mergedStores)
+      } catch (error) {
+        console.error("Error loading related category segments:", error)
+        setCategoryServices([])
+        setCategoryStores([])
+      } finally {
+        setAuxLoading(false)
+      }
+    }
+
+    fetchRelatedSegments()
   }, [categorySlug])
 
   // Search suggestions logic
@@ -499,8 +590,9 @@ export default function CategoryPage() {
 
        
 
-        {/* Products Grid */}
+        {/* Products Section */}
         <div className="mb-6">
+          <h2 className="text-xl font-bold mb-1">Products</h2>
           <p className="text-muted-foreground">
             Showing {filteredProducts.length} products
             {categoryProducts.length === 0 && ` (showing all products as suggestions)`}
@@ -776,6 +868,76 @@ export default function CategoryPage() {
             ))}
           </div>
         )}
+
+        {/* Services Section */}
+        <div className="mt-10">
+          <h2 className="text-xl font-bold mb-1">Services</h2>
+          <p className="text-muted-foreground mb-4">Service providers related to {categoryName.toLowerCase()}.</p>
+
+          {auxLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 3 }).map((_, idx) => (
+                <Card key={`service-skeleton-${idx}`} className="p-4">
+                  <Skeleton className="h-5 w-2/3 mb-3" />
+                  <Skeleton className="h-4 w-full mb-2" />
+                  <Skeleton className="h-4 w-4/5" />
+                </Card>
+              ))}
+            </div>
+          ) : categoryServices.length === 0 ? (
+            <Card className="p-4 text-sm text-muted-foreground">No services found in this category yet.</Card>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {categoryServices.slice(0, 9).map((service) => (
+                <Link key={service.id || service._id} href={`/service/${service.id || service._id}`}>
+                  <Card className="h-full hover:shadow-lg transition-all duration-200 border-accent/20 hover:border-accent/40">
+                    <CardContent className="p-4 space-y-2">
+                      <Badge className="bg-accent text-white">{service.category || "Service"}</Badge>
+                      <h3 className="font-semibold line-clamp-1">{service.title || "Untitled service"}</h3>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{service.description || "No description"}</p>
+                      <p className="text-sm font-medium">{service.providerName || "Service Provider"}</p>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Stores Section */}
+        <div className="mt-10">
+          <h2 className="text-xl font-bold mb-1">Stores</h2>
+          <p className="text-muted-foreground mb-4">Stores that sell in the {categoryName.toLowerCase()} category.</p>
+
+          {auxLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 3 }).map((_, idx) => (
+                <Card key={`store-skeleton-${idx}`} className="p-4">
+                  <Skeleton className="h-5 w-2/3 mb-3" />
+                  <Skeleton className="h-4 w-full mb-2" />
+                  <Skeleton className="h-4 w-3/4" />
+                </Card>
+              ))}
+            </div>
+          ) : categoryStores.length === 0 ? (
+            <Card className="p-4 text-sm text-muted-foreground">No stores found in this category yet.</Card>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {categoryStores.slice(0, 9).map((store) => (
+                <Link key={store.id || store._id} href={`/store/${store.id || store._id}`}>
+                  <Card className="h-full hover:shadow-lg transition-all duration-200 border-accent/20 hover:border-accent/40">
+                    <CardContent className="p-4 space-y-2">
+                      <Badge variant="outline">{store.category || "Store"}</Badge>
+                      <h3 className="font-semibold line-clamp-1">{store.storeName || store.name || "Store"}</h3>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{store.storeDescription || store.description || "No description"}</p>
+                      <p className="text-sm">{store.location || store.address || "Nigeria"}</p>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
        {/* Product Cards Grid and Recently Viewed */}
         {/* ...existing code for product grid... */}

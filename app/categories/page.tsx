@@ -93,6 +93,30 @@ const categories = [
   }
 ]
 
+const categoryToServiceCategories: Record<string, string[]> = {
+  electronics: ["tech", "repairs"],
+  fashion: ["beauty", "design"],
+  home: ["home-improvement", "cleaning", "repairs"],
+  accessories: ["design", "other"],
+  sports: ["fitness"],
+  automotive: ["automotive", "logistics"],
+  photography: ["photography"],
+  books: ["education"],
+  gaming: ["tech", "other"],
+}
+
+const categoryToStoreCategories: Record<string, string[]> = {
+  electronics: ["electronics"],
+  fashion: ["fashion", "beauty"],
+  home: ["home", "home-garden"],
+  accessories: ["fashion", "other"],
+  sports: ["sports"],
+  automotive: ["automotive"],
+  photography: ["other"],
+  books: ["books"],
+  gaming: ["electronics"],
+}
+
 import { Skeleton } from "@/components/ui/skeleton"
 
 export default function CategoriesPage() {
@@ -108,9 +132,40 @@ export default function CategoriesPage() {
         try {
           const countResponse = await fetch(`/api/database/products?category=${category.slug}&count=true`)
           const countResult = await countResponse.json()
-          if (countResult.success) {
-            countMap[category.slug] = countResult.data?.length || countResult.count || 0
-          }
+
+          const productCount = countResult.success ? (countResult.data?.length || countResult.count || 0) : 0
+
+          const serviceCategories = categoryToServiceCategories[category.slug] || []
+          const storeCategories = categoryToStoreCategories[category.slug] || [category.slug]
+
+          const serviceCountResponses = await Promise.all(
+            serviceCategories.map((serviceCategory) =>
+              fetch(`/api/database/services?category=${encodeURIComponent(serviceCategory)}&count=true`)
+                .then((res) => res.json())
+                .catch(() => ({ success: false, count: 0, data: [] }))
+            )
+          )
+
+          const storeCountResponses = await Promise.all(
+            storeCategories.map((storeCategory) =>
+              fetch(`/api/database/stores?category=${encodeURIComponent(storeCategory)}&count=true`)
+                .then((res) => res.json())
+                .catch(() => ({ success: false, count: 0, data: [] }))
+            )
+          )
+
+          const serviceCount = serviceCountResponses.reduce((total, result) => {
+            if (!result?.success) return total
+            return total + Number(result.count || result.data?.length || 0)
+          }, 0)
+
+          const storeCount = storeCountResponses.reduce((total, result) => {
+            if (!result?.success) return total
+            return total + Number(result.count || result.data?.length || 0)
+          }, 0)
+
+          countMap[category.slug] = productCount + serviceCount + storeCount
+
           const response = await fetch(`/api/database/products?category=${category.slug}&limit=1&sortBy=popular`)
           const result = await response.json()
           if (result.success && result.data && result.data.length > 0) {
@@ -228,7 +283,7 @@ export default function CategoriesPage() {
                             </Badge>
                             <div className="flex items-center justify-between gap-1 sm:gap-2">
                               <Badge variant="outline" className="text-[9px] sm:text-[10px] md:text-xs backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 text-white bg-accent">
-                                {categoryCounts[category.slug] ? `${categoryCounts[category.slug]} items` : 'No items yet'}
+                                {categoryCounts[category.slug] ? `${categoryCounts[category.slug]} listings` : 'No listings yet'}
                               </Badge>
                               <div className="flex-shrink-0 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/70 flex items-center justify-center shadow hover:scale-110 active:scale-95 hover:bg-white transition-all duration-200 cursor-pointer group/arrow">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent group-hover/arrow:translate-x-0.5 transition-transform">

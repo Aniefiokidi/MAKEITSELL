@@ -453,6 +453,15 @@ function HeroButtons({ isLoggedIn }: { isLoggedIn: boolean }) {
   const storesHref = '/stores'
   const servicesHref = isLoggedIn ? '/services' : '/signup?type=vendor'
 
+  const triggerSlideNavigation = (
+    e: React.MouseEvent<HTMLAnchorElement>,
+    target: string,
+    direction: 'left' | 'right' = 'right'
+  ) => {
+    e.preventDefault()
+    window.dispatchEvent(new CustomEvent('slideOutNavigate', { detail: { target, direction } }))
+  }
+
   useEffect(() => {
     router.prefetch(storesHref)
     router.prefetch(servicesHref)
@@ -464,17 +473,17 @@ function HeroButtons({ isLoggedIn }: { isLoggedIn: boolean }) {
         <Link
           href={storesHref}
           prefetch
-          className="px-8 py-3 text-lg font-semibold rounded-full shadow-2xl bg-accent text-white border-2 border-accent transition-all duration-300 hover:bg-accent/10 hover:text-accent hover:border-accent flex items-center gap-2 group overflow-hidden relative"
+          className="px-8 py-3 text-lg font-semibold rounded-full shadow-2xl bg-accent text-white border-2 border-accent transition-all duration-300 hover:bg-accent/10 hover:text-accent hover:border-accent flex items-center justify-center group overflow-hidden relative"
           onMouseEnter={() => router.prefetch(storesHref)}
           onTouchStart={() => router.prefetch(storesHref)}
+          onClick={(e) => triggerSlideNavigation(e, storesHref, 'right')}
           style={{ minWidth: 200 }}
         >
-          {isLoggedIn ? 'Check out Stores' : 'Start Shopping'}
+          <span className="w-full text-center">{isLoggedIn ? 'Check out Stores' : 'Start Shopping'}</span>
           <span
             className={
-              "inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none animate-bounce-x relative"
+              "inline-flex items-center absolute right-20 sm:right-8 top-1/2 -translate-y-1/2 transition-transform group-hover:translate-x-1 motion-reduce:transform-none animate-bounce-x"
             }
-            style={{ top: '4px' }}
           >
             <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" className="text-white group-hover:text-accent">
               <path d="M5 12h14M13 6l6 6-6 6" />
@@ -484,17 +493,17 @@ function HeroButtons({ isLoggedIn }: { isLoggedIn: boolean }) {
         <Link
           href={servicesHref}
           prefetch
-          className="px-8 py-3 text-lg font-semibold rounded-full shadow-2xl border-2 border-accent text-accent bg-white hover:bg-accent/10 transition-all duration-300 flex items-center gap-2 group overflow-hidden relative"
+          className="px-8 py-3 text-lg font-semibold rounded-full shadow-2xl border-2 border-accent text-accent bg-white hover:bg-accent/10 transition-all duration-300 flex items-center justify-center group overflow-hidden relative"
           onMouseEnter={() => router.prefetch(servicesHref)}
           onTouchStart={() => router.prefetch(servicesHref)}
+          onClick={(e) => triggerSlideNavigation(e, servicesHref, 'right')}
           style={{ minWidth: 200 }}
         >
-          {isLoggedIn ? 'Check out Services' : 'Become a Seller'}
+          <span className="w-full text-center">{isLoggedIn ? 'Check out Services' : 'Become a Seller'}</span>
           <span
             className={
-              "inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none animate-bounce-x relative"
+              "inline-flex items-center absolute right-20 sm:right-8 top-1/2 -translate-y-1/2 transition-transform group-hover:translate-x-1 motion-reduce:transform-none animate-bounce-x"
             }
-            style={{ top: '4px' }}
           >
             <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" className="text-accent group-hover:text-white">
               <path d="M5 12h14M13 6l6 6-6 6" />
@@ -544,12 +553,14 @@ export default function HomePage() {
   // Slide-out state for page transition
   const [slideOut, setSlideOut] = useState(false);
   const [slideTarget, setSlideTarget] = useState('');
+  const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('right');
 
   // Listen for slide trigger from HeroButtons
   useEffect(() => {
     const handler = (e: any) => {
       if (e.detail && e.detail.target) {
         setSlideTarget(e.detail.target);
+        setSlideDirection(e.detail.direction === 'left' ? 'left' : 'right');
         setSlideOut(true);
       }
     };
@@ -570,7 +581,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen flex flex-col relative">
       <div
-        className={`min-h-screen flex flex-col transition-opacity duration-1000 ${fadeIn ? 'opacity-100' : 'opacity-0'} animated-gradient-bg main-slide-anim${slideOut ? ' slide-out-right' : ''}`}
+        className={`min-h-screen flex flex-col transition-opacity duration-1000 ${fadeIn ? 'opacity-100' : 'opacity-0'} animated-gradient-bg main-slide-anim${slideOut ? (slideDirection === 'left' ? ' slide-out-left' : ' slide-out-right') : ''}`}
         style={{ willChange: 'transform, opacity' }}
       >
         <Header homeBg={true} />
@@ -586,7 +597,7 @@ export default function HomePage() {
             </div>
           )}
           {/* HERO SECTION */}
-          <section className="relative min-h-screen flex items-center justify-center pt-0 overflow-hidden">
+          <section className="relative min-h-screen flex items-center justify-center -mt-20 overflow-hidden">
             <div className="container mx-auto px-4 sm:px-8 max-w-[1600px]">
               <div className="flex flex-col-reverse items-center justify-center text-center gap-1 sm:gap-4 md:flex-row md:text-left md:items-center md:gap-0">
                 {/* Left: Texts */}
@@ -779,6 +790,10 @@ export default function HomePage() {
         }
         .slide-out-right {
           transform: translateX(100vw);
+          opacity: 0.7;
+        }
+        .slide-out-left {
+          transform: translateX(-100vw);
           opacity: 0.7;
         }
         @keyframes feature-float {
