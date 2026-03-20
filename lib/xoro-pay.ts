@@ -508,6 +508,13 @@ class XoroPayService {
       `/api/v1/verify/${encodedReference}`,
       `/api/v1/verify?reference=${encodedReference}`,
       `/api/v1/transaction/verify/${encodedReference}`,
+      `/api/v1/transactions/verify/${encodedReference}`,
+      `/api/v1/transaction/verify?reference=${encodedReference}`,
+      `/api/v1/transactions/verify?reference=${encodedReference}`,
+      `/api/v1/payment/verify/${encodedReference}`,
+      `/api/v1/payment/verify?reference=${encodedReference}`,
+      `/api/v1/payments/verify/${encodedReference}`,
+      `/api/v1/payments/verify?reference=${encodedReference}`,
       `/payments/verify/${encodedReference}`,
       `/payments/verify?reference=${encodedReference}`,
     ]

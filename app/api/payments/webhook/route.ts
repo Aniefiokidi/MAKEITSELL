@@ -360,12 +360,18 @@ async function handleSuccessfulPayment(data: any) {
         }
 
         if (!verificationResult?.success) {
-          console.error('Wallet top-up verification failed for references:', verificationCandidates)
-          return
+          console.warn('Wallet top-up verify endpoint did not confirm success; falling back to signed webhook payload', {
+            references: verificationCandidates,
+          })
+          verifiedPaymentReference = verifiedPaymentReference || referenceCandidates[0]
+          verifiedPaymentData = {
+            ...(asObject(data) || {}),
+            _verifyFallback: true,
+          }
+        } else {
+          verifiedPaymentReference = verificationResult.reference || verifiedPaymentReference
+          verifiedPaymentData = verificationResult.raw || data
         }
-
-        verifiedPaymentReference = verificationResult.reference || verifiedPaymentReference
-        verifiedPaymentData = verificationResult.raw || data
       }
 
       const completeUpdate = await WalletTransaction.updateOne(
