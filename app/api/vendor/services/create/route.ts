@@ -63,6 +63,25 @@ function validateServicePayload(serviceData: any): { valid: boolean; message?: s
           return { valid: false, message: 'Package images must be an array of image URLs' }
         }
       }
+      if (pkg.attachments !== undefined) {
+        if (!Array.isArray(pkg.attachments)) {
+          return { valid: false, message: 'Package attachments must be an array' }
+        }
+        for (const attachment of pkg.attachments) {
+          if (!attachment || typeof attachment !== 'object') {
+            return { valid: false, message: 'Invalid package attachment' }
+          }
+          if (!attachment.url || typeof attachment.url !== 'string') {
+            return { valid: false, message: 'Each package attachment must include a valid URL' }
+          }
+          if (attachment.name !== undefined && typeof attachment.name !== 'string') {
+            return { valid: false, message: 'Package attachment name must be a string' }
+          }
+          if (attachment.type !== undefined && typeof attachment.type !== 'string') {
+            return { valid: false, message: 'Package attachment type must be a string' }
+          }
+        }
+      }
     }
   }
 
@@ -148,6 +167,41 @@ function validateServicePayload(serviceData: any): { valid: boolean; message?: s
 
   if (serviceData.distanceRatePerMile !== undefined && !Number.isFinite(Number(serviceData.distanceRatePerMile))) {
     return { valid: false, message: 'distanceRatePerMile must be a number' }
+  }
+
+  if (serviceData.rentalOptions !== undefined && serviceData.rentalOptions !== null) {
+    if (!serviceData.rentalOptions || typeof serviceData.rentalOptions !== 'object') {
+      return { valid: false, message: 'rentalOptions must be an object' }
+    }
+
+    const numericRentalFields = ['securityDeposit', 'mileageLimitPerDay', 'overtimeFeePerHour', 'minimumDriverAge']
+    for (const field of numericRentalFields) {
+      const value = serviceData.rentalOptions[field]
+      if (value !== undefined && !Number.isFinite(Number(value))) {
+        return { valid: false, message: `rentalOptions.${field} must be a number` }
+      }
+    }
+
+    if (
+      serviceData.rentalOptions.requiresDriverLicense !== undefined
+      && typeof serviceData.rentalOptions.requiresDriverLicense !== 'boolean'
+    ) {
+      return { valid: false, message: 'rentalOptions.requiresDriverLicense must be boolean' }
+    }
+  }
+
+  if (serviceData.serviceSettings !== undefined && serviceData.serviceSettings !== null) {
+    if (!serviceData.serviceSettings || typeof serviceData.serviceSettings !== 'object') {
+      return { valid: false, message: 'serviceSettings must be an object' }
+    }
+
+    const numericSettingsFields = ['advanceNoticeHours', 'cancellationWindowHours', 'maxBookingsPerDay']
+    for (const field of numericSettingsFields) {
+      const value = serviceData.serviceSettings[field]
+      if (value !== undefined && !Number.isFinite(Number(value))) {
+        return { valid: false, message: `serviceSettings.${field} must be a number` }
+      }
+    }
   }
 
   return { valid: true }

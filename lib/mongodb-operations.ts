@@ -247,6 +247,7 @@ const ServiceSchema = new mongoose.Schema({
         price: { type: Number, required: true },
         duration: { type: Number },
         images: { type: [String], default: [] },
+        attachments: { type: [mongoose.Schema.Types.Mixed], default: [] },
         pricingType: { type: String, default: 'fixed' },
         isDefault: { type: Boolean, default: false },
         active: { type: Boolean, default: true },
@@ -288,6 +289,24 @@ const ServiceSchema = new mongoose.Schema({
     default: [],
   },
   distanceRatePerMile: { type: Number, default: 0 },
+  rentalOptions: {
+    type: {
+      securityDeposit: { type: Number, default: 0 },
+      mileageLimitPerDay: { type: Number, default: 0 },
+      overtimeFeePerHour: { type: Number, default: 0 },
+      minimumDriverAge: { type: Number, default: 21 },
+      requiresDriverLicense: { type: Boolean, default: false },
+    },
+    default: null,
+  },
+  serviceSettings: {
+    type: {
+      advanceNoticeHours: { type: Number, default: 0 },
+      cancellationWindowHours: { type: Number, default: 24 },
+      maxBookingsPerDay: { type: Number, default: 0 },
+    },
+    default: null,
+  },
   location: { type: String, required: true },
   state: { type: String, default: '' },
   city: { type: String, default: '' },
@@ -323,6 +342,7 @@ const normalizeServicePricing = (service: any) => {
   const normalizedPackages = packageOptions.map((pkg: any) => ({
     ...pkg,
     images: Array.isArray(pkg?.images) ? pkg.images : [],
+    attachments: Array.isArray(pkg?.attachments) ? pkg.attachments : [],
   }));
 
   const defaultPackage =
@@ -343,6 +363,8 @@ const normalizeServicePricing = (service: any) => {
     calendarSyncEnabled: Boolean(service?.calendarSyncEnabled),
     locationPricingRules: Array.isArray(service?.locationPricingRules) ? service.locationPricingRules : [],
     distanceRatePerMile: Number.isFinite(Number(service?.distanceRatePerMile)) ? Number(service.distanceRatePerMile) : 0,
+    rentalOptions: service?.rentalOptions && typeof service.rentalOptions === 'object' ? service.rentalOptions : null,
+    serviceSettings: service?.serviceSettings && typeof service.serviceSettings === 'object' ? service.serviceSettings : null,
     defaultPackageId: defaultPackage?.id || normalizedPackages[0]?.id || 'default',
     price: normalizedPrice,
     pricingType: defaultPackage?.pricingType || service?.pricingType || 'fixed',

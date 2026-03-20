@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, Loader2 } from "lucide-react"
+import { ArrowLeft, Loader2, Plus, Trash2 } from "lucide-react"
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 
@@ -38,10 +38,32 @@ const SERVICE_CATEGORIES = [
   "other",
 ]
 
+const RENTAL_SUBCATEGORIES = [
+  "car-rentals",
+  "event-equipment",
+  "camera-gear",
+  "furniture-rentals",
+  "short-let-spaces",
+  "construction-tools",
+]
+
 const initialAvailability = DAYS.reduce((acc, day) => {
   acc[day] = { start: "09:00", end: "17:00", available: day !== "sunday" }
   return acc
 }, {} as Record<string, { start: string; end: string; available: boolean }>)
+
+type ServicePackageOption = {
+  id: string
+  name: string
+  description: string
+  price: string
+  duration: string
+  pricingType: "fixed" | "hourly" | "per-session" | "custom"
+  isDefault: boolean
+  active: boolean
+}
+
+const makeOptionId = () => `opt-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
 
 type WizardStep = "basic" | "pricing" | "delivery" | "availability" | "publish"
 
@@ -64,11 +86,25 @@ export default function ServiceSetupWizardPage() {
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState("")
   const [logoUploading, setLogoUploading] = useState(false)
+  const [packageOptions, setPackageOptions] = useState<ServicePackageOption[]>([
+    {
+      id: makeOptionId(),
+      name: "Standard",
+      description: "",
+      price: "",
+      duration: "60",
+      pricingType: "fixed",
+      isDefault: true,
+      active: true,
+    },
+  ])
+  const [packageFiles, setPackageFiles] = useState<Record<string, File[]>>({})
 
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     category: "",
+    subcategory: "",
     price: "",
     pricingType: "fixed" as "fixed" | "hourly" | "per-session" | "custom",
     duration: "60",
@@ -77,6 +113,17 @@ export default function ServiceSetupWizardPage() {
     state: "",
     city: "",
     tags: "",
+    requiresQuote: false,
+    quoteNotesTemplate: "",
+    quoteSlaHours: "24",
+    advanceNoticeHours: "0",
+    cancellationWindowHours: "24",
+    maxBookingsPerDay: "0",
+    securityDeposit: "",
+    mileageLimitPerDay: "",
+    overtimeFeePerHour: "",
+    minimumDriverAge: "21",
+    requiresDriverLicense: true,
   })
 
   const [availability, setAvailability] = useState(initialAvailability)
@@ -84,9 +131,10 @@ export default function ServiceSetupWizardPage() {
   const activeStep = stepOrder[stepIndex]
 
   const completion = useMemo(() => {
+    const hasValidPackage = packageOptions.some((pkg) => pkg.name.trim().length > 0 && Number(pkg.price) > 0)
     return {
       basic: formData.title.trim().length > 2 && formData.description.trim().length > 10 && formData.category.trim().length > 0,
-      pricing: Number(formData.price) > 0,
+      pricing: hasValidPackage || Number(formData.price) > 0,
       delivery:
         formData.locationType === "online" ||
         (formData.locationType === "home-service" && formData.state.trim().length > 1) ||
@@ -94,7 +142,70 @@ export default function ServiceSetupWizardPage() {
       availability: Object.values(availability).some((day) => day.available),
       publish: false,
     }
-  }, [availability, formData])
+  }, [availability, formData, packageOptions])
+
+  const addPackageOption = () => {
+    const nextId = makeOptionId()
+    setPackageOptions((prev) => [
+      ...prev,
+      {
+        id: nextId,
+        name: "",
+        description: "",
+        price: "",
+        duration: "60",
+        pricingType: "fixed",
+        isDefault: false,
+        active: true,
+      },
+    ])
+  }
+
+  const removePackageOption = (id: string) => {
+    setPackageOptions((prev) => {
+      const next = prev.filter((item) => item.id !== id)
+      if (!next.some((item) => item.isDefault) && next.length > 0) {
+        next[0] = { ...next[0], isDefault: true }
+      }
+      return next
+    })
+    setPackageFiles((prev) => {
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
+  }
+
+  const setDefaultPackageOption = (id: string) => {
+    setPackageOptions((prev) => prev.map((item) => ({ ...item, isDefault: item.id === id })))
+  }
+
+  const addPackageFiles = (packageId: string, files: FileList | null) => {
+    const selected = Array.from(files || [])
+    if (selected.length === 0) return
+
+    const validFiles = selected.filter((file) => {
+      const isImage = file.type.startsWith("image/")
+      const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name)
+      return isImage || isPdf
+    })
+
+    if (validFiles.length !== selected.length) {
+      toast({ title: "Some files were skipped", description: "Only images and PDFs are allowed.", variant: "destructive" })
+    }
+
+    setPackageFiles((prev) => ({
+      ...prev,
+      [packageId]: [...(prev[packageId] || []), ...validFiles].slice(0, 8),
+    }))
+  }
+
+  const removePackageFile = (packageId: string, fileIndex: number) => {
+    setPackageFiles((prev) => ({
+      ...prev,
+      [packageId]: (prev[packageId] || []).filter((_, idx) => idx !== fileIndex),
+    }))
+  }
 
   const handleLogoChange = (file: File | null) => {
     if (!file) return
@@ -144,6 +255,49 @@ export default function ServiceSetupWizardPage() {
       setLogoUploading(false)
     }
 
+    const normalizedPackages = await Promise.all(
+      packageOptions
+        .filter((pkg) => pkg.name.trim().length > 0 && Number(pkg.price) > 0)
+        .map(async (pkg) => {
+          const files = packageFiles[pkg.id] || []
+          const uploaded = await Promise.all(files.map((file) => uploadToCloudinary(file)))
+          const images = uploaded.filter((url, idx) => (files[idx]?.type || "").startsWith("image/"))
+          const attachments = uploaded.map((url, idx) => ({
+            url,
+            name: files[idx]?.name || `attachment-${idx + 1}`,
+            type: files[idx]?.type || "application/octet-stream",
+          }))
+
+          return {
+            id: pkg.id,
+            name: pkg.name.trim(),
+            description: pkg.description.trim(),
+            price: Number(pkg.price),
+            duration: Number(pkg.duration) > 0 ? Number(pkg.duration) : undefined,
+            pricingType: pkg.pricingType,
+            isDefault: pkg.isDefault,
+            active: pkg.active,
+            images,
+            attachments,
+          }
+        })
+    )
+
+    const minPackagePrice = normalizedPackages.length > 0
+      ? Math.min(...normalizedPackages.map((pkg) => Number(pkg.price || 0)))
+      : undefined
+    const defaultPackage = normalizedPackages.find((pkg) => pkg.isDefault) || normalizedPackages[0]
+
+    const rentalOptions = formData.category === "rentals"
+      ? {
+          securityDeposit: Number(formData.securityDeposit) || 0,
+          mileageLimitPerDay: Number(formData.mileageLimitPerDay) || 0,
+          overtimeFeePerHour: Number(formData.overtimeFeePerHour) || 0,
+          minimumDriverAge: Number(formData.minimumDriverAge) || 21,
+          requiresDriverLicense: Boolean(formData.requiresDriverLicense),
+        }
+      : null
+
     const payload: any = {
       providerId: user.uid,
       providerName: userProfile.displayName || userProfile.name || "Vendor",
@@ -151,9 +305,10 @@ export default function ServiceSetupWizardPage() {
       title: formData.title.trim(),
       description: formData.description.trim(),
       category: formData.category,
-      price: Number(formData.price),
-      pricingType: formData.pricingType,
-      duration: Number(formData.duration) || 60,
+      subcategory: formData.subcategory,
+      price: minPackagePrice ?? Number(formData.price) || 0,
+      pricingType: defaultPackage?.pricingType || formData.pricingType,
+      duration: defaultPackage?.duration || Number(formData.duration) || 60,
       locationType: formData.locationType,
       location: buildLocationValue(),
       state: formData.state.trim(),
@@ -163,15 +318,21 @@ export default function ServiceSetupWizardPage() {
       images: [],
       featured: false,
       status: "active",
-      packageOptions: [],
+      packageOptions: normalizedPackages,
       addOnOptions: [],
-      requiresQuote: false,
-      quoteNotesTemplate: "",
-      quoteSlaHours: 24,
+      requiresQuote: Boolean(formData.requiresQuote),
+      quoteNotesTemplate: formData.quoteNotesTemplate.trim(),
+      quoteSlaHours: Number(formData.quoteSlaHours) || 24,
       calendarSyncEnabled: false,
       externalCalendarIcsUrl: "",
       locationPricingRules: [],
       distanceRatePerMile: 0,
+      rentalOptions,
+      serviceSettings: {
+        advanceNoticeHours: Number(formData.advanceNoticeHours) || 0,
+        cancellationWindowHours: Number(formData.cancellationWindowHours) || 24,
+        maxBookingsPerDay: Number(formData.maxBookingsPerDay) || 0,
+      },
     }
 
     const response = await fetch("/api/vendor/services/create", {
@@ -274,6 +435,21 @@ export default function ServiceSetupWizardPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="subcategory">Subcategory</Label>
+                  <Select
+                    value={formData.subcategory || undefined}
+                    onValueChange={(value) => setFormData((prev) => ({ ...prev, subcategory: value }))}
+                    disabled={formData.category !== "rentals"}
+                  >
+                    <SelectTrigger id="subcategory"><SelectValue placeholder={formData.category === "rentals" ? "Select rental type" : "Available for rentals"} /></SelectTrigger>
+                    <SelectContent>
+                      {RENTAL_SUBCATEGORIES.map((subcategory) => (
+                        <SelectItem key={subcategory} value={subcategory}>{subcategory.replace(/-/g, " ")}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="description">Description</Label>
                   <Textarea id="description" rows={4} value={formData.description} onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))} />
                 </div>
@@ -290,9 +466,90 @@ export default function ServiceSetupWizardPage() {
 
             {activeStep.key === "pricing" && (
               <>
+                <div className="rounded-lg border p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">Package Pricing</p>
+                      <p className="text-xs text-muted-foreground">Add one or more packages. Each package can have image/PDF attachments.</p>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={addPackageOption}>
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Package
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {packageOptions.map((pkg, index) => (
+                      <div key={pkg.id} className="rounded-md border p-3 space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-semibold">Package {index + 1}</p>
+                          <div className="flex gap-2">
+                            <Button type="button" variant={pkg.isDefault ? "default" : "outline"} size="sm" onClick={() => setDefaultPackageOption(pkg.id)}>
+                              {pkg.isDefault ? "Default" : "Set Default"}
+                            </Button>
+                            <Button type="button" variant="destructive" size="sm" disabled={packageOptions.length === 1} onClick={() => removePackageOption(pkg.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="grid md:grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label>Package Name</Label>
+                            <Input value={pkg.name} onChange={(e) => setPackageOptions((prev) => prev.map((item) => item.id === pkg.id ? { ...item, name: e.target.value } : item))} />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Price (Naira)</Label>
+                            <Input type="number" min={0} value={pkg.price} onChange={(e) => setPackageOptions((prev) => prev.map((item) => item.id === pkg.id ? { ...item, price: e.target.value } : item))} />
+                          </div>
+                        </div>
+
+                        <div className="grid md:grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label>Pricing Type</Label>
+                            <Select value={pkg.pricingType} onValueChange={(value: any) => setPackageOptions((prev) => prev.map((item) => item.id === pkg.id ? { ...item, pricingType: value } : item))}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="fixed">Fixed</SelectItem>
+                                <SelectItem value="hourly">Hourly</SelectItem>
+                                <SelectItem value="per-session">Per Session</SelectItem>
+                                <SelectItem value="custom">Custom</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Duration (minutes)</Label>
+                            <Input type="number" min={15} step={15} value={pkg.duration} onChange={(e) => setPackageOptions((prev) => prev.map((item) => item.id === pkg.id ? { ...item, duration: e.target.value } : item))} />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Package Description</Label>
+                          <Textarea rows={2} value={pkg.description} onChange={(e) => setPackageOptions((prev) => prev.map((item) => item.id === pkg.id ? { ...item, description: e.target.value } : item))} />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Package Attachments (images/PDF)</Label>
+                          <Input type="file" multiple accept="image/*,application/pdf" onChange={(e) => addPackageFiles(pkg.id, e.target.files)} />
+                          {(packageFiles[pkg.id] || []).length > 0 ? (
+                            <div className="space-y-1">
+                              {(packageFiles[pkg.id] || []).map((file, idx) => (
+                                <div key={`${pkg.id}-${idx}`} className="flex items-center justify-between text-xs rounded border p-2">
+                                  <span className="truncate pr-3">{file.name}</span>
+                                  <Button type="button" size="sm" variant="ghost" onClick={() => removePackageFile(pkg.id, idx)}>Remove</Button>
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="price">Base Price (Naira)</Label>
+                    <Label htmlFor="price">Fallback Base Price (Naira)</Label>
                     <Input id="price" type="number" min={1} value={formData.price} onChange={(e) => setFormData((prev) => ({ ...prev, price: e.target.value }))} />
                   </div>
                   <div className="space-y-2">
@@ -315,6 +572,27 @@ export default function ServiceSetupWizardPage() {
                 <div className="space-y-2">
                   <Label htmlFor="tags">Tags (optional)</Label>
                   <Input id="tags" value={formData.tags} onChange={(e) => setFormData((prev) => ({ ...prev, tags: e.target.value }))} placeholder="cleaning, deep-clean, home" />
+                </div>
+                <div className="rounded-md border p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label>Quote-based pricing</Label>
+                      <p className="text-xs text-muted-foreground">Enable if final price is confirmed after review.</p>
+                    </div>
+                    <Switch checked={formData.requiresQuote} onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, requiresQuote: checked }))} />
+                  </div>
+                  {formData.requiresQuote ? (
+                    <>
+                      <div className="space-y-2">
+                        <Label>Quote Notes Template</Label>
+                        <Textarea rows={2} value={formData.quoteNotesTemplate} onChange={(e) => setFormData((prev) => ({ ...prev, quoteNotesTemplate: e.target.value }))} placeholder="What customer should include in their request" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Quote SLA (hours)</Label>
+                        <Input type="number" min={1} max={168} value={formData.quoteSlaHours} onChange={(e) => setFormData((prev) => ({ ...prev, quoteSlaHours: e.target.value }))} />
+                      </div>
+                    </>
+                  ) : null}
                 </div>
               </>
             )}
@@ -352,6 +630,55 @@ export default function ServiceSetupWizardPage() {
                     <Input id="location" value={formData.location} onChange={(e) => setFormData((prev) => ({ ...prev, location: e.target.value }))} placeholder="Full address" />
                   </div>
                 )}
+
+                {formData.category === "rentals" && (
+                  <div className="rounded-md border p-3 space-y-3">
+                    <p className="font-medium text-sm">Rental options</p>
+                    <div className="grid md:grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label>Security Deposit (Naira)</Label>
+                        <Input type="number" min={0} value={formData.securityDeposit} onChange={(e) => setFormData((prev) => ({ ...prev, securityDeposit: e.target.value }))} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Mileage Limit Per Day (km)</Label>
+                        <Input type="number" min={0} value={formData.mileageLimitPerDay} onChange={(e) => setFormData((prev) => ({ ...prev, mileageLimitPerDay: e.target.value }))} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Overtime Fee Per Hour (Naira)</Label>
+                        <Input type="number" min={0} value={formData.overtimeFeePerHour} onChange={(e) => setFormData((prev) => ({ ...prev, overtimeFeePerHour: e.target.value }))} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Minimum Driver Age</Label>
+                        <Input type="number" min={18} value={formData.minimumDriverAge} onChange={(e) => setFormData((prev) => ({ ...prev, minimumDriverAge: e.target.value }))} />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>Require Driver License Upload</Label>
+                        <p className="text-xs text-muted-foreground">Recommended for car rental bookings.</p>
+                      </div>
+                      <Switch checked={formData.requiresDriverLicense} onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, requiresDriverLicense: checked }))} />
+                    </div>
+                  </div>
+                )}
+
+                <div className="rounded-md border p-3 space-y-3">
+                  <p className="font-medium text-sm">Advanced service settings</p>
+                  <div className="grid md:grid-cols-3 gap-3">
+                    <div className="space-y-2">
+                      <Label>Advance Notice (hours)</Label>
+                      <Input type="number" min={0} value={formData.advanceNoticeHours} onChange={(e) => setFormData((prev) => ({ ...prev, advanceNoticeHours: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Cancellation Window (hours)</Label>
+                      <Input type="number" min={0} value={formData.cancellationWindowHours} onChange={(e) => setFormData((prev) => ({ ...prev, cancellationWindowHours: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Max Bookings Per Day</Label>
+                      <Input type="number" min={0} value={formData.maxBookingsPerDay} onChange={(e) => setFormData((prev) => ({ ...prev, maxBookingsPerDay: e.target.value }))} />
+                    </div>
+                  </div>
+                </div>
               </>
             )}
 
@@ -400,10 +727,11 @@ export default function ServiceSetupWizardPage() {
                   <p className="font-semibold">Service summary</p>
                   <p className="text-muted-foreground mt-1">{formData.title || "Untitled service"}</p>
                   <p className="text-muted-foreground">Category: {formData.category || "Not set"}</p>
-                  <p className="text-muted-foreground">Price: {formData.price ? `N${Number(formData.price).toLocaleString()}` : "Not set"}</p>
+                  <p className="text-muted-foreground">Packages: {packageOptions.filter((pkg) => pkg.name.trim() && Number(pkg.price) > 0).length}</p>
+                  <p className="text-muted-foreground">Price: {formData.price ? `N${Number(formData.price).toLocaleString()}` : "Derived from packages"}</p>
                   <p className="text-muted-foreground">Location Type: {formData.locationType}</p>
                 </div>
-                <p className="text-xs text-muted-foreground">Click Publish Service to create your first service. You can add packages, add-ons and advanced settings later from Add Service page.</p>
+                <p className="text-xs text-muted-foreground">Click Publish Service to create your service with package pricing, rental options and package-level attachments.</p>
               </div>
             )}
 
