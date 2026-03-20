@@ -12,6 +12,7 @@ import {
   Package,
   ShoppingCart,
   BarChart3,
+  TrendingUp,
   Settings,
   LifeBuoy,
   Store,
@@ -196,6 +197,17 @@ export default function VendorSidebar() {
             <span>Analytics</span>
           </Link>
           <Link
+            href="/vendor/conversion-funnel"
+            className={cn(
+              "flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+              pathname === "/vendor/conversion-funnel" ? "bg-accent text-accent-foreground" : "text-muted-foreground",
+            )}
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <TrendingUp className="h-4 w-4" />
+            <span>Conversion Funnel</span>
+          </Link>
+          <Link
             href="/vendor/store-settings"
             className={cn(
               "flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
@@ -305,6 +317,17 @@ export default function VendorSidebar() {
           >
             <BarChart3 className="h-4 w-4" />
             <span>Analytics</span>
+          </Link>
+          <Link
+            href="/vendor/conversion-funnel"
+            className={cn(
+              "flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+              pathname === "/vendor/conversion-funnel" ? "bg-accent text-accent-foreground" : "text-muted-foreground",
+            )}
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <TrendingUp className="h-4 w-4" />
+            <span>Conversion Funnel</span>
           </Link>
           <Link
             href="/vendor/store-settings"
@@ -418,6 +441,17 @@ export default function VendorSidebar() {
           >
             <BarChart3 className="h-4 w-4" />
             <span>Analytics</span>
+          </Link>
+          <Link
+            href="/vendor/conversion-funnel"
+            className={cn(
+              "flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+              pathname === "/vendor/conversion-funnel" ? "bg-accent text-accent-foreground" : "text-muted-foreground",
+            )}
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <TrendingUp className="h-4 w-4" />
+            <span>Conversion Funnel</span>
           </Link>
           <Link
             href="/vendor/services/setup-wizard"

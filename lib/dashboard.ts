@@ -1,9 +1,8 @@
 import { getOrdersByVendor, getVendorProducts, getServices, getBookingsByProvider, getProductById, getStoreByVendorId } from "./mongodb-operations";
 import { User } from "./models/User";
-import { Cart } from "./models/Cart";
 import { buildConversionFunnel, buildCustomerSegments, buildSmartCollections, triggerAutomatedPromos } from "./vendor-insights";
 
-export async function getVendorDashboard(vendorId: string) {
+export async function getVendorDashboard(vendorId: string, options?: { funnelLookbackDays?: number }) {
   const orders = await getOrdersByVendor(vendorId);
   const products = await getVendorProducts(vendorId);
   const services = await getServices({ providerId: vendorId });
@@ -67,10 +66,10 @@ export async function getVendorDashboard(vendorId: string) {
   const newProductsLastWeek = productsLastWeek.length;
   const productsChange = newProductsLastWeek === 0 ? null : ((newProductsThisWeek - newProductsLastWeek) / newProductsLastWeek) * 100;
 
-  // Conversion rate (dummy, needs real logic if available)
-  const conversionRate = totalOrders === 0 ? 0 : (totalOrders / (totalProducts || 1)) * 100;
+  // Conversion rate defaults to real funnel rate where available.
+  let conversionRate = 0;
   const conversionRateLastMonth = ordersLastMonth.length === 0 ? 0 : (ordersLastMonth.length / (totalProducts || 1)) * 100;
-  const conversionRateChange = conversionRateLastMonth === 0 ? null : ((conversionRate - conversionRateLastMonth) / conversionRateLastMonth) * 100;
+  let conversionRateChange = conversionRateLastMonth === 0 ? null : ((conversionRate - conversionRateLastMonth) / conversionRateLastMonth) * 100;
 
   // Low stock products (less than 10 items)
   const lowStockProducts = products.filter(p => (p.stock || 0) < 10);
@@ -139,18 +138,15 @@ export async function getVendorDashboard(vendorId: string) {
     })
   );
 
-  const carts = await Cart.find({}).select('items').lean();
-  const cartsWithVendorItems = carts.filter((cart: any) =>
-    Array.isArray(cart?.items) && cart.items.some((item: any) => String(item?.vendorId || '') === vendorId)
-  ).length;
-
   const segmentResult = buildCustomerSegments({ vendorId, orders: orders as any[] });
   const promoResult = await triggerAutomatedPromos({ vendorId, segmentResult });
   const funnel = await buildConversionFunnel({
     vendorId,
     totalOrders,
-    cartsWithVendorItems,
+    lookbackDays: options?.funnelLookbackDays,
   });
+  conversionRate = Number(funnel?.rates?.visitToOrder || 0)
+  conversionRateChange = conversionRateLastMonth === 0 ? null : ((conversionRate - conversionRateLastMonth) / conversionRateLastMonth) * 100;
   const smartCollections = buildSmartCollections(products as any[]);
 
   return {

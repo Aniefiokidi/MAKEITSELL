@@ -153,10 +153,13 @@ export async function triggerAutomatedPromos(params: {
 export async function buildConversionFunnel(params: {
   vendorId: string
   totalOrders: number
-  cartsWithVendorItems: number
+  lookbackDays?: number
 }) {
-  const { vendorId, totalOrders, cartsWithVendorItems } = params
-  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+  const { vendorId, totalOrders } = params
+  const lookbackDays = Number.isFinite(Number(params.lookbackDays)) && Number(params.lookbackDays) > 0
+    ? Number(params.lookbackDays)
+    : 30
+  const since = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000)
 
   const events = await VendorFunnelEvent.find({ vendorId, createdAt: { $gte: since } }).lean()
   const countByType = events.reduce<Record<string, number>>((acc, event: any) => {
@@ -165,11 +168,24 @@ export async function buildConversionFunnel(params: {
     return acc
   }, {})
 
-  const storeVisits = countByType.store_visit || Math.max(totalOrders * 5, 20)
-  const productViews = countByType.product_view || Math.max(totalOrders * 3, 10)
-  const cartAdds = countByType.cart_add || Math.max(cartsWithVendorItems, Math.round(totalOrders * 1.5))
-  const checkoutStarts = countByType.checkout_start || Math.max(totalOrders, 1)
+  const storeVisits = countByType.store_visit || 0
+  const productViews = countByType.product_view || 0
+  const cartAdds = countByType.cart_add || 0
+  const checkoutStarts = countByType.checkout_start || 0
   const completedOrders = Math.max(totalOrders, 0)
+
+  const toPercent = (numerator: number, denominator: number) => {
+    if (!denominator || denominator <= 0) return 0
+    return Number(((numerator / denominator) * 100).toFixed(1))
+  }
+
+  const rates = {
+    visitToView: toPercent(productViews, storeVisits),
+    viewToCart: toPercent(cartAdds, productViews),
+    cartToCheckout: toPercent(checkoutStarts, cartAdds),
+    checkoutToOrder: toPercent(completedOrders, checkoutStarts),
+    visitToOrder: toPercent(completedOrders, storeVisits),
+  }
 
   const stages = [
     { key: 'storeVisits', label: 'Store Visits', value: storeVisits },
@@ -180,23 +196,29 @@ export async function buildConversionFunnel(params: {
   ]
 
   const hints: string[] = []
-  if (productViews < storeVisits * 0.35) {
+  if (events.length === 0) {
+    hints.push(`No funnel events tracked in the last ${lookbackDays} days yet. Metrics will populate as customers visit your store and checkout.`)
+  }
+  if (storeVisits > 0 && productViews < storeVisits * 0.35) {
     hints.push('Low visit-to-view rate: improve storefront banner and featured products.')
   }
-  if (cartAdds < productViews * 0.3) {
+  if (productViews > 0 && cartAdds < productViews * 0.3) {
     hints.push('Low view-to-cart rate: optimize product images, pricing, and descriptions.')
   }
-  if (checkoutStarts < cartAdds * 0.6) {
+  if (cartAdds > 0 && checkoutStarts < cartAdds * 0.6) {
     hints.push('Cart drop-off is high: offer shipping clarity and cart incentives.')
   }
-  if (completedOrders < checkoutStarts * 0.7) {
+  if (checkoutStarts > 0 && completedOrders < checkoutStarts * 0.7) {
     hints.push('Checkout drop-off detected: simplify checkout and payment trust messaging.')
   }
 
   return {
     stages,
+    rates,
     hints: hints.length > 0 ? hints : ['Funnel is healthy. Keep testing offers and top-selling placements.'],
-    trackedEventsLast30Days: events.length,
+    trackedEventsInRange: events.length,
+    lookbackDays,
+    isEstimated: false,
   }
 }
 

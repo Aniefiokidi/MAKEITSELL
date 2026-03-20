@@ -552,9 +552,15 @@ export default function VendorDashboardPage() {
                   <Badge variant="outline">{stage.value}</Badge>
                 </div>
               ))}
+              <p className="text-xs text-muted-foreground pt-1">
+                Tracked events ({Number(funnel?.lookbackDays || 30)}d): {Number(funnel?.trackedEventsInRange || 0).toLocaleString()}
+              </p>
               {(funnel?.hints || []).slice(0, 2).map((hint: string, idx: number) => (
                 <p key={idx} className="text-xs text-muted-foreground">• {hint}</p>
               ))}
+              <Button asChild size="sm" variant="outline" className="w-full mt-2">
+                <Link href="/vendor/conversion-funnel">Open Full Funnel</Link>
+              </Button>
             </CardContent>
           </Card>
 

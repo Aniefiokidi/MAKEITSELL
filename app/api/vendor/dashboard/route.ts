@@ -14,12 +14,16 @@ export async function GET(req: NextRequest) {
     const vendorId =
       (currentUser && currentUser.role === "vendor" ? String(currentUser.id) : null) ||
       searchParams.get("vendorId");
+    const lookbackDaysRaw = Number(searchParams.get("funnelDays") || "30");
+    const funnelLookbackDays = Number.isFinite(lookbackDaysRaw) && lookbackDaysRaw > 0
+      ? Math.min(180, Math.floor(lookbackDaysRaw))
+      : 30;
 
     if (!vendorId) {
       return new Response(JSON.stringify({ success: false, error: "Missing vendorId" }), { status: 400 });
     }
 
-    const dashboard = await getVendorDashboard(vendorId);
+    const dashboard = await getVendorDashboard(vendorId, { funnelLookbackDays });
     return new Response(JSON.stringify({ success: true, data: dashboard }), { status: 200 });
   } catch (error: any) {
     return new Response(JSON.stringify({ success: false, error: error?.message || "Unknown error" }), { status: 500 });
