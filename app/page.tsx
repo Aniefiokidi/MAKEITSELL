@@ -720,13 +720,13 @@ export default function HomePage() {
                   <p className="text-xs text-muted-foreground">Clothing, shoes & accessories</p>
                 </a>
                 
-                <a href="/category/health-beauty" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                <a href="/category/health-wellness" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
                   <Beauty className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
                   <h3 className="font-semibold text-neutral-900 dark:text-white text-sm sm:text-base mb-1">Health & Beauty</h3>
                   <p className="text-xs text-muted-foreground">Personal care & wellness products</p>
                 </a>
                 
-                <a href="/category/home-garden" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                <a href="/category/home-services" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
                   <HomeIcon className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
                   <h3 className="font-semibold text-neutral-900 dark:text-white text-sm sm:text-base mb-1">Home Services</h3>
                   <p className="text-xs text-muted-foreground">Professional home improvement</p>
@@ -735,25 +735,25 @@ export default function HomePage() {
               
               {/* Services Row */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-5 md:gap-6 max-w-6xl mx-auto">
-                <a href="/services?category=repairs" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                <a href="/category/home-services" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
                   <Settings className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
                   <h3 className="font-semibold text-neutral-900 dark:text-white text-sm sm:text-base mb-1">Repairs</h3>
                   <p className="text-xs text-muted-foreground">Expert repair & maintenance</p>
                 </a>
                 
-                <a href="/services?category=automotive" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                <a href="/category/automotive" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
                   <CarFront className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
                   <h3 className="font-semibold text-neutral-900 dark:text-white text-sm sm:text-base mb-1">Automotive</h3>
                   <p className="text-xs text-muted-foreground">Car services & maintenance</p>
                 </a>
                 
-                <a href="/services?category=freelancers" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                <a href="/category/business-services" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
                   <UserCheck className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
                   <h3 className="font-semibold text-neutral-900 dark:text-white text-sm sm:text-base mb-1">Freelancers</h3>
                   <p className="text-xs text-muted-foreground">Professional freelance services</p>
                 </a>
                 
-                <a href="/services?category=food" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                <a href="/category/events" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
                   <Coffee className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
                   <h3 className="font-semibold text-neutral-900 dark:text-white text-sm sm:text-base mb-1">Food & Drinks</h3>
                   <p className="text-xs text-muted-foreground">Restaurants & catering services</p>

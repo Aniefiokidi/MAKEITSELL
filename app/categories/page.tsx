@@ -26,6 +26,8 @@ import {
   Sparkles,
   Coffee,
   Shield,
+  Search,
+  Settings,
 } from "lucide-react"
 
 const categories = [
@@ -171,6 +173,97 @@ const categories = [
   }
 ]
 
+const serviceSystemCategories = [
+  { slug: "photography", name: "Photography", description: "Photo and video sessions", icon: Camera, color: "bg-indigo-500" },
+  { slug: "consulting", name: "Consulting", description: "Business and professional advice", icon: Briefcase, color: "bg-sky-500" },
+  { slug: "repairs", name: "Repairs & Maintenance", description: "Fixes, installations and upkeep", icon: Wrench, color: "bg-cyan-500" },
+  { slug: "design", name: "Design & Creative", description: "Branding, graphics and visuals", icon: Sparkles, color: "bg-pink-500" },
+  { slug: "fitness", name: "Fitness & Wellness", description: "Training, coaching and wellness", icon: Dumbbell, color: "bg-orange-500" },
+  { slug: "education", name: "Education & Tutoring", description: "Lessons, classes and mentorship", icon: Book, color: "bg-amber-500" },
+  { slug: "beauty", name: "Beauty", description: "Personal care and beauty services", icon: Shirt, color: "bg-rose-500" },
+  { slug: "cleaning", name: "Cleaning Services", description: "Home and office cleaning", icon: Sparkles, color: "bg-emerald-500" },
+  { slug: "tech", name: "Tech Support", description: "Device setup and troubleshooting", icon: Smartphone, color: "bg-blue-500" },
+  { slug: "rentals", name: "Rentals", description: "Short and long term rentals", icon: Car, color: "bg-slate-500" },
+  { slug: "marketing", name: "Marketing", description: "Promotion and campaign services", icon: Music2, color: "bg-fuchsia-500" },
+  { slug: "legal", name: "Legal Services", description: "Legal advice and support", icon: Shield, color: "bg-red-600" },
+  { slug: "healthcare", name: "Healthcare & Wellness", description: "Health and care solutions", icon: HeartPulse, color: "bg-rose-500" },
+  { slug: "logistics", name: "Logistics & Delivery", description: "Delivery and transport services", icon: Truck, color: "bg-lime-500" },
+  { slug: "home-improvement", name: "Home Improvement", description: "Renovation and home projects", icon: Home, color: "bg-green-500" },
+  { slug: "automotive", name: "Automotive Services", description: "Vehicle repairs and maintenance", icon: Car, color: "bg-slate-500" },
+  { slug: "event-planning", name: "Event Planning", description: "Planning and event coordination", icon: Music2, color: "bg-fuchsia-500" },
+  { slug: "moving-relocation", name: "Moving & Relocation", description: "Packing, moving and setup support", icon: Truck, color: "bg-lime-500" },
+  { slug: "pet-care", name: "Pet Care", description: "Pet grooming, walking and sitter services", icon: Sparkles, color: "bg-emerald-500" },
+  { slug: "childcare", name: "Childcare", description: "Babysitting and child support services", icon: Gamepad2, color: "bg-violet-500" },
+  { slug: "elderly-care", name: "Elderly Care", description: "Home support and care assistance", icon: HeartPulse, color: "bg-rose-500" },
+  { slug: "laundry-drycleaning", name: "Laundry & Dry Cleaning", description: "Clothing wash and care services", icon: Sparkles, color: "bg-cyan-500" },
+  { slug: "catering", name: "Catering & Food Services", description: "Cooks, catering and meal prep", icon: Coffee, color: "bg-yellow-600" },
+  { slug: "real-estate", name: "Real Estate Services", description: "Property management and advisory", icon: Home, color: "bg-stone-500" },
+  { slug: "accounting-tax", name: "Accounting & Tax", description: "Bookkeeping, payroll and tax support", icon: Briefcase, color: "bg-sky-500" },
+  { slug: "writing-translation", name: "Writing & Translation", description: "Content writing and language services", icon: Book, color: "bg-amber-500" },
+  { slug: "software-development", name: "Software Development", description: "Web, app and software engineering", icon: Smartphone, color: "bg-blue-500" },
+  { slug: "virtual-assistant", name: "Virtual Assistant", description: "Admin and online business support", icon: Briefcase, color: "bg-sky-500" },
+  { slug: "security-services", name: "Security Services", description: "Guarding, surveillance and safety", icon: Shield, color: "bg-red-600" },
+  { slug: "other", name: "Other Services", description: "Browse all additional services", icon: Settings, color: "bg-gray-500" },
+]
+
+const storeSystemCategories = [
+  { slug: "electronics", name: "Electronics", description: "Gadgets and devices", icon: Smartphone, color: "bg-blue-500" },
+  { slug: "fashion", name: "Fashion", description: "Style and apparel stores", icon: Shirt, color: "bg-pink-500" },
+  { slug: "home", name: "Home & Garden", description: "Home essentials and decor", icon: Home, color: "bg-green-500" },
+  { slug: "beauty", name: "Beauty & Personal Care", description: "Wellness and beauty products", icon: Sparkles, color: "bg-rose-500" },
+  { slug: "sports", name: "Sports & Outdoors", description: "Fitness and outdoor gear", icon: Dumbbell, color: "bg-orange-500" },
+  { slug: "automotive", name: "Automotive", description: "Auto parts and accessories", icon: Car, color: "bg-slate-500" },
+  { slug: "books", name: "Books & Media", description: "Books and media stores", icon: Book, color: "bg-amber-500" },
+  { slug: "food", name: "Food & Beverages", description: "Food and drinks stores", icon: Coffee, color: "bg-yellow-600" },
+  { slug: "groceries", name: "Groceries", description: "Daily groceries and essentials", icon: Coffee, color: "bg-yellow-600" },
+  { slug: "pharmacy", name: "Pharmacy & Health", description: "Medicines and health supplies", icon: Shield, color: "bg-red-600" },
+  { slug: "furniture", name: "Furniture", description: "Home and office furniture", icon: Home, color: "bg-stone-500" },
+  { slug: "appliances", name: "Appliances", description: "Home and kitchen appliances", icon: Smartphone, color: "bg-blue-500" },
+  { slug: "toys", name: "Toys & Games", description: "Toys and games stores", icon: Gamepad2, color: "bg-violet-500" },
+  { slug: "baby", name: "Baby & Kids", description: "Baby and children essentials", icon: Gamepad2, color: "bg-violet-500" },
+  { slug: "office-supplies", name: "Office Supplies", description: "Business and office supplies", icon: Briefcase, color: "bg-sky-500" },
+  { slug: "pet-supplies", name: "Pet Supplies", description: "Pet food and accessories", icon: Sparkles, color: "bg-emerald-500" },
+  { slug: "jewelry", name: "Jewelry & Accessories", description: "Jewelry and lifestyle items", icon: Watch, color: "bg-purple-500" },
+  { slug: "hardware", name: "Hardware & Tools", description: "Tools and hardware stores", icon: Wrench, color: "bg-cyan-500" },
+  { slug: "other", name: "Other Stores", description: "More marketplace stores", icon: Settings, color: "bg-gray-500" },
+]
+
+const serviceSlugToUnifiedSlug: Record<string, string> = {
+  repairs: "home-services",
+  automotive: "automotive",
+  consulting: "business-services",
+  catering: "events",
+  "event-planning": "events",
+  healthcare: "health-wellness",
+  fitness: "sports",
+  "home-improvement": "home-services",
+  logistics: "logistics-delivery",
+  "moving-relocation": "logistics-delivery",
+  "pet-care": "pet-care",
+  childcare: "toys-baby",
+  "elderly-care": "health-wellness",
+  "laundry-drycleaning": "home-services",
+}
+
+const storeSlugToUnifiedSlug: Record<string, string> = {
+  electronics: "electronics",
+  fashion: "fashion",
+  beauty: "health-wellness",
+  sports: "sports",
+  automotive: "automotive",
+  books: "books",
+  food: "events",
+  groceries: "groceries",
+  pharmacy: "pharmacy",
+  furniture: "furniture",
+  toys: "toys-baby",
+  baby: "toys-baby",
+  "pet-supplies": "pet-care",
+  hardware: "home-services",
+  "office-supplies": "business-services",
+  home: "home",
+}
+
 const categoryToServiceCategories: Record<string, string[]> = {
   electronics: ["tech", "repairs"],
   fashion: ["beauty", "design"],
@@ -219,7 +312,63 @@ const categoryToStoreCategories: Record<string, string[]> = {
 
 import { Skeleton } from "@/components/ui/skeleton"
 
-const CATEGORY_OVERVIEW_CACHE_KEY = "mis:categories:overview:v1"
+type CategoryExplorerItem = {
+  key: string
+  slug: string
+  name: string
+  description: string
+  icon: any
+  color: string
+  segment: "goods" | "services" | "stores"
+  href: string
+  countKind: "goods" | "services" | "stores"
+}
+
+const goodsCards: CategoryExplorerItem[] = categories.map((category) => ({
+  key: `goods:${category.slug}`,
+  slug: category.slug,
+  name: category.name,
+  description: category.description,
+  icon: category.icon,
+  color: category.color,
+  segment: "goods",
+  href: `/category/${category.slug}`,
+  countKind: "goods",
+}))
+
+const serviceCards: CategoryExplorerItem[] = serviceSystemCategories.map((category) => {
+  const unifiedSlug = serviceSlugToUnifiedSlug[category.slug]
+  return {
+    key: `services:${category.slug}`,
+    slug: category.slug,
+    name: category.name,
+    description: category.description,
+    icon: category.icon,
+    color: category.color,
+    segment: "services",
+    href: unifiedSlug ? `/category/${unifiedSlug}` : `/services?category=${encodeURIComponent(category.slug)}`,
+    countKind: "services",
+  }
+})
+
+const storeCards: CategoryExplorerItem[] = storeSystemCategories.map((category) => {
+  const unifiedSlug = storeSlugToUnifiedSlug[category.slug]
+  return {
+    key: `stores:${category.slug}`,
+    slug: category.slug,
+    name: category.name,
+    description: category.description,
+    icon: category.icon,
+    color: category.color,
+    segment: "stores",
+    href: unifiedSlug ? `/category/${unifiedSlug}` : `/stores?category=${encodeURIComponent(category.slug)}`,
+    countKind: "stores",
+  }
+})
+
+const allCategoryCards: CategoryExplorerItem[] = [...goodsCards, ...serviceCards, ...storeCards]
+
+const CATEGORY_OVERVIEW_CACHE_KEY = "mis:categories:overview:v2"
 const CATEGORY_OVERVIEW_CACHE_TTL_MS = 5 * 60 * 1000
 
 export default function CategoriesPage() {
@@ -227,6 +376,9 @@ export default function CategoriesPage() {
   const [categoryImages, setCategoryImages] = useState<{ [key: string]: string }>({})
   const [categoryCounts, setCategoryCounts] = useState<{ [key: string]: number }>({})
   const [loading, setLoading] = useState(true)
+  const [segmentFilter, setSegmentFilter] = useState<"all" | "goods" | "services" | "stores">("all")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [showOnlyWithListings, setShowOnlyWithListings] = useState(false)
 
   const saveScrollPosition = () => {
     if (typeof window === "undefined") return
@@ -254,60 +406,69 @@ export default function CategoriesPage() {
       }
 
       const categoryResults = await Promise.all(
-        categories.map(async (category) => {
+        allCategoryCards.map(async (categoryCard) => {
           try {
-            const countResponse = await fetch(`/api/database/products?category=${category.slug}&count=true`)
-            const countResult = await countResponse.json()
-            const productCount = countResult.success ? (countResult.data?.length || countResult.count || 0) : 0
+            if (categoryCard.countKind === "goods") {
+              const countResponse = await fetch(`/api/database/products?category=${categoryCard.slug}&count=true`)
+              const countResult = await countResponse.json()
+              const productCount = countResult.success ? (countResult.data?.length || countResult.count || 0) : 0
 
-            const serviceCategories = categoryToServiceCategories[category.slug] || []
-            const storeCategories = categoryToStoreCategories[category.slug] || [category.slug]
+              const serviceCategories = categoryToServiceCategories[categoryCard.slug] || []
+              const storeCategories = categoryToStoreCategories[categoryCard.slug] || [categoryCard.slug]
 
-            const [serviceCountResponses, storeCountResponses, topProductResult] = await Promise.all([
-              Promise.all(
-                serviceCategories.map((serviceCategory) =>
-                  fetch(`/api/database/services?category=${encodeURIComponent(serviceCategory)}&count=true`)
-                    .then((res) => res.json())
-                    .catch(() => ({ success: false, count: 0, data: [] }))
-                )
-              ),
-              Promise.all(
-                storeCategories.map((storeCategory) =>
-                  fetch(`/api/database/stores?category=${encodeURIComponent(storeCategory)}&count=true`)
-                    .then((res) => res.json())
-                    .catch(() => ({ success: false, count: 0, data: [] }))
-                )
-              ),
-              fetch(`/api/database/products?category=${category.slug}&limit=1&sortBy=popular`)
-                .then((res) => res.json())
-                .catch(() => ({ success: false, data: [] })),
-            ])
+              const [serviceCountResponses, storeCountResponses, topProductResult] = await Promise.all([
+                Promise.all(
+                  serviceCategories.map((serviceCategory) =>
+                    fetch(`/api/database/services?category=${encodeURIComponent(serviceCategory)}&count=true`)
+                      .then((res) => res.json())
+                      .catch(() => ({ success: false, count: 0, data: [] }))
+                  )
+                ),
+                Promise.all(
+                  storeCategories.map((storeCategory) =>
+                    fetch(`/api/database/stores?category=${encodeURIComponent(storeCategory)}&count=true`)
+                      .then((res) => res.json())
+                      .catch(() => ({ success: false, count: 0, data: [] }))
+                  )
+                ),
+                fetch(`/api/database/products?category=${categoryCard.slug}&limit=1&sortBy=popular`)
+                  .then((res) => res.json())
+                  .catch(() => ({ success: false, data: [] })),
+              ])
 
-            const serviceCount = serviceCountResponses.reduce((total, result) => {
-              if (!result?.success) return total
-              return total + Number(result.count || result.data?.length || 0)
-            }, 0)
+              const serviceCount = serviceCountResponses.reduce((total, result) => {
+                if (!result?.success) return total
+                return total + Number(result.count || result.data?.length || 0)
+              }, 0)
 
-            const storeCount = storeCountResponses.reduce((total, result) => {
-              if (!result?.success) return total
-              return total + Number(result.count || result.data?.length || 0)
-            }, 0)
+              const storeCount = storeCountResponses.reduce((total, result) => {
+                if (!result?.success) return total
+                return total + Number(result.count || result.data?.length || 0)
+              }, 0)
 
-            const topProduct = topProductResult?.success && Array.isArray(topProductResult?.data)
-              ? topProductResult.data[0]
-              : null
-            const productImage = topProduct
-              ? (Array.isArray(topProduct.images) ? topProduct.images[0] : topProduct.image)
-              : null
+              const topProduct = topProductResult?.success && Array.isArray(topProductResult?.data)
+                ? topProductResult.data[0]
+                : null
+              const productImage = topProduct
+                ? (Array.isArray(topProduct.images) ? topProduct.images[0] : topProduct.image)
+                : null
 
-            return {
-              slug: category.slug,
-              count: productCount + serviceCount + storeCount,
-              image: productImage && productImage !== "/placeholder.svg" ? productImage : null,
+              return {
+                key: categoryCard.key,
+                count: productCount + serviceCount + storeCount,
+                image: productImage && productImage !== "/placeholder.svg" ? productImage : null,
+              }
             }
+
+            const endpoint = categoryCard.countKind === "services" ? "services" : "stores"
+            const countResponse = await fetch(`/api/database/${endpoint}?category=${encodeURIComponent(categoryCard.slug)}&count=true`)
+            const countResult = await countResponse.json()
+            const count = countResult?.success ? Number(countResult.count || countResult.data?.length || 0) : 0
+
+            return { key: categoryCard.key, count, image: null as string | null }
           } catch (error) {
-            console.error(`Error fetching data for ${category.slug}:`, error)
-            return { slug: category.slug, count: 0, image: null as string | null }
+            console.error(`Error fetching data for ${categoryCard.key}:`, error)
+            return { key: categoryCard.key, count: 0, image: null as string | null }
           }
         })
       )
@@ -315,9 +476,9 @@ export default function CategoriesPage() {
       const imageMap: { [key: string]: string } = {}
       const countMap: { [key: string]: number } = {}
       categoryResults.forEach((result) => {
-        countMap[result.slug] = result.count
+        countMap[result.key] = result.count
         if (result.image) {
-          imageMap[result.slug] = result.image
+          imageMap[result.key] = result.image
         }
       })
 
@@ -374,6 +535,27 @@ export default function CategoriesPage() {
     window.requestAnimationFrame(restore)
   }, [loading])
 
+  const normalizedSearch = searchQuery.toLowerCase().trim()
+
+  const visibleCards = allCategoryCards.filter((category) => {
+    if (segmentFilter !== "all" && category.segment !== segmentFilter) {
+      return false
+    }
+
+    if (normalizedSearch) {
+      const haystack = `${category.name} ${category.description} ${category.slug}`.toLowerCase()
+      if (!haystack.includes(normalizedSearch)) {
+        return false
+      }
+    }
+
+    if (showOnlyWithListings) {
+      return Number(categoryCounts[category.key] || 0) > 0
+    }
+
+    return true
+  })
+
   return (
     <>
       <Header />
@@ -394,8 +576,46 @@ export default function CategoriesPage() {
                 textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))'
               }}>SHOP BY CATEGORY</h1>
               <p className="text-accent dark:text-white text-xs sm:text-base">
-                Discover thousands of products across our diverse categories
+                Discover all categories across goods, services and stores
               </p>
+
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-3">
+                <div className="relative md:col-span-2">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-accent/70" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search category cards..."
+                    className="w-full h-10 rounded-full border border-accent/30 bg-white/80 dark:bg-black/20 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-accent/40"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowOnlyWithListings((prev) => !prev)}
+                  className={`h-10 rounded-full border text-sm font-semibold transition ${showOnlyWithListings ? "bg-accent text-white border-accent" : "bg-white/80 dark:bg-black/20 text-accent border-accent/30"}`}
+                >
+                  {showOnlyWithListings ? "Showing with listings" : "Show listed only"}
+                </button>
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {[
+                  { key: "all", label: "All" },
+                  { key: "goods", label: "Goods" },
+                  { key: "services", label: "Services" },
+                  { key: "stores", label: "Stores" },
+                ].map((segment) => (
+                  <button
+                    key={segment.key}
+                    type="button"
+                    onClick={() => setSegmentFilter(segment.key as "all" | "goods" | "services" | "stores")}
+                    className={`px-3 py-1.5 text-xs sm:text-sm rounded-full border transition ${segmentFilter === segment.key ? "bg-accent text-white border-accent" : "bg-white/80 dark:bg-black/20 text-accent border-accent/30"}`}
+                  >
+                    {segment.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -413,11 +633,11 @@ export default function CategoriesPage() {
                     </div>
                   </div>
                 ))
-              : categories.map((category, index) => {
+              : visibleCards.map((category, index) => {
                   const IconComponent = category.icon
-                  const categoryImage = categoryImages[category.slug]
+                  const categoryImage = categoryImages[category.key]
                   return (
-                    <Link key={category.slug} href={`/category/${category.slug}`} onClick={saveScrollPosition}>
+                    <Link key={category.key} href={category.href} onClick={saveScrollPosition}>
                       <Card className={`h-full hover:shadow-2xl hover:shadow-accent/40 transition-all duration-300 group overflow-hidden border-none rounded-2xl sm:rounded-3xl relative ${category.slug === 'electronics' ? '' : 'hover:scale-[1.01]'}`} style={{ animationDelay: `${index * 0.05}s` }}>
                         {/* Full Background with Product Image or Gradient */}
                         <div className="aspect-9/16 relative overflow-hidden rounded-2xl sm:rounded-3xl">
@@ -471,7 +691,7 @@ export default function CategoriesPage() {
                             </Badge>
                             <div className="flex items-center justify-between gap-1 sm:gap-2">
                               <Badge variant="outline" className="text-[9px] sm:text-[10px] md:text-xs backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 text-white bg-accent">
-                                {categoryCounts[category.slug] ? `${categoryCounts[category.slug]} listings` : 'No listings yet'}
+                                {categoryCounts[category.key] ? `${categoryCounts[category.key]} listings` : 'No listings yet'}
                               </Badge>
                               <div className="shrink-0 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/70 flex items-center justify-center shadow hover:scale-110 active:scale-95 hover:bg-white transition-all duration-200 cursor-pointer group/arrow">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent group-hover/arrow:translate-x-0.5 transition-transform">
@@ -495,10 +715,10 @@ export default function CategoriesPage() {
           <div className="mt-8 sm:mt-12 animate-fade-in" style={{ animationDelay: '0.5s' }}>
             <h2 className="text-lg sm:text-2xl font-bold mb-3 sm:mb-6" style={{ textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))' }}>Popular Categories</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4">
-              {categories.slice(0, 4).map((category, index) => (
+              {goodsCards.slice(0, 4).map((category, index) => (
                 <Link 
                   key={`popular-${category.slug}`} 
-                  href={`/category/${category.slug}`}
+                  href={category.href}
                   onClick={saveScrollPosition}
                   className="group animate-scale-in hover-lift"
                   style={{ animationDelay: `${0.6 + index * 0.1}s` }}
