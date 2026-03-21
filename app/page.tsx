@@ -473,40 +473,38 @@ function HeroButtons({ isLoggedIn }: { isLoggedIn: boolean }) {
         <Link
           href={storesHref}
           prefetch
-          className="px-8 py-3 text-lg font-semibold rounded-full shadow-2xl bg-accent text-white border-2 border-accent transition-all duration-300 hover:bg-accent/10 hover:text-accent hover:border-accent flex items-center justify-center group overflow-hidden relative"
+          className="px-8 py-3 text-lg font-semibold rounded-full shadow-2xl bg-accent text-white border-2 border-accent transition-all duration-300 hover:bg-accent/10 hover:text-accent hover:border-accent flex items-center justify-center group overflow-hidden relative min-w-[200px] sm:min-w-[260px]"
           onMouseEnter={() => router.prefetch(storesHref)}
           onTouchStart={() => router.prefetch(storesHref)}
           onClick={(e) => triggerSlideNavigation(e, storesHref, 'right')}
-          style={{ minWidth: 200 }}
         >
           <span className="w-full text-center">{isLoggedIn ? 'Check out Stores' : 'Start Shopping'}</span>
           <span
             className={
-              "inline-flex items-center absolute right-20 sm:right-8 top-1/2 -translate-y-1/2 transition-transform group-hover:translate-x-1 motion-reduce:transform-none animate-bounce-x"
+              "inline-flex items-center absolute right-20 sm:right-3 top-1/2 -translate-y-1/2 transition-transform group-hover:translate-x-1 motion-reduce:transform-none animate-bounce-x"
             }
           >
-            <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" className="text-white group-hover:text-accent">
-              <path d="M5 12h14M13 6l6 6-6 6" />
+            <svg width="24" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" className="text-white group-hover:text-accent">
+              <path d="M3 12h18M15 6l6 6-6 6" />
             </svg>
           </span>
         </Link>
         <Link
           href={servicesHref}
           prefetch
-          className="px-8 py-3 text-lg font-semibold rounded-full shadow-2xl border-2 border-accent text-accent bg-white hover:bg-accent/10 transition-all duration-300 flex items-center justify-center group overflow-hidden relative"
+          className="px-8 py-3 text-lg font-semibold rounded-full shadow-2xl border-2 border-accent text-accent bg-white hover:bg-accent/10 transition-all duration-300 flex items-center justify-center group overflow-hidden relative min-w-[200px] sm:min-w-[260px]"
           onMouseEnter={() => router.prefetch(servicesHref)}
           onTouchStart={() => router.prefetch(servicesHref)}
           onClick={(e) => triggerSlideNavigation(e, servicesHref, 'right')}
-          style={{ minWidth: 200 }}
         >
           <span className="w-full text-center">{isLoggedIn ? 'Check out Services' : 'Become a Seller'}</span>
           <span
             className={
-              "inline-flex items-center absolute right-20 sm:right-8 top-1/2 -translate-y-1/2 transition-transform group-hover:translate-x-1 motion-reduce:transform-none animate-bounce-x"
+              "inline-flex items-center absolute right-20 sm:right-3 top-1/2 -translate-y-1/2 transition-transform group-hover:translate-x-1 motion-reduce:transform-none animate-bounce-x"
             }
           >
-            <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" className="text-accent group-hover:text-white">
-              <path d="M5 12h14M13 6l6 6-6 6" />
+            <svg width="24" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" className="text-accent group-hover:text-white">
+              <path d="M3 12h18M15 6l6 6-6 6" />
             </svg>
           </span>
         </Link>

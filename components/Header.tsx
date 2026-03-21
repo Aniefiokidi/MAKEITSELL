@@ -336,6 +336,11 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
   const topupQuote = Number.isFinite(parsedWalletAmount) && parsedWalletAmount > 0
     ? calculateTopupAmounts(parsedWalletAmount)
     : null
+  const parsedWithdrawAmount = Number(withdrawAmount)
+  const customerAvailableBalance = typeof walletBalance === "number" ? walletBalance : 0
+  const withdrawAmountExceedsBalance = Number.isFinite(parsedWithdrawAmount)
+    && parsedWithdrawAmount > 0
+    && parsedWithdrawAmount > customerAvailableBalance
 
   const fetchWalletTransactions = async () => {
     if (userProfile?.role !== "customer") {
@@ -398,6 +403,11 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
     const amount = Number(withdrawAmount)
     if (!Number.isFinite(amount) || amount <= 0) {
       notification.error("Please enter a valid withdrawal amount", "Invalid amount", 3000)
+      return
+    }
+
+    if (amount > customerAvailableBalance) {
+      notification.error("Withdrawal amount cannot exceed your current balance", "Insufficient balance", 3000)
       return
     }
 
@@ -1002,6 +1012,9 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                         onChange={(e) => setWithdrawAmount(e.target.value)}
                         placeholder="Withdrawal amount"
                       />
+                      {withdrawAmountExceedsBalance && (
+                        <p className="text-xs text-red-600 mt-1">Amount cannot be greater than your available balance.</p>
+                      )}
                     </div>
 
                     <div>
@@ -1072,7 +1085,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                   Back
                 </Button>
                 {hasWithdrawalPin && (
-                  <Button onClick={handleWalletWithdraw} disabled={withdrawLoading || verifyLoading || !accountVerified}>
+                  <Button onClick={handleWalletWithdraw} disabled={withdrawLoading || verifyLoading || !accountVerified || withdrawAmountExceedsBalance}>
                     {withdrawLoading ? "Submitting..." : "Request withdrawal"}
                   </Button>
                 )}

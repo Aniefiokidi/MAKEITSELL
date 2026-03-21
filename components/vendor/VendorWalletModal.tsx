@@ -87,6 +87,10 @@ export function VendorWalletModal({
   const topupQuote = Number.isFinite(parsedTopupAmount) && parsedTopupAmount > 0
     ? calculateTopupAmounts(parsedTopupAmount)
     : null
+  const parsedWithdrawAmount = Number(withdrawAmount)
+  const withdrawAmountExceedsBalance = Number.isFinite(parsedWithdrawAmount)
+    && parsedWithdrawAmount > 0
+    && parsedWithdrawAmount > (walletBalance || 0)
 
   const fetchWalletTransactions = async () => {
     try {
@@ -317,6 +321,11 @@ export function VendorWalletModal({
     const amount = Number(withdrawAmount)
     if (!Number.isFinite(amount) || amount <= 0) {
       notification.error('Please enter a valid withdrawal amount', 'Invalid amount', 3000)
+      return
+    }
+
+    if (amount > (walletBalance || 0)) {
+      notification.error('Withdrawal amount cannot exceed your current balance', 'Insufficient balance', 3000)
       return
     }
 
@@ -651,6 +660,9 @@ export function VendorWalletModal({
                       onChange={(e) => setWithdrawAmount(e.target.value)}
                       placeholder='Withdrawal amount'
                     />
+                    {withdrawAmountExceedsBalance && (
+                      <p className='text-xs text-red-600 mt-1'>Amount cannot be greater than your available balance.</p>
+                    )}
                   </div>
 
                   <div>
@@ -725,7 +737,7 @@ export function VendorWalletModal({
                 Back
               </Button>
               {hasWithdrawalPin && (
-                <Button onClick={handleWithdraw} disabled={withdrawLoading || !accountVerified || verifyLoading}>
+                <Button onClick={handleWithdraw} disabled={withdrawLoading || !accountVerified || verifyLoading || withdrawAmountExceedsBalance}>
                   {withdrawLoading ? 'Processing...' : 'Request withdrawal'}
                 </Button>
               )}
