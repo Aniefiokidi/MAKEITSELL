@@ -692,6 +692,10 @@ export default function ServicesPage() {
                         src={service.images[0]}
                         alt={serviceName}
                         fill
+                        unoptimized
+                        onError={(event) => {
+                          event.currentTarget.src = "/placeholder.svg"
+                        }}
                         className="object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                     ) : (
@@ -715,6 +719,10 @@ export default function ServicesPage() {
                               src={avatarImage}
                               alt={`${service.providerName || serviceName} logo`}
                               fill
+                              unoptimized
+                              onError={(event) => {
+                                event.currentTarget.src = "/placeholder.svg"
+                              }}
                               className="object-cover"
                             />
                           ) : (
