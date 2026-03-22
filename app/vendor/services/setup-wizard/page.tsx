@@ -287,6 +287,7 @@ export default function ServiceSetupWizardPage() {
       ? Math.min(...normalizedPackages.map((pkg) => Number(pkg.price || 0)))
       : undefined
     const defaultPackage = normalizedPackages.find((pkg) => pkg.isDefault) || normalizedPackages[0]
+    const serviceImages = normalizedPackages.flatMap((pkg) => Array.isArray(pkg.images) ? pkg.images : [])
 
     const rentalOptions = formData.category === "rentals"
       ? {
@@ -315,7 +316,7 @@ export default function ServiceSetupWizardPage() {
       city: formData.city.trim(),
       tags: formData.tags.split(",").map((t) => t.trim()).filter(Boolean),
       availability,
-      images: [],
+      images: serviceImages.length > 0 ? serviceImages : (providerImage ? [providerImage] : []),
       featured: false,
       status: "active",
       packageOptions: normalizedPackages,

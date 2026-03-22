@@ -113,8 +113,27 @@ export default function VendorServicesPage() {
 
   const getServiceDisplayPrice = (service: any) => {
     const packages = (service?.packageOptions || []).filter((pkg: any) => pkg?.active !== false)
-    if (!packages.length) return Number(service?.price || 0)
-    return Math.min(...packages.map((pkg: any) => Number(pkg?.price || 0)))
+    const packagePrices = packages
+      .map((pkg: any) => Number(pkg?.price))
+      .filter((value: number) => Number.isFinite(value) && value > 0)
+    if (packagePrices.length > 0) return Math.min(...packagePrices)
+
+    const directPrice = Number(service?.price)
+    return Number.isFinite(directPrice) && directPrice > 0 ? directPrice : 0
+  }
+
+  const getServicePrimaryImage = (service: any) => {
+    if (Array.isArray(service?.images) && service.images.length > 0) {
+      return service.images[0]
+    }
+
+    const packageImage = (service?.packageOptions || [])
+      .find((pkg: any) => pkg?.active !== false && Array.isArray(pkg?.images) && pkg.images.length > 0)
+      ?.images?.[0]
+
+    if (packageImage) return packageImage
+    if (service?.providerImage) return service.providerImage
+    return ""
   }
 
   return (
@@ -222,9 +241,9 @@ export default function VendorServicesPage() {
               <Card key={service.id || service._id || index} className="overflow-hidden hover-lift">
                 {/* Service Image */}
                 <div className="relative h-48 bg-muted">
-                  {service.images && service.images.length > 0 ? (
+                  {getServicePrimaryImage(service) ? (
                     <img
-                      src={service.images[0]}
+                      src={getServicePrimaryImage(service)}
                       alt={service.title}
                       className="w-full h-full object-cover"
                     />
