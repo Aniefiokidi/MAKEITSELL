@@ -18,6 +18,8 @@ const UserSchema = new Schema({
   payoutProfile: { type: Schema.Types.Mixed },
   vendorInfo: { type: Schema.Types.Mixed },
   sessionToken: { type: String },
+  resetToken: { type: String },
+  resetTokenExpiry: { type: Date },
   isEmailVerified: { type: Boolean, default: false },
   emailVerificationToken: { type: String },
   emailVerificationTokenExpiry: { type: Date },

@@ -1,24 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { connectToDatabase } from '@/lib/mongodb'
-import mongoose from 'mongoose'
 import crypto from 'crypto'
 import { emailService } from '@/lib/email'
-
-// User schema (same as in auth.ts)
-const userSchema = new mongoose.Schema({
-  email: { type: String, unique: true },
-  passwordHash: String,
-  name: String,
-  role: { type: String, default: 'customer' },
-  vendorInfo: Object,
-  sessionToken: String,
-  resetToken: String,
-  resetTokenExpiry: Date,
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
-})
-
-const User = mongoose.models.User || mongoose.model('User', userSchema)
+import { User } from '@/lib/models/User'
 
 export async function POST(request: NextRequest) {
   try {

@@ -1,21 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { connectToDatabase } from '@/lib/mongodb'
-import mongoose from 'mongoose'
 import crypto from 'crypto'
-
-// User schema (same as in auth.ts)
-const userSchema = new mongoose.Schema({
-  email: { type: String, unique: true },
-  passwordHash: String,
-  name: String,
-  role: { type: String, default: 'customer' },
-  vendorInfo: Object,
-  sessionToken: String,
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
-})
-
-const User = mongoose.models.User || mongoose.model('User', userSchema)
+import { User } from '@/lib/models/User'
 
 function hashPassword(password: string) {
   return crypto.createHash('sha256').update(password).digest('hex')
