@@ -20,10 +20,20 @@ type ActivityStoreView = {
   ts: number
 }
 
+type ActivityServiceView = {
+  id: string
+  title?: string
+  category?: string
+  providerName?: string
+  location?: string
+  ts: number
+}
+
 type UserActivity = {
   searches: ActivitySearch[]
   productQuickViews: ActivityProductQuickView[]
   storeViews: ActivityStoreView[]
+  serviceViews: ActivityServiceView[]
 }
 
 type SyncServerResponse = {
@@ -54,10 +64,25 @@ type StoreLike = {
   productCount?: number
 }
 
+type ServiceLike = {
+  id?: string
+  _id?: string
+  title?: string
+  description?: string
+  category?: string
+  providerName?: string
+  state?: string
+  city?: string
+  location?: string
+  packageOptions?: Array<{ price?: number; active?: boolean }>
+  price?: number
+}
+
 const USER_ACTIVITY_KEY = "mis:user-activity:v1"
 const MAX_SEARCH_EVENTS = 60
 const MAX_PRODUCT_QUICK_VIEWS = 80
 const MAX_STORE_VIEWS = 80
+const MAX_SERVICE_VIEWS = 80
 const SYNC_DEBOUNCE_MS = 2200
 const SYNC_COOLDOWN_MS = 8000
 
@@ -98,6 +123,7 @@ const getDefaultActivity = (): UserActivity => ({
   searches: [],
   productQuickViews: [],
   storeViews: [],
+  serviceViews: [],
 })
 
 const loadActivity = (): UserActivity => {
@@ -112,6 +138,7 @@ const loadActivity = (): UserActivity => {
       searches: Array.isArray(parsed?.searches) ? parsed.searches : [],
       productQuickViews: Array.isArray(parsed?.productQuickViews) ? parsed.productQuickViews : [],
       storeViews: Array.isArray(parsed?.storeViews) ? parsed.storeViews : [],
+      serviceViews: Array.isArray(parsed?.serviceViews) ? parsed.serviceViews : [],
     }
   } catch {
     return getDefaultActivity()
@@ -143,6 +170,11 @@ const mergeActivities = (base: UserActivity, incoming: UserActivity): UserActivi
     (item) => toId(item.id),
     MAX_STORE_VIEWS
   ),
+  serviceViews: uniqueRecent(
+    [...(incoming.serviceViews || []), ...(base.serviceViews || [])],
+    (item) => toId(item.id),
+    MAX_SERVICE_VIEWS
+  ),
 })
 
 const parseServerActivity = (payload: unknown): UserActivity | null => {
@@ -153,6 +185,7 @@ const parseServerActivity = (payload: unknown): UserActivity | null => {
     searches: Array.isArray(typed.activity.searches) ? typed.activity.searches : [],
     productQuickViews: Array.isArray(typed.activity.productQuickViews) ? typed.activity.productQuickViews : [],
     storeViews: Array.isArray(typed.activity.storeViews) ? typed.activity.storeViews : [],
+    serviceViews: Array.isArray((typed.activity as any).serviceViews) ? (typed.activity as any).serviceViews : [],
   }
 }
 
@@ -331,6 +364,42 @@ export const trackStoreView = (store: {
   scheduleServerSync()
 }
 
+export const trackServiceView = (service: {
+  id?: string
+  _id?: string
+  title?: string
+  category?: string
+  providerName?: string
+  location?: string
+  state?: string
+  city?: string
+}) => {
+  const id = toId(service.id || service._id)
+  if (!id) return
+
+  const activity = loadActivity()
+  const now = Date.now()
+
+  const nextViews = uniqueRecent(
+    [
+      {
+        id,
+        title: service.title,
+        category: normalizeText(service.category),
+        providerName: normalizeText(service.providerName),
+        location: normalizeText(service.location || service.city || service.state),
+        ts: now,
+      },
+      ...(activity.serviceViews || []),
+    ],
+    (item) => item.id,
+    MAX_SERVICE_VIEWS
+  )
+
+  saveActivity({ ...activity, serviceViews: nextViews })
+  scheduleServerSync()
+}
+
 const categoryWeightsFromActivity = (activity: UserActivity) => {
   const weights = new Map<string, number>()
 
@@ -345,6 +414,13 @@ const categoryWeightsFromActivity = (activity: UserActivity) => {
     const category = normalizeText(item.category)
     if (!category) return
     const recencyWeight = Math.max(2, 12 - index)
+    weights.set(category, (weights.get(category) || 0) + recencyWeight)
+  })
+
+  ;(activity.serviceViews || []).slice(0, 30).forEach((item, index) => {
+    const category = normalizeText(item.category)
+    if (!category) return
+    const recencyWeight = Math.max(2, 14 - index)
     weights.set(category, (weights.get(category) || 0) + recencyWeight)
   })
 
@@ -368,6 +444,13 @@ const storeNameWeightsFromActivity = (activity: UserActivity) => {
     weights.set(storeName, (weights.get(storeName) || 0) + recencyWeight)
   })
 
+  ;(activity.serviceViews || []).slice(0, 40).forEach((item, index) => {
+    const providerName = normalizeText(item.providerName)
+    if (!providerName) return
+    const recencyWeight = Math.max(2, 16 - index)
+    weights.set(providerName, (weights.get(providerName) || 0) + recencyWeight)
+  })
+
   return weights
 }
 
@@ -382,6 +465,8 @@ const searchTokensFromActivity = (activity: UserActivity) => {
 const recentProductIds = (activity: UserActivity) => new Set(activity.productQuickViews.slice(0, 20).map((x) => x.id))
 
 const recentStoreIds = (activity: UserActivity) => new Set(activity.storeViews.slice(0, 20).map((x) => x.id))
+
+const recentServiceIds = (activity: UserActivity) => new Set((activity.serviceViews || []).slice(0, 20).map((x) => x.id))
 
 const getLegacyRecentlyViewedCategories = () => {
   if (!canUseStorage()) return new Map<string, number>()
@@ -497,4 +582,59 @@ export const personalizeStores = <T extends StoreLike>(stores: T[]): T[] => {
       return a.index - b.index
     })
     .map((item) => item.store)
+}
+
+export const personalizeServices = <T extends ServiceLike>(services: T[]): T[] => {
+  if (!services.length || !canUseStorage()) return services
+
+  const activity = loadActivity()
+  const categoryWeights = categoryWeightsFromActivity(activity)
+  const providerWeights = storeNameWeightsFromActivity(activity)
+  const searchTokens = searchTokensFromActivity(activity)
+  const viewedServiceIds = recentServiceIds(activity)
+
+  const scored = services.map((service, index) => {
+    const id = toId(service.id || service._id)
+    const category = normalizeText(service.category)
+    const providerName = normalizeText(service.providerName)
+    const location = normalizeText(service.location || service.city || service.state)
+    const haystack = normalizeText(`${service.title || ""} ${service.description || ""} ${category} ${providerName} ${location}`)
+
+    const packagePrices = Array.isArray(service.packageOptions)
+      ? service.packageOptions
+          .filter((pkg) => pkg && pkg.active !== false)
+          .map((pkg) => Number(pkg.price || 0))
+          .filter((price) => Number.isFinite(price) && price > 0)
+      : []
+    const basePrice = packagePrices.length > 0 ? Math.min(...packagePrices) : Number(service.price || 0)
+
+    let score = 0
+
+    score += (categoryWeights.get(category) || 0) * 1.6
+    score += (providerWeights.get(providerName) || 0) * 1.4
+
+    if (id && viewedServiceIds.has(id)) {
+      score += 40
+    }
+
+    searchTokens.forEach((token) => {
+      if (haystack.includes(token)) score += 3
+    })
+
+    if (Number.isFinite(basePrice) && basePrice > 0) {
+      score += Math.max(0, 20 - Math.min(basePrice / 5000, 20))
+    }
+
+    return { service, score, index }
+  })
+
+  const hasSignal = scored.some((item) => item.score > 0)
+  if (!hasSignal) return services
+
+  return scored
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score
+      return a.index - b.index
+    })
+    .map((item) => item.service)
 }

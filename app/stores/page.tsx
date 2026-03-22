@@ -121,7 +121,7 @@ export default function ShopPage() {
       params.append("page", String(currentPage))
       params.append("limit", String(itemsPerPage))
       
-      const response = await fetch(`/api/database/stores?${params}`)
+      const response = await fetch(`/api/database/stores?${params}`, { cache: "no-store" })
       const data = await response.json()
       
       if (data.success) {
@@ -247,13 +247,21 @@ export default function ShopPage() {
   const renderPaginationControls = () => {
     if (loading || totalPages <= 1) return null
 
+    const changePage = (nextPage: number) => {
+      if (nextPage === currentPage) return
+      setCurrentPage(nextPage)
+      if (typeof window !== "undefined") {
+        window.scrollTo({ top: 0, behavior: "smooth" })
+      }
+    }
+
     return (
       <div className="flex items-center justify-center gap-2 flex-wrap">
         <Button
           variant="outline"
           size="sm"
           disabled={currentPage === 1}
-          onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+          onClick={() => changePage(Math.max(1, currentPage - 1))}
         >
           Previous
         </Button>
@@ -263,7 +271,7 @@ export default function ShopPage() {
               key={`page-${item}`}
               variant={item === currentPage ? "default" : "outline"}
               size="sm"
-              onClick={() => setCurrentPage(item)}
+              onClick={() => changePage(item)}
               className="min-w-9"
             >
               {item}
@@ -276,7 +284,7 @@ export default function ShopPage() {
           variant="outline"
           size="sm"
           disabled={currentPage === totalPages}
-          onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+          onClick={() => changePage(Math.min(totalPages, currentPage + 1))}
         >
           Next
         </Button>

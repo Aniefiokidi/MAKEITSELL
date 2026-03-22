@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getServices, Service } from "@/lib/database-client"
+import { initPersonalizationSync, personalizeServices, trackSearch, trackServiceView } from "@/lib/personalization"
 import { Search, Clock, Banknote, Verified, RefreshCw, Camera, Briefcase, Wrench, Palette, Dumbbell, GraduationCap, Scissors, Sparkles, Laptop, Settings, Store, ArrowRight, Car, Megaphone, Shield, HeartPulse, Truck, Home, CarTaxiFront, Music2, Coffee, Users } from "lucide-react"
 import Image from "next/image"
 
@@ -238,6 +239,21 @@ export default function ServicesPage() {
     fetchServices()
   }, [])
 
+  useEffect(() => {
+    void initPersonalizationSync()
+  }, [])
+
+  useEffect(() => {
+    const normalized = searchQuery.trim()
+    if (!normalized) return
+
+    const timeout = setTimeout(() => {
+      trackSearch(normalized, "services")
+    }, 300)
+
+    return () => clearTimeout(timeout)
+  }, [searchQuery])
+
   const saveScrollPosition = () => {
     if (typeof window === "undefined") return
     sessionStorage.setItem(SERVICES_SCROLL_KEY, String(window.scrollY))
@@ -314,7 +330,7 @@ export default function ServicesPage() {
         const parsedServices = JSON.parse(cachedServices)
         const cacheIsFresh = (now - parseInt(cacheTimestamp)) < 300000
         if (cacheIsFresh && Array.isArray(parsedServices) && parsedServices.length > 0) {
-          setServices(parsedServices)
+          setServices(personalizeServices(parsedServices))
           console.log(`Loaded ${parsedServices.length} services from cache`)
           setLoading(false)
           return
@@ -330,7 +346,7 @@ export default function ServicesPage() {
         sessionStorage.setItem('marketplace-services-timestamp', now.toString())
       }
       
-      setServices(firestoreServices)
+      setServices(personalizeServices(firestoreServices))
       console.log(`Loaded ${firestoreServices.length} real services from registered providers`)
     } catch (error) {
       console.error("Error loading services:", error)
@@ -357,7 +373,7 @@ export default function ServicesPage() {
         sessionStorage.setItem('marketplace-services-timestamp', Date.now().toString())
       }
       
-      setServices(firestoreServices)
+      setServices(personalizeServices(firestoreServices))
       console.log(`Refreshed: ${firestoreServices.length} real services from registered providers`)
     } catch (error) {
       console.error("Error refreshing services:", error)
@@ -730,6 +746,7 @@ export default function ServicesPage() {
                         {/* Arrow Button */}
                         <div
                           onClick={() => {
+                            trackServiceView(service)
                             saveScrollPosition()
                             window.dispatchEvent(new CustomEvent('slideOutNavigate', { detail: { target: `/service/${service.id}` } }));
                           }}

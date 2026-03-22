@@ -25,15 +25,26 @@ type ActivityStoreView = {
   ts: number
 }
 
+type ActivityServiceView = {
+  id: string
+  title?: string
+  category?: string
+  providerName?: string
+  location?: string
+  ts: number
+}
+
 type UserActivity = {
   searches: ActivitySearch[]
   productQuickViews: ActivityProductQuickView[]
   storeViews: ActivityStoreView[]
+  serviceViews: ActivityServiceView[]
 }
 
 const MAX_SEARCH_EVENTS = 60
 const MAX_PRODUCT_QUICK_VIEWS = 80
 const MAX_STORE_VIEWS = 80
+const MAX_SERVICE_VIEWS = 80
 
 const normalizeText = (value: unknown) => String(value || "").toLowerCase().trim()
 const toId = (value: unknown) => String(value || "").trim()
@@ -42,6 +53,7 @@ const defaultActivity = (): UserActivity => ({
   searches: [],
   productQuickViews: [],
   storeViews: [],
+  serviceViews: [],
 })
 
 const uniqueRecent = <T>(items: T[], keyFn: (item: T) => string, max: number) => {
@@ -66,6 +78,7 @@ const sanitizeActivity = (value: any): UserActivity => {
   const searchesRaw = Array.isArray(parsed.searches) ? parsed.searches : []
   const productViewsRaw = Array.isArray(parsed.productQuickViews) ? parsed.productQuickViews : []
   const storeViewsRaw = Array.isArray(parsed.storeViews) ? parsed.storeViews : []
+  const serviceViewsRaw = Array.isArray(parsed.serviceViews) ? parsed.serviceViews : []
 
   const searches = uniqueRecent<ActivitySearch>(
     searchesRaw
@@ -107,7 +120,22 @@ const sanitizeActivity = (value: any): UserActivity => {
     MAX_STORE_VIEWS
   )
 
-  return { searches, productQuickViews, storeViews }
+  const serviceViews = uniqueRecent<ActivityServiceView>(
+    serviceViewsRaw
+      .map((entry: any) => ({
+        id: toId(entry?.id),
+        title: String(entry?.title || "").trim(),
+        category: normalizeText(entry?.category),
+        providerName: normalizeText(entry?.providerName),
+        location: normalizeText(entry?.location),
+        ts: Number(entry?.ts) || Date.now(),
+      }))
+      .filter((entry: ActivityServiceView) => !!entry.id),
+    (entry: ActivityServiceView) => entry.id,
+    MAX_SERVICE_VIEWS
+  )
+
+  return { searches, productQuickViews, storeViews, serviceViews }
 }
 
 const mergeActivities = (current: UserActivity, incoming: UserActivity): UserActivity => {
@@ -126,6 +154,11 @@ const mergeActivities = (current: UserActivity, incoming: UserActivity): UserAct
       [...incoming.storeViews, ...current.storeViews],
       (entry: ActivityStoreView) => entry.id,
       MAX_STORE_VIEWS
+    ),
+    serviceViews: uniqueRecent<ActivityServiceView>(
+      [...incoming.serviceViews, ...current.serviceViews],
+      (entry: ActivityServiceView) => entry.id,
+      MAX_SERVICE_VIEWS
     ),
   }
 }
