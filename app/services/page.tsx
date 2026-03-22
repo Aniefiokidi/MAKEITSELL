@@ -154,6 +154,25 @@ const isPdfAsset = (url?: string) => {
   return /\.pdf(\?|#|$)/i.test(url)
 }
 
+const getServiceAvatarImage = (service: Service) => {
+  if (service.providerImage && !isPdfAsset(service.providerImage)) {
+    return service.providerImage
+  }
+
+  const directServiceImage = Array.isArray(service.images)
+    ? service.images.find((img) => typeof img === "string" && img.trim() && !isPdfAsset(img))
+    : undefined
+  if (directServiceImage) return directServiceImage
+
+  const packageImage = Array.isArray(service.packageOptions)
+    ? service.packageOptions
+        .flatMap((pkg) => Array.isArray(pkg?.images) ? pkg.images : [])
+        .find((img) => typeof img === "string" && img.trim() && !isPdfAsset(img))
+    : undefined
+
+  return packageImage || ""
+}
+
 export default function ServicesPage() {
   const SERVICES_SCROLL_KEY = "mis:scroll:services:list:v1"
   const router = useRouter()
@@ -642,6 +661,7 @@ export default function ServicesPage() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4 animate-in fade-in duration-500">
             {filteredServices.map((service, index) => {
               const serviceName = service.title || 'Service'
+              const avatarImage = getServiceAvatarImage(service)
               
               return (
                 <Card 
@@ -674,9 +694,9 @@ export default function ServicesPage() {
                     <div className="absolute top-3 sm:top-4 left-1/2 -translate-x-1/2 z-20">
                       <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-white/20 backdrop-blur-md border-3 sm:border-4 border-white overflow-hidden shadow-2xl ring-3 sm:ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110">
                         <div className="w-full h-full relative flex items-center justify-center">
-                          {service.providerImage && !isPdfAsset(service.providerImage) ? (
+                          {avatarImage ? (
                             <Image
-                              src={service.providerImage}
+                              src={avatarImage}
                               alt={`${service.providerName || serviceName} logo`}
                               fill
                               className="object-cover"
