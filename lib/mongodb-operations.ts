@@ -349,11 +349,26 @@ const normalizeServicePricing = (service: any) => {
     normalizedPackages.find((pkg: any) => pkg.isDefault) ||
     normalizedPackages[0];
 
-  const minPrice = Math.min(...normalizedPackages.map((pkg: any) => Number(pkg.price || 0)));
-  const normalizedPrice = Number.isFinite(minPrice) ? minPrice : Number(service?.price || 0) || 0;
+  const validPackagePrices = normalizedPackages
+    .map((pkg: any) => Number(pkg.price || 0))
+    .filter((value: number) => Number.isFinite(value) && value > 0);
+
+  const fallbackPrice = Number(service?.price || 0);
+  const normalizedPrice = validPackagePrices.length > 0
+    ? Math.min(...validPackagePrices)
+    : (Number.isFinite(fallbackPrice) && fallbackPrice > 0 ? fallbackPrice : 0);
+
+  const primaryPackageImages = normalizedPackages
+    .flatMap((pkg: any) => Array.isArray(pkg?.images) ? pkg.images : [])
+    .filter((img: any) => typeof img === 'string' && img.trim());
+
+  const normalizedImages = Array.isArray(service?.images) && service.images.length > 0
+    ? service.images
+    : (primaryPackageImages.length > 0 ? primaryPackageImages : (service?.providerImage ? [service.providerImage] : []));
 
   return {
     ...service,
+    images: normalizedImages,
     packageOptions: normalizedPackages,
     addOnOptions: Array.isArray(service?.addOnOptions) ? service.addOnOptions : [],
     requiresQuote: Boolean(service?.requiresQuote),
