@@ -5,6 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -117,6 +118,14 @@ export default function LoginForm() {
   return (
     <Card className="w-full max-w-md mx-auto animate-scale-in">
       <CardHeader className="text-center animate-fade-in">
+        <Image
+          src="/images/logo2.png"
+          alt="Make It Sell logo"
+          width={100}
+          height={96}
+          className="mx-auto mb-3 h-24 w-54 rounded-full object-contain"
+          priority
+        />
         <CardTitle className="text-2xl font-bold" style={{ textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))' }}>Welcome Back</CardTitle>
         <CardDescription>Sign in to your Make It Sell account</CardDescription>
       </CardHeader>
@@ -212,6 +221,12 @@ export default function LoginForm() {
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Sign In
           </Button>
+
+          <Link href="/" className="w-full">
+            <Button type="button" variant="outline" className="w-full">
+              Back to Home
+            </Button>
+          </Link>
 
           <p className="text-center text-sm text-muted-foreground">
             Don't have an account?{" "}

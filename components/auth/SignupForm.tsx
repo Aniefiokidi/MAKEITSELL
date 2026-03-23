@@ -519,6 +519,12 @@ export default function SignupForm() {
             }
           </Button>
 
+          <Link href="/" className="w-full">
+            <Button type="button" variant="outline" className="w-full">
+              Back to Home
+            </Button>
+          </Link>
+
           <p className="text-center text-sm text-muted-foreground">
             Already have an account?{" "}
             <Link href="/login" className="text-accent hover:underline">
