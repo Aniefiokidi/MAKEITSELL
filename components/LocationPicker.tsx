@@ -34,21 +34,26 @@ export default function LocationPicker({
   const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_API_KEY
 
   const searchLocation = useCallback(async (query: string) => {
-    if (!query || query.length < 3 || !MAPBOX_TOKEN) {
+    if (!query || query.length < 2) {
+      setSuggestions([])
+      return
+    }
+
+    if (!MAPBOX_TOKEN) {
       setSuggestions([])
       return
     }
 
     setLoading(true)
     try {
-      const response = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${MAPBOX_TOKEN}&country=NG&types=place,locality,neighborhood,address&limit=5`
-      )
+      const response = await fetch(`/api/maps/autocomplete?input=${encodeURIComponent(query)}&region=ng`)
       const data = await response.json()
       
-      if (data.features) {
-        setSuggestions(data.features)
+      if (Array.isArray(data.predictions)) {
+        setSuggestions(data.predictions)
         setShowSuggestions(true)
+      } else {
+        setSuggestions([])
       }
     } catch (error) {
       console.error('Error fetching location suggestions:', error)
@@ -69,8 +74,8 @@ export default function LocationPicker({
   }, [searchQuery, searchLocation])
 
   const handleSelectLocation = (feature: any) => {
-    const address = feature.place_name
-    const [lng, lat] = feature.center
+    const address = feature.place_name || feature.description || ''
+    const [lng, lat] = Array.isArray(feature.center) ? feature.center : [undefined, undefined]
     
     // Extract city, state, country from context
     const city = feature.context?.find((c: any) => c.id.startsWith('place'))?.text
@@ -82,10 +87,20 @@ export default function LocationPicker({
     
     onLocationSelect({
       address,
-      coordinates: { lat, lng },
+      coordinates: (typeof lat === 'number' && typeof lng === 'number') ? { lat, lng } : undefined,
       city,
       state,
       country
+    })
+  }
+
+  const handleUseTypedAddress = () => {
+    const address = (value !== undefined ? value : searchQuery).trim()
+    if (!address) return
+
+    setShowSuggestions(false)
+    onLocationSelect({
+      address,
     })
   }
 
@@ -121,13 +136,30 @@ export default function LocationPicker({
               onClick={() => handleSelectLocation(suggestion)}
               className="w-full px-4 py-3 text-left hover:bg-accent hover:text-accent-foreground transition-colors flex items-start gap-2 border-b last:border-b-0"
             >
-              <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
+              <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{suggestion.text}</p>
                 <p className="text-xs text-muted-foreground truncate">{suggestion.place_name}</p>
               </div>
             </button>
           ))}
+        </div>
+      )}
+
+      {(value !== undefined ? value : searchQuery).trim().length >= 3 && (
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <p className="text-xs text-muted-foreground truncate">
+            Can&apos;t find your exact street?
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleUseTypedAddress}
+            className="shrink-0"
+          >
+            Use typed address
+          </Button>
         </div>
       )}
 
