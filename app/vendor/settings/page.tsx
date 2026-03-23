@@ -8,14 +8,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import ThemeSelect from "@/components/vendor/ThemeSelect"
 import { useAuth } from "@/contexts/AuthContext"
 import { Settings, Save, Shield, Bell, Palette, Globe, Trash2, AlertTriangle } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 
 export default function VendorSettingsPage() {
-    // Add next-themes logic
-    const { setTheme } = require('next-themes').useTheme?.() || {};
   const { user, userProfile, logout } = useAuth()
   const [loading, setLoading] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
@@ -43,7 +40,6 @@ export default function VendorSettingsPage() {
     sessionTimeout: "30",
 
     // Appearance Settings
-    theme: "light",
     language: "en",
     timezone: "UTC-8",
   })
@@ -67,9 +63,6 @@ export default function VendorSettingsPage() {
       ...prev,
       [field]: value
     }))
-    if (field === "theme" && setTheme) {
-      setTheme(value);
-    }
   }
 
   const handleDeleteAccount = async () => {
@@ -291,12 +284,7 @@ export default function VendorSettingsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label>Theme</Label>
-                    <ThemeSelect value={settings.theme} onValueChange={(v: string) => handleInputChange("theme", v)} />
-                  </div>
-
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Language</Label>
                     <Select

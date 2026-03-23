@@ -501,17 +501,17 @@ export default function AllProductsPage() {
             {/* Header Section */}
             <div className="mb-4 sm:mb-8 animate-fade-in">
               <nav className="text-xs sm:text-sm text-accent mb-2 sm:mb-4">
-                <Link href="/" onClick={saveScrollPosition} className="hover:text-accent text-accent dark:text-white">
+                <Link href="/" onClick={saveScrollPosition} className="hover:text-accent text-accent">
                   Home
                 </Link>
-                <span className="mx-2 text-accent dark:text-white">/</span>
-                <span className="text-accent dark:text-white">Products</span>
+                <span className="mx-2 text-accent">/</span>
+                <span className="text-accent">Products</span>
               </nav>
               
               <div className="flex flex-col md:flex-row items-center md:items-center justify-center md:justify-between gap-4 mb-6">
                 <div className="text-center md:text-left">
                   <h1
-                    className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold mb-2 text-accent dark:text-white tracking-tight"
+                    className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold mb-2 text-accent tracking-tight"
                     style={{
                       fontFamily: 'Inter, Poppins, Arial, Helvetica, sans-serif',
                       textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))'
@@ -519,14 +519,14 @@ export default function AllProductsPage() {
                   >
                     ALL PRODUCTS
                   </h1>
-                  <p className="text-accent dark:text-white text-xs sm:text-base md:text-lg">
+                  <p className="text-accent text-xs sm:text-base md:text-lg">
                     Discover amazing products from all our vendors
                   </p>
                 </div>
                 <div className="flex items-center gap-4 text-sm md:text-base ">
                   <div className="bg-accent/20 backdrop-blur-sm px-4 py-2 rounded-full border border-accent/40 shadow-lg">
-                    <span className="font-bold text-accent dark:text-white drop-shadow-sm">{totalProducts}</span>
-                    <span className="text-accent dark:text-white ml-1">Products</span>
+                    <span className="font-bold text-accent drop-shadow-sm">{totalProducts}</span>
+                    <span className="text-accent ml-1">Products</span>
                   </div>
                   <Button
                     onClick={handleRefresh}
@@ -580,10 +580,10 @@ export default function AllProductsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Prices</SelectItem>
-                  <SelectItem value="0-5000">₦0 - ₦5,000</SelectItem>
-                  <SelectItem value="5000-20000">₦5,000 - ₦20,000</SelectItem>
-                  <SelectItem value="20000-100000">₦20,000 - ₦100,000</SelectItem>
-                  <SelectItem value="100000+">₦100,000+</SelectItem>
+                  <SelectItem value="0-5000">NGN 0 - NGN 5,000</SelectItem>
+                  <SelectItem value="5000-20000">NGN 5,000 - NGN 20,000</SelectItem>
+                  <SelectItem value="20000-100000">NGN 20,000 - NGN 100,000</SelectItem>
+                  <SelectItem value="100000+">NGN 100,000+</SelectItem>
                 </SelectContent>
               </Select>
 

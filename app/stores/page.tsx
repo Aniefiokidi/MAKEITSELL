@@ -117,7 +117,7 @@ export default function ShopPage() {
         params.append("location", selectedLocation)
       }
 
-      params.append("sortBy", sortBy === "for-you" ? "name" : sortBy)
+      params.append("sortBy", sortBy)
       params.append("page", String(currentPage))
       params.append("limit", String(itemsPerPage))
       

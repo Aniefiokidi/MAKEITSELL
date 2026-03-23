@@ -63,7 +63,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    <ThemeProvider>
       <div className="flex min-h-screen bg-background flex-col lg:flex-row">
       {/* Desktop Sidebar */}
       <div className="hidden lg:flex">

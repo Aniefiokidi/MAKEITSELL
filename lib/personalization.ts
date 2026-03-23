@@ -58,10 +58,19 @@ type StoreLike = {
   _id?: string
   name?: string
   storeName?: string
+  logo?: string
   category?: string
   location?: string
   city?: string
   productCount?: number
+  storeImage?: string
+  logoImage?: string
+  profileImage?: string
+  profileCardImage?: string
+  bannerImage?: string
+  backgroundImage?: string
+  productImages?: string[]
+  featuredProduct?: { image?: string }
 }
 
 type ServiceLike = {
@@ -71,10 +80,15 @@ type ServiceLike = {
   description?: string
   category?: string
   providerName?: string
+  providerImage?: string
+  profileImage?: string
+  profileCardImage?: string
   state?: string
   city?: string
   location?: string
   packageOptions?: Array<{ price?: number; active?: boolean }>
+  images?: string[]
+  productCount?: number
   price?: number
 }
 
@@ -468,6 +482,58 @@ const recentStoreIds = (activity: UserActivity) => new Set(activity.storeViews.s
 
 const recentServiceIds = (activity: UserActivity) => new Set((activity.serviceViews || []).slice(0, 20).map((x) => x.id))
 
+const hasNonEmptyString = (value: unknown) => typeof value === "string" && value.trim().length > 0
+
+const isMeaningfulImageValue = (value: unknown) => {
+  if (typeof value !== "string") return false
+  const normalized = value.trim().toLowerCase()
+  if (!normalized) return false
+  if (/placeholder|default|no[-_ ]?image/.test(normalized)) return false
+  return true
+}
+
+const storeCompletenessTier = (store: StoreLike) => {
+  const hasLogo =
+    isMeaningfulImageValue(store.storeImage) ||
+    isMeaningfulImageValue(store.logoImage) ||
+    isMeaningfulImageValue(store.logo)
+
+  const hasProfileCardImage =
+    isMeaningfulImageValue(store.profileImage) ||
+    isMeaningfulImageValue(store.profileCardImage) ||
+    isMeaningfulImageValue(store.bannerImage) ||
+    isMeaningfulImageValue(store.backgroundImage)
+
+  const hasProductsPosted =
+    Number(store.productCount || 0) > 0 ||
+    (Array.isArray(store.productImages) && store.productImages.some((img) => hasNonEmptyString(img))) ||
+    hasNonEmptyString(store.featuredProduct?.image)
+
+  const hasStoreCardImage = hasLogo || hasProfileCardImage
+
+  if (hasProductsPosted && hasStoreCardImage) return 4
+  if (hasStoreCardImage) return 3
+  if (hasProductsPosted) return 2
+  return 1
+}
+
+const serviceCompletenessTier = (service: ServiceLike) => {
+  const hasLogo = hasNonEmptyString(service.providerImage)
+
+  const hasProfileCardImage =
+    hasNonEmptyString(service.profileImage) ||
+    hasNonEmptyString(service.profileCardImage) ||
+    (Array.isArray(service.images) && service.images.some((img) => hasNonEmptyString(img)))
+
+  const hasProductsPosted =
+    Number(service.productCount || 0) > 0 ||
+    (Array.isArray(service.packageOptions) && service.packageOptions.some((pkg) => pkg && Number(pkg.price || 0) > 0))
+
+  if (hasProductsPosted && hasLogo && hasProfileCardImage) return 3
+  if (hasProductsPosted || hasLogo || hasProfileCardImage) return 2
+  return 1
+}
+
 const getLegacyRecentlyViewedCategories = () => {
   if (!canUseStorage()) return new Map<string, number>()
 
@@ -570,14 +636,16 @@ export const personalizeStores = <T extends StoreLike>(stores: T[]): T[] => {
 
     score += Math.min(Number(store.productCount || 0), 300) * 0.05
 
-    return { store, score, index }
+    return { store, score, completenessTier: storeCompletenessTier(store), index }
   })
 
   const hasSignal = scored.some((item) => item.score > 0)
-  if (!hasSignal) return stores
+  const hasCompletenessSignal = scored.some((item) => item.completenessTier !== 2)
+  if (!hasSignal && !hasCompletenessSignal) return stores
 
   return scored
     .sort((a, b) => {
+      if (b.completenessTier !== a.completenessTier) return b.completenessTier - a.completenessTier
       if (b.score !== a.score) return b.score - a.score
       return a.index - b.index
     })
@@ -625,14 +693,16 @@ export const personalizeServices = <T extends ServiceLike>(services: T[]): T[] =
       score += Math.max(0, 20 - Math.min(basePrice / 5000, 20))
     }
 
-    return { service, score, index }
+    return { service, score, completenessTier: serviceCompletenessTier(service), index }
   })
 
   const hasSignal = scored.some((item) => item.score > 0)
-  if (!hasSignal) return services
+  const hasCompletenessSignal = scored.some((item) => item.completenessTier !== 2)
+  if (!hasSignal && !hasCompletenessSignal) return services
 
   return scored
     .sort((a, b) => {
+      if (b.completenessTier !== a.completenessTier) return b.completenessTier - a.completenessTier
       if (b.score !== a.score) return b.score - a.score
       return a.index - b.index
     })

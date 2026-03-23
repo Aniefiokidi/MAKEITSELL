@@ -566,8 +566,8 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
     <header
       className={
         `sticky top-0 z-50 w-full pt-1.5 pb-2 ${homeBg
-          ? 'bg-white/45 dark:bg-black/35 supports-backdrop-filter:bg-white/30 dark:supports-backdrop-filter:bg-black/25 backdrop-blur-xl border-b border-white/40 dark:border-white/10' 
-          : 'bg-white/95 dark:bg-background dark:text-foreground backdrop-blur-md'}
+          ? 'bg-white/45 supports-backdrop-filter:bg-white/30 backdrop-blur-xl border-b border-white/40' 
+          : 'bg-white/95 backdrop-blur-md'}
         `
         
       }
@@ -581,12 +581,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                     background-size: 200% 200%;
                     animation: gradientWave 12s ease-in-out infinite;
                   }
-                  .dark .animated-gradient-bg {
-                    background: linear-gradient(120deg, #000 0%, #1a2236 60%, #000 100%);
-                    background-size: 200% 200%;
-                    animation: gradientWave 12s ease-in-out infinite;
-                  }
-                  @keyframes gradientWave {
+@keyframes gradientWave {
                     0% { background-position: 0% 50%; }
                     50% { background-position: 100% 50%; }
                     100% { background-position: 0% 50%; }
@@ -608,7 +603,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
               }}
             />
             <span 
-              className="text-lg sm:text-2xl lg:text-3xl font-bold text-[oklch(0.21_0.194_29.234)] dark:text-foreground hidden uppercase"
+              className="text-lg sm:text-2xl lg:text-3xl font-bold text-[oklch(0.21_0.194_29.234)] hidden uppercase"
               style={{ fontFamily: 'serif' }}
             >
               MAKE IT SELL
@@ -627,8 +622,8 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                   href={`/${link.toLowerCase()}`}
                   className={`relative px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm rounded-full font-medium transition-all duration-300 ${
                     isActive
-                      ? "bg-white/20 backdrop-blur-md border border-white/30 text-[oklch(0.21_0.194_29.234)] dark:text-accent shadow-lg shadow-accent/10 dark:shadow-accent/20"
-                      : "text-gray-700 dark:text-foreground hover:text-[oklch(0.21_0.194_29.234)] dark:hover:text-accent group"
+                      ? "bg-white/20 backdrop-blur-md border border-white/30 text-[oklch(0.21_0.194_29.234)] shadow-lg shadow-accent/10"
+                      : "text-gray-700 hover:text-[oklch(0.21_0.194_29.234)] group"
                   }`}
                 >
                   {isActive && (
@@ -653,7 +648,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                   )}
                   <span className="relative z-10">{link.toUpperCase()}</span>
                   {!isActive && (
-                    <span className="absolute bottom-1 left-0 w-0 h-0.5 bg-[oklch(0.21_0.194_29.234)] dark:bg-accent transition-all duration-300 group-hover:w-full"></span>
+                    <span className="absolute bottom-1 left-0 w-0 h-0.5 bg-[oklch(0.21_0.194_29.234)] transition-all duration-300 group-hover:w-full"></span>
                   )}
                 </Link>
               )
@@ -673,7 +668,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                   }
                 }}
                 title={userProfile?.role === "vendor" ? "Click to manage vendor wallet" : "Open wallet"}
-                className="flex items-center gap-1 rounded-full border border-[oklch(0.21_0.194_29.234)]/25 bg-white/90 dark:bg-background/90 px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-medium text-[oklch(0.21_0.194_29.234)] dark:text-accent hover:bg-accent/10 dark:hover:bg-accent/20 transition-colors cursor-pointer"
+                className="flex items-center gap-1 rounded-full border border-[oklch(0.21_0.194_29.234)]/25 bg-white/90 px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-medium text-[oklch(0.21_0.194_29.234)] hover:bg-accent/10 transition-colors cursor-pointer"
               >
                 <Wallet className="h-3.5 w-3.5" />
                 <span>{formattedWalletBalance}</span>
@@ -692,7 +687,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
               <div className="hidden xl:flex items-center gap-3">
                 {loading ? (
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-muted animate-pulse"></div>
+                    <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse"></div>
                   </div>
                 ) : (
                   <>
@@ -700,7 +695,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="border-2 border-[oklch(0.21_0.194_29.234)] text-[oklch(0.21_0.194_29.234)] dark:border-accent dark:text-accent hover:bg-[oklch(0.21_0.194_29.234)] dark:hover:bg-accent hover:text-white dark:hover:text-background font-semibold transition-all duration-300 shadow-sm hover:shadow-md"
+                        className="border-2 border-[oklch(0.21_0.194_29.234)] text-[oklch(0.21_0.194_29.234)] hover:bg-[oklch(0.21_0.194_29.234)] hover:text-white font-semibold transition-all duration-300 shadow-sm hover:shadow-md"
                       >
                         SIGN IN
                       </Button>
@@ -708,7 +703,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                     <Link href="/signup">
                       <Button
                         size="sm"
-                        className="bg-white dark:bg-background text-[oklch(0.21_0.194_29.234)] dark:text-accent border-2 border-[oklch(0.21_0.194_29.234)] dark:border-accent hover:bg-[oklch(0.21_0.194_29.234)] dark:hover:bg-accent hover:text-white dark:hover:text-background font-semibold transition-all duration-300 shadow-md hover:shadow-lg"
+                        className="bg-white text-[oklch(0.21_0.194_29.234)] border-2 border-[oklch(0.21_0.194_29.234)] hover:bg-[oklch(0.21_0.194_29.234)] hover:text-white font-semibold transition-all duration-300 shadow-md hover:shadow-lg"
                       >
                         JOIN US
                       </Button>
@@ -722,7 +717,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
             <Button
               variant="ghost"
               size="icon"
-              className="block xl:hidden hover:bg-accent/10 dark:hover:bg-accent/20"
+              className="block xl:hidden hover:bg-accent/10"
               onClick={() => setIsMenuOpen((v) => !v)}
             >
               {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -754,7 +749,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                     onClick={() => setActiveWalletView("topup")}
                     className="h-24 flex flex-col items-center justify-center"
                   >
-                    <div className="text-2xl mb-1">💰</div>
+                    <div className="text-2xl mb-1">+</div>
                     <span>Top up</span>
                   </Button>
                   <Button
@@ -762,7 +757,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                     variant="outline"
                     className="h-24 flex flex-col items-center justify-center"
                   >
-                    <div className="text-2xl mb-1">💳</div>
+                    <div className="text-2xl mb-1">-</div>
                     <span>Withdraw</span>
                   </Button>
                 </div>
@@ -880,7 +875,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
 
                 {/* PIN SETUP SECTION */}
                 {!hasWithdrawalPin && (
-                  <div className="space-y-3 rounded-md bg-blue-50 dark:bg-blue-950 p-3 border border-blue-200 dark:border-blue-800">
+                  <div className="space-y-3 rounded-md bg-blue-50 p-3 border border-blue-200">
                     <p className="text-sm font-medium">Set your Withdrawal PIN</p>
                     <p className="text-xs text-muted-foreground">You must set a 4-digit PIN before you can withdraw funds.</p>
 
@@ -1020,7 +1015,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                     <div>
                       <label className="text-xs font-medium">Bank</label>
                       <select
-                        className="w-full border rounded px-3 py-2 text-sm bg-white dark:bg-neutral-900"
+                        className="w-full border rounded px-3 py-2 text-sm bg-white"
                         value={bankCode}
                         onChange={(e) => handleBankChange(e.target.value)}
                         disabled={verifyLoading || banks.length === 0}
@@ -1113,7 +1108,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
 
       {/* Drawer Panel */}
       <div
-        className={`fixed top-0 right-0 h-screen max-w-xs transform-gpu bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 shadow-xl z-100 flex flex-col overflow-hidden xl:hidden ${
+        className={`fixed top-0 right-0 h-screen max-w-xs transform-gpu bg-linear-to-br from-gray-50 to-gray-100 shadow-xl z-100 flex flex-col overflow-hidden xl:hidden ${
           isMenuOpen ? "pointer-events-auto" : "pointer-events-none"
         }`}
         style={{
@@ -1127,7 +1122,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
         }}
       >
               {/* Header */}
-              <div className="flex items-center justify-between p-3 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between p-3 sm:p-6 border-b border-gray-200">
                 <img
                   src="/images/logo (2).png"
                   alt="Make It Sell"
@@ -1137,7 +1132,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                   variant="ghost"
                   size="icon"
                   onClick={() => setIsMenuOpen(false)}
-                  className="hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full h-8 w-8"
+                  className="hover:bg-gray-200 rounded-full h-8 w-8"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -1150,7 +1145,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                   onClick={() => setIsMenuOpen(false)}
                   className="block w-full"
                 >
-                  <div className="bg-[oklch(0.21_0.194_29.234)] dark:bg-[oklch(0.25_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
+                  <div className="bg-[oklch(0.21_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
                     Stores
                   </div>
                 </Link>
@@ -1159,7 +1154,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                   onClick={() => setIsMenuOpen(false)}
                   className="block w-full"
                 >
-                  <div className="bg-[oklch(0.21_0.194_29.234)] dark:bg-[oklch(0.25_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
+                  <div className="bg-[oklch(0.21_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
                     Services
                   </div>
                 </Link>
@@ -1168,7 +1163,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                   onClick={() => setIsMenuOpen(false)}
                   className="block w-full"
                 >
-                  <div className="bg-[oklch(0.21_0.194_29.234)] dark:bg-[oklch(0.25_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
+                  <div className="bg-[oklch(0.21_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
                     About Us
                   </div>
                 </Link>
@@ -1177,7 +1172,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                   onClick={() => setIsMenuOpen(false)}
                   className="block w-full"
                 >
-                  <div className="bg-[oklch(0.21_0.194_29.234)] dark:bg-[oklch(0.25_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
+                  <div className="bg-[oklch(0.21_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
                     FAQS
                   </div>
                 </Link>
@@ -1186,7 +1181,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                   onClick={() => setIsMenuOpen(false)}
                   className="block w-full"
                 >
-                  <div className="bg-[oklch(0.21_0.194_29.234)] dark:bg-[oklch(0.25_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
+                  <div className="bg-[oklch(0.21_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
                     Contact Us
                   </div>
                 </Link>
@@ -1203,7 +1198,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                       onClick={() => setIsMenuOpen(false)}
                       className="block w-full"
                     >
-                      <div className="bg-[oklch(0.21_0.194_29.234)] dark:bg-[oklch(0.25_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
+                      <div className="bg-[oklch(0.21_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
                         Sign in
                       </div>
                     </Link>
@@ -1212,7 +1207,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                       onClick={() => setIsMenuOpen(false)}
                       className="block w-full"
                     >
-                      <div className="bg-white dark:bg-gray-800 text-[oklch(0.21_0.194_29.234)] dark:text-white border-2 border-[oklch(0.21_0.194_29.234)] dark:border-gray-600 px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:bg-[oklch(0.21_0.194_29.234)] hover:text-white dark:hover:bg-[oklch(0.25_0.194_29.234)] transition-all shadow-md hover:shadow-lg">
+                      <div className="bg-white text-[oklch(0.21_0.194_29.234)] border-2 border-[oklch(0.21_0.194_29.234)] px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:bg-[oklch(0.21_0.194_29.234)] hover:text-white transition-all shadow-md hover:shadow-lg">
                         Join Us
                       </div>
                     </Link>
@@ -1222,13 +1217,13 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
 
               {/* Footer Section */}
               {!(user && userProfile) && (
-                <div className="px-3 sm:px-6 py-3 sm:py-6 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
-                  <h3 className="text-xs font-semibold text-gray-900 dark:text-white mb-1">Get early access</h3>
-                  <p className="text-[10px] text-gray-600 dark:text-gray-400 mb-2">
+                <div className="px-3 sm:px-6 py-3 sm:py-6 bg-white border-t border-gray-200">
+                  <h3 className="text-xs font-semibold text-gray-900 mb-1">Get early access</h3>
+                  <p className="text-[10px] text-gray-600 mb-2">
                     Become a Make It Sell member to buy smarter, sell faster, and grow with the community.
                   </p>
-                  <p className="text-[9px] text-gray-500 dark:text-gray-500">
-                    © 2026 Make It Sell. All rights reserved.
+                  <p className="text-[9px] text-gray-500">
+                    (c) 2026 Make It Sell. All rights reserved.
                   </p>
                 </div>
               )}
@@ -1236,3 +1231,4 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
     </header>
   )
 }
+

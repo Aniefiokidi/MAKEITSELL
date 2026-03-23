@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import React, { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
@@ -180,12 +180,12 @@ function TrendingProducts() {
       <div className="space-y-6 sm:space-y-8">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4 md:gap-6">
           {[1, 2, 3, 4, 5].map(i => (
-            <div key={`product-${i}`} className="animate-pulse bg-white/60 dark:bg-white/10 rounded-2xl sm:rounded-3xl h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px]" />
+            <div key={`product-${i}`} className="animate-pulse bg-white/60 rounded-2xl sm:rounded-3xl h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px]" />
           ))}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
           {[1, 2, 3, 4, 5].map(i => (
-            <div key={`service-${i}`} className="animate-pulse bg-white/60 dark:bg-white/10 rounded-2xl h-[160px]" />
+            <div key={`service-${i}`} className="animate-pulse bg-white/60 rounded-2xl h-[160px]" />
           ))}
         </div>
       </div>
@@ -199,7 +199,7 @@ function TrendingProducts() {
       <div className="space-y-8 sm:space-y-10">
         <div>
           <div className="mb-3 sm:mb-4">
-            <h3 className="text-base sm:text-lg md:text-xl font-bold text-neutral-900 dark:text-white">Top 5 Products</h3>
+            <h3 className="text-base sm:text-lg md:text-xl font-bold text-neutral-900">Top 5 Products</h3>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4 md:gap-6">
             {products.map((product: any) => (
@@ -269,7 +269,7 @@ function TrendingProducts() {
                   variant="outline"
                   className="text-[9px] sm:text-[10px] md:text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 backdrop-blur-sm bg-white/70 text-accent"
                 >
-                  ₦{product.price?.toLocaleString?.() || product.price}
+                  NGN {product.price?.toLocaleString?.() || product.price}
                 </Badge>
               </div>
               {/* Sizes Display */}
@@ -322,7 +322,7 @@ function TrendingProducts() {
 
         <div>
           <div className="mb-3 sm:mb-4">
-            <h3 className="text-base sm:text-lg md:text-xl font-bold text-neutral-900 dark:text-white">Top 5 Services Booked</h3>
+            <h3 className="text-base sm:text-lg md:text-xl font-bold text-neutral-900">Top 5 Services Booked</h3>
           </div>
           {services.length ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
@@ -652,17 +652,17 @@ export default function HomePage() {
                   <span className="text-accent font-bold text-lg sm:text-xl tracking-wide">
                     WHERE EVERYTHING SELLS!
                   </span>
-                  <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold text-neutral-900 dark:text-white mb-2">
+                  <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold text-neutral-900 mb-2">
                     Find What You Love,
                     <br />
                     <span className="text-accent">From Real People</span>
                   </h1>
-                  <p className="text-base sm:text-lg md:text-xl text-neutral-700 dark:text-gray-200 max-w-2xl mb-2">
-                    Nigeria’s most trusted marketplace for unique products, unbeatable prices, and real customer support.
+                  <p className="text-base sm:text-lg md:text-xl text-neutral-700 max-w-2xl mb-2">
+                    Nigeria's most trusted marketplace for unique products, unbeatable prices, and real customer support.
                   </p>
                   {/* Search Form (existing) */}
                   <form
-                    className="flex w-full max-w-md bg-white/90 dark:bg-white/20 rounded-full shadow-lg overflow-hidden border border-accent/30 focus-within:ring-2 focus-within:ring-accent"
+                    className="flex w-full max-w-md bg-white/90 rounded-full shadow-lg overflow-hidden border border-accent/30 focus-within:ring-2 focus-within:ring-accent"
                     onSubmit={e => {
                       e.preventDefault();
                       if (searchValue.trim()) {
@@ -675,7 +675,7 @@ export default function HomePage() {
                       value={searchValue}
                       onChange={e => setSearchValue(e.target.value)}
                       placeholder="What are you looking for today?"
-                      className="flex-1 px-4 py-2 text-neutral-900 dark:text-white bg-transparent outline-none placeholder:text-neutral-500 dark:placeholder:text-gray-300"
+                      className="flex-1 px-4 py-2 text-neutral-900 bg-transparent outline-none placeholder:text-neutral-500"
                       aria-label="Search products"
                     />
                     <button
@@ -699,63 +699,63 @@ export default function HomePage() {
             </div>
           </section>
           {/* CATEGORY SECTION */}
-          <section className="py-8 sm:py-12 bg-gray-50 dark:bg-gray-900/30"> 
+          <section className="py-8 sm:py-12 bg-gray-50"> 
             <div className="container mx-auto px-4 sm:px-8"> 
               <div className="text-center mb-8 sm:mb-10"> 
-                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-2">Browse by Category</h2>
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-neutral-900 mb-2">Browse by Category</h2>
                 <p className="text-muted-foreground text-sm sm:text-base">Explore top categories of products and services</p>
               </div>
               
               {/* Products Row */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-5 md:gap-6 mb-4 sm:mb-5 md:mb-6 max-w-6xl mx-auto">
-                <a href="/category/electronics" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                <a href="/category/electronics" className="group bg-white rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
                   <Smartphone className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
-                  <h3 className="font-semibold text-neutral-900 dark:text-white text-sm sm:text-base mb-1">Electronics</h3>
+                  <h3 className="font-semibold text-neutral-900 text-sm sm:text-base mb-1">Electronics</h3>
                   <p className="text-xs text-muted-foreground">Phones, laptops, gadgets & more</p>
                 </a>
                 
-                <a href="/category/fashion" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                <a href="/category/fashion" className="group bg-white rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
                   <ShoppingBag className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
-                  <h3 className="font-semibold text-neutral-900 dark:text-white text-sm sm:text-base mb-1">Fashion</h3>
+                  <h3 className="font-semibold text-neutral-900 text-sm sm:text-base mb-1">Fashion</h3>
                   <p className="text-xs text-muted-foreground">Clothing, shoes & accessories</p>
                 </a>
                 
-                <a href="/category/health-wellness" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                <a href="/category/health-wellness" className="group bg-white rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
                   <Beauty className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
-                  <h3 className="font-semibold text-neutral-900 dark:text-white text-sm sm:text-base mb-1">Health & Beauty</h3>
+                  <h3 className="font-semibold text-neutral-900 text-sm sm:text-base mb-1">Health & Beauty</h3>
                   <p className="text-xs text-muted-foreground">Personal care & wellness products</p>
                 </a>
                 
-                <a href="/category/home-services" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                <a href="/category/home-services" className="group bg-white rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
                   <HomeIcon className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
-                  <h3 className="font-semibold text-neutral-900 dark:text-white text-sm sm:text-base mb-1">Home Services</h3>
+                  <h3 className="font-semibold text-neutral-900 text-sm sm:text-base mb-1">Home Services</h3>
                   <p className="text-xs text-muted-foreground">Professional home improvement</p>
                 </a>
               </div>
               
               {/* Services Row */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-5 md:gap-6 max-w-6xl mx-auto">
-                <a href="/category/home-services" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                <a href="/category/home-services" className="group bg-white rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
                   <Settings className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
-                  <h3 className="font-semibold text-neutral-900 dark:text-white text-sm sm:text-base mb-1">Repairs</h3>
+                  <h3 className="font-semibold text-neutral-900 text-sm sm:text-base mb-1">Repairs</h3>
                   <p className="text-xs text-muted-foreground">Expert repair & maintenance</p>
                 </a>
                 
-                <a href="/category/automotive" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                <a href="/category/automotive" className="group bg-white rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
                   <CarFront className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
-                  <h3 className="font-semibold text-neutral-900 dark:text-white text-sm sm:text-base mb-1">Automotive</h3>
+                  <h3 className="font-semibold text-neutral-900 text-sm sm:text-base mb-1">Automotive</h3>
                   <p className="text-xs text-muted-foreground">Car services & maintenance</p>
                 </a>
                 
-                <a href="/category/business-services" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                <a href="/category/business-services" className="group bg-white rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
                   <UserCheck className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
-                  <h3 className="font-semibold text-neutral-900 dark:text-white text-sm sm:text-base mb-1">Freelancers</h3>
+                  <h3 className="font-semibold text-neutral-900 text-sm sm:text-base mb-1">Freelancers</h3>
                   <p className="text-xs text-muted-foreground">Professional freelance services</p>
                 </a>
                 
-                <a href="/category/events" className="group bg-white dark:bg-white/10 rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 dark:border-white/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                <a href="/category/events" className="group bg-white rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
                   <Coffee className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
-                  <h3 className="font-semibold text-neutral-900 dark:text-white text-sm sm:text-base mb-1">Food & Drinks</h3>
+                  <h3 className="font-semibold text-neutral-900 text-sm sm:text-base mb-1">Food & Drinks</h3>
                   <p className="text-xs text-muted-foreground">Restaurants & catering services</p>
                 </a>
               </div>
@@ -775,33 +775,33 @@ export default function HomePage() {
           <section className="py-10 sm:py-14">
             <div className="container mx-auto px-4 sm:px-8">
               <div className="text-center mb-8 sm:mb-10">
-                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-neutral-900 dark:text-white mb-2">Why Choose Make It Sell?</h2>
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-neutral-900 mb-2">Why Choose Make It Sell?</h2>
                 <p className="text-muted-foreground text-sm sm:text-base">Explore top categories of products and services</p>
               </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-5 md:gap-6 max-w-6xl mx-auto">
-                <div className="feature-card-loop flex flex-col items-center text-center p-5 sm:p-6 rounded-xl bg-white dark:bg-white/10 shadow-md border border-gray-200 dark:border-white/20" style={{ animationDelay: '0ms' }}>
+                <div className="feature-card-loop flex flex-col items-center text-center p-5 sm:p-6 rounded-xl bg-white shadow-md border border-gray-200" style={{ animationDelay: '0ms' }}>
                   <Shield className="h-12 w-12 sm:h-14 sm:w-14 text-accent mb-3" />
-                  <h3 className="font-semibold text-neutral-900 dark:text-white mb-2 text-sm sm:text-base">Secure Payments</h3>
-                  <p className="text-neutral-600 dark:text-gray-400 text-xs sm:text-sm">Your money is safe with us</p>
+                  <h3 className="font-semibold text-neutral-900 mb-2 text-sm sm:text-base">Secure Payments</h3>
+                  <p className="text-neutral-600 text-xs sm:text-sm">Your money is safe with us</p>
                 </div>
                 
-                <div className="feature-card-loop flex flex-col items-center text-center p-5 sm:p-6 rounded-xl bg-white dark:bg-white/10 shadow-md border border-gray-200 dark:border-white/20" style={{ animationDelay: '200ms' }}>
+                <div className="feature-card-loop flex flex-col items-center text-center p-5 sm:p-6 rounded-xl bg-white shadow-md border border-gray-200" style={{ animationDelay: '200ms' }}>
                   <Users className="h-12 w-12 sm:h-14 sm:w-14 text-accent mb-3" />
-                  <h3 className="font-semibold text-neutral-900 dark:text-white mb-2 text-sm sm:text-base">Verified Sellers</h3>
-                  <p className="text-neutral-600 dark:text-gray-400 text-xs sm:text-sm">All vendors are thoroughly verified</p>
+                  <h3 className="font-semibold text-neutral-900 mb-2 text-sm sm:text-base">Verified Sellers</h3>
+                  <p className="text-neutral-600 text-xs sm:text-sm">All vendors are thoroughly verified</p>
                 </div>
                 
-                <div className="feature-card-loop flex flex-col items-center text-center p-5 sm:p-6 rounded-xl bg-white dark:bg-white/10 shadow-md border border-gray-200 dark:border-white/20" style={{ animationDelay: '400ms' }}>
+                <div className="feature-card-loop flex flex-col items-center text-center p-5 sm:p-6 rounded-xl bg-white shadow-md border border-gray-200" style={{ animationDelay: '400ms' }}>
                   <Shield className="h-12 w-12 sm:h-14 sm:w-14 text-accent mb-3" />
-                  <h3 className="font-semibold text-neutral-900 dark:text-white mb-2 text-sm sm:text-base">Buyer Protection</h3>
-                  <p className="text-neutral-600 dark:text-gray-400 text-xs sm:text-sm">Refund guarantee of undelivered orders</p>
+                  <h3 className="font-semibold text-neutral-900 mb-2 text-sm sm:text-base">Buyer Protection</h3>
+                  <p className="text-neutral-600 text-xs sm:text-sm">Refund guarantee of undelivered orders</p>
                 </div>
                 
-                <div className="feature-card-loop flex flex-col items-center text-center p-5 sm:p-6 rounded-xl bg-white dark:bg-white/10 shadow-md border border-gray-200 dark:border-white/20" style={{ animationDelay: '600ms' }}>
+                <div className="feature-card-loop flex flex-col items-center text-center p-5 sm:p-6 rounded-xl bg-white shadow-md border border-gray-200" style={{ animationDelay: '600ms' }}>
                   <Truck className="h-12 w-12 sm:h-14 sm:w-14 text-accent mb-3" />
-                  <h3 className="font-semibold text-neutral-900 dark:text-white mb-2 text-sm sm:text-base">Nationwide Delivery</h3>
-                  <p className="text-neutral-600 dark:text-gray-400 text-xs sm:text-sm">Fast and reliable shipping</p>
+                  <h3 className="font-semibold text-neutral-900 mb-2 text-sm sm:text-base">Nationwide Delivery</h3>
+                  <p className="text-neutral-600 text-xs sm:text-sm">Fast and reliable shipping</p>
                 </div>
               </div>
               
@@ -869,12 +869,7 @@ export default function HomePage() {
           position: relative;
           background: #fff;
         }
-        .dark .animated-gradient-bg {
-          background: linear-gradient(120deg, #000 0%, #1a2236 60%, #000 100%);
-          background-size: 200% 200%;
-          animation: gradientWave 12s ease-in-out infinite;
-        }
-        @keyframes gradientWave {
+@keyframes gradientWave {
           0% { background-position: 0% 50%; }
           50% { background-position: 100% 50%; }
           100% { background-position: 0% 50%; }
@@ -883,3 +878,4 @@ export default function HomePage() {
     </div>
   );
 }
+

@@ -67,7 +67,7 @@ export default function RootLayout({
         suppressHydrationWarning={true}
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <ThemeProvider>
           <Suspense fallback={null}>
             <AuthProvider>
               <CartProvider>

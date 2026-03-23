@@ -564,18 +564,18 @@ export default function CategoriesPage() {
           {/* Header in Glass Bubble */}
           <div className="mb-8 p-6 md:p-8 bg-linear-to-br from-accent/5 via-accent/15 to-accent/50 backdrop-blur-2xl rounded-3xl border border-accent/30 shadow-2xl shadow-accent/20 hover:shadow-3xl hover:shadow-accent/30 transition-all duration-500">
             <div className="animate-fade-in">
-              <nav className="text-xs sm:text-sm text-accent dark:text-white mb-2 sm:mb-4">
+              <nav className="text-xs sm:text-sm text-accent mb-2 sm:mb-4">
                 <Link href="/" className="hover:text-primary">
                   Home
                 </Link>
                 <span className="mx-2">/</span>
                 <span>Categories</span>
               </nav>
-              <h1 className="text-xl sm:text-3xl font-extrabold mb-2 sm:mb-4 text-accent dark:text-white tracking-tight" style={{
+              <h1 className="text-xl sm:text-3xl font-extrabold mb-2 sm:mb-4 text-accent tracking-tight" style={{
                 fontFamily: 'Inter, Poppins, Arial, Helvetica, sans-serif',
                 textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))'
               }}>SHOP BY CATEGORY</h1>
-              <p className="text-accent dark:text-white text-xs sm:text-base">
+              <p className="text-accent text-xs sm:text-base">
                 Discover all categories across goods, services and stores
               </p>
 
@@ -587,13 +587,13 @@ export default function CategoriesPage() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search category cards..."
-                    className="w-full h-10 rounded-full border border-accent/30 bg-white/80 dark:bg-black/20 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-accent/40"
+                    className="w-full h-10 rounded-full border border-accent/30 bg-white/80 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-accent/40"
                   />
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowOnlyWithListings((prev) => !prev)}
-                  className={`h-10 rounded-full border text-sm font-semibold transition ${showOnlyWithListings ? "bg-accent text-white border-accent" : "bg-white/80 dark:bg-black/20 text-accent border-accent/30"}`}
+                  className={`h-10 rounded-full border text-sm font-semibold transition ${showOnlyWithListings ? "bg-accent text-white border-accent" : "bg-white/80 text-accent border-accent/30"}`}
                 >
                   {showOnlyWithListings ? "Showing with listings" : "Show listed only"}
                 </button>
@@ -610,7 +610,7 @@ export default function CategoriesPage() {
                     key={segment.key}
                     type="button"
                     onClick={() => setSegmentFilter(segment.key as "all" | "goods" | "services" | "stores")}
-                    className={`px-3 py-1.5 text-xs sm:text-sm rounded-full border transition ${segmentFilter === segment.key ? "bg-accent text-white border-accent" : "bg-white/80 dark:bg-black/20 text-accent border-accent/30"}`}
+                    className={`px-3 py-1.5 text-xs sm:text-sm rounded-full border transition ${segmentFilter === segment.key ? "bg-accent text-white border-accent" : "bg-white/80 text-accent border-accent/30"}`}
                   >
                     {segment.label}
                   </button>
@@ -727,7 +727,7 @@ export default function CategoriesPage() {
                     <div className={`${category.color} w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mx-auto mb-2 sm:mb-3 text-white`}>
                       <category.icon className="w-5 h-5 sm:w-6 sm:h-6" />
                     </div>
-                    <h3 className="font-medium text-xs sm:text-base group-hover:text-accent dark:group-hover:text-white transition-colors truncate">
+                    <h3 className="font-medium text-xs sm:text-base group-hover:text-accent transition-colors truncate">
                       {category.name}
                     </h3>
                   </div>
