@@ -35,9 +35,59 @@ export default function VendorDashboardPage() {
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
   const [activeTab, setActiveTab] = useState<"goods" | "services">("goods");
+  const [setupPopupType, setSetupPopupType] = useState<"missing-store-image" | null>(null);
+
+  const getSetupPopupSnoozeKey = (vendorId: string) => `mis:vendor:setup-popup:snooze:${vendorId}`;
+
+  const getTodayStamp = () => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const dd = String(now.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const dismissSetupPopupForToday = () => {
+    if (!user?.uid || typeof window === "undefined") {
+      setShowSetupPopup(false);
+      return;
+    }
+
+    try {
+      localStorage.setItem(getSetupPopupSnoozeKey(user.uid), getTodayStamp());
+    } catch {
+      // Ignore storage failures and still hide the popup for this session.
+    }
+
+    setShowSetupPopup(false);
+  };
+
+  const hasMeaningfulImage = (value: unknown) => {
+    if (typeof value !== "string") return false;
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return false;
+    if (normalized === "/placeholder.svg") return false;
+    if (/placeholder|default|no[-_ ]?image/.test(normalized)) return false;
+    return true;
+  };
+
+  const hasStoreCardImage = (store: any) => {
+    const candidates: string[] = [
+      store?.storeImage,
+      store?.logoImage,
+      store?.logo,
+      store?.profileImage,
+      store?.bannerImage,
+      store?.storeBanner,
+      ...(Array.isArray(store?.bannerImages) ? store.bannerImages : []),
+      ...(Array.isArray(store?.productImages) ? store.productImages : []),
+    ].filter((item): item is string => typeof item === "string");
+
+    return candidates.some((candidate) => hasMeaningfulImage(candidate));
+  };
 
   useEffect(() => {
-    // Load setup entities to determine if setup prompt is still needed
+    // Prompt goods vendors who haven't set up logo/store-card images yet.
     const loadSetupStatus = async () => {
       if (!user?.uid) return;
       
@@ -59,27 +109,35 @@ export default function VendorDashboardPage() {
           setStoreData(stores[0]);
         }
 
-        const hasStoreSetup = stores.length > 0;
-        const hasServiceSetup = services.length > 0;
         const vendorType = userProfile?.vendorType || "both";
 
-        let shouldShowPopup = false;
-        if (userProfile?.role === "vendor") {
-          if (vendorType === "goods") {
-            shouldShowPopup = !hasStoreSetup;
-          } else if (vendorType === "services") {
-            shouldShowPopup = !hasServiceSetup;
-          } else {
-            // For vendors who do both, hide popup once either setup path is completed.
-            shouldShowPopup = !(hasStoreSetup || hasServiceSetup);
+        if (userProfile?.role !== "vendor" || vendorType === "services") {
+          setShowSetupPopup(false);
+          setSetupPopupType(null);
+          return;
+        }
+
+        const hasAtLeastOneStoreCardImage = stores.some((store: any) => hasStoreCardImage(store));
+        const shouldShowMissingImagePopup = !hasAtLeastOneStoreCardImage;
+
+        let snoozedToday = false;
+        if (typeof window !== "undefined") {
+          try {
+            const snoozeValue = localStorage.getItem(getSetupPopupSnoozeKey(user.uid));
+            snoozedToday = snoozeValue === getTodayStamp();
+          } catch {
+            snoozedToday = false;
           }
         }
 
-        setShowSetupPopup(shouldShowPopup);
+        const shouldShow = shouldShowMissingImagePopup && !snoozedToday;
+        setShowSetupPopup(shouldShow);
+        setSetupPopupType(shouldShow ? "missing-store-image" : null);
       } catch (error) {
         console.error("Error loading setup status:", error);
         // Avoid false-positive popup on transient network/API errors.
         setShowSetupPopup(false);
+        setSetupPopupType(null);
       }
     };
 
@@ -197,43 +255,32 @@ export default function VendorDashboardPage() {
 
   return (
     <VendorLayout>
-      {/* Setup popup for new vendors */}
+      {/* Setup popup for vendors missing store-card image/logo */}
       {showSetupPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white/80 dark:bg-gray-900/80 rounded-xl shadow-2xl p-8 max-w-sm mx-auto flex flex-col items-center justify-center border border-accent" style={{backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)'}}>
-            <h2 className="text-xl font-bold mb-2 text-center">Welcome to MakeItSell!</h2>
+            <h2 className="text-xl font-bold mb-2 text-center">Quick Store Setup Needed</h2>
             <p className="mb-4 text-center text-muted-foreground">
-              {vendorType === "services"
-                ? "To start selling, please finish setting up your service profile."
-                : vendorType === "both"
-                  ? "To start selling, please finish setting up your store and service profile."
-                  : "To start selling, please finish setting up your store."
-              }
+              Your store card is missing logo/image setup. Complete a quick setup so your store ranks better in For You.
             </p>
 
-            {vendorType === "both" ? (
+            {setupPopupType === "missing-store-image" ? (
               <>
                 <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg" variant="default" onClick={() => setShowSetupPopup(false)}>
                   <Link href="/vendor/setup-wizard">
-                    Start Setup Wizard
+                    Quick Store Setup
                   </Link>
                 </Button>
                 <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg" variant="outline" onClick={() => setShowSetupPopup(false)}>
-                  <Link href="/vendor/services/setup-wizard">
-                    Go to Service Setup
+                  <Link href="/vendor/products/new">
+                    Add First Product
                   </Link>
                 </Button>
               </>
-            ) : (
-              <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg" variant="default" onClick={() => setShowSetupPopup(false)}>
-                <Link href={vendorType === "services" ? "/vendor/services/setup-wizard" : "/vendor/setup-wizard"}>
-                  {vendorType === "services" ? "Go to Service Setup" : "Start Setup Wizard"}
-                </Link>
-              </Button>
-            )}
+            ) : null}
 
-            <Button variant="ghost" className="w-full mt-1 text-xs" onClick={() => setShowSetupPopup(false)}>
-              Maybe later
+            <Button variant="ghost" className="w-full mt-1 text-xs" onClick={dismissSetupPopupForToday}>
+              Don't remind me today
             </Button>
           </div>
         </div>
