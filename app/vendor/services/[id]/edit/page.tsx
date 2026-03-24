@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { uploadToCloudinary } from "@/lib/cloudinary"
 import { Loader2, Plus, Trash2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -80,6 +81,8 @@ export default function ServiceEditPage() {
   const [error, setError] = useState("")
   const [service, setService] = useState<EditableService | null>(null)
   const [tagsInput, setTagsInput] = useState("")
+  const [serviceImageUploading, setServiceImageUploading] = useState(false)
+  const [packageUploading, setPackageUploading] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     async function fetchService() {
@@ -176,6 +179,152 @@ export default function ServiceEditPage() {
     })
   }
 
+  const addServiceImage = () => {
+    setService((prev) => {
+      if (!prev) return prev
+      const current = Array.isArray(prev.images) ? prev.images : []
+      return { ...prev, images: [...current, ""] }
+    })
+  }
+
+  const updateServiceImage = (index: number, value: string) => {
+    setService((prev) => {
+      if (!prev) return prev
+      const current = Array.isArray(prev.images) ? [...prev.images] : []
+      current[index] = value
+      return { ...prev, images: current }
+    })
+  }
+
+  const removeServiceImage = (index: number) => {
+    setService((prev) => {
+      if (!prev) return prev
+      const current = Array.isArray(prev.images) ? prev.images : []
+      return { ...prev, images: current.filter((_, idx) => idx !== index) }
+    })
+  }
+
+  const uploadServiceImages = async (files: FileList | null) => {
+    const selected = Array.from(files || [])
+    if (!selected.length) return
+
+    const valid = selected.filter((file) => file.type.startsWith("image/"))
+    if (!valid.length) {
+      toast({ title: "No valid files", description: "Please select image files only.", variant: "destructive" })
+      return
+    }
+
+    if (valid.length !== selected.length) {
+      toast({ title: "Some files skipped", description: "Only image files were uploaded.", variant: "destructive" })
+    }
+
+    try {
+      setServiceImageUploading(true)
+      const uploaded = await Promise.all(valid.map((file) => uploadToCloudinary(file)))
+      const urls = uploaded.map((url) => String(url || "").trim()).filter(Boolean)
+      if (!urls.length) return
+
+      setService((prev) => {
+        if (!prev) return prev
+        const current = Array.isArray(prev.images) ? prev.images : []
+        return { ...prev, images: [...current, ...urls] }
+      })
+
+      toast({ title: "Images uploaded", description: `${urls.length} image(s) added.` })
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err?.message || "Could not upload images.", variant: "destructive" })
+    } finally {
+      setServiceImageUploading(false)
+    }
+  }
+
+  const addPackageImage = (packageId: string) => {
+    setService((prev) => {
+      if (!prev) return prev
+      const current = Array.isArray(prev.packageOptions) ? prev.packageOptions : []
+      return {
+        ...prev,
+        packageOptions: current.map((pkg) => {
+          if (pkg.id !== packageId) return pkg
+          const images = Array.isArray(pkg.images) ? pkg.images : []
+          return { ...pkg, images: [...images, ""] }
+        }),
+      }
+    })
+  }
+
+  const updatePackageImage = (packageId: string, imageIndex: number, value: string) => {
+    setService((prev) => {
+      if (!prev) return prev
+      const current = Array.isArray(prev.packageOptions) ? prev.packageOptions : []
+      return {
+        ...prev,
+        packageOptions: current.map((pkg) => {
+          if (pkg.id !== packageId) return pkg
+          const images = Array.isArray(pkg.images) ? [...pkg.images] : []
+          images[imageIndex] = value
+          return { ...pkg, images }
+        }),
+      }
+    })
+  }
+
+  const removePackageImage = (packageId: string, imageIndex: number) => {
+    setService((prev) => {
+      if (!prev) return prev
+      const current = Array.isArray(prev.packageOptions) ? prev.packageOptions : []
+      return {
+        ...prev,
+        packageOptions: current.map((pkg) => {
+          if (pkg.id !== packageId) return pkg
+          const images = Array.isArray(pkg.images) ? pkg.images : []
+          return { ...pkg, images: images.filter((_, idx) => idx !== imageIndex) }
+        }),
+      }
+    })
+  }
+
+  const uploadPackageImages = async (packageId: string, files: FileList | null) => {
+    const selected = Array.from(files || [])
+    if (!selected.length) return
+
+    const valid = selected.filter((file) => file.type.startsWith("image/"))
+    if (!valid.length) {
+      toast({ title: "No valid files", description: "Please select image files only.", variant: "destructive" })
+      return
+    }
+
+    if (valid.length !== selected.length) {
+      toast({ title: "Some files skipped", description: "Only image files were uploaded.", variant: "destructive" })
+    }
+
+    try {
+      setPackageUploading((prev) => ({ ...prev, [packageId]: true }))
+      const uploaded = await Promise.all(valid.map((file) => uploadToCloudinary(file)))
+      const urls = uploaded.map((url) => String(url || "").trim()).filter(Boolean)
+      if (!urls.length) return
+
+      setService((prev) => {
+        if (!prev) return prev
+        const current = Array.isArray(prev.packageOptions) ? prev.packageOptions : []
+        return {
+          ...prev,
+          packageOptions: current.map((pkg) => {
+            if (pkg.id !== packageId) return pkg
+            const images = Array.isArray(pkg.images) ? pkg.images : []
+            return { ...pkg, images: [...images, ...urls] }
+          }),
+        }
+      })
+
+      toast({ title: "Images uploaded", description: `${urls.length} image(s) added to package.` })
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err?.message || "Could not upload package images.", variant: "destructive" })
+    } finally {
+      setPackageUploading((prev) => ({ ...prev, [packageId]: false }))
+    }
+  }
+
   const addPackage = () => {
     setService((prev) => {
       if (!prev) return prev
@@ -243,9 +392,15 @@ export default function ServiceEditPage() {
           pricingType: pkg.pricingType || "fixed",
           isDefault: Boolean(pkg.isDefault) || index === 0,
           active: pkg.active !== false,
-          images: Array.isArray(pkg.images) ? pkg.images : [],
+          images: Array.isArray(pkg.images)
+            ? pkg.images.map((img) => String(img || "").trim()).filter(Boolean)
+            : [],
           attachments: Array.isArray(pkg.attachments) ? pkg.attachments : [],
         }))
+
+      const normalizedServiceImages = Array.isArray(service.images)
+        ? service.images.map((img) => String(img || "").trim()).filter(Boolean)
+        : []
 
       const packagePrices = normalizedPackageOptions
         .map((pkg) => Number(pkg.price || 0))
@@ -271,7 +426,7 @@ export default function ServiceEditPage() {
           city: service.city || "",
           status: service.status || "active",
           tags: tagsInput.split(",").map((tag) => tag.trim()).filter(Boolean),
-          images: service.images || [],
+          images: normalizedServiceImages,
           packageOptions: normalizedPackageOptions,
           addOnOptions: service.addOnOptions || [],
         }),
@@ -477,6 +632,59 @@ export default function ServiceEditPage() {
                   disabled={saving}
                 />
               </div>
+
+              <div className="space-y-3 rounded-md border p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <Label>Service Images</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={addServiceImage} disabled={saving || serviceImageUploading}>
+                    <Plus className="mr-1 h-4 w-4" />
+                    Add Image URL
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="service-image-upload" className="text-xs text-muted-foreground">Upload images</Label>
+                  <Input
+                    id="service-image-upload"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    disabled={saving || serviceImageUploading}
+                    onChange={(e) => {
+                      void uploadServiceImages(e.target.files)
+                      e.currentTarget.value = ""
+                    }}
+                  />
+                  {serviceImageUploading ? (
+                    <p className="text-xs text-muted-foreground inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Uploading...</p>
+                  ) : null}
+                </div>
+                {(service.images || []).length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No service image URLs yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {(service.images || []).map((imageUrl, imageIndex) => (
+                      <div key={`service-image-${imageIndex}`} className="flex items-center gap-2">
+                        <Input
+                          placeholder="https://..."
+                          value={imageUrl || ""}
+                          onChange={(e) => updateServiceImage(imageIndex, e.target.value)}
+                          disabled={saving}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => removeServiceImage(imageIndex)}
+                          disabled={saving}
+                          className="text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
 
@@ -596,6 +804,65 @@ export default function ServiceEditPage() {
                           <SelectItem value="inactive">inactive</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    <div className="space-y-3 rounded-md border p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <Label>Package Images</Label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addPackageImage(pkg.id)}
+                          disabled={saving || Boolean(packageUploading[pkg.id])}
+                        >
+                          <Plus className="mr-1 h-4 w-4" />
+                          Add Image URL
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor={`package-image-upload-${pkg.id}`} className="text-xs text-muted-foreground">Upload package images</Label>
+                        <Input
+                          id={`package-image-upload-${pkg.id}`}
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          disabled={saving || Boolean(packageUploading[pkg.id])}
+                          onChange={(e) => {
+                            void uploadPackageImages(pkg.id, e.target.files)
+                            e.currentTarget.value = ""
+                          }}
+                        />
+                        {packageUploading[pkg.id] ? (
+                          <p className="text-xs text-muted-foreground inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Uploading...</p>
+                        ) : null}
+                      </div>
+                      {(pkg.images || []).length === 0 ? (
+                        <p className="text-xs text-muted-foreground">No package image URLs yet.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {(pkg.images || []).map((imageUrl, imageIndex) => (
+                            <div key={`${pkg.id}-image-${imageIndex}`} className="flex items-center gap-2">
+                              <Input
+                                placeholder="https://..."
+                                value={imageUrl || ""}
+                                onChange={(e) => updatePackageImage(pkg.id, imageIndex, e.target.value)}
+                                disabled={saving}
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => removePackageImage(pkg.id, imageIndex)}
+                                disabled={saving}
+                                className="text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))
