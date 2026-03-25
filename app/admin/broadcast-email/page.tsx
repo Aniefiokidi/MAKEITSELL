@@ -466,6 +466,25 @@ export default function AdminBroadcastEmailPage() {
     setSaveMessage("Signature image removed")
   }
 
+  const fitSignatureToBox = () => {
+    if (!signatureImageUrl.trim() && !eSignatureText.trim()) {
+      setSaveMessage("Add signature text or image first")
+      return
+    }
+
+    const hasImage = !!signatureImageUrl.trim()
+    const baseWidth = hasImage ? 220 : 180
+    const fittedWidth = clamp(baseWidth, 80, 340)
+
+    const centeredX = Math.round((SIGNATURE_STAGE_WIDTH - fittedWidth) / 2)
+    const defaultY = hasImage ? 14 : 20
+
+    setSignatureWidthPx(fittedWidth)
+    setSignatureXOffsetPx(clamp(centeredX, 0, SIGNATURE_STAGE_WIDTH - fittedWidth))
+    setSignatureYOffsetPx(clamp(defaultY, 0, SIGNATURE_STAGE_HEIGHT - 20))
+    setSaveMessage("Signature fitted and centered")
+  }
+
   const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
 
   const handleSignatureMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -647,6 +666,9 @@ export default function AdminBroadcastEmailPage() {
                   </label>
                   <Button type="button" variant="outline" onClick={removeSignatureImage} disabled={!signatureImageUrl.trim() || uploadingSignatureImage}>
                     Remove Signature Image
+                  </Button>
+                  <Button type="button" variant="outline" onClick={fitSignatureToBox}>
+                    Fit Signature to Box
                   </Button>
                   <span className="text-xs text-muted-foreground">You can upload from your device or paste a URL above.</span>
                 </div>
