@@ -60,6 +60,7 @@ const DEFAULT_LOGIN_BUTTON = "Sign in"
 const DEFAULT_SIGNUP_BUTTON = "Create account"
 const DEFAULT_ESIGNATURE_TEXT = ""
 const DEFAULT_SIGNATURE_IMAGE_URL = ""
+const DEFAULT_POSTER_IMAGE_URL = ""
 const DEFAULT_SENDER_NAME = "Make It Sell Team"
 const DEFAULT_SENDER_TITLE = ""
 const DEFAULT_SENDER_COMPANY = "Make It Sell"
@@ -67,11 +68,18 @@ const DEFAULT_SIGNATURE_WIDTH = 180
 const DEFAULT_SIGNATURE_HEIGHT = 56
 const DEFAULT_SIGNATURE_X = 0
 const DEFAULT_SIGNATURE_Y = 0
+const DEFAULT_POSTER_WIDTH = 420
+const DEFAULT_POSTER_HEIGHT = 220
+const DEFAULT_POSTER_X = 0
+const DEFAULT_POSTER_Y = 0
 const SIGNATURE_STAGE_WIDTH = 520
 const SIGNATURE_STAGE_HEIGHT = 180
 const SIGNATURE_TOKEN = "{{signature}}"
+const POSTER_TOKEN = "{{poster}}"
 const MAX_SIGNATURE_FILE_SIZE_MB = 2
 const MAX_SIGNATURE_FILE_SIZE_BYTES = MAX_SIGNATURE_FILE_SIZE_MB * 1024 * 1024
+const MAX_POSTER_FILE_SIZE_MB = 5
+const MAX_POSTER_FILE_SIZE_BYTES = MAX_POSTER_FILE_SIZE_MB * 1024 * 1024
 
 async function compressSignatureImage(file: File): Promise<File> {
   // Keep signatures lightweight for faster upload and better email loading.
@@ -108,6 +116,41 @@ async function compressSignatureImage(file: File): Promise<File> {
   return compressed.size < file.size ? compressed : file
 }
 
+async function compressPosterImage(file: File): Promise<File> {
+  // Keep posters reasonably optimized so preview and send remain responsive.
+  const imageBitmap = await createImageBitmap(file)
+  const maxDimension = 1800
+  const scale = Math.min(1, maxDimension / Math.max(imageBitmap.width, imageBitmap.height))
+  const targetWidth = Math.max(1, Math.round(imageBitmap.width * scale))
+  const targetHeight = Math.max(1, Math.round(imageBitmap.height * scale))
+
+  const canvas = document.createElement("canvas")
+  canvas.width = targetWidth
+  canvas.height = targetHeight
+
+  const ctx = canvas.getContext("2d")
+  if (!ctx) {
+    return file
+  }
+
+  ctx.drawImage(imageBitmap, 0, 0, targetWidth, targetHeight)
+
+  const preferredMime = file.type === "image/png" ? "image/png" : "image/webp"
+  const blob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, preferredMime, 0.86)
+  })
+
+  if (!blob) {
+    return file
+  }
+
+  const ext = blob.type === "image/png" ? "png" : blob.type === "image/webp" ? "webp" : "img"
+  const compressedName = file.name.replace(/\.[^/.]+$/, `.${ext}`)
+  const compressed = new File([blob], compressedName, { type: blob.type })
+
+  return compressed.size < file.size ? compressed : file
+}
+
 export default function AdminBroadcastEmailPage() {
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [loadingSend, setLoadingSend] = useState(false)
@@ -128,6 +171,7 @@ export default function AdminBroadcastEmailPage() {
   const [signupButtonText, setSignupButtonText] = useState(DEFAULT_SIGNUP_BUTTON)
   const [eSignatureText, setESignatureText] = useState(DEFAULT_ESIGNATURE_TEXT)
   const [signatureImageUrl, setSignatureImageUrl] = useState(DEFAULT_SIGNATURE_IMAGE_URL)
+  const [posterImageUrl, setPosterImageUrl] = useState(DEFAULT_POSTER_IMAGE_URL)
   const [senderName, setSenderName] = useState(DEFAULT_SENDER_NAME)
   const [senderTitle, setSenderTitle] = useState(DEFAULT_SENDER_TITLE)
   const [senderCompany, setSenderCompany] = useState(DEFAULT_SENDER_COMPANY)
@@ -135,6 +179,10 @@ export default function AdminBroadcastEmailPage() {
   const [signatureHeightPx, setSignatureHeightPx] = useState(DEFAULT_SIGNATURE_HEIGHT)
   const [signatureXOffsetPx, setSignatureXOffsetPx] = useState(DEFAULT_SIGNATURE_X)
   const [signatureYOffsetPx, setSignatureYOffsetPx] = useState(DEFAULT_SIGNATURE_Y)
+  const [posterWidthPx, setPosterWidthPx] = useState(DEFAULT_POSTER_WIDTH)
+  const [posterHeightPx, setPosterHeightPx] = useState(DEFAULT_POSTER_HEIGHT)
+  const [posterXOffsetPx, setPosterXOffsetPx] = useState(DEFAULT_POSTER_X)
+  const [posterYOffsetPx, setPosterYOffsetPx] = useState(DEFAULT_POSTER_Y)
   const [saveMessage, setSaveMessage] = useState("")
 
   const [preview, setPreview] = useState<PreviewResponse | null>(null)
@@ -142,6 +190,7 @@ export default function AdminBroadcastEmailPage() {
   const [messagePreview, setMessagePreview] = useState<MessagePreviewResponse | null>(null)
   const [loadingTemplateSync, setLoadingTemplateSync] = useState(false)
   const [uploadingSignatureImage, setUploadingSignatureImage] = useState(false)
+  const [uploadingPosterImage, setUploadingPosterImage] = useState(false)
   const [isDraggingSignature, setIsDraggingSignature] = useState(false)
   const [isResizingSignature, setIsResizingSignature] = useState(false)
 
@@ -182,6 +231,7 @@ export default function AdminBroadcastEmailPage() {
       if (typeof t.signupButtonText === "string" && t.signupButtonText.trim()) setSignupButtonText(t.signupButtonText)
       if (typeof t.eSignatureText === "string") setESignatureText(t.eSignatureText)
       if (typeof t.signatureImageUrl === "string") setSignatureImageUrl(t.signatureImageUrl)
+      if (typeof t.posterImageUrl === "string") setPosterImageUrl(t.posterImageUrl)
       if (typeof t.senderName === "string" && t.senderName.trim()) setSenderName(t.senderName)
       if (typeof t.senderTitle === "string") setSenderTitle(t.senderTitle)
       if (typeof t.senderCompany === "string" && t.senderCompany.trim()) setSenderCompany(t.senderCompany)
@@ -189,6 +239,10 @@ export default function AdminBroadcastEmailPage() {
       if (typeof t.signatureHeightPx === "number") setSignatureHeightPx(t.signatureHeightPx)
       if (typeof t.signatureXOffsetPx === "number") setSignatureXOffsetPx(t.signatureXOffsetPx)
       if (typeof t.signatureYOffsetPx === "number") setSignatureYOffsetPx(t.signatureYOffsetPx)
+      if (typeof t.posterWidthPx === "number") setPosterWidthPx(t.posterWidthPx)
+      if (typeof t.posterHeightPx === "number") setPosterHeightPx(t.posterHeightPx)
+      if (typeof t.posterXOffsetPx === "number") setPosterXOffsetPx(t.posterXOffsetPx)
+      if (typeof t.posterYOffsetPx === "number") setPosterYOffsetPx(t.posterYOffsetPx)
       setSaveMessage("Shared template loaded")
     } catch (error) {
       console.error("[admin/broadcast-email] Failed to load shared template:", error)
@@ -224,6 +278,7 @@ export default function AdminBroadcastEmailPage() {
       signupButtonText: signupButtonText.trim() || undefined,
       eSignatureText: eSignatureText.trim() || undefined,
       signatureImageUrl: signatureImageUrl.trim() || undefined,
+      posterImageUrl: posterImageUrl.trim() || undefined,
       senderName: senderName.trim() || undefined,
       senderTitle: senderTitle.trim() || undefined,
       senderCompany: senderCompany.trim() || undefined,
@@ -231,6 +286,10 @@ export default function AdminBroadcastEmailPage() {
       signatureHeightPx,
       signatureXOffsetPx,
       signatureYOffsetPx,
+      posterWidthPx,
+      posterHeightPx,
+      posterXOffsetPx,
+      posterYOffsetPx,
     },
   })
 
@@ -353,6 +412,7 @@ export default function AdminBroadcastEmailPage() {
             signupButtonText: signupButtonText.trim() || undefined,
             eSignatureText: eSignatureText.trim() || undefined,
             signatureImageUrl: signatureImageUrl.trim() || undefined,
+            posterImageUrl: posterImageUrl.trim() || undefined,
             senderName: senderName.trim() || undefined,
             senderTitle: senderTitle.trim() || undefined,
             senderCompany: senderCompany.trim() || undefined,
@@ -360,6 +420,10 @@ export default function AdminBroadcastEmailPage() {
             signatureHeightPx,
             signatureXOffsetPx,
             signatureYOffsetPx,
+            posterWidthPx,
+            posterHeightPx,
+            posterXOffsetPx,
+            posterYOffsetPx,
           },
         }),
       })
@@ -395,6 +459,7 @@ export default function AdminBroadcastEmailPage() {
               signupButtonText,
               eSignatureText,
               signatureImageUrl,
+              posterImageUrl,
               senderName,
               senderTitle,
               senderCompany,
@@ -402,6 +467,10 @@ export default function AdminBroadcastEmailPage() {
               signatureHeightPx,
               signatureXOffsetPx,
               signatureYOffsetPx,
+              posterWidthPx,
+              posterHeightPx,
+              posterXOffsetPx,
+              posterYOffsetPx,
             },
           }),
         })
@@ -428,6 +497,7 @@ export default function AdminBroadcastEmailPage() {
       setSignupButtonText(DEFAULT_SIGNUP_BUTTON)
       setESignatureText(DEFAULT_ESIGNATURE_TEXT)
       setSignatureImageUrl(DEFAULT_SIGNATURE_IMAGE_URL)
+      setPosterImageUrl(DEFAULT_POSTER_IMAGE_URL)
       setSenderName(DEFAULT_SENDER_NAME)
       setSenderTitle(DEFAULT_SENDER_TITLE)
       setSenderCompany(DEFAULT_SENDER_COMPANY)
@@ -435,6 +505,10 @@ export default function AdminBroadcastEmailPage() {
       setSignatureHeightPx(DEFAULT_SIGNATURE_HEIGHT)
       setSignatureXOffsetPx(DEFAULT_SIGNATURE_X)
       setSignatureYOffsetPx(DEFAULT_SIGNATURE_Y)
+      setPosterWidthPx(DEFAULT_POSTER_WIDTH)
+      setPosterHeightPx(DEFAULT_POSTER_HEIGHT)
+      setPosterXOffsetPx(DEFAULT_POSTER_X)
+      setPosterYOffsetPx(DEFAULT_POSTER_Y)
 
       setLoadingTemplateSync(true)
       try {
@@ -451,6 +525,7 @@ export default function AdminBroadcastEmailPage() {
               signupButtonText: DEFAULT_SIGNUP_BUTTON,
               eSignatureText: DEFAULT_ESIGNATURE_TEXT,
               signatureImageUrl: DEFAULT_SIGNATURE_IMAGE_URL,
+              posterImageUrl: DEFAULT_POSTER_IMAGE_URL,
               senderName: DEFAULT_SENDER_NAME,
               senderTitle: DEFAULT_SENDER_TITLE,
               senderCompany: DEFAULT_SENDER_COMPANY,
@@ -458,6 +533,10 @@ export default function AdminBroadcastEmailPage() {
               signatureHeightPx: DEFAULT_SIGNATURE_HEIGHT,
               signatureXOffsetPx: DEFAULT_SIGNATURE_X,
               signatureYOffsetPx: DEFAULT_SIGNATURE_Y,
+              posterWidthPx: DEFAULT_POSTER_WIDTH,
+              posterHeightPx: DEFAULT_POSTER_HEIGHT,
+              posterXOffsetPx: DEFAULT_POSTER_X,
+              posterYOffsetPx: DEFAULT_POSTER_Y,
             },
           }),
         })
@@ -514,6 +593,50 @@ export default function AdminBroadcastEmailPage() {
     setSaveMessage("Signature image removed")
   }
 
+  const uploadPosterImageFile = async (files: FileList | null) => {
+    const file = files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file for poster")
+      return
+    }
+
+    try {
+      setUploadingPosterImage(true)
+
+      let uploadFile = file
+      if (uploadFile.size > MAX_POSTER_FILE_SIZE_BYTES) {
+        uploadFile = await compressPosterImage(uploadFile)
+      }
+
+      if (uploadFile.size > MAX_POSTER_FILE_SIZE_BYTES) {
+        alert(`Poster image is too large even after compression. Maximum size is ${MAX_POSTER_FILE_SIZE_MB}MB.`)
+        return
+      }
+
+      const url = await uploadToCloudinary(uploadFile)
+      if (!url) {
+        alert("Upload failed")
+        return
+      }
+
+      setPosterImageUrl(String(url))
+      const compressedTag = uploadFile.size < file.size ? " (compressed)" : ""
+      setSaveMessage(`Poster image uploaded${compressedTag}. Preview and save template when ready`)
+    } catch (error) {
+      console.error("[admin/broadcast-email] Poster image upload failed:", error)
+      alert("Could not upload poster image")
+    } finally {
+      setUploadingPosterImage(false)
+    }
+  }
+
+  const removePosterImage = () => {
+    setPosterImageUrl("")
+    setSaveMessage("Poster image removed")
+  }
+
   const insertSignatureTokenInBody = () => {
     const textarea = bodyTextareaRef.current
 
@@ -531,6 +654,27 @@ export default function AdminBroadcastEmailPage() {
     requestAnimationFrame(() => {
       textarea.focus()
       const pos = start + SIGNATURE_TOKEN.length
+      textarea.setSelectionRange(pos, pos)
+    })
+  }
+
+  const insertPosterTokenInBody = () => {
+    const textarea = bodyTextareaRef.current
+
+    if (!textarea) {
+      setCustomBody((prev) => (prev.includes(POSTER_TOKEN) ? prev : `${prev}\n\n${POSTER_TOKEN}`.trim()))
+      return
+    }
+
+    const start = textarea.selectionStart ?? customBody.length
+    const end = textarea.selectionEnd ?? customBody.length
+    const nextBody = `${customBody.slice(0, start)}${POSTER_TOKEN}${customBody.slice(end)}`
+
+    setCustomBody(nextBody)
+
+    requestAnimationFrame(() => {
+      textarea.focus()
+      const pos = start + POSTER_TOKEN.length
       textarea.setSelectionRange(pos, pos)
     })
   }
@@ -555,6 +699,22 @@ export default function AdminBroadcastEmailPage() {
     setSignatureXOffsetPx(clamp(centeredX, 0, SIGNATURE_STAGE_WIDTH - fittedWidth))
     setSignatureYOffsetPx(clamp(defaultY, 0, SIGNATURE_STAGE_HEIGHT - 20))
     setSaveMessage("Signature fitted and centered")
+  }
+
+  const fitPosterToBox = () => {
+    if (!posterImageUrl.trim()) {
+      setSaveMessage("Add a poster image first")
+      return
+    }
+
+    const fittedWidth = clamp(420, 240, 620)
+    const fittedHeight = clamp(220, 140, 520)
+
+    setPosterWidthPx(fittedWidth)
+    setPosterHeightPx(fittedHeight)
+    setPosterXOffsetPx(0)
+    setPosterYOffsetPx(0)
+    setSaveMessage("Poster fitted to recommended size")
   }
 
   const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
@@ -697,7 +857,103 @@ export default function AdminBroadcastEmailPage() {
                   <Button type="button" variant="outline" onClick={insertSignatureTokenInBody}>
                     Insert Signature In Text
                   </Button>
-                  <p className="text-xs text-muted-foreground">Use blank lines for paragraphs. Place {SIGNATURE_TOKEN} where signature should appear inside this body text (inline and left-aligned).</p>
+                  <Button type="button" variant="outline" onClick={insertPosterTokenInBody}>
+                    Insert Poster In Text
+                  </Button>
+                  <p className="text-xs text-muted-foreground">Use blank lines for paragraphs. Place {SIGNATURE_TOKEN} and {POSTER_TOKEN} anywhere inside this body text to render signature or poster inline.</p>
+                </div>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="poster-image-url">Poster Image URL (Optional)</Label>
+                <Input
+                  id="poster-image-url"
+                  value={posterImageUrl}
+                  onChange={(e) => setPosterImageUrl(e.target.value)}
+                  placeholder="https://.../your-poster.png"
+                />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <label className="inline-flex">
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => uploadPosterImageFile(e.target.files)}
+                    />
+                    <span className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground">
+                      {uploadingPosterImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                      {uploadingPosterImage ? "Uploading..." : "Upload Poster Image"}
+                    </span>
+                  </label>
+                  <Button type="button" variant="outline" onClick={removePosterImage} disabled={!posterImageUrl.trim() || uploadingPosterImage}>
+                    Remove Poster Image
+                  </Button>
+                  <Button type="button" variant="outline" onClick={fitPosterToBox} disabled={!posterImageUrl.trim() || uploadingPosterImage}>
+                    Fit Poster
+                  </Button>
+                  <span className="text-xs text-muted-foreground">Poster is rendered larger than signature by default.</span>
+                </div>
+                {posterImageUrl.trim() ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Current poster:</span>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={posterImageUrl.trim()}
+                      alt="Current poster"
+                      className="h-20 w-auto max-w-56 rounded border bg-white p-1 object-contain"
+                    />
+                  </div>
+                ) : null}
+                <p className="text-xs text-muted-foreground">Allowed: image files only. Max size: {MAX_POSTER_FILE_SIZE_MB}MB.</p>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label>Poster Placement</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border rounded-md p-3 bg-muted/20">
+                  <div className="space-y-1">
+                    <Label htmlFor="poster-width-px">Poster Width (px)</Label>
+                    <Input
+                      id="poster-width-px"
+                      type="number"
+                      min={240}
+                      max={620}
+                      value={posterWidthPx}
+                      onChange={(e) => setPosterWidthPx(clamp(Number(e.target.value || DEFAULT_POSTER_WIDTH), 240, 620))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="poster-height-px">Poster Height (px)</Label>
+                    <Input
+                      id="poster-height-px"
+                      type="number"
+                      min={140}
+                      max={520}
+                      value={posterHeightPx}
+                      onChange={(e) => setPosterHeightPx(clamp(Number(e.target.value || DEFAULT_POSTER_HEIGHT), 140, 520))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="poster-x-offset">Poster X Offset (px)</Label>
+                    <Input
+                      id="poster-x-offset"
+                      type="number"
+                      min={0}
+                      max={120}
+                      value={posterXOffsetPx}
+                      onChange={(e) => setPosterXOffsetPx(clamp(Number(e.target.value || DEFAULT_POSTER_X), 0, 120))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="poster-y-offset">Poster Y Offset (px)</Label>
+                    <Input
+                      id="poster-y-offset"
+                      type="number"
+                      min={0}
+                      max={180}
+                      value={posterYOffsetPx}
+                      onChange={(e) => setPosterYOffsetPx(clamp(Number(e.target.value || DEFAULT_POSTER_Y), 0, 180))}
+                    />
+                  </div>
                 </div>
               </div>
 

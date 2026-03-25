@@ -26,6 +26,11 @@ interface OrderEmailData {
 export type RegistrationIssueTemplateOverrides = {
   subject?: string
   body?: string
+  posterImageUrl?: string
+  posterWidthPx?: number
+  posterHeightPx?: number
+  posterXOffsetPx?: number
+  posterYOffsetPx?: number
   loginButtonText?: string
   signupButtonText?: string
   eSignatureText?: string
@@ -821,6 +826,7 @@ class EmailService {
     html: string
     text: string
   } {
+    const posterToken = '{{poster}}'
     const signatureToken = '{{signature}}'
     const appBase = this.getAppBaseUrl()
     const logoUrl = 'https://makeitsell.org/images/logo%20(2).png'
@@ -828,6 +834,11 @@ class EmailService {
     const twitterUrl = 'https://x.com/makeitsellorg'
     const safeName = this.escapeHtml(name || 'there')
     const subject = (overrides?.subject || 'Important: registration link issue update').trim()
+    const posterImageUrl = this.escapeHtml((overrides?.posterImageUrl || '').trim())
+    const posterWidthPx = this.clampNumber(overrides?.posterWidthPx, 240, 620, 420)
+    const posterHeightPx = this.clampNumber(overrides?.posterHeightPx, 140, 520, 220)
+    const posterXOffsetPx = this.clampNumber(overrides?.posterXOffsetPx, 0, 120, 0)
+    const posterYOffsetPx = this.clampNumber(overrides?.posterYOffsetPx, 0, 180, 0)
     const loginButtonText = this.escapeHtml((overrides?.loginButtonText || 'Sign in').trim())
     const signupButtonText = this.escapeHtml((overrides?.signupButtonText || 'Create account').trim())
     const eSignatureText = this.escapeHtml((overrides?.eSignatureText || '').trim())
@@ -892,22 +903,34 @@ class EmailService {
       `
       : ''
 
+    const hasPoster = !!posterImageUrl
+    const posterInlineHtml = hasPoster
+      ? `
+        <div style="margin: ${12 + posterYOffsetPx}px 0 12px ${posterXOffsetPx}px; text-align: left;">
+          <img src="${posterImageUrl}" alt="Poster" style="display: block; width: ${posterWidthPx}px; max-width: 100%; height: ${posterHeightPx}px; object-fit: contain; border-radius: 8px; background: #ffffff;" />
+        </div>
+      `
+      : ''
+
+    const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const tokenSplitter = new RegExp(`(${escapeRegExp(signatureToken)}|${escapeRegExp(posterToken)})`)
+
     const htmlBodyParts: string[] = []
     for (const paragraph of bodyParagraphs) {
-      if (!paragraph.includes(signatureToken)) {
-        htmlBodyParts.push(`<p>${this.escapeHtml(paragraph)}</p>`)
-        continue
+      const chunks = paragraph.split(tokenSplitter).filter(Boolean)
+      for (const chunk of chunks) {
+        if (chunk === signatureToken) {
+          if (signatureInlineHtml) htmlBodyParts.push(signatureInlineHtml)
+          continue
+        }
+        if (chunk === posterToken) {
+          if (posterInlineHtml) htmlBodyParts.push(posterInlineHtml)
+          continue
+        }
+        if (chunk.trim()) {
+          htmlBodyParts.push(`<p style="margin: 0 0 10px 0; color: #1f2937 !important;">${this.escapeHtml(chunk)}</p>`)
+        }
       }
-
-      const splits = paragraph.split(signatureToken)
-      splits.forEach((part, index) => {
-        if (part.trim()) {
-          htmlBodyParts.push(`<p style="margin: 0 0 10px 0; color: #1f2937 !important;">${this.escapeHtml(part)}</p>`)
-        }
-        if (index < splits.length - 1 && signatureInlineHtml) {
-          htmlBodyParts.push(signatureInlineHtml)
-        }
-      })
     }
     const htmlBody = htmlBodyParts.join('')
 
@@ -948,10 +971,11 @@ class EmailService {
     const tokenTextValue = hasSignatureBlock
       ? (overrides?.eSignatureText?.trim() || '[Signature]')
       : ''
+    const posterTextValue = hasPoster ? '[Poster Image]' : ''
 
-    const textBodySource = bodySource.includes(signatureToken)
-      ? bodySource.split(signatureToken).join(tokenTextValue)
-      : bodySource
+    const textBodySource = bodySource
+      .split(signatureToken).join(tokenTextValue)
+      .split(posterToken).join(posterTextValue)
 
     const textBodyParagraphs = textBodySource
       .split(/\r?\n\s*\r?\n/)

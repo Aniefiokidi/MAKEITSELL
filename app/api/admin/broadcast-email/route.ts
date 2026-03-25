@@ -16,6 +16,11 @@ type FailedRecipient = {
 type TemplateOverrides = {
   subject?: string
   body?: string
+  posterImageUrl?: string
+  posterWidthPx?: number
+  posterHeightPx?: number
+  posterXOffsetPx?: number
+  posterYOffsetPx?: number
   loginButtonText?: string
   signupButtonText?: string
   eSignatureText?: string
@@ -53,6 +58,11 @@ function sanitizeTemplateOverrides(input?: TemplateOverrides): TemplateOverrides
   return {
     subject: input?.subject?.trim() || undefined,
     body: input?.body?.trim() || undefined,
+    posterImageUrl: input?.posterImageUrl?.trim() || undefined,
+    posterWidthPx: sanitizeNumberInRange(input?.posterWidthPx, 240, 620, 420),
+    posterHeightPx: sanitizeNumberInRange(input?.posterHeightPx, 140, 520, 220),
+    posterXOffsetPx: sanitizeNumberInRange(input?.posterXOffsetPx, 0, 120, 0),
+    posterYOffsetPx: sanitizeNumberInRange(input?.posterYOffsetPx, 0, 180, 0),
     loginButtonText: input?.loginButtonText?.trim() || undefined,
     signupButtonText: input?.signupButtonText?.trim() || undefined,
     eSignatureText: input?.eSignatureText?.trim() || undefined,
