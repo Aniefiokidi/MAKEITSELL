@@ -26,6 +26,8 @@ interface OrderEmailData {
 export type RegistrationIssueTemplateOverrides = {
   subject?: string
   body?: string
+  headerTitle?: string
+  headerSubtitle?: string
   posterImageUrl?: string
   posterWidthPx?: number
   posterHeightPx?: number
@@ -834,6 +836,8 @@ class EmailService {
     const twitterUrl = 'https://x.com/makeitsellorg'
     const safeName = this.escapeHtml(name || 'there')
     const subject = (overrides?.subject || 'Important: registration link issue update').trim()
+    const headerTitle = this.escapeHtml((overrides?.headerTitle || 'Important update from Make It Sell').trim())
+    const headerSubtitle = this.escapeHtml((overrides?.headerSubtitle || 'Registration link delivery issue').trim())
     const posterImageUrl = this.escapeHtml((overrides?.posterImageUrl || '').trim())
     const posterWidthPx = this.clampNumber(overrides?.posterWidthPx, 240, 620, 420)
     const posterHeightPx = this.clampNumber(overrides?.posterHeightPx, 140, 520, 220)
@@ -936,22 +940,23 @@ class EmailService {
 
     const showExternalSignatureBlock = hasSignatureBlock && !tokenFoundInBody
     const showSenderMetaBlock = !tokenFoundInBody
-    const brandAccent = '#5b2f21'
+    const brandAccent = 'oklch(0.35 0.15 15)'
+    const brandAccentFallback = '#5b2f21'
     const brandAccentSoft = '#f8f3f1'
 
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; background: #ffffff !important; color: #1f2937 !important; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; color-scheme: light; supported-color-schemes: light;">
         <div style="background: #ffffff !important; color: #1f2937 !important; padding: 18px 20px 14px 20px; border-bottom: 1px solid #e5e7eb;">
           <img src="${logoUrl}" alt="Make It Sell" style="height: 34px; width: auto; display: block; margin-bottom: 10px;" />
-          <h1 style="margin: 0; font-size: 22px; color: #111827 !important;">Important update from Make It Sell</h1>
-          <p style="margin: 8px 0 0 0; color: #6b7280 !important;">Registration link delivery issue</p>
+          <h1 style="margin: 0; font-size: 22px; color: #111827 !important;">${headerTitle}</h1>
+          <p style="margin: 8px 0 0 0; color: #6b7280 !important;">${headerSubtitle}</p>
         </div>
         <div style="padding: 22px 20px; background: #ffffff !important; color: #1f2937 !important; line-height: 1.6;">
           <p style="margin-top: 0; color: #1f2937 !important;">Hi ${safeName},</p>
           ${htmlBody}
           <div style="margin: 22px 0; text-align: center;">
-            <a href="${appBase}/login" style="display: inline-block; background: ${brandAccent}; color: #fff; text-decoration: none; padding: 12px 20px; border-radius: 8px; border: 1px solid ${brandAccent}; font-weight: 700; margin-right: 8px;">${loginButtonText}</a>
-            <a href="${appBase}/signup" style="display: inline-block; background: ${brandAccentSoft}; color: ${brandAccent}; text-decoration: none; padding: 12px 20px; border-radius: 8px; border: 1px solid ${brandAccent}; font-weight: 700;">${signupButtonText}</a>
+            <a href="${appBase}/login" style="display: inline-block; background: ${brandAccentFallback}; background: ${brandAccent}; color: #fff; text-decoration: none; padding: 12px 20px; border-radius: 8px; border: 1px solid ${brandAccentFallback}; border: 1px solid ${brandAccent}; font-weight: 700; margin-right: 8px;">${loginButtonText}</a>
+            <a href="${appBase}/signup" style="display: inline-block; background: ${brandAccentSoft}; color: ${brandAccentFallback}; color: ${brandAccent}; text-decoration: none; padding: 12px 20px; border-radius: 8px; border: 1px solid ${brandAccentFallback}; border: 1px solid ${brandAccent}; font-weight: 700;">${signupButtonText}</a>
           </div>
           ${showExternalSignatureBlock ? signaturePlacementHtml : ''}
           ${showSenderMetaBlock ? `
@@ -960,21 +965,21 @@ class EmailService {
               <div style="color: #555; line-height: 1.4;">${senderMetaHtml}</div>
             </div>
           ` : ''}
-          <p style="margin-bottom: 0; color: #1f2937 !important;"><a href="mailto:${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}" style="color: ${brandAccent}; font-weight: 600; text-decoration: none;">${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}</a></p>
+          <p style="margin-bottom: 0; color: #1f2937 !important;"><a href="mailto:${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}" style="color: ${brandAccentFallback}; color: ${brandAccent}; font-weight: 600; text-decoration: none;">${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}</a></p>
           <div style="margin: 14px 0 2px 0; text-align: left;">
-            <a href="${instagramUrl}" target="_blank" rel="noopener noreferrer" aria-label="Instagram" style="display: inline-block; color: ${brandAccent}; text-decoration: none; margin-right: 20px; vertical-align: middle;">
+            <a href="${instagramUrl}" target="_blank" rel="noopener noreferrer" aria-label="Instagram" style="display: inline-block; color: ${brandAccentFallback}; color: ${brandAccent}; text-decoration: none; margin-right: 20px; vertical-align: middle;">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect x="3.2" y="3.2" width="17.6" height="17.6" rx="5.2" stroke="currentColor" stroke-width="1.8"/>
                 <circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.8"/>
                 <circle cx="17.2" cy="6.8" r="1.2" fill="currentColor"/>
               </svg>
             </a>
-            <a href="${twitterUrl}" target="_blank" rel="noopener noreferrer" aria-label="X" style="display: inline-block; color: ${brandAccent}; text-decoration: none; margin-right: 20px; vertical-align: middle;">
+            <a href="${twitterUrl}" target="_blank" rel="noopener noreferrer" aria-label="X" style="display: inline-block; color: ${brandAccentFallback}; color: ${brandAccent}; text-decoration: none; margin-right: 20px; vertical-align: middle;">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                 <path d="M18.244 2H21l-6.56 7.496L22.5 22h-6.3l-4.934-6.458L5.53 22H2.77l7.014-8.014L1.5 2h6.46l4.46 5.893L18.244 2zm-2.208 18h1.64L7.067 3.896H5.31L16.036 20z"/>
               </svg>
             </a>
-            <span aria-label="Facebook coming soon" style="display: inline-block; color: ${brandAccent}; opacity: 0.6; vertical-align: middle;">
+            <span aria-label="Facebook coming soon" style="display: inline-block; color: ${brandAccentFallback}; color: ${brandAccent}; opacity: 0.6; vertical-align: middle;">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                 <path d="M13.5 8.5V6.9c0-.7.3-1.1 1.2-1.1H16V3.1c-.2 0-.9-.1-1.8-.1-1.8 0-3.1 1.1-3.1 3.3v2.2H9v2.8h2.1V21h2.9v-9.7h2.3l.4-2.8h-2.7z"/>
               </svg>

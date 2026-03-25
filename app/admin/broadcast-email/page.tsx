@@ -54,6 +54,8 @@ type MessagePreviewResponse = {
 }
 
 const DEFAULT_SUBJECT = "Important: registration link issue update"
+const DEFAULT_HEADER_TITLE = "Important update from Make It Sell"
+const DEFAULT_HEADER_SUBTITLE = "Registration link delivery issue"
 const DEFAULT_BODY =
   "Some users recently experienced delays or failures receiving registration and verification links. We sincerely apologize for the inconvenience.\n\nThe issue has been fixed. If you were affected, please try signing in again or request a new verification link.\n\nIf you still do not receive your link, contact us and we will assist immediately."
 const DEFAULT_LOGIN_BUTTON = "Sign in"
@@ -168,6 +170,8 @@ export default function AdminBroadcastEmailPage() {
   const [includeAdmins, setIncludeAdmins] = useState(false)
   const [previewName, setPreviewName] = useState("Preview User")
   const [customSubject, setCustomSubject] = useState(DEFAULT_SUBJECT)
+  const [headerTitle, setHeaderTitle] = useState(DEFAULT_HEADER_TITLE)
+  const [headerSubtitle, setHeaderSubtitle] = useState(DEFAULT_HEADER_SUBTITLE)
   const [customBody, setCustomBody] = useState(DEFAULT_BODY)
   const [loginButtonText, setLoginButtonText] = useState(DEFAULT_LOGIN_BUTTON)
   const [signupButtonText, setSignupButtonText] = useState(DEFAULT_SIGNUP_BUTTON)
@@ -232,6 +236,8 @@ export default function AdminBroadcastEmailPage() {
 
       const t = data.templateOverrides || {}
       if (typeof t.subject === "string" && t.subject.trim()) setCustomSubject(t.subject)
+      if (typeof t.headerTitle === "string" && t.headerTitle.trim()) setHeaderTitle(t.headerTitle)
+      if (typeof t.headerSubtitle === "string" && t.headerSubtitle.trim()) setHeaderSubtitle(t.headerSubtitle)
       if (typeof t.body === "string" && t.body.trim()) setCustomBody(t.body)
       if (typeof t.loginButtonText === "string" && t.loginButtonText.trim()) setLoginButtonText(t.loginButtonText)
       if (typeof t.signupButtonText === "string" && t.signupButtonText.trim()) setSignupButtonText(t.signupButtonText)
@@ -279,6 +285,8 @@ export default function AdminBroadcastEmailPage() {
     includeAdmins,
     templateOverrides: {
       subject: customSubject.trim() || undefined,
+      headerTitle: headerTitle.trim() || undefined,
+      headerSubtitle: headerSubtitle.trim() || undefined,
       body: customBody.trim() || undefined,
       loginButtonText: loginButtonText.trim() || undefined,
       signupButtonText: signupButtonText.trim() || undefined,
@@ -413,6 +421,8 @@ export default function AdminBroadcastEmailPage() {
           previewName: previewName.trim() || "Preview User",
           templateOverrides: {
             subject: customSubject.trim() || undefined,
+            headerTitle: headerTitle.trim() || undefined,
+            headerSubtitle: headerSubtitle.trim() || undefined,
             body: customBody.trim() || undefined,
             loginButtonText: loginButtonText.trim() || undefined,
             signupButtonText: signupButtonText.trim() || undefined,
@@ -460,6 +470,8 @@ export default function AdminBroadcastEmailPage() {
             action: "template-save",
             templateOverrides: {
               subject: customSubject,
+              headerTitle,
+              headerSubtitle,
               body: customBody,
               loginButtonText,
               signupButtonText,
@@ -498,6 +510,8 @@ export default function AdminBroadcastEmailPage() {
   const resetTemplate = () => {
     ;(async () => {
       setCustomSubject(DEFAULT_SUBJECT)
+      setHeaderTitle(DEFAULT_HEADER_TITLE)
+      setHeaderSubtitle(DEFAULT_HEADER_SUBTITLE)
       setCustomBody(DEFAULT_BODY)
       setLoginButtonText(DEFAULT_LOGIN_BUTTON)
       setSignupButtonText(DEFAULT_SIGNUP_BUTTON)
@@ -526,6 +540,8 @@ export default function AdminBroadcastEmailPage() {
             action: "template-save",
             templateOverrides: {
               subject: DEFAULT_SUBJECT,
+              headerTitle: DEFAULT_HEADER_TITLE,
+              headerSubtitle: DEFAULT_HEADER_SUBTITLE,
               body: DEFAULT_BODY,
               loginButtonText: DEFAULT_LOGIN_BUTTON,
               signupButtonText: DEFAULT_SIGNUP_BUTTON,
@@ -911,6 +927,26 @@ export default function AdminBroadcastEmailPage() {
                   value={customSubject}
                   onChange={(e) => setCustomSubject(e.target.value)}
                   placeholder="Email subject"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="header-title">Header Title</Label>
+                <Input
+                  id="header-title"
+                  value={headerTitle}
+                  onChange={(e) => setHeaderTitle(e.target.value)}
+                  placeholder="Important update from Make It Sell"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="header-subtitle">Header Subtitle</Label>
+                <Input
+                  id="header-subtitle"
+                  value={headerSubtitle}
+                  onChange={(e) => setHeaderSubtitle(e.target.value)}
+                  placeholder="Registration link delivery issue"
                 />
               </div>
 
