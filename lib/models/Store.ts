@@ -22,6 +22,8 @@ const StoreSchema = new Schema({
   minimumOrder: { type: Number },
   phone: { type: String },
   email: { type: String },
+  city: { type: String },
+  state: { type: String },
   returnPolicy: { type: String },
   shippingPolicy: { type: String },
   acceptReturns: { type: Boolean, default: true },

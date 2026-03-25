@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -41,6 +42,7 @@ export default function CheckoutPage() {
     state: "",
     zipCode: "",
     country: "Nigeria",
+    deliveryInstructions: "",
   })
 
   const handleInputChange = (field: string, value: string) => {
@@ -86,7 +88,7 @@ export default function CheckoutPage() {
 
     try {
       // Validation with better error messages
-      const requiredShippingFields = ["firstName", "lastName", "email", "phone", "address", "city", "state", "zipCode"]
+      const requiredShippingFields = ["firstName", "lastName", "email", "phone", "address", "city", "state", "zipCode", "deliveryInstructions"]
       const missingFields = []
       
       for (const field of requiredShippingFields) {
@@ -134,7 +136,8 @@ export default function CheckoutPage() {
           city: shippingInfo.city,
           state: shippingInfo.state,
           zipCode: shippingInfo.zipCode,
-          country: shippingInfo.country
+          country: shippingInfo.country,
+          deliveryInstructions: shippingInfo.deliveryInstructions,
         },
         subtotal,
         vat,
@@ -369,6 +372,22 @@ export default function CheckoutPage() {
                             </SelectContent>
                           </Select>
                         </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="deliveryInstructions">Delivery Instructions *</Label>
+                        <Textarea
+                          id="deliveryInstructions"
+                          value={shippingInfo.deliveryInstructions}
+                          onChange={(e) => handleInputChange("deliveryInstructions", e.target.value)}
+                          required
+                          disabled={loading}
+                          rows={4}
+                          placeholder="Compulsory: state where to drop goods if no one is available to receive."
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          This is compulsory and used by logistics if sender/receiver is unavailable.
+                        </p>
                       </div>
                     </CardContent>
                   </Card>

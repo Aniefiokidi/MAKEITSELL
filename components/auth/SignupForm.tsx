@@ -16,6 +16,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { createStore } from "@/lib/database-client"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import LocationPicker from "@/components/LocationPicker"
+import { NIGERIA_STATE_CITY_OPTIONS, NIGERIA_STATES } from "@/lib/nigeria-locations"
 
 export default function SignupForm() {
   const searchParams = useSearchParams()
@@ -36,6 +37,8 @@ export default function SignupForm() {
     storeDescription: string
     storeCategory: string
     storeAddress: string
+    storeState: string
+    storeCity: string
     storePhone: string
   }>({
     email: "",
@@ -50,6 +53,8 @@ export default function SignupForm() {
     storeDescription: "",
     storeCategory: "",
     storeAddress: "",
+    storeState: "",
+    storeCity: "",
     storePhone: "",
   })
   const [showPassword, setShowPassword] = useState(false)
@@ -61,8 +66,11 @@ export default function SignupForm() {
     ""
   )
   const [storeCoordinates, setStoreCoordinates] = useState<{ lat: number; lng: number } | null>(null)
-  const [storeCity, setStoreCity] = useState<string | null>(null)
+  const [detectedStoreCity, setDetectedStoreCity] = useState<string | null>(null)
+  const [detectedStoreState, setDetectedStoreState] = useState<string | null>(null)
   const router = useRouter()
+
+  const availableCities = formData.storeState ? (NIGERIA_STATE_CITY_OPTIONS[formData.storeState] || []) : []
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -136,6 +144,16 @@ export default function SignupForm() {
           setLoading(false)
           return
         }
+        if (!formData.storeState.trim()) {
+          setError("Store state is required for pricing")
+          setLoading(false)
+          return
+        }
+        if (!formData.storeCity.trim()) {
+          setError("Store city is required for pricing")
+          setLoading(false)
+          return
+        }
       }
     }
 
@@ -161,7 +179,20 @@ export default function SignupForm() {
         const shouldCreateStore = formData.vendorType === "goods" || formData.vendorType === "both"
 
         if (shouldCreateStore) {
-          const resolvedCity = storeCity || formData.storeAddress.split(',')[0]?.trim() || "Lagos"
+          const resolvedState = formData.storeState || detectedStoreState || "Lagos"
+          const resolvedCity = formData.storeCity || detectedStoreCity || formData.storeAddress.split(',')[0]?.trim() || "Lagos"
+          const addressParts = [formData.storeAddress]
+          if (resolvedCity && !formData.storeAddress.toLowerCase().includes(resolvedCity.toLowerCase())) {
+            addressParts.push(resolvedCity)
+          }
+          if (resolvedState && !formData.storeAddress.toLowerCase().includes(resolvedState.toLowerCase())) {
+            addressParts.push(resolvedState)
+          }
+          if (!formData.storeAddress.toLowerCase().includes("nigeria")) {
+            addressParts.push("Nigeria")
+          }
+          const normalizedAddress = addressParts.join(", ")
+
           try {
             await createStore({
               vendorId,
@@ -169,9 +200,10 @@ export default function SignupForm() {
               storeDescription: formData.storeDescription,
               storeImage: "/placeholder.svg",
               category: formData.storeCategory,
-              address: formData.storeAddress,
-              location: formData.storeAddress,
+              address: normalizedAddress,
+              location: normalizedAddress,
               city: resolvedCity,
+              state: resolvedState,
               storePhone: formData.storePhone,
               email: formData.email,
               deliveryTime: "1-3 days",
@@ -399,7 +431,15 @@ export default function SignupForm() {
                     onLocationSelect={(location) => {
                       handleInputChange("storeAddress", location.address)
                       setStoreCoordinates(location.coordinates || null)
-                      setStoreCity(location.city || null)
+                      setDetectedStoreCity(location.city || null)
+                      setDetectedStoreState(location.state || null)
+                      if (location.state && NIGERIA_STATES.includes(location.state)) {
+                        handleInputChange("storeState", location.state)
+                        const cityCandidates = NIGERIA_STATE_CITY_OPTIONS[location.state] || []
+                        if (location.city && cityCandidates.includes(location.city)) {
+                          handleInputChange("storeCity", location.city)
+                        }
+                      }
                     }}
                     initialAddress={formData.storeAddress}
                     placeholder="Search for your store location..."
@@ -407,10 +447,53 @@ export default function SignupForm() {
                   {storeCoordinates && (
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <span className="inline-block w-2 h-2 rounded-full bg-green-500"></span>
-                      Location set: {storeCity || 'Selected'}
+                      Location set: {detectedStoreCity || 'Selected'}
                     </p>
                   )}
                 </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="storeState">Store State *</Label>
+                    <Select
+                      value={formData.storeState}
+                      onValueChange={(value) => {
+                        handleInputChange("storeState", value)
+                        handleInputChange("storeCity", "")
+                      }}
+                    >
+                      <SelectTrigger id="storeState">
+                        <SelectValue placeholder="Select state" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {NIGERIA_STATES.map((state) => (
+                          <SelectItem key={state} value={state}>{state}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="storeCity">Store City *</Label>
+                    <Select
+                      value={formData.storeCity}
+                      onValueChange={(value) => handleInputChange("storeCity", value)}
+                      disabled={!formData.storeState}
+                    >
+                      <SelectTrigger id="storeCity">
+                        <SelectValue placeholder={formData.storeState ? "Select city" : "Select state first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableCities.map((city) => (
+                          <SelectItem key={city} value={city}>{city}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  If map lookup fails, select state and city manually so shipping pricing can be calculated.
+                </p>
 
                 {/* Store Phone */}
                 <div className="space-y-2 mt-3">

@@ -1102,8 +1102,8 @@ export default function CategoryPage() {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
               {categoryServices.slice(0, 9).map((service) => (
                 <Link key={service.id || service._id} href={`/service/${service.id || service._id}`}>
-                  <Card className="h-full p-0 gap-0 hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02] transition-all duration-300 group overflow-hidden border-none rounded-[2.25rem] relative" style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}>
-                    <div className="aspect-9/16 relative overflow-hidden rounded-[2.25rem]">
+                  <Card className="h-full hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02] transition-all duration-300 group overflow-hidden border-none rounded-[2.5rem] relative" style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}>
+                    <div className="aspect-9/16 relative overflow-hidden rounded-[2.5rem]">
                       {Array.isArray(service.images) && service.images.length > 0 ? (
                         <img
                           src={service.images[0]}
@@ -1116,7 +1116,7 @@ export default function CategoryPage() {
                         </div>
                       )}
 
-                      <div className="absolute inset-0 bg-linear-to-b rounded-[2.25rem] from-black/20 via-transparent via-50% to-black/90" />
+                      <div className="absolute inset-0 bg-linear-to-b from-black/20 via-transparent via-50% to-black/90" />
 
                       <div className="absolute top-3 sm:top-4 left-1/2 -translate-x-1/2 z-20">
                         <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-white/20 backdrop-blur-md border-3 sm:border-4 border-white overflow-hidden shadow-2xl ring-3 sm:ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110 flex items-center justify-center">
@@ -1124,7 +1124,7 @@ export default function CategoryPage() {
                         </div>
                       </div>
 
-                      <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-[2.25rem] border-t border-white/10 p-2 sm:p-4">
+                      <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-b-[2.5rem] border-t border-white/10 p-2 sm:p-4">
                         <div className="flex items-start justify-between gap-2 sm:gap-3 mb-1 sm:mb-2">
                           <div className="flex-1 min-w-0">
                             <h3 className="text-xs sm:text-lg md:text-xl font-bold tracking-tight mb-0.5 sm:mb-1 text-white drop-shadow-lg leading-tight wrap-break-word whitespace-normal">

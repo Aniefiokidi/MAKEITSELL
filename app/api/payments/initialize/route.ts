@@ -6,8 +6,10 @@ import { v4 as uuidv4 } from 'uuid'
 import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
+import { Store } from '@/lib/models/Store'
 import crypto from 'crypto'
 import { calculatePaystackCheckoutAmounts } from '@/lib/paystack-charges'
+import { estimateShippingFee } from '@/lib/aco-logistics-rates'
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,20 +21,21 @@ export async function POST(request: NextRequest) {
       shippingInfo,
       paymentMethod,
       customerId,
-      totalAmount
+      totalAmount: clientTotalAmount
     } = body
 
     // Validate required fields
-    if (!items || !shippingInfo || !customerId || !totalAmount || !shippingInfo.email) {
+    if (!items || !shippingInfo || !customerId || !shippingInfo.email || !String(shippingInfo.deliveryInstructions || '').trim()) {
       console.error('Missing fields:', {
         items,
         shippingInfo,
         customerId,
-        totalAmount,
-        email: shippingInfo?.email
+        clientTotalAmount,
+        email: shippingInfo?.email,
+        deliveryInstructions: shippingInfo?.deliveryInstructions,
       })
       return NextResponse.json(
-        { success: false, error: 'Missing required fields (items, shippingInfo, customerId, totalAmount, email)' },
+        { success: false, error: 'Missing required fields (items, shippingInfo, customerId, email, deliveryInstructions)' },
         { status: 400 }
       )
     }
@@ -73,6 +76,65 @@ export async function POST(request: NextRequest) {
       vendor.total += item.price * item.quantity
     }
 
+    const subtotal = (Array.isArray(items) ? items : []).reduce((sum: number, item: any) => {
+      return sum + (Number(item?.price || 0) * Number(item?.quantity || 0))
+    }, 0)
+    const vat = Math.round(subtotal * 0.07)
+
+    const vendorIdList = Array.from(vendorOrders.keys()).map((id) => String(id || '')).filter(Boolean)
+    const storeIdList = Array.from(vendorOrders.values()).map((v: any) => String(v?.storeId || '')).filter(Boolean)
+
+    const storeQueryOr: any[] = []
+    if (storeIdList.length > 0) storeQueryOr.push({ _id: { $in: storeIdList } })
+    if (vendorIdList.length > 0) storeQueryOr.push({ vendorId: { $in: vendorIdList } })
+
+    let stores: any[] = []
+    if (storeQueryOr.length > 0) {
+      stores = await Store.find({ $or: storeQueryOr }).lean()
+    }
+
+    const storeById = new Map<string, any>()
+    const storeByVendorId = new Map<string, any>()
+    for (const store of stores || []) {
+      storeById.set(String(store?._id || ''), store)
+      if (store?.vendorId && !storeByVendorId.has(String(store.vendorId))) {
+        storeByVendorId.set(String(store.vendorId), store)
+      }
+    }
+
+    const dropoffAddress = [
+      shippingInfo.address,
+      shippingInfo.city,
+      shippingInfo.state,
+      shippingInfo.country,
+    ].filter(Boolean).join(', ')
+
+    let shipping = 0
+    let hasTbdShipping = false
+
+    for (const vendor of vendorOrders.values() as any[]) {
+      const store = storeById.get(String(vendor?.storeId || '')) || storeByVendorId.get(String(vendor?.vendorId || ''))
+      const pickupAddress = String(store?.address || '')
+      const shippingFee = estimateShippingFee({
+        pickupAddress,
+        dropoffAddress,
+        dropoffState: String(shippingInfo?.state || ''),
+      })
+
+      vendor.storeId = vendor.storeId || store?._id?.toString?.() || ''
+      vendor.storeAddress = pickupAddress || ''
+      vendor.shippingFee = shippingFee
+      vendor.shippingFeeLabel = shippingFee == null ? 'TBD' : `NGN ${Number(shippingFee).toLocaleString('en-NG')}`
+
+      if (typeof shippingFee === 'number') {
+        shipping += shippingFee
+      } else {
+        hasTbdShipping = true
+      }
+    }
+
+    const computedTotalAmount = subtotal + vat + shipping
+
     // Create order record in database
     // Collect all unique storeIds from vendorOrders
     const storeIds = Array.from(vendorOrders.values()).map(v => v.storeId).filter(Boolean)
@@ -86,10 +148,15 @@ export async function POST(request: NextRequest) {
         city: shippingInfo.city,
         state: shippingInfo.state,
         zipCode: shippingInfo.zipCode,
-        country: shippingInfo.country
+        country: shippingInfo.country,
+        instructions: shippingInfo.deliveryInstructions,
       },
       paymentMethod,
-      totalAmount,
+      subtotal,
+      vat,
+      shipping,
+      hasTbdShipping,
+      totalAmount: computedTotalAmount,
       status: 'pending_payment',
       paymentStatus: 'pending',
       vendors: Array.from(vendorOrders.values()),
@@ -103,7 +170,7 @@ export async function POST(request: NextRequest) {
 
     // Initialize payment with Paystack
     if (paymentMethod === 'paystack') {
-      const paystackAmounts = calculatePaystackCheckoutAmounts(Number(totalAmount))
+      const paystackAmounts = calculatePaystackCheckoutAmounts(Number(computedTotalAmount))
       if (paystackAmounts.payableAmount <= 0) {
         return NextResponse.json(
           { success: false, error: 'Invalid order amount for payment initialization' },
@@ -166,7 +233,7 @@ export async function POST(request: NextRequest) {
     if (paymentMethod === 'xoro_pay') {
       console.log('Initializing Xoro Pay payment with data:', {
         email: shippingInfo.email,
-        amount: totalAmount,
+        amount: computedTotalAmount,
         orderId,
         customerId,
         itemCount: items.length
@@ -177,13 +244,18 @@ export async function POST(request: NextRequest) {
 
       const paymentResult = await xoroPayService.initializePayment({
         email: shippingInfo.email,
-        amount: totalAmount,
+        amount: computedTotalAmount,
         reference: paymentReference,
         callbackUrl,
         metadata: {
           orderId,
           customerId,
           items,
+          subtotal,
+          vat,
+          shipping,
+          hasTbdShipping,
+          totalAmount: computedTotalAmount,
           type: 'order',
         },
       })
@@ -213,9 +285,9 @@ export async function POST(request: NextRequest) {
     if (paymentMethod === 'wallet') {
       console.log('[WALLET] Processing wallet payment for order:', orderId)
       console.log('[WALLET] Customer ID:', customerId)
-      console.log('[WALLET] Total amount:', totalAmount)
+      console.log('[WALLET] Total amount:', computedTotalAmount)
       
-      const normalizedAmount = Math.round(Number(totalAmount) * 100) / 100
+      const normalizedAmount = Math.round(Number(computedTotalAmount) * 100) / 100
       if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
         console.error('[WALLET] Invalid amount:', normalizedAmount)
         return NextResponse.json({ success: false, error: 'Invalid total amount' }, { status: 400 })

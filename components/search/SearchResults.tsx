@@ -345,8 +345,8 @@ export default function SearchResults({ query }: { query: string }) {
           <h2 className="text-xl font-bold mb-4">Services</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
             {services.map((service: any, index: number) => (
-              <Card key={service.id} className="h-full hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02] transition-all duration-300 group overflow-hidden border-none rounded-b-3xl relative">
-                <div className="aspect-9/16 relative overflow-hidden rounded-b-3xl">
+              <Card key={service.id} className="h-full hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02] transition-all duration-300 group overflow-hidden border-none rounded-[2.5rem] relative">
+                <div className="aspect-9/16 relative overflow-hidden rounded-[2.5rem]">
                   {service.images && service.images.length > 0 ? (
                     <Image src={service.images[0]} alt={service.title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
                   ) : (
@@ -357,13 +357,13 @@ export default function SearchResults({ query }: { query: string }) {
                       </svg>
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-linear-to-b rounded-b-3xl from-black/20 via-transparent via-50% to-black/90" />
+                  <div className="absolute inset-0 bg-linear-to-b from-black/20 via-transparent via-50% to-black/90" />
                   <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20">
                     <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md border-3 border-white overflow-hidden shadow-2xl ring-3 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110 flex items-center justify-center">
                       {getCategoryIcon(service.category)}
                     </div>
                   </div>
-                  <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-b-3xl border-t border-white/10 p-2">
+                  <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-b-[2.5rem] border-t border-white/10 p-2">
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <div className="flex-1 min-w-0">
                         <h3 className="text-xs sm:text-lg font-bold tracking-tight mb-0.5 text-white drop-shadow-lg truncate">{service.title}</h3>

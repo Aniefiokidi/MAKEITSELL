@@ -15,6 +15,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 
 export default function LoginForm() {
+  const logisticsEmail = "a&co@makeitselll.org"
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -75,7 +76,9 @@ export default function LoginForm() {
         router.push(redirectTo)
       } else {
         // Default redirects based on user role
-        if (result.userProfile?.role === "vendor") {
+        if (result.user?.email?.toLowerCase?.() === logisticsEmail) {
+          router.push("/logistics")
+        } else if (result.userProfile?.role === "vendor") {
           router.push("/vendor/dashboard")
         } else if (result.userProfile?.role === "admin") {
           router.push("/admin/dashboard")
