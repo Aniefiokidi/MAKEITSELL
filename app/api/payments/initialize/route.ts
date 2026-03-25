@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
     let shipping = 0
     let hasTbdShipping = false
 
-    for (const vendor of vendorOrders.values() as any[]) {
+    for (const vendor of Array.from(vendorOrders.values()) as any[]) {
       const store = storeById.get(String(vendor?.storeId || '')) || storeByVendorId.get(String(vendor?.vendorId || ''))
       const pickupAddress = String(store?.address || '')
       const shippingFee = estimateShippingFee({
