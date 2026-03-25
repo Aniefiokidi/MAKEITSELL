@@ -820,6 +820,7 @@ class EmailService {
     html: string
     text: string
   } {
+    const signatureToken = '{{signature}}'
     const appBase = this.getAppBaseUrl()
     const safeName = this.escapeHtml(name || 'there')
     const subject = (overrides?.subject || 'Important: registration link issue update').trim()
@@ -846,10 +847,6 @@ class EmailService {
       .map(p => p.trim())
       .filter(Boolean)
 
-    const htmlParagraphs = bodyParagraphs
-      .map(p => `<p>${this.escapeHtml(p)}</p>`)
-      .join('')
-
     const signatureVisualHtml = signatureImageUrl
       ? `<img src="${signatureImageUrl}" alt="Signature" style="max-width: 220px; max-height: 90px; width: auto; height: auto; object-fit: contain; display: block; margin-bottom: 8px;" />`
       : ''
@@ -864,7 +861,41 @@ class EmailService {
       .join('')
 
     const hasSignatureBlock = !!(signatureImageUrl || eSignatureText)
+    const tokenFoundInBody = bodySource.includes(signatureToken)
     const signatureStageHeight = Math.max(96, signatureYOffsetPx + 96)
+
+    const signaturePlacementHtml = hasSignatureBlock
+      ? `
+        <div style="position: relative; margin: 12px 0 6px 0; height: ${signatureStageHeight}px; max-width: 520px; overflow: hidden;">
+          <div style="position: absolute; left: ${signatureXOffsetPx}px; top: ${signatureYOffsetPx}px; width: ${signatureWidthPx}px;">
+            ${signatureVisualHtml}
+            ${eSignatureHtml}
+          </div>
+        </div>
+      `
+      : ''
+
+    const htmlBodyParts: string[] = []
+    for (const paragraph of bodyParagraphs) {
+      if (!paragraph.includes(signatureToken)) {
+        htmlBodyParts.push(`<p>${this.escapeHtml(paragraph)}</p>`)
+        continue
+      }
+
+      const splits = paragraph.split(signatureToken)
+      splits.forEach((part, index) => {
+        if (part.trim()) {
+          htmlBodyParts.push(`<p>${this.escapeHtml(part)}</p>`)
+        }
+        if (index < splits.length - 1 && signaturePlacementHtml) {
+          htmlBodyParts.push(signaturePlacementHtml)
+        }
+      })
+    }
+    const htmlBody = htmlBodyParts.join('')
+
+    const showExternalSignatureBlock = hasSignatureBlock && !tokenFoundInBody
+    const showSenderMetaBlock = !tokenFoundInBody
 
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; background: #ffffff; border: 1px solid #eee; border-radius: 10px; overflow: hidden;">
@@ -874,41 +905,51 @@ class EmailService {
         </div>
         <div style="padding: 22px 20px; color: #222; line-height: 1.6;">
           <p style="margin-top: 0;">Hi ${safeName},</p>
-          ${htmlParagraphs}
+          ${htmlBody}
           <div style="margin: 22px 0; text-align: center;">
             <a href="${appBase}/login" style="display: inline-block; background: #8a2d12; color: #fff; text-decoration: none; padding: 12px 20px; border-radius: 8px; margin-right: 8px;">${loginButtonText}</a>
             <a href="${appBase}/signup" style="display: inline-block; background: #ffffff; color: #8a2d12; text-decoration: none; padding: 11px 20px; border-radius: 8px; border: 1px solid #8a2d12;">${signupButtonText}</a>
           </div>
-          ${hasSignatureBlock ? `
-            <div style="position: relative; margin: 12px 0 6px 0; height: ${signatureStageHeight}px; max-width: 520px; overflow: hidden;">
-              <div style="position: absolute; left: ${signatureXOffsetPx}px; top: ${signatureYOffsetPx}px; width: ${signatureWidthPx}px;">
-                ${signatureVisualHtml}
-                ${eSignatureHtml}
-              </div>
+          ${showExternalSignatureBlock ? signaturePlacementHtml : ''}
+          ${showSenderMetaBlock ? `
+            <div style="margin: 6px 0 16px 0; color: #222;">
+              <div style="font-weight: 700;">${senderName}</div>
+              <div style="color: #555; line-height: 1.4;">${senderMetaHtml}</div>
             </div>
           ` : ''}
-          <div style="margin: 6px 0 16px 0; color: #222;">
-            <div style="font-weight: 700;">${senderName}</div>
-            <div style="color: #555; line-height: 1.4;">${senderMetaHtml}</div>
-          </div>
           <p style="margin-bottom: 0;"><a href="mailto:${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}" style="color: #8a2d12; font-weight: 600; text-decoration: none;">${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}</a></p>
         </div>
       </div>
     `
 
+    const tokenTextValue = hasSignatureBlock
+      ? (overrides?.eSignatureText?.trim() || '[Signature]')
+      : ''
+
+    const textBodySource = bodySource.includes(signatureToken)
+      ? bodySource.split(signatureToken).join(tokenTextValue)
+      : bodySource
+
+    const textBodyParagraphs = textBodySource
+      .split(/\r?\n\s*\r?\n/)
+      .map(p => p.trim())
+      .filter(Boolean)
+
     const text = [
       `Hi ${name || 'there'},`,
       '',
-      ...bodyParagraphs,
+      ...textBodyParagraphs,
       '',
       `${overrides?.loginButtonText || 'Sign in'}: ${appBase}/login`,
       `${overrides?.signupButtonText || 'Create account'}: ${appBase}/signup`,
-      '',
-      `${overrides?.eSignatureText || ''}`,
-      `${overrides?.senderName || 'Make It Sell Team'}`,
-      `${overrides?.senderTitle || ''}`,
-      `${overrides?.senderCompany || 'Make It Sell'}`,
-      `${overrides?.signatureImageUrl ? `Signature image: ${overrides.signatureImageUrl}` : ''}`,
+      ...(!tokenFoundInBody ? [
+        '',
+        `${overrides?.eSignatureText || ''}`,
+        `${overrides?.senderName || 'Make It Sell Team'}`,
+        `${overrides?.senderTitle || ''}`,
+        `${overrides?.senderCompany || 'Make It Sell'}`,
+        `${overrides?.signatureImageUrl ? `Signature image: ${overrides.signatureImageUrl}` : ''}`,
+      ] : []),
       `Support: ${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}`,
     ].filter(Boolean).join('\n')
 

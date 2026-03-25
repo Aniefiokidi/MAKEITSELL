@@ -66,6 +66,7 @@ const DEFAULT_SIGNATURE_X = 0
 const DEFAULT_SIGNATURE_Y = 0
 const SIGNATURE_STAGE_WIDTH = 520
 const SIGNATURE_STAGE_HEIGHT = 180
+const SIGNATURE_TOKEN = "{{signature}}"
 const MAX_SIGNATURE_FILE_SIZE_MB = 2
 const MAX_SIGNATURE_FILE_SIZE_BYTES = MAX_SIGNATURE_FILE_SIZE_MB * 1024 * 1024
 
@@ -147,6 +148,7 @@ export default function AdminBroadcastEmailPage() {
     startWidth: number
     mode: "drag" | "resize"
   } | null>(null)
+  const bodyTextareaRef = useRef<HTMLTextAreaElement | null>(null)
 
   useEffect(() => {
     loadServerTemplate()
@@ -466,6 +468,27 @@ export default function AdminBroadcastEmailPage() {
     setSaveMessage("Signature image removed")
   }
 
+  const insertSignatureTokenInBody = () => {
+    const textarea = bodyTextareaRef.current
+
+    if (!textarea) {
+      setCustomBody((prev) => (prev.includes(SIGNATURE_TOKEN) ? prev : `${prev}\n\n${SIGNATURE_TOKEN}`.trim()))
+      return
+    }
+
+    const start = textarea.selectionStart ?? customBody.length
+    const end = textarea.selectionEnd ?? customBody.length
+    const nextBody = `${customBody.slice(0, start)}${SIGNATURE_TOKEN}${customBody.slice(end)}`
+
+    setCustomBody(nextBody)
+
+    requestAnimationFrame(() => {
+      textarea.focus()
+      const pos = start + SIGNATURE_TOKEN.length
+      textarea.setSelectionRange(pos, pos)
+    })
+  }
+
   const fitSignatureToBox = () => {
     if (!signatureImageUrl.trim() && !eSignatureText.trim()) {
       setSaveMessage("Add signature text or image first")
@@ -615,12 +638,18 @@ export default function AdminBroadcastEmailPage() {
                 <Label htmlFor="custom-body">Email Body</Label>
                 <Textarea
                   id="custom-body"
+                  ref={bodyTextareaRef}
                   value={customBody}
                   onChange={(e) => setCustomBody(e.target.value)}
                   className="min-h-[170px]"
                   placeholder="Write body content. Separate paragraphs with blank lines."
                 />
-                <p className="text-xs text-muted-foreground">Use blank lines to create separate paragraphs in the email.</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button type="button" variant="outline" onClick={insertSignatureTokenInBody}>
+                    Insert Signature In Text
+                  </Button>
+                  <p className="text-xs text-muted-foreground">Use blank lines for paragraphs. Place {SIGNATURE_TOKEN} where signature should appear inside this body text.</p>
+                </div>
               </div>
 
               <div className="space-y-2">
