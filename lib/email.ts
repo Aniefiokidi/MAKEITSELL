@@ -28,6 +28,14 @@ export type RegistrationIssueTemplateOverrides = {
   body?: string
   loginButtonText?: string
   signupButtonText?: string
+  eSignatureText?: string
+  signatureImageUrl?: string
+  senderName?: string
+  senderTitle?: string
+  senderCompany?: string
+  signatureWidthPx?: number
+  signatureXOffsetPx?: number
+  signatureYOffsetPx?: number
 }
 
 class EmailService {
@@ -96,6 +104,12 @@ class EmailService {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;')
+  }
+
+  private clampNumber(value: unknown, min: number, max: number, fallback: number): number {
+    const n = Number(value)
+    if (!Number.isFinite(n)) return fallback
+    return Math.max(min, Math.min(max, Math.round(n)))
   }
 
   private async sleep(ms: number): Promise<void> {
@@ -811,6 +825,14 @@ class EmailService {
     const subject = (overrides?.subject || 'Important: registration link issue update').trim()
     const loginButtonText = this.escapeHtml((overrides?.loginButtonText || 'Sign in').trim())
     const signupButtonText = this.escapeHtml((overrides?.signupButtonText || 'Create account').trim())
+    const eSignatureText = this.escapeHtml((overrides?.eSignatureText || '').trim())
+    const signatureImageUrl = this.escapeHtml((overrides?.signatureImageUrl || '').trim())
+    const senderName = this.escapeHtml((overrides?.senderName || 'Make It Sell Team').trim())
+    const senderTitle = this.escapeHtml((overrides?.senderTitle || '').trim())
+    const senderCompany = this.escapeHtml((overrides?.senderCompany || 'Make It Sell').trim())
+    const signatureWidthPx = this.clampNumber(overrides?.signatureWidthPx, 80, 340, 180)
+    const signatureXOffsetPx = this.clampNumber(overrides?.signatureXOffsetPx, 0, 420, 0)
+    const signatureYOffsetPx = this.clampNumber(overrides?.signatureYOffsetPx, 0, 220, 0)
 
     const defaultBody = [
       'Some users recently experienced delays or failures receiving registration and verification links. We sincerely apologize for the inconvenience.',
@@ -828,6 +850,22 @@ class EmailService {
       .map(p => `<p>${this.escapeHtml(p)}</p>`)
       .join('')
 
+    const signatureVisualHtml = signatureImageUrl
+      ? `<img src="${signatureImageUrl}" alt="Signature" style="max-width: 220px; max-height: 90px; width: auto; height: auto; object-fit: contain; display: block; margin-bottom: 8px;" />`
+      : ''
+
+    const eSignatureHtml = eSignatureText
+      ? `<div style="font-family: 'Brush Script MT', 'Segoe Script', cursive; font-size: 28px; line-height: 1.1; color: #8a2d12; margin-bottom: 6px;">${eSignatureText}</div>`
+      : ''
+
+    const senderMetaHtml = [senderTitle, senderCompany]
+      .filter(Boolean)
+      .map(line => `<div>${line}</div>`)
+      .join('')
+
+    const hasSignatureBlock = !!(signatureImageUrl || eSignatureText)
+    const signatureStageHeight = Math.max(96, signatureYOffsetPx + 96)
+
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; background: #ffffff; border: 1px solid #eee; border-radius: 10px; overflow: hidden;">
         <div style="background: #8a2d12; color: #fff; padding: 24px 20px;">
@@ -841,6 +879,18 @@ class EmailService {
             <a href="${appBase}/login" style="display: inline-block; background: #8a2d12; color: #fff; text-decoration: none; padding: 12px 20px; border-radius: 8px; margin-right: 8px;">${loginButtonText}</a>
             <a href="${appBase}/signup" style="display: inline-block; background: #ffffff; color: #8a2d12; text-decoration: none; padding: 11px 20px; border-radius: 8px; border: 1px solid #8a2d12;">${signupButtonText}</a>
           </div>
+          ${hasSignatureBlock ? `
+            <div style="position: relative; margin: 12px 0 6px 0; height: ${signatureStageHeight}px; max-width: 520px; overflow: hidden;">
+              <div style="position: absolute; left: ${signatureXOffsetPx}px; top: ${signatureYOffsetPx}px; width: ${signatureWidthPx}px;">
+                ${signatureVisualHtml}
+                ${eSignatureHtml}
+              </div>
+            </div>
+          ` : ''}
+          <div style="margin: 6px 0 16px 0; color: #222;">
+            <div style="font-weight: 700;">${senderName}</div>
+            <div style="color: #555; line-height: 1.4;">${senderMetaHtml}</div>
+          </div>
           <p style="margin-bottom: 0;"><a href="mailto:${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}" style="color: #8a2d12; font-weight: 600; text-decoration: none;">${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}</a></p>
         </div>
       </div>
@@ -853,8 +903,14 @@ class EmailService {
       '',
       `${overrides?.loginButtonText || 'Sign in'}: ${appBase}/login`,
       `${overrides?.signupButtonText || 'Create account'}: ${appBase}/signup`,
+      '',
+      `${overrides?.eSignatureText || ''}`,
+      `${overrides?.senderName || 'Make It Sell Team'}`,
+      `${overrides?.senderTitle || ''}`,
+      `${overrides?.senderCompany || 'Make It Sell'}`,
+      `${overrides?.signatureImageUrl ? `Signature image: ${overrides.signatureImageUrl}` : ''}`,
       `Support: ${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}`,
-    ].join('\n')
+    ].filter(Boolean).join('\n')
 
     return { subject, html, text }
   }

@@ -12,6 +12,21 @@ type TemplateOverrides = {
   body?: string
   loginButtonText?: string
   signupButtonText?: string
+  eSignatureText?: string
+  signatureImageUrl?: string
+  senderName?: string
+  senderTitle?: string
+  senderCompany?: string
+  signatureWidthPx?: number
+  signatureXOffsetPx?: number
+  signatureYOffsetPx?: number
+}
+
+function sanitizeNumberInRange(value: unknown, min: number, max: number, fallback: number): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined
+  const n = Number(value)
+  if (!Number.isFinite(n)) return fallback
+  return Math.max(min, Math.min(max, Math.round(n)))
 }
 
 type BroadcastRequest = {
@@ -33,6 +48,14 @@ function sanitizeTemplateOverrides(input?: TemplateOverrides): TemplateOverrides
     body: input?.body?.trim() || undefined,
     loginButtonText: input?.loginButtonText?.trim() || undefined,
     signupButtonText: input?.signupButtonText?.trim() || undefined,
+    eSignatureText: input?.eSignatureText?.trim() || undefined,
+    signatureImageUrl: input?.signatureImageUrl?.trim() || undefined,
+    senderName: input?.senderName?.trim() || undefined,
+    senderTitle: input?.senderTitle?.trim() || undefined,
+    senderCompany: input?.senderCompany?.trim() || undefined,
+    signatureWidthPx: sanitizeNumberInRange(input?.signatureWidthPx, 80, 340, 180),
+    signatureXOffsetPx: sanitizeNumberInRange(input?.signatureXOffsetPx, 0, 420, 0),
+    signatureYOffsetPx: sanitizeNumberInRange(input?.signatureYOffsetPx, 0, 220, 0),
   }
 }
 

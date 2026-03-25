@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import AdminLayout from "@/components/admin/AdminLayout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Mail, Send, Search, AlertTriangle } from "lucide-react"
+import { Loader2, Mail, Send, Search, AlertTriangle, Upload } from "lucide-react"
+import { uploadToCloudinary } from "@/lib/cloudinary"
 
 type PreviewResponse = {
   success: boolean
@@ -55,6 +56,53 @@ const DEFAULT_BODY =
   "Some users recently experienced delays or failures receiving registration and verification links. We sincerely apologize for the inconvenience.\n\nThe issue has been fixed. If you were affected, please try signing in again or request a new verification link.\n\nIf you still do not receive your link, contact us and we will assist immediately."
 const DEFAULT_LOGIN_BUTTON = "Sign in"
 const DEFAULT_SIGNUP_BUTTON = "Create account"
+const DEFAULT_ESIGNATURE_TEXT = ""
+const DEFAULT_SIGNATURE_IMAGE_URL = ""
+const DEFAULT_SENDER_NAME = "Make It Sell Team"
+const DEFAULT_SENDER_TITLE = ""
+const DEFAULT_SENDER_COMPANY = "Make It Sell"
+const DEFAULT_SIGNATURE_WIDTH = 180
+const DEFAULT_SIGNATURE_X = 0
+const DEFAULT_SIGNATURE_Y = 0
+const SIGNATURE_STAGE_WIDTH = 520
+const SIGNATURE_STAGE_HEIGHT = 180
+const MAX_SIGNATURE_FILE_SIZE_MB = 2
+const MAX_SIGNATURE_FILE_SIZE_BYTES = MAX_SIGNATURE_FILE_SIZE_MB * 1024 * 1024
+
+async function compressSignatureImage(file: File): Promise<File> {
+  // Keep signatures lightweight for faster upload and better email loading.
+  const imageBitmap = await createImageBitmap(file)
+  const maxDimension = 1200
+  const scale = Math.min(1, maxDimension / Math.max(imageBitmap.width, imageBitmap.height))
+  const targetWidth = Math.max(1, Math.round(imageBitmap.width * scale))
+  const targetHeight = Math.max(1, Math.round(imageBitmap.height * scale))
+
+  const canvas = document.createElement("canvas")
+  canvas.width = targetWidth
+  canvas.height = targetHeight
+
+  const ctx = canvas.getContext("2d")
+  if (!ctx) {
+    return file
+  }
+
+  ctx.drawImage(imageBitmap, 0, 0, targetWidth, targetHeight)
+
+  const preferredMime = file.type === "image/png" ? "image/png" : "image/webp"
+  const blob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, preferredMime, 0.82)
+  })
+
+  if (!blob) {
+    return file
+  }
+
+  const ext = blob.type === "image/png" ? "png" : blob.type === "image/webp" ? "webp" : "img"
+  const compressedName = file.name.replace(/\.[^/.]+$/, `.${ext}`)
+  const compressed = new File([blob], compressedName, { type: blob.type })
+
+  return compressed.size < file.size ? compressed : file
+}
 
 export default function AdminBroadcastEmailPage() {
   const [loadingPreview, setLoadingPreview] = useState(false)
@@ -73,12 +121,32 @@ export default function AdminBroadcastEmailPage() {
   const [customBody, setCustomBody] = useState(DEFAULT_BODY)
   const [loginButtonText, setLoginButtonText] = useState(DEFAULT_LOGIN_BUTTON)
   const [signupButtonText, setSignupButtonText] = useState(DEFAULT_SIGNUP_BUTTON)
+  const [eSignatureText, setESignatureText] = useState(DEFAULT_ESIGNATURE_TEXT)
+  const [signatureImageUrl, setSignatureImageUrl] = useState(DEFAULT_SIGNATURE_IMAGE_URL)
+  const [senderName, setSenderName] = useState(DEFAULT_SENDER_NAME)
+  const [senderTitle, setSenderTitle] = useState(DEFAULT_SENDER_TITLE)
+  const [senderCompany, setSenderCompany] = useState(DEFAULT_SENDER_COMPANY)
+  const [signatureWidthPx, setSignatureWidthPx] = useState(DEFAULT_SIGNATURE_WIDTH)
+  const [signatureXOffsetPx, setSignatureXOffsetPx] = useState(DEFAULT_SIGNATURE_X)
+  const [signatureYOffsetPx, setSignatureYOffsetPx] = useState(DEFAULT_SIGNATURE_Y)
   const [saveMessage, setSaveMessage] = useState("")
 
   const [preview, setPreview] = useState<PreviewResponse | null>(null)
   const [result, setResult] = useState<SendResponse | null>(null)
   const [messagePreview, setMessagePreview] = useState<MessagePreviewResponse | null>(null)
   const [loadingTemplateSync, setLoadingTemplateSync] = useState(false)
+  const [uploadingSignatureImage, setUploadingSignatureImage] = useState(false)
+  const [isDraggingSignature, setIsDraggingSignature] = useState(false)
+  const [isResizingSignature, setIsResizingSignature] = useState(false)
+
+  const dragStateRef = useRef<{
+    startMouseX: number
+    startMouseY: number
+    startX: number
+    startY: number
+    startWidth: number
+    mode: "drag" | "resize"
+  } | null>(null)
 
   useEffect(() => {
     loadServerTemplate()
@@ -105,6 +173,14 @@ export default function AdminBroadcastEmailPage() {
       if (typeof t.body === "string" && t.body.trim()) setCustomBody(t.body)
       if (typeof t.loginButtonText === "string" && t.loginButtonText.trim()) setLoginButtonText(t.loginButtonText)
       if (typeof t.signupButtonText === "string" && t.signupButtonText.trim()) setSignupButtonText(t.signupButtonText)
+      if (typeof t.eSignatureText === "string") setESignatureText(t.eSignatureText)
+      if (typeof t.signatureImageUrl === "string") setSignatureImageUrl(t.signatureImageUrl)
+      if (typeof t.senderName === "string" && t.senderName.trim()) setSenderName(t.senderName)
+      if (typeof t.senderTitle === "string") setSenderTitle(t.senderTitle)
+      if (typeof t.senderCompany === "string" && t.senderCompany.trim()) setSenderCompany(t.senderCompany)
+      if (typeof t.signatureWidthPx === "number") setSignatureWidthPx(t.signatureWidthPx)
+      if (typeof t.signatureXOffsetPx === "number") setSignatureXOffsetPx(t.signatureXOffsetPx)
+      if (typeof t.signatureYOffsetPx === "number") setSignatureYOffsetPx(t.signatureYOffsetPx)
       setSaveMessage("Shared template loaded")
     } catch (error) {
       console.error("[admin/broadcast-email] Failed to load shared template:", error)
@@ -138,6 +214,14 @@ export default function AdminBroadcastEmailPage() {
       body: customBody.trim() || undefined,
       loginButtonText: loginButtonText.trim() || undefined,
       signupButtonText: signupButtonText.trim() || undefined,
+      eSignatureText: eSignatureText.trim() || undefined,
+      signatureImageUrl: signatureImageUrl.trim() || undefined,
+      senderName: senderName.trim() || undefined,
+      senderTitle: senderTitle.trim() || undefined,
+      senderCompany: senderCompany.trim() || undefined,
+      signatureWidthPx,
+      signatureXOffsetPx,
+      signatureYOffsetPx,
     },
   })
 
@@ -223,6 +307,14 @@ export default function AdminBroadcastEmailPage() {
             body: customBody.trim() || undefined,
             loginButtonText: loginButtonText.trim() || undefined,
             signupButtonText: signupButtonText.trim() || undefined,
+            eSignatureText: eSignatureText.trim() || undefined,
+            signatureImageUrl: signatureImageUrl.trim() || undefined,
+            senderName: senderName.trim() || undefined,
+            senderTitle: senderTitle.trim() || undefined,
+            senderCompany: senderCompany.trim() || undefined,
+            signatureWidthPx,
+            signatureXOffsetPx,
+            signatureYOffsetPx,
           },
         }),
       })
@@ -256,6 +348,14 @@ export default function AdminBroadcastEmailPage() {
               body: customBody,
               loginButtonText,
               signupButtonText,
+              eSignatureText,
+              signatureImageUrl,
+              senderName,
+              senderTitle,
+              senderCompany,
+              signatureWidthPx,
+              signatureXOffsetPx,
+              signatureYOffsetPx,
             },
           }),
         })
@@ -280,6 +380,14 @@ export default function AdminBroadcastEmailPage() {
       setCustomBody(DEFAULT_BODY)
       setLoginButtonText(DEFAULT_LOGIN_BUTTON)
       setSignupButtonText(DEFAULT_SIGNUP_BUTTON)
+      setESignatureText(DEFAULT_ESIGNATURE_TEXT)
+      setSignatureImageUrl(DEFAULT_SIGNATURE_IMAGE_URL)
+      setSenderName(DEFAULT_SENDER_NAME)
+      setSenderTitle(DEFAULT_SENDER_TITLE)
+      setSenderCompany(DEFAULT_SENDER_COMPANY)
+      setSignatureWidthPx(DEFAULT_SIGNATURE_WIDTH)
+      setSignatureXOffsetPx(DEFAULT_SIGNATURE_X)
+      setSignatureYOffsetPx(DEFAULT_SIGNATURE_Y)
 
       setLoadingTemplateSync(true)
       try {
@@ -294,6 +402,14 @@ export default function AdminBroadcastEmailPage() {
               body: DEFAULT_BODY,
               loginButtonText: DEFAULT_LOGIN_BUTTON,
               signupButtonText: DEFAULT_SIGNUP_BUTTON,
+              eSignatureText: DEFAULT_ESIGNATURE_TEXT,
+              signatureImageUrl: DEFAULT_SIGNATURE_IMAGE_URL,
+              senderName: DEFAULT_SENDER_NAME,
+              senderTitle: DEFAULT_SENDER_TITLE,
+              senderCompany: DEFAULT_SENDER_COMPANY,
+              signatureWidthPx: DEFAULT_SIGNATURE_WIDTH,
+              signatureXOffsetPx: DEFAULT_SIGNATURE_X,
+              signatureYOffsetPx: DEFAULT_SIGNATURE_Y,
             },
           }),
         })
@@ -306,6 +422,120 @@ export default function AdminBroadcastEmailPage() {
       }
     })()
   }
+
+  const uploadSignatureImageFile = async (files: FileList | null) => {
+    const file = files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file for signature")
+      return
+    }
+
+    try {
+      setUploadingSignatureImage(true)
+
+      let uploadFile = file
+      if (uploadFile.size > MAX_SIGNATURE_FILE_SIZE_BYTES) {
+        uploadFile = await compressSignatureImage(uploadFile)
+      }
+
+      if (uploadFile.size > MAX_SIGNATURE_FILE_SIZE_BYTES) {
+        alert(`Signature image is too large even after compression. Maximum size is ${MAX_SIGNATURE_FILE_SIZE_MB}MB.`)
+        return
+      }
+
+      const url = await uploadToCloudinary(uploadFile)
+      if (!url) {
+        alert("Upload failed")
+        return
+      }
+      setSignatureImageUrl(String(url))
+      const compressedTag = uploadFile.size < file.size ? " (compressed)" : ""
+      setSaveMessage(`Signature image uploaded${compressedTag}. Preview and save template when ready`)
+    } catch (error) {
+      console.error("[admin/broadcast-email] Signature image upload failed:", error)
+      alert("Could not upload signature image")
+    } finally {
+      setUploadingSignatureImage(false)
+    }
+  }
+
+  const removeSignatureImage = () => {
+    setSignatureImageUrl("")
+    setSaveMessage("Signature image removed")
+  }
+
+  const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
+
+  const handleSignatureMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!(signatureImageUrl.trim() || eSignatureText.trim())) return
+    e.preventDefault()
+
+    dragStateRef.current = {
+      startMouseX: e.clientX,
+      startMouseY: e.clientY,
+      startX: signatureXOffsetPx,
+      startY: signatureYOffsetPx,
+      startWidth: signatureWidthPx,
+      mode: "drag",
+    }
+    setIsDraggingSignature(true)
+  }
+
+  const handleResizeMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    dragStateRef.current = {
+      startMouseX: e.clientX,
+      startMouseY: e.clientY,
+      startX: signatureXOffsetPx,
+      startY: signatureYOffsetPx,
+      startWidth: signatureWidthPx,
+      mode: "resize",
+    }
+    setIsResizingSignature(true)
+  }
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      const state = dragStateRef.current
+      if (!state) return
+
+      const dx = e.clientX - state.startMouseX
+      const dy = e.clientY - state.startMouseY
+
+      if (state.mode === "drag") {
+        const maxX = Math.max(0, SIGNATURE_STAGE_WIDTH - signatureWidthPx)
+        const nextX = clamp(state.startX + dx, 0, maxX)
+        const nextY = clamp(state.startY + dy, 0, SIGNATURE_STAGE_HEIGHT - 20)
+        setSignatureXOffsetPx(Math.round(nextX))
+        setSignatureYOffsetPx(Math.round(nextY))
+      } else {
+        const nextWidth = clamp(state.startWidth + dx, 80, 340)
+        const maxX = Math.max(0, SIGNATURE_STAGE_WIDTH - nextWidth)
+        setSignatureWidthPx(Math.round(nextWidth))
+        setSignatureXOffsetPx((prev) => clamp(prev, 0, maxX))
+      }
+    }
+
+    const onMouseUp = () => {
+      dragStateRef.current = null
+      setIsDraggingSignature(false)
+      setIsResizingSignature(false)
+    }
+
+    if (isDraggingSignature || isResizingSignature) {
+      window.addEventListener("mousemove", onMouseMove)
+      window.addEventListener("mouseup", onMouseUp)
+    }
+
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove)
+      window.removeEventListener("mouseup", onMouseUp)
+    }
+  }, [isDraggingSignature, isResizingSignature, signatureWidthPx])
 
   return (
     <AdminLayout>
@@ -391,6 +621,131 @@ export default function AdminBroadcastEmailPage() {
                   value={signupButtonText}
                   onChange={(e) => setSignupButtonText(e.target.value)}
                   placeholder="Create account"
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="signature-image-url">Signature Image URL (Optional)</Label>
+                <Input
+                  id="signature-image-url"
+                  value={signatureImageUrl}
+                  onChange={(e) => setSignatureImageUrl(e.target.value)}
+                  placeholder="https://.../your-signature.png"
+                />
+                <div className="flex items-center gap-2">
+                  <label className="inline-flex">
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => uploadSignatureImageFile(e.target.files)}
+                    />
+                    <span className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground">
+                      {uploadingSignatureImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                      {uploadingSignatureImage ? "Uploading..." : "Upload Signature Image"}
+                    </span>
+                  </label>
+                  <Button type="button" variant="outline" onClick={removeSignatureImage} disabled={!signatureImageUrl.trim() || uploadingSignatureImage}>
+                    Remove Signature Image
+                  </Button>
+                  <span className="text-xs text-muted-foreground">You can upload from your device or paste a URL above.</span>
+                </div>
+                {signatureImageUrl.trim() ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Current signature:</span>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={signatureImageUrl.trim()}
+                      alt="Current signature"
+                      className="h-10 w-auto max-w-40 rounded border bg-white p-1 object-contain"
+                    />
+                  </div>
+                ) : null}
+                <p className="text-xs text-muted-foreground">Allowed: image files only. Max size: {MAX_SIGNATURE_FILE_SIZE_MB}MB.</p>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="e-signature-text">E-Signature Text (Optional)</Label>
+                <Input
+                  id="e-signature-text"
+                  value={eSignatureText}
+                  onChange={(e) => setESignatureText(e.target.value)}
+                  placeholder="Arnold Idiong"
+                />
+                <p className="text-xs text-muted-foreground">This appears as a handwritten-style signature above your name.</p>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label>Signature Placement (Drag and Resize)</Label>
+                <div className="border rounded-md p-3 bg-muted/20">
+                  <div className="text-xs text-muted-foreground mb-2">Drag the signature block to place it and use the corner handle to resize.</div>
+                  <div
+                    className="relative bg-white border rounded-md overflow-hidden"
+                    style={{ width: `${SIGNATURE_STAGE_WIDTH}px`, maxWidth: "100%", height: `${SIGNATURE_STAGE_HEIGHT}px` }}
+                  >
+                    <div
+                      className="absolute border-2 border-dashed border-orange-400 bg-orange-50/60 p-2 select-none"
+                      style={{
+                        left: `${signatureXOffsetPx}px`,
+                        top: `${signatureYOffsetPx}px`,
+                        width: `${signatureWidthPx}px`,
+                        cursor: isDraggingSignature ? "grabbing" : "grab",
+                      }}
+                      onMouseDown={handleSignatureMouseDown}
+                    >
+                      {signatureImageUrl.trim() ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={signatureImageUrl.trim()} alt="Signature preview" style={{ maxWidth: "100%", maxHeight: "70px", objectFit: "contain" }} />
+                      ) : null}
+                      {eSignatureText.trim() ? (
+                        <div style={{ fontFamily: "'Brush Script MT', 'Segoe Script', cursive", fontSize: "26px", lineHeight: 1.1, color: "#8a2d12" }}>
+                          {eSignatureText}
+                        </div>
+                      ) : null}
+                      {!signatureImageUrl.trim() && !eSignatureText.trim() ? (
+                        <div className="text-xs text-muted-foreground">Add signature text or image to move it here</div>
+                      ) : null}
+
+                      <div
+                        className="absolute right-0 bottom-0 w-3 h-3 bg-orange-600 cursor-se-resize"
+                        onMouseDown={handleResizeMouseDown}
+                        title="Resize"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    X: {signatureXOffsetPx}px, Y: {signatureYOffsetPx}px, Width: {signatureWidthPx}px
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sender-name">Sender Name</Label>
+                <Input
+                  id="sender-name"
+                  value={senderName}
+                  onChange={(e) => setSenderName(e.target.value)}
+                  placeholder="Arnold Idiong"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sender-title">Sender Title (Optional)</Label>
+                <Input
+                  id="sender-title"
+                  value={senderTitle}
+                  onChange={(e) => setSenderTitle(e.target.value)}
+                  placeholder="Chief Executive Officer (CEO)"
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="sender-company">Sender Company</Label>
+                <Input
+                  id="sender-company"
+                  value={senderCompany}
+                  onChange={(e) => setSenderCompany(e.target.value)}
+                  placeholder="Make It Sell"
                 />
               </div>
 
