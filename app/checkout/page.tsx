@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useCart } from "@/contexts/CartContext"
 import { useAuth } from "@/contexts/AuthContext"
@@ -22,7 +22,7 @@ import Header from "@/components/Header"
 import ProtectedRoute from "@/components/auth/ProtectedRoute"
 import { trackFunnelEvent } from "@/lib/funnel-tracker"
 import { calculatePaystackCheckoutAmounts } from "@/lib/paystack-charges"
-import LocationPicker from "@/components/LocationPicker"
+import { NIGERIA_STATE_CITY_OPTIONS, NIGERIA_STATES } from "@/lib/nigeria-locations"
 
 export default function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCart()
@@ -32,7 +32,6 @@ export default function CheckoutPage() {
   const [shippingLoading, setShippingLoading] = useState(false)
   const [error, setError] = useState("")
   const [shippingEstimate, setShippingEstimate] = useState<{ cost: number; hasTbd?: boolean; source?: string } | null>(null)
-  const [manualLocationEdit, setManualLocationEdit] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState("paystack") // Keep Paystack as default checkout method
   const [checkoutTracked, setCheckoutTracked] = useState(false)
 
@@ -52,6 +51,10 @@ export default function CheckoutPage() {
   const handleInputChange = (field: string, value: string) => {
     setShippingInfo((prev) => ({ ...prev, [field]: value }))
   }
+
+  const availableCities = useMemo(() => {
+    return shippingInfo.state ? (NIGERIA_STATE_CITY_OPTIONS[shippingInfo.state] || []) : []
+  }, [shippingInfo.state])
 
   // Calculate VAT at 7% of subtotal
   const calculateVAT = (amount: number) => {
@@ -381,62 +384,58 @@ export default function CheckoutPage() {
 
                       <div className="space-y-2">
                         <Label htmlFor="address">Address *</Label>
-                        <LocationPicker
-                          onLocationSelect={(location) => {
-                            handleInputChange("address", location.address || "")
-                            if (location.city) handleInputChange("city", location.city)
-                            if (location.state) handleInputChange("state", location.state)
-                            if (location.country) handleInputChange("country", location.country)
-                            setManualLocationEdit(false)
-                          }}
+                        <Input
+                          id="address"
                           value={shippingInfo.address}
-                          onChange={(value) => handleInputChange("address", value)}
-                          placeholder="Search and select your delivery address"
+                          onChange={(e) => handleInputChange("address", e.target.value)}
+                          required
+                          disabled={loading}
                         />
-                        <p className="text-xs text-muted-foreground">Use Mapbox search for accurate delivery pricing.</p>
+                        <p className="text-xs text-muted-foreground">Type your full delivery address.</p>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <Label htmlFor="city">City *</Label>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 px-2 text-xs"
-                              onClick={() => setManualLocationEdit((prev) => !prev)}
-                              disabled={loading}
-                            >
-                              {manualLocationEdit ? "Use Mapbox values" : "Edit manually"}
-                            </Button>
-                          </div>
-                          <Input
-                            id="city"
+                          <Label htmlFor="city">City *</Label>
+                          <Select
                             value={shippingInfo.city}
-                            onChange={(e) => handleInputChange("city", e.target.value)}
-                            required
-                            readOnly={!manualLocationEdit}
-                            disabled={loading}
-                          />
+                            onValueChange={(value) => handleInputChange("city", value)}
+                            disabled={loading || !shippingInfo.state}
+                          >
+                            <SelectTrigger id="city">
+                              <SelectValue placeholder={shippingInfo.state ? "Select city" : "Select state first"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableCities.map((city) => (
+                                <SelectItem key={city} value={city}>{city}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="state">State *</Label>
-                          <Input
-                            id="state"
+                          <Select
                             value={shippingInfo.state}
-                            onChange={(e) => handleInputChange("state", e.target.value)}
-                            required
-                            readOnly={!manualLocationEdit}
+                            onValueChange={(value) => {
+                              handleInputChange("state", value)
+                              handleInputChange("city", "")
+                            }}
                             disabled={loading}
-                          />
+                          >
+                            <SelectTrigger id="state">
+                              <SelectValue placeholder="Select state" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {NIGERIA_STATES.map((state) => (
+                                <SelectItem key={state} value={state}>{state}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
-                      {!manualLocationEdit && (
-                        <p className="text-xs text-muted-foreground">
-                          City and state are auto-filled from your Mapbox-selected address.
-                        </p>
-                      )}
+                      <p className="text-xs text-muted-foreground">
+                        Select state first, then select city.
+                      </p>
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
