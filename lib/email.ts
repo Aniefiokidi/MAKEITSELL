@@ -834,6 +834,9 @@ class EmailService {
     const logoUrl = 'https://makeitsell.org/images/logo%20(2).png'
     const instagramUrl = 'https://www.instagram.com/makeitsell.ng/?__pwa=1'
     const twitterUrl = 'https://x.com/makeitsellorg'
+    const instagramIconUrl = 'https://img.icons8.com/ios-filled/50/5b2f21/instagram-new.png'
+    const twitterIconUrl = 'https://img.icons8.com/ios-filled/50/5b2f21/twitterx--v1.png'
+    const facebookIconUrl = 'https://img.icons8.com/ios-filled/50/9ca3af/facebook-new.png'
     const safeName = this.escapeHtml(name || 'there')
     const subject = (overrides?.subject || 'Important: registration link issue update').trim()
     const headerTitle = this.escapeHtml((overrides?.headerTitle || 'Important update from Make It Sell').trim())
@@ -974,9 +977,15 @@ class EmailService {
           ` : ''}
           <p style="margin-bottom: 0; color: #1f2937 !important;"><a href="mailto:${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}" style="color: ${brandAccent} !important; font-weight: 600; text-decoration: none;">${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}</a></p>
           <div style="margin: 14px 0 2px 0; text-align: left;">
-            <a href="${instagramUrl}" target="_blank" rel="noopener noreferrer" aria-label="Instagram" style="display: inline-block; width: 22px; height: 22px; line-height: 22px; text-align: center; border: 1px solid ${brandAccent}; border-radius: 999px; color: ${brandAccent} !important; text-decoration: none !important; font-family: Arial, sans-serif; font-size: 11px; font-weight: 700; margin-right: 10px; vertical-align: middle;">IG</a>
-            <a href="${twitterUrl}" target="_blank" rel="noopener noreferrer" aria-label="X" style="display: inline-block; width: 22px; height: 22px; line-height: 22px; text-align: center; border: 1px solid ${brandAccent}; border-radius: 999px; color: ${brandAccent} !important; text-decoration: none !important; font-family: Arial, sans-serif; font-size: 12px; font-weight: 700; margin-right: 10px; vertical-align: middle;">X</a>
-            <span aria-label="Facebook coming soon" style="display: inline-block; width: 22px; height: 22px; line-height: 22px; text-align: center; border: 1px solid #bdbdbd; border-radius: 999px; color: #9ca3af; font-family: Arial, sans-serif; font-size: 12px; font-weight: 700; vertical-align: middle;">f</span>
+            <a href="${instagramUrl}" target="_blank" rel="noopener noreferrer" aria-label="Instagram" style="display: inline-block; text-decoration: none !important; margin-right: 10px; vertical-align: middle;">
+              <img src="${instagramIconUrl}" alt="Instagram" width="20" height="20" style="display: block; width: 20px; height: 20px; border: 0;" />
+            </a>
+            <a href="${twitterUrl}" target="_blank" rel="noopener noreferrer" aria-label="X" style="display: inline-block; text-decoration: none !important; margin-right: 10px; vertical-align: middle;">
+              <img src="${twitterIconUrl}" alt="X" width="20" height="20" style="display: block; width: 20px; height: 20px; border: 0;" />
+            </a>
+            <span aria-label="Facebook coming soon" style="display: inline-block; vertical-align: middle; opacity: 0.6;">
+              <img src="${facebookIconUrl}" alt="Facebook" width="20" height="20" style="display: block; width: 20px; height: 20px; border: 0;" />
+            </span>
           </div>
         </div>
       </div>
