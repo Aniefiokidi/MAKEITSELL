@@ -865,6 +865,7 @@ class EmailService {
     const tokenFoundInBody = bodySource.includes(signatureToken)
     const signatureStageHeight = Math.max(96, signatureYOffsetPx + 96)
     const signatureInlineWidthPx = this.clampNumber(signatureWidthPx, 90, 220, 150)
+    const signatureInlineOffsetPx = this.clampNumber(signatureXOffsetPx - 12, -24, 120, -12)
 
     const signaturePlacementHtml = hasSignatureBlock
       ? `
@@ -879,7 +880,7 @@ class EmailService {
 
     const signatureInlineHtml = hasSignatureBlock
       ? `
-        <div style="margin: 8px 0 8px 0; text-align: left;">
+        <div style="margin: 8px 0 8px ${signatureInlineOffsetPx}px; text-align: left;">
           ${signatureImageUrl ? `<img src="${signatureImageUrl}" alt="Signature" style="width: ${signatureInlineWidthPx}px; max-width: ${signatureInlineWidthPx}px; max-height: 56px; width: auto; height: auto; object-fit: contain; display: block; margin: 0 0 4px 0;" />` : ''}
           ${eSignatureHtml}
         </div>
