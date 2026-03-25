@@ -74,6 +74,8 @@ const DEFAULT_POSTER_X = 0
 const DEFAULT_POSTER_Y = 0
 const SIGNATURE_STAGE_WIDTH = 520
 const SIGNATURE_STAGE_HEIGHT = 180
+const POSTER_STAGE_WIDTH = 620
+const POSTER_STAGE_HEIGHT = 260
 const SIGNATURE_TOKEN = "{{signature}}"
 const POSTER_TOKEN = "{{poster}}"
 const MAX_SIGNATURE_FILE_SIZE_MB = 2
@@ -193,13 +195,17 @@ export default function AdminBroadcastEmailPage() {
   const [uploadingPosterImage, setUploadingPosterImage] = useState(false)
   const [isDraggingSignature, setIsDraggingSignature] = useState(false)
   const [isResizingSignature, setIsResizingSignature] = useState(false)
+  const [isDraggingPoster, setIsDraggingPoster] = useState(false)
+  const [isResizingPoster, setIsResizingPoster] = useState(false)
 
   const dragStateRef = useRef<{
+    target: "signature" | "poster"
     startMouseX: number
     startMouseY: number
     startX: number
     startY: number
     startWidth: number
+    startHeight: number
     mode: "drag" | "resize"
   } | null>(null)
   const bodyTextareaRef = useRef<HTMLTextAreaElement | null>(null)
@@ -709,11 +715,13 @@ export default function AdminBroadcastEmailPage() {
 
     const fittedWidth = clamp(420, 240, 620)
     const fittedHeight = clamp(220, 140, 520)
+    const centeredX = Math.round((POSTER_STAGE_WIDTH - fittedWidth) / 2)
+    const centeredY = Math.round((POSTER_STAGE_HEIGHT - fittedHeight) / 2)
 
     setPosterWidthPx(fittedWidth)
     setPosterHeightPx(fittedHeight)
-    setPosterXOffsetPx(0)
-    setPosterYOffsetPx(0)
+    setPosterXOffsetPx(clamp(centeredX, 0, POSTER_STAGE_WIDTH - fittedWidth))
+    setPosterYOffsetPx(clamp(centeredY, 0, POSTER_STAGE_HEIGHT - fittedHeight))
     setSaveMessage("Poster fitted to recommended size")
   }
 
@@ -724,11 +732,13 @@ export default function AdminBroadcastEmailPage() {
     e.preventDefault()
 
     dragStateRef.current = {
+      target: "signature",
       startMouseX: e.clientX,
       startMouseY: e.clientY,
       startX: signatureXOffsetPx,
       startY: signatureYOffsetPx,
       startWidth: signatureWidthPx,
+      startHeight: signatureHeightPx,
       mode: "drag",
     }
     setIsDraggingSignature(true)
@@ -739,14 +749,51 @@ export default function AdminBroadcastEmailPage() {
     e.stopPropagation()
 
     dragStateRef.current = {
+      target: "signature",
       startMouseX: e.clientX,
       startMouseY: e.clientY,
       startX: signatureXOffsetPx,
       startY: signatureYOffsetPx,
       startWidth: signatureWidthPx,
+      startHeight: signatureHeightPx,
       mode: "resize",
     }
     setIsResizingSignature(true)
+  }
+
+  const handlePosterMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!posterImageUrl.trim()) return
+    e.preventDefault()
+
+    dragStateRef.current = {
+      target: "poster",
+      startMouseX: e.clientX,
+      startMouseY: e.clientY,
+      startX: posterXOffsetPx,
+      startY: posterYOffsetPx,
+      startWidth: posterWidthPx,
+      startHeight: posterHeightPx,
+      mode: "drag",
+    }
+    setIsDraggingPoster(true)
+  }
+
+  const handlePosterResizeMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!posterImageUrl.trim()) return
+    e.preventDefault()
+    e.stopPropagation()
+
+    dragStateRef.current = {
+      target: "poster",
+      startMouseX: e.clientX,
+      startMouseY: e.clientY,
+      startX: posterXOffsetPx,
+      startY: posterYOffsetPx,
+      startWidth: posterWidthPx,
+      startHeight: posterHeightPx,
+      mode: "resize",
+    }
+    setIsResizingPoster(true)
   }
 
   useEffect(() => {
@@ -757,17 +804,39 @@ export default function AdminBroadcastEmailPage() {
       const dx = e.clientX - state.startMouseX
       const dy = e.clientY - state.startMouseY
 
+      if (state.target === "signature") {
+        if (state.mode === "drag") {
+          const maxX = Math.max(0, SIGNATURE_STAGE_WIDTH - signatureWidthPx)
+          const nextX = clamp(state.startX + dx, 0, maxX)
+          const nextY = clamp(state.startY + dy, 0, SIGNATURE_STAGE_HEIGHT - 20)
+          setSignatureXOffsetPx(Math.round(nextX))
+          setSignatureYOffsetPx(Math.round(nextY))
+        } else {
+          const nextWidth = clamp(state.startWidth + dx, 80, 340)
+          const maxX = Math.max(0, SIGNATURE_STAGE_WIDTH - nextWidth)
+          setSignatureWidthPx(Math.round(nextWidth))
+          setSignatureXOffsetPx((prev) => clamp(prev, 0, maxX))
+        }
+        return
+      }
+
       if (state.mode === "drag") {
-        const maxX = Math.max(0, SIGNATURE_STAGE_WIDTH - signatureWidthPx)
+        const maxX = Math.max(0, POSTER_STAGE_WIDTH - posterWidthPx)
+        const maxY = Math.max(0, POSTER_STAGE_HEIGHT - posterHeightPx)
         const nextX = clamp(state.startX + dx, 0, maxX)
-        const nextY = clamp(state.startY + dy, 0, SIGNATURE_STAGE_HEIGHT - 20)
-        setSignatureXOffsetPx(Math.round(nextX))
-        setSignatureYOffsetPx(Math.round(nextY))
+        const nextY = clamp(state.startY + dy, 0, maxY)
+        setPosterXOffsetPx(Math.round(nextX))
+        setPosterYOffsetPx(Math.round(nextY))
       } else {
-        const nextWidth = clamp(state.startWidth + dx, 80, 340)
-        const maxX = Math.max(0, SIGNATURE_STAGE_WIDTH - nextWidth)
-        setSignatureWidthPx(Math.round(nextWidth))
-        setSignatureXOffsetPx((prev) => clamp(prev, 0, maxX))
+        const nextWidth = clamp(state.startWidth + dx, 240, 620)
+        const nextHeight = clamp(state.startHeight + dy, 140, 520)
+        const maxX = Math.max(0, POSTER_STAGE_WIDTH - nextWidth)
+        const maxY = Math.max(0, POSTER_STAGE_HEIGHT - nextHeight)
+
+        setPosterWidthPx(Math.round(nextWidth))
+        setPosterHeightPx(Math.round(nextHeight))
+        setPosterXOffsetPx((prev) => clamp(prev, 0, maxX))
+        setPosterYOffsetPx((prev) => clamp(prev, 0, maxY))
       }
     }
 
@@ -775,9 +844,11 @@ export default function AdminBroadcastEmailPage() {
       dragStateRef.current = null
       setIsDraggingSignature(false)
       setIsResizingSignature(false)
+      setIsDraggingPoster(false)
+      setIsResizingPoster(false)
     }
 
-    if (isDraggingSignature || isResizingSignature) {
+    if (isDraggingSignature || isResizingSignature || isDraggingPoster || isResizingPoster) {
       window.addEventListener("mousemove", onMouseMove)
       window.addEventListener("mouseup", onMouseUp)
     }
@@ -786,7 +857,7 @@ export default function AdminBroadcastEmailPage() {
       window.removeEventListener("mousemove", onMouseMove)
       window.removeEventListener("mouseup", onMouseUp)
     }
-  }, [isDraggingSignature, isResizingSignature, signatureWidthPx])
+  }, [isDraggingSignature, isResizingSignature, isDraggingPoster, isResizingPoster, signatureWidthPx, posterWidthPx, posterHeightPx])
 
   return (
     <AdminLayout>
@@ -909,7 +980,42 @@ export default function AdminBroadcastEmailPage() {
 
               <div className="space-y-2 md:col-span-2">
                 <Label>Poster Placement</Label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border rounded-md p-3 bg-muted/20">
+                <div className="border rounded-md p-3 bg-muted/20 space-y-3">
+                  <div className="text-xs text-muted-foreground">Drag poster to move it and use the corner handle to resize width and height.</div>
+                  <div
+                    className="relative bg-white border rounded-md overflow-hidden"
+                    style={{ width: `${POSTER_STAGE_WIDTH}px`, maxWidth: "100%", height: `${POSTER_STAGE_HEIGHT}px` }}
+                  >
+                    <div
+                      className="absolute border-2 border-dashed border-sky-500 bg-sky-50/70 p-2 select-none"
+                      style={{
+                        left: `${posterXOffsetPx}px`,
+                        top: `${posterYOffsetPx}px`,
+                        width: `${posterWidthPx}px`,
+                        height: `${posterHeightPx}px`,
+                        cursor: isDraggingPoster ? "grabbing" : "grab",
+                      }}
+                      onMouseDown={handlePosterMouseDown}
+                    >
+                      {posterImageUrl.trim() ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={posterImageUrl.trim()} alt="Poster preview" className="w-full h-full object-contain" />
+                      ) : (
+                        <div className="text-xs text-muted-foreground">Add poster image to move/resize it here</div>
+                      )}
+
+                      <div
+                        className="absolute right-0 bottom-0 w-3 h-3 bg-sky-600 cursor-se-resize"
+                        onMouseDown={handlePosterResizeMouseDown}
+                        title="Resize"
+                      />
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    X: {posterXOffsetPx}px, Y: {posterYOffsetPx}px, Width: {posterWidthPx}px, Height: {posterHeightPx}px
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border rounded-md p-3 bg-muted/20 mt-3">
                   <div className="space-y-1">
                     <Label htmlFor="poster-width-px">Poster Width (px)</Label>
                     <Input
