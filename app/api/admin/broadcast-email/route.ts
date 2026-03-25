@@ -4,8 +4,15 @@ import { User } from '@/lib/models/User'
 import { emailService } from '@/lib/email'
 import { requireAdminAccess } from '@/lib/server-route-auth'
 
+type TemplateOverrides = {
+  subject?: string
+  body?: string
+  loginButtonText?: string
+  signupButtonText?: string
+}
+
 type BroadcastRequest = {
-  action?: 'preview' | 'send'
+  action?: 'preview' | 'send' | 'message-preview'
   dryRun?: boolean
   limit?: number
   skip?: number
@@ -13,6 +20,8 @@ type BroadcastRequest = {
   onlyUnverified?: boolean
   includeAdmins?: boolean
   delayMs?: number
+  previewName?: string
+  templateOverrides?: TemplateOverrides
 }
 
 function buildUserQuery(input: BroadcastRequest) {
@@ -51,6 +60,21 @@ export async function POST(request: NextRequest) {
     const limit = Math.max(1, Math.min(body.limit || 200, 1000))
     const skip = Math.max(0, body.skip || 0)
     const delayMs = Math.max(0, Math.min(body.delayMs || 350, 2000))
+
+    if (action === 'message-preview') {
+      const template = emailService.getRegistrationIssueAnnouncementTemplate({
+        name: body.previewName || 'Preview User',
+        overrides: body.templateOverrides,
+      })
+
+      return NextResponse.json({
+        success: true,
+        action: 'message-preview',
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+      })
+    }
 
     await connectToDatabase()
 
@@ -102,6 +126,7 @@ export async function POST(request: NextRequest) {
       const ok = await emailService.sendRegistrationIssueAnnouncement({
         email,
         name: user.name || user.displayName || 'User',
+        overrides: body.templateOverrides,
       })
 
       if (ok) {

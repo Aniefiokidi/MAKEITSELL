@@ -23,6 +23,13 @@ interface OrderEmailData {
   orderDate?: Date
 }
 
+export type RegistrationIssueTemplateOverrides = {
+  subject?: string
+  body?: string
+  loginButtonText?: string
+  signupButtonText?: string
+}
+
 class EmailService {
   private transporter: nodemailer.Transporter
 
@@ -80,6 +87,15 @@ class EmailService {
       .replace(/<[^>]+>/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
   }
 
   private async sleep(ms: number): Promise<void> {
@@ -779,12 +795,38 @@ class EmailService {
     })
   }
 
-  async sendRegistrationIssueAnnouncement({ email, name }: {
-    email: string
+  getRegistrationIssueAnnouncementTemplate({
+    name,
+    overrides,
+  }: {
     name?: string
-  }): Promise<boolean> {
+    overrides?: RegistrationIssueTemplateOverrides
+  }): {
+    subject: string
+    html: string
+    text: string
+  } {
     const appBase = this.getAppBaseUrl()
-    const safeName = name || 'there'
+    const safeName = this.escapeHtml(name || 'there')
+    const subject = (overrides?.subject || 'Important: registration link issue update').trim()
+    const loginButtonText = this.escapeHtml((overrides?.loginButtonText || 'Sign in').trim())
+    const signupButtonText = this.escapeHtml((overrides?.signupButtonText || 'Create account').trim())
+
+    const defaultBody = [
+      'Some users recently experienced delays or failures receiving registration and verification links. We sincerely apologize for the inconvenience.',
+      'The issue has been fixed. If you were affected, please try signing in again or request a new verification link.',
+      'If you still do not receive your link, contact us and we will assist immediately.',
+    ].join('\n\n')
+
+    const bodySource = (overrides?.body || defaultBody).trim()
+    const bodyParagraphs = bodySource
+      .split(/\r?\n\s*\r?\n/)
+      .map(p => p.trim())
+      .filter(Boolean)
+
+    const htmlParagraphs = bodyParagraphs
+      .map(p => `<p>${this.escapeHtml(p)}</p>`)
+      .join('')
 
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; background: #ffffff; border: 1px solid #eee; border-radius: 10px; overflow: hidden;">
@@ -794,36 +836,45 @@ class EmailService {
         </div>
         <div style="padding: 22px 20px; color: #222; line-height: 1.6;">
           <p style="margin-top: 0;">Hi ${safeName},</p>
-          <p>Some users recently experienced delays or failures receiving registration and verification links. We sincerely apologize for the inconvenience.</p>
-          <p>The issue has been fixed. If you were affected, please try signing in again or request a new verification link.</p>
+          ${htmlParagraphs}
           <div style="margin: 22px 0; text-align: center;">
-            <a href="${appBase}/login" style="display: inline-block; background: #8a2d12; color: #fff; text-decoration: none; padding: 12px 20px; border-radius: 8px; margin-right: 8px;">Sign in</a>
-            <a href="${appBase}/signup" style="display: inline-block; background: #ffffff; color: #8a2d12; text-decoration: none; padding: 11px 20px; border-radius: 8px; border: 1px solid #8a2d12;">Create account</a>
+            <a href="${appBase}/login" style="display: inline-block; background: #8a2d12; color: #fff; text-decoration: none; padding: 12px 20px; border-radius: 8px; margin-right: 8px;">${loginButtonText}</a>
+            <a href="${appBase}/signup" style="display: inline-block; background: #ffffff; color: #8a2d12; text-decoration: none; padding: 11px 20px; border-radius: 8px; border: 1px solid #8a2d12;">${signupButtonText}</a>
           </div>
-          <p style="margin-bottom: 0;">If you still do not receive your link, contact us and we will assist immediately.</p>
           <p style="margin-bottom: 0;"><a href="mailto:${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}" style="color: #8a2d12; font-weight: 600; text-decoration: none;">${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}</a></p>
         </div>
       </div>
     `
 
     const text = [
-      `Hi ${safeName},`,
+      `Hi ${name || 'there'},`,
       '',
-      'Some users recently experienced delays or failures receiving registration and verification links.',
-      'We sincerely apologize for the inconvenience.',
+      ...bodyParagraphs,
       '',
-      'The issue has been fixed. Please try signing in again or request a new verification link.',
-      `Sign in: ${appBase}/login`,
-      `Create account: ${appBase}/signup`,
-      '',
+      `${overrides?.loginButtonText || 'Sign in'}: ${appBase}/login`,
+      `${overrides?.signupButtonText || 'Create account'}: ${appBase}/signup`,
       `Support: ${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}`,
     ].join('\n')
 
+    return { subject, html, text }
+  }
+
+  async sendRegistrationIssueAnnouncement({
+    email,
+    name,
+    overrides,
+  }: {
+    email: string
+    name?: string
+    overrides?: RegistrationIssueTemplateOverrides
+  }): Promise<boolean> {
+    const template = this.getRegistrationIssueAnnouncementTemplate({ name, overrides })
+
     return await this.sendEmail({
       to: email,
-      subject: 'Important: registration link issue update',
-      html,
-      text,
+      subject: template.subject,
+      html: template.html,
+      text: template.text,
       headers: {
         'X-Entity-Ref-ID': `registration-issue-${Date.now()}`,
       },

@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Mail, Send, Search, AlertTriangle } from "lucide-react"
@@ -41,9 +42,18 @@ type SendResponse = {
   error?: string
 }
 
+type MessagePreviewResponse = {
+  success: boolean
+  subject: string
+  html: string
+  text: string
+  error?: string
+}
+
 export default function AdminBroadcastEmailPage() {
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [loadingSend, setLoadingSend] = useState(false)
+  const [loadingMessagePreview, setLoadingMessagePreview] = useState(false)
 
   const [adminKey, setAdminKey] = useState("")
   const [emailFilter, setEmailFilter] = useState("")
@@ -52,9 +62,17 @@ export default function AdminBroadcastEmailPage() {
   const [delayMs, setDelayMs] = useState(350)
   const [onlyUnverified, setOnlyUnverified] = useState(false)
   const [includeAdmins, setIncludeAdmins] = useState(false)
+  const [previewName, setPreviewName] = useState("Preview User")
+  const [customSubject, setCustomSubject] = useState("Important: registration link issue update")
+  const [customBody, setCustomBody] = useState(
+    "Some users recently experienced delays or failures receiving registration and verification links. We sincerely apologize for the inconvenience.\n\nThe issue has been fixed. If you were affected, please try signing in again or request a new verification link.\n\nIf you still do not receive your link, contact us and we will assist immediately."
+  )
+  const [loginButtonText, setLoginButtonText] = useState("Sign in")
+  const [signupButtonText, setSignupButtonText] = useState("Create account")
 
   const [preview, setPreview] = useState<PreviewResponse | null>(null)
   const [result, setResult] = useState<SendResponse | null>(null)
+  const [messagePreview, setMessagePreview] = useState<MessagePreviewResponse | null>(null)
 
   const makeHeaders = () => {
     const headers: Record<string, string> = {
@@ -75,6 +93,12 @@ export default function AdminBroadcastEmailPage() {
     delayMs,
     onlyUnverified,
     includeAdmins,
+    templateOverrides: {
+      subject: customSubject.trim() || undefined,
+      body: customBody.trim() || undefined,
+      loginButtonText: loginButtonText.trim() || undefined,
+      signupButtonText: signupButtonText.trim() || undefined,
+    },
   })
 
   const runPreview = async () => {
@@ -143,6 +167,40 @@ export default function AdminBroadcastEmailPage() {
     }
   }
 
+  const runMessagePreview = async () => {
+    setLoadingMessagePreview(true)
+
+    try {
+      const response = await fetch("/api/admin/broadcast-email", {
+        method: "POST",
+        credentials: "include",
+        headers: makeHeaders(),
+        body: JSON.stringify({
+          action: "message-preview",
+          previewName: previewName.trim() || "Preview User",
+          templateOverrides: {
+            subject: customSubject.trim() || undefined,
+            body: customBody.trim() || undefined,
+            loginButtonText: loginButtonText.trim() || undefined,
+            signupButtonText: signupButtonText.trim() || undefined,
+          },
+        }),
+      })
+
+      const data = await response.json()
+      setMessagePreview(data)
+
+      if (!data.success) {
+        alert(data.error || "Failed to preview message")
+      }
+    } catch (error) {
+      console.error("[admin/broadcast-email] Message preview error:", error)
+      alert("Failed to preview message")
+    } finally {
+      setLoadingMessagePreview(false)
+    }
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -184,6 +242,68 @@ export default function AdminBroadcastEmailPage() {
                   value={emailFilter}
                   onChange={(e) => setEmailFilter(e.target.value)}
                 />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="custom-subject">Email Subject</Label>
+                <Input
+                  id="custom-subject"
+                  value={customSubject}
+                  onChange={(e) => setCustomSubject(e.target.value)}
+                  placeholder="Email subject"
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="custom-body">Email Body</Label>
+                <Textarea
+                  id="custom-body"
+                  value={customBody}
+                  onChange={(e) => setCustomBody(e.target.value)}
+                  className="min-h-[170px]"
+                  placeholder="Write body content. Separate paragraphs with blank lines."
+                />
+                <p className="text-xs text-muted-foreground">Use blank lines to create separate paragraphs in the email.</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="login-button-text">Login Button Text</Label>
+                <Input
+                  id="login-button-text"
+                  value={loginButtonText}
+                  onChange={(e) => setLoginButtonText(e.target.value)}
+                  placeholder="Sign in"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="signup-button-text">Signup Button Text</Label>
+                <Input
+                  id="signup-button-text"
+                  value={signupButtonText}
+                  onChange={(e) => setSignupButtonText(e.target.value)}
+                  placeholder="Create account"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="preview-name">Message Preview Name</Label>
+                <Input
+                  id="preview-name"
+                  placeholder="Name used in preview greeting"
+                  value={previewName}
+                  onChange={(e) => setPreviewName(e.target.value)}
+                />
+              </div>
+              <div className="flex items-end">
+                <Button variant="outline" onClick={runMessagePreview} disabled={loadingMessagePreview || loadingPreview || loadingSend}>
+                  {loadingMessagePreview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+                  Preview Message
+                </Button>
               </div>
             </div>
 
@@ -279,6 +399,35 @@ export default function AdminBroadcastEmailPage() {
                     <span className="text-muted-foreground">verified: {u.isEmailVerified ? "yes" : "no"}</span>
                   </div>
                 ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {messagePreview?.success && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Email Message Preview</CardTitle>
+              <CardDescription>
+                This is the exact subject/body currently used for the registration issue announcement.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>Subject</Label>
+                <div className="mt-1 border rounded-md p-3 text-sm bg-muted/30">{messagePreview.subject}</div>
+              </div>
+
+              <div>
+                <Label>Plain Text</Label>
+                <pre className="mt-1 border rounded-md p-3 text-xs whitespace-pre-wrap bg-muted/30">{messagePreview.text}</pre>
+              </div>
+
+              <div>
+                <Label>Rendered HTML</Label>
+                <div className="mt-1 border rounded-md p-3 bg-white overflow-auto">
+                  <div dangerouslySetInnerHTML={{ __html: messagePreview.html }} />
+                </div>
               </div>
             </CardContent>
           </Card>
