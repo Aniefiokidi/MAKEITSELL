@@ -18,6 +18,7 @@ type TemplateOverrides = {
   senderTitle?: string
   senderCompany?: string
   signatureWidthPx?: number
+  signatureHeightPx?: number
   signatureXOffsetPx?: number
   signatureYOffsetPx?: number
 }
@@ -54,6 +55,7 @@ function sanitizeTemplateOverrides(input?: TemplateOverrides): TemplateOverrides
     senderTitle: input?.senderTitle?.trim() || undefined,
     senderCompany: input?.senderCompany?.trim() || undefined,
     signatureWidthPx: sanitizeNumberInRange(input?.signatureWidthPx, 80, 340, 180),
+    signatureHeightPx: sanitizeNumberInRange(input?.signatureHeightPx, 24, 120, 56),
     signatureXOffsetPx: sanitizeNumberInRange(input?.signatureXOffsetPx, 0, 420, 0),
     signatureYOffsetPx: sanitizeNumberInRange(input?.signatureYOffsetPx, 0, 220, 0),
   }

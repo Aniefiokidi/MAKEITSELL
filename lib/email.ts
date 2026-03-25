@@ -34,6 +34,7 @@ export type RegistrationIssueTemplateOverrides = {
   senderTitle?: string
   senderCompany?: string
   signatureWidthPx?: number
+  signatureHeightPx?: number
   signatureXOffsetPx?: number
   signatureYOffsetPx?: number
 }
@@ -833,6 +834,7 @@ class EmailService {
     const senderTitle = this.escapeHtml((overrides?.senderTitle || '').trim())
     const senderCompany = this.escapeHtml((overrides?.senderCompany || 'Make It Sell').trim())
     const signatureWidthPx = this.clampNumber(overrides?.signatureWidthPx, 80, 340, 180)
+    const signatureHeightPx = this.clampNumber(overrides?.signatureHeightPx, 24, 120, 56)
     const signatureXOffsetPx = this.clampNumber(overrides?.signatureXOffsetPx, 0, 420, 0)
     const signatureYOffsetPx = this.clampNumber(overrides?.signatureYOffsetPx, 0, 220, 0)
 
@@ -849,7 +851,7 @@ class EmailService {
       .filter(Boolean)
 
     const signatureVisualHtml = signatureImageUrl
-      ? `<img src="${signatureImageUrl}" alt="Signature" style="max-width: 220px; max-height: 90px; width: auto; height: auto; object-fit: contain; display: block; margin-bottom: 8px;" />`
+      ? `<img src="${signatureImageUrl}" alt="Signature" style="max-width: ${signatureWidthPx}px; max-height: ${signatureHeightPx}px; width: auto; height: auto; object-fit: contain; display: block; margin-bottom: 8px;" />`
       : ''
 
     const eSignatureHtml = eSignatureText
@@ -865,6 +867,7 @@ class EmailService {
     const tokenFoundInBody = bodySource.includes(signatureToken)
     const signatureStageHeight = Math.max(96, signatureYOffsetPx + 96)
     const signatureInlineWidthPx = this.clampNumber(signatureWidthPx, 90, 220, 150)
+    const signatureInlineHeightPx = this.clampNumber(signatureHeightPx, 24, 72, 48)
     const signatureInlineOffsetPx = this.clampNumber(signatureXOffsetPx - 12, -24, 120, -12)
 
     const signaturePlacementHtml = hasSignatureBlock
@@ -881,7 +884,7 @@ class EmailService {
     const signatureInlineHtml = hasSignatureBlock
       ? `
         <div style="margin: 8px 0 8px ${signatureInlineOffsetPx}px; text-align: left;">
-          ${signatureImageUrl ? `<img src="${signatureImageUrl}" alt="Signature" style="width: ${signatureInlineWidthPx}px; max-width: ${signatureInlineWidthPx}px; max-height: 56px; width: auto; height: auto; object-fit: contain; display: block; margin: 0 0 4px 0;" />` : ''}
+          ${signatureImageUrl ? `<img src="${signatureImageUrl}" alt="Signature" style="width: ${signatureInlineWidthPx}px; max-width: ${signatureInlineWidthPx}px; max-height: ${signatureInlineHeightPx}px; width: auto; height: auto; object-fit: contain; display: block; margin: 0 0 4px 0;" />` : ''}
           ${eSignatureHtml}
         </div>
       `

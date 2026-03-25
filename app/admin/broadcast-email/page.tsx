@@ -62,6 +62,7 @@ const DEFAULT_SENDER_NAME = "Make It Sell Team"
 const DEFAULT_SENDER_TITLE = ""
 const DEFAULT_SENDER_COMPANY = "Make It Sell"
 const DEFAULT_SIGNATURE_WIDTH = 180
+const DEFAULT_SIGNATURE_HEIGHT = 56
 const DEFAULT_SIGNATURE_X = 0
 const DEFAULT_SIGNATURE_Y = 0
 const SIGNATURE_STAGE_WIDTH = 520
@@ -128,6 +129,7 @@ export default function AdminBroadcastEmailPage() {
   const [senderTitle, setSenderTitle] = useState(DEFAULT_SENDER_TITLE)
   const [senderCompany, setSenderCompany] = useState(DEFAULT_SENDER_COMPANY)
   const [signatureWidthPx, setSignatureWidthPx] = useState(DEFAULT_SIGNATURE_WIDTH)
+  const [signatureHeightPx, setSignatureHeightPx] = useState(DEFAULT_SIGNATURE_HEIGHT)
   const [signatureXOffsetPx, setSignatureXOffsetPx] = useState(DEFAULT_SIGNATURE_X)
   const [signatureYOffsetPx, setSignatureYOffsetPx] = useState(DEFAULT_SIGNATURE_Y)
   const [saveMessage, setSaveMessage] = useState("")
@@ -181,6 +183,7 @@ export default function AdminBroadcastEmailPage() {
       if (typeof t.senderTitle === "string") setSenderTitle(t.senderTitle)
       if (typeof t.senderCompany === "string" && t.senderCompany.trim()) setSenderCompany(t.senderCompany)
       if (typeof t.signatureWidthPx === "number") setSignatureWidthPx(t.signatureWidthPx)
+      if (typeof t.signatureHeightPx === "number") setSignatureHeightPx(t.signatureHeightPx)
       if (typeof t.signatureXOffsetPx === "number") setSignatureXOffsetPx(t.signatureXOffsetPx)
       if (typeof t.signatureYOffsetPx === "number") setSignatureYOffsetPx(t.signatureYOffsetPx)
       setSaveMessage("Shared template loaded")
@@ -222,6 +225,7 @@ export default function AdminBroadcastEmailPage() {
       senderTitle: senderTitle.trim() || undefined,
       senderCompany: senderCompany.trim() || undefined,
       signatureWidthPx,
+      signatureHeightPx,
       signatureXOffsetPx,
       signatureYOffsetPx,
     },
@@ -315,6 +319,7 @@ export default function AdminBroadcastEmailPage() {
             senderTitle: senderTitle.trim() || undefined,
             senderCompany: senderCompany.trim() || undefined,
             signatureWidthPx,
+            signatureHeightPx,
             signatureXOffsetPx,
             signatureYOffsetPx,
           },
@@ -356,6 +361,7 @@ export default function AdminBroadcastEmailPage() {
               senderTitle,
               senderCompany,
               signatureWidthPx,
+              signatureHeightPx,
               signatureXOffsetPx,
               signatureYOffsetPx,
             },
@@ -388,6 +394,7 @@ export default function AdminBroadcastEmailPage() {
       setSenderTitle(DEFAULT_SENDER_TITLE)
       setSenderCompany(DEFAULT_SENDER_COMPANY)
       setSignatureWidthPx(DEFAULT_SIGNATURE_WIDTH)
+      setSignatureHeightPx(DEFAULT_SIGNATURE_HEIGHT)
       setSignatureXOffsetPx(DEFAULT_SIGNATURE_X)
       setSignatureYOffsetPx(DEFAULT_SIGNATURE_Y)
 
@@ -410,6 +417,7 @@ export default function AdminBroadcastEmailPage() {
               senderTitle: DEFAULT_SENDER_TITLE,
               senderCompany: DEFAULT_SENDER_COMPANY,
               signatureWidthPx: DEFAULT_SIGNATURE_WIDTH,
+              signatureHeightPx: DEFAULT_SIGNATURE_HEIGHT,
               signatureXOffsetPx: DEFAULT_SIGNATURE_X,
               signatureYOffsetPx: DEFAULT_SIGNATURE_Y,
             },
@@ -497,12 +505,15 @@ export default function AdminBroadcastEmailPage() {
 
     const hasImage = !!signatureImageUrl.trim()
     const baseWidth = hasImage ? 220 : 180
+    const baseHeight = hasImage ? 56 : 48
     const fittedWidth = clamp(baseWidth, 80, 340)
+    const fittedHeight = clamp(baseHeight, 24, 120)
 
     const centeredX = Math.round((SIGNATURE_STAGE_WIDTH - fittedWidth) / 2)
     const defaultY = hasImage ? 14 : 20
 
     setSignatureWidthPx(fittedWidth)
+    setSignatureHeightPx(fittedHeight)
     setSignatureXOffsetPx(clamp(centeredX, 0, SIGNATURE_STAGE_WIDTH - fittedWidth))
     setSignatureYOffsetPx(clamp(defaultY, 0, SIGNATURE_STAGE_HEIGHT - 20))
     setSaveMessage("Signature fitted and centered")
@@ -746,7 +757,7 @@ export default function AdminBroadcastEmailPage() {
                     >
                       {signatureImageUrl.trim() ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={signatureImageUrl.trim()} alt="Signature preview" style={{ maxWidth: "100%", maxHeight: "70px", objectFit: "contain" }} />
+                        <img src={signatureImageUrl.trim()} alt="Signature preview" style={{ maxWidth: "100%", maxHeight: `${signatureHeightPx}px`, objectFit: "contain" }} />
                       ) : null}
                       {eSignatureText.trim() ? (
                         <div style={{ fontFamily: "'Brush Script MT', 'Segoe Script', cursive", fontSize: "26px", lineHeight: 1.1, color: "#8a2d12" }}>
@@ -765,7 +776,31 @@ export default function AdminBroadcastEmailPage() {
                     </div>
                   </div>
                   <div className="mt-2 text-xs text-muted-foreground">
-                    X: {signatureXOffsetPx}px, Y: {signatureYOffsetPx}px, Width: {signatureWidthPx}px
+                    X: {signatureXOffsetPx}px, Y: {signatureYOffsetPx}px, Width: {signatureWidthPx}px, Height: {signatureHeightPx}px
+                  </div>
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="signature-width-px">Signature Width (px)</Label>
+                      <Input
+                        id="signature-width-px"
+                        type="number"
+                        min={80}
+                        max={340}
+                        value={signatureWidthPx}
+                        onChange={(e) => setSignatureWidthPx(clamp(Number(e.target.value || DEFAULT_SIGNATURE_WIDTH), 80, 340))}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="signature-height-px">Signature Height (px)</Label>
+                      <Input
+                        id="signature-height-px"
+                        type="number"
+                        min={24}
+                        max={120}
+                        value={signatureHeightPx}
+                        onChange={(e) => setSignatureHeightPx(clamp(Number(e.target.value || DEFAULT_SIGNATURE_HEIGHT), 24, 120))}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
