@@ -117,16 +117,21 @@ export function estimateShippingFee(params: {
   const pickupAddress = String(params.pickupAddress || "")
   const dropoffAddress = String(params.dropoffAddress || "")
   const dropoffState = String(params.dropoffState || "")
+  const pickupRoute = findRouteForAddress(pickupAddress)
+  const dropoffRoute = findRouteForAddress(dropoffAddress)
+
+  const pickupIsLagos = isLagosAddress(pickupAddress) || Boolean(pickupRoute)
+  const dropoffIsLagos = isLagosAddress(dropoffAddress) || normalize(dropoffState) === "lagos" || Boolean(dropoffRoute)
 
   // Stores outside Lagos remain TBD.
-  if (!isLagosAddress(pickupAddress)) {
+  if (!pickupIsLagos) {
     return null
   }
 
   // Intra-Lagos matrix pricing.
-  if (isLagosAddress(dropoffAddress) || normalize(dropoffState) === "lagos") {
-    const fromRoute = findRouteForAddress(pickupAddress)
-    const toRoute = findRouteForAddress(dropoffAddress)
+  if (dropoffIsLagos) {
+    const fromRoute = pickupRoute
+    const toRoute = dropoffRoute
     if (!fromRoute || !toRoute) return null
     return getPrice(fromRoute, toRoute)
   }

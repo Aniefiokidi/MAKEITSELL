@@ -22,13 +22,17 @@ import Header from "@/components/Header"
 import ProtectedRoute from "@/components/auth/ProtectedRoute"
 import { trackFunnelEvent } from "@/lib/funnel-tracker"
 import { calculatePaystackCheckoutAmounts } from "@/lib/paystack-charges"
+import LocationPicker from "@/components/LocationPicker"
 
 export default function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCart()
   const { user, userProfile } = useAuth()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [shippingLoading, setShippingLoading] = useState(false)
   const [error, setError] = useState("")
+  const [shippingEstimate, setShippingEstimate] = useState<{ cost: number; hasTbd?: boolean; source?: string } | null>(null)
+  const [manualLocationEdit, setManualLocationEdit] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState("paystack") // Keep Paystack as default checkout method
   const [checkoutTracked, setCheckoutTracked] = useState(false)
 
@@ -61,8 +65,11 @@ export default function CheckoutPage() {
 
   const subtotal = totalPrice
   const vat = calculateVAT(subtotal)
-  const shipping = 0 // Free shipping
-  const total = subtotal + vat + shipping
+  const resolvedShipping = shippingEstimate && !shippingEstimate.hasTbd && Number.isFinite(Number(shippingEstimate.cost))
+    ? Number(shippingEstimate.cost)
+    : 0
+  const shippingIsTbd = !shippingEstimate || Boolean(shippingEstimate.hasTbd)
+  const total = subtotal + vat + resolvedShipping
   const paystackQuote = calculatePaystackCheckoutAmounts(total)
   const checkoutPayableTotal = paymentMethod === "paystack" ? paystackQuote.payableAmount : total
 
@@ -78,6 +85,65 @@ export default function CheckoutPage() {
       })
     })
   }, [checkoutTracked, items, subtotal])
+
+  useEffect(() => {
+    const hasAddressFields = Boolean(
+      shippingInfo.address.trim() &&
+      shippingInfo.city.trim() &&
+      shippingInfo.state.trim() &&
+      shippingInfo.country.trim()
+    )
+
+    if (!hasAddressFields || items.length === 0) {
+      setShippingEstimate(null)
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        setShippingLoading(true)
+        const response = await fetch('/api/delivery/estimate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerAddress: {
+              address: shippingInfo.address,
+              city: shippingInfo.city,
+              state: shippingInfo.state,
+              country: shippingInfo.country,
+            },
+            items: items.map((item) => ({
+              vendorId: item.vendorId,
+              productId: item.productId,
+            })),
+          }),
+        })
+
+        const result = await response.json().catch(() => ({}))
+        if (!response.ok || !result?.success) {
+          setShippingEstimate(null)
+          return
+        }
+
+        const estimate = result?.estimate
+        if (estimate && Number.isFinite(Number(estimate.cost))) {
+          setShippingEstimate({
+            cost: Number(estimate.cost),
+            hasTbd: Boolean(estimate.hasTbd),
+            source: String(estimate.source || ''),
+          })
+        } else {
+          setShippingEstimate(null)
+        }
+      } catch {
+        setShippingEstimate(null)
+      } finally {
+        setShippingLoading(false)
+      }
+    }, 450)
+
+    return () => clearTimeout(timer)
+  }, [items, shippingInfo.address, shippingInfo.city, shippingInfo.state, shippingInfo.country])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -141,7 +207,7 @@ export default function CheckoutPage() {
         },
         subtotal,
         vat,
-        shipping,
+        shipping: resolvedShipping,
         totalAmount: total
       }
 
@@ -315,23 +381,42 @@ export default function CheckoutPage() {
 
                       <div className="space-y-2">
                         <Label htmlFor="address">Address *</Label>
-                        <Input
-                          id="address"
+                        <LocationPicker
+                          onLocationSelect={(location) => {
+                            handleInputChange("address", location.address || "")
+                            if (location.city) handleInputChange("city", location.city)
+                            if (location.state) handleInputChange("state", location.state)
+                            if (location.country) handleInputChange("country", location.country)
+                            setManualLocationEdit(false)
+                          }}
                           value={shippingInfo.address}
-                          onChange={(e) => handleInputChange("address", e.target.value)}
-                          required
-                          disabled={loading}
+                          onChange={(value) => handleInputChange("address", value)}
+                          placeholder="Search and select your delivery address"
                         />
+                        <p className="text-xs text-muted-foreground">Use Mapbox search for accurate delivery pricing.</p>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="city">City *</Label>
+                          <div className="flex items-center justify-between gap-2">
+                            <Label htmlFor="city">City *</Label>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => setManualLocationEdit((prev) => !prev)}
+                              disabled={loading}
+                            >
+                              {manualLocationEdit ? "Use Mapbox values" : "Edit manually"}
+                            </Button>
+                          </div>
                           <Input
                             id="city"
                             value={shippingInfo.city}
                             onChange={(e) => handleInputChange("city", e.target.value)}
                             required
+                            readOnly={!manualLocationEdit}
                             disabled={loading}
                           />
                         </div>
@@ -342,10 +427,16 @@ export default function CheckoutPage() {
                             value={shippingInfo.state}
                             onChange={(e) => handleInputChange("state", e.target.value)}
                             required
+                            readOnly={!manualLocationEdit}
                             disabled={loading}
                           />
                         </div>
                       </div>
+                      {!manualLocationEdit && (
+                        <p className="text-xs text-muted-foreground">
+                          City and state are auto-filled from your Mapbox-selected address.
+                        </p>
+                      )}
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -497,11 +588,23 @@ export default function CheckoutPage() {
                         </div>
                         <div className="flex justify-between">
                           <span>Shipping</span>
-                          <span className="text-muted-foreground">TBD</span>
+                          <span className="text-muted-foreground">
+                            {shippingLoading
+                              ? 'Calculating...'
+                              : shippingIsTbd
+                                ? 'TBD'
+                                : `₦${formatCurrency(resolvedShipping)}`}
+                          </span>
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          *Rider will inform you of delivery cost
-                        </div>
+                        {shippingIsTbd ? (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            *Delivery fee will be finalized for unmatched routes.
+                          </div>
+                        ) : (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            *Calculated from A&CO route rates via mapped address.
+                          </div>
+                        )}
                         <div className="flex justify-between">
                           <span>VAT</span>
                           <span>₦{formatCurrency(vat)}</span>
@@ -528,7 +631,9 @@ export default function CheckoutPage() {
                           </div>
                         )}
                         <div className="text-xs text-muted-foreground text-right">
-                          *Excluding delivery fee (to be determined by rider)
+                          {shippingIsTbd
+                            ? '*Delivery fee not yet determined for at least one route.'
+                            : '*Delivery fee included in total.'}
                         </div>
                       </div>
 

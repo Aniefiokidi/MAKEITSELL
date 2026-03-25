@@ -1,56 +1,107 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { mapboxService, Address } from '@/lib/mapbox'
 import { connectToDatabase } from '@/lib/mongodb'
+import { Store } from '@/lib/models/Store'
+import { estimateShippingFee } from '@/lib/aco-logistics-rates'
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { customerAddress, vendorId, items } = body
+    const { customerAddress, items } = body
 
-    if (!customerAddress) {
+    if (!customerAddress || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'Customer address is required' }, { status: 400 })
     }
 
-    // Connect to database to get vendor information
     await connectToDatabase()
-    
-    // For now, we'll use a default vendor address (can be enhanced to get from vendor profile)
-    // This should ideally fetch the vendor's actual address from their store/profile
-    const defaultVendorAddress: Address = {
-      address: 'Victoria Island',
-      city: 'Lagos',
-      state: 'Lagos',
-      country: 'Nigeria'
+
+    const vendorIds = Array.from(new Set(items.map((item: any) => String(item?.vendorId || '')).filter(Boolean)))
+    const stores = vendorIds.length > 0 ? await Store.find({ vendorId: { $in: vendorIds } }).lean() : []
+
+    const storeByVendorId = new Map<string, any>()
+    for (const store of stores as any[]) {
+      const vid = String(store?.vendorId || '')
+      if (!vid || storeByVendorId.has(vid)) continue
+      storeByVendorId.set(vid, store)
     }
 
-    // Estimate delivery cost using Mapbox
-    const deliveryEstimate = await mapboxService.estimateDelivery(
-      defaultVendorAddress,
-      customerAddress
-    )
+    const dropoffAddress = [
+      customerAddress?.address,
+      customerAddress?.city,
+      customerAddress?.state,
+      customerAddress?.country || 'Nigeria',
+    ].filter(Boolean).join(', ')
 
-    if (deliveryEstimate) {
-      return NextResponse.json({
-        success: true,
-        estimate: deliveryEstimate
-      })
-    } else {
-      // Fallback to simple city/state-based pricing
-      const fallbackCost = mapboxService.getFallbackDeliveryCost(
-        customerAddress.city,
-        customerAddress.state
-      )
+    let totalCost = 0
+    let hasTbd = false
+    let usedMapboxFallback = false
+    const breakdown: Array<{ vendorId: string; storeName: string; cost: number | null; source: 'matrix' | 'mapbox' | 'tbd' }> = []
 
-      return NextResponse.json({
-        success: true,
-        estimate: {
-          distance: 0,
-          cost: fallbackCost,
-          duration: 'TBD',
-          fallback: true
-        }
+    for (const vendorId of vendorIds) {
+      const store = storeByVendorId.get(vendorId)
+      const pickupAddressText = String(store?.address || '')
+
+      const matrixCost = estimateShippingFee({
+        pickupAddress: pickupAddressText,
+        dropoffAddress,
+        dropoffState: String(customerAddress?.state || ''),
       })
+
+      if (typeof matrixCost === 'number') {
+        totalCost += matrixCost
+        breakdown.push({
+          vendorId,
+          storeName: String(store?.storeName || 'Store'),
+          cost: matrixCost,
+          source: 'matrix',
+        })
+        continue
+      }
+
+      const pickupForMapbox: Address = {
+        address: String(store?.address || ''),
+        city: String(store?.city || ''),
+        state: String(store?.state || ''),
+        country: 'Nigeria',
+      }
+
+      const dropoffForMapbox: Address = {
+        address: String(customerAddress?.address || ''),
+        city: String(customerAddress?.city || ''),
+        state: String(customerAddress?.state || ''),
+        country: String(customerAddress?.country || 'Nigeria'),
+      }
+
+      const mapboxEstimate = await mapboxService.estimateDelivery(pickupForMapbox, dropoffForMapbox)
+      if (mapboxEstimate?.cost && Number.isFinite(mapboxEstimate.cost)) {
+        totalCost += mapboxEstimate.cost
+        usedMapboxFallback = true
+        breakdown.push({
+          vendorId,
+          storeName: String(store?.storeName || 'Store'),
+          cost: mapboxEstimate.cost,
+          source: 'mapbox',
+        })
+      } else {
+        hasTbd = true
+        breakdown.push({
+          vendorId,
+          storeName: String(store?.storeName || 'Store'),
+          cost: null,
+          source: 'tbd',
+        })
+      }
     }
+
+    return NextResponse.json({
+      success: true,
+      estimate: {
+        cost: totalCost,
+        hasTbd,
+        source: usedMapboxFallback ? 'mixed' : 'matrix',
+        breakdown,
+      },
+    })
   } catch (error) {
     console.error('Delivery estimation error:', error)
     return NextResponse.json({ 
