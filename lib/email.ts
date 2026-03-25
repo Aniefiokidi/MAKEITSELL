@@ -936,6 +936,8 @@ class EmailService {
 
     const showExternalSignatureBlock = hasSignatureBlock && !tokenFoundInBody
     const showSenderMetaBlock = !tokenFoundInBody
+    const brandAccent = '#5b2f21'
+    const brandAccentSoft = '#f8f3f1'
 
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; background: #ffffff !important; color: #1f2937 !important; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; color-scheme: light; supported-color-schemes: light;">
@@ -948,8 +950,8 @@ class EmailService {
           <p style="margin-top: 0; color: #1f2937 !important;">Hi ${safeName},</p>
           ${htmlBody}
           <div style="margin: 22px 0; text-align: center;">
-            <a href="${appBase}/login" style="display: inline-block; background: #8a2d12; color: #fff; text-decoration: none; padding: 12px 20px; border-radius: 8px; border: 1px solid #8a2d12; font-weight: 700; margin-right: 8px;">${loginButtonText}</a>
-            <a href="${appBase}/signup" style="display: inline-block; background: #fdf1ea; color: #8a2d12; text-decoration: none; padding: 12px 20px; border-radius: 8px; border: 1px solid #b1451d; font-weight: 700;">${signupButtonText}</a>
+            <a href="${appBase}/login" style="display: inline-block; background: ${brandAccent}; color: #fff; text-decoration: none; padding: 12px 20px; border-radius: 8px; border: 1px solid ${brandAccent}; font-weight: 700; margin-right: 8px;">${loginButtonText}</a>
+            <a href="${appBase}/signup" style="display: inline-block; background: ${brandAccentSoft}; color: ${brandAccent}; text-decoration: none; padding: 12px 20px; border-radius: 8px; border: 1px solid ${brandAccent}; font-weight: 700;">${signupButtonText}</a>
           </div>
           ${showExternalSignatureBlock ? signaturePlacementHtml : ''}
           ${showSenderMetaBlock ? `
@@ -958,22 +960,22 @@ class EmailService {
               <div style="color: #555; line-height: 1.4;">${senderMetaHtml}</div>
             </div>
           ` : ''}
-          <p style="margin-bottom: 0; color: #1f2937 !important;"><a href="mailto:${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}" style="color: #8a2d12; font-weight: 600; text-decoration: none;">${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}</a></p>
+          <p style="margin-bottom: 0; color: #1f2937 !important;"><a href="mailto:${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}" style="color: ${brandAccent}; font-weight: 600; text-decoration: none;">${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}</a></p>
           <div style="margin: 14px 0 2px 0; text-align: left;">
-            <a href="${instagramUrl}" target="_blank" rel="noopener noreferrer" aria-label="Instagram" style="display: inline-block; width: 30px; height: 30px; text-align: center; border: 1px solid #8a2d12; border-radius: 50%; color: #8a2d12; text-decoration: none; margin-right: 8px; vertical-align: middle;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-top: 7px;">
+            <a href="${instagramUrl}" target="_blank" rel="noopener noreferrer" aria-label="Instagram" style="display: inline-block; color: ${brandAccent}; text-decoration: none; margin-right: 20px; vertical-align: middle;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect x="3.2" y="3.2" width="17.6" height="17.6" rx="5.2" stroke="currentColor" stroke-width="1.8"/>
                 <circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.8"/>
                 <circle cx="17.2" cy="6.8" r="1.2" fill="currentColor"/>
               </svg>
             </a>
-            <a href="${twitterUrl}" target="_blank" rel="noopener noreferrer" aria-label="X" style="display: inline-block; width: 30px; height: 30px; text-align: center; border: 1px solid #8a2d12; border-radius: 50%; color: #8a2d12; text-decoration: none; margin-right: 8px; vertical-align: middle;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style="margin-top: 7px;">
+            <a href="${twitterUrl}" target="_blank" rel="noopener noreferrer" aria-label="X" style="display: inline-block; color: ${brandAccent}; text-decoration: none; margin-right: 20px; vertical-align: middle;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                 <path d="M18.244 2H21l-6.56 7.496L22.5 22h-6.3l-4.934-6.458L5.53 22H2.77l7.014-8.014L1.5 2h6.46l4.46 5.893L18.244 2zm-2.208 18h1.64L7.067 3.896H5.31L16.036 20z"/>
               </svg>
             </a>
-            <span aria-label="Facebook coming soon" style="display: inline-block; width: 30px; height: 30px; text-align: center; border: 1px solid #c4c4c4; border-radius: 50%; color: #9ca3af; vertical-align: middle;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style="margin-top: 7px;">
+            <span aria-label="Facebook coming soon" style="display: inline-block; color: ${brandAccent}; opacity: 0.6; vertical-align: middle;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                 <path d="M13.5 8.5V6.9c0-.7.3-1.1 1.2-1.1H16V3.1c-.2 0-.9-.1-1.8-.1-1.8 0-3.1 1.1-3.1 3.3v2.2H9v2.8h2.1V21h2.9v-9.7h2.3l.4-2.8h-2.7z"/>
               </svg>
             </span>
