@@ -824,6 +824,8 @@ class EmailService {
     const signatureToken = '{{signature}}'
     const appBase = this.getAppBaseUrl()
     const logoUrl = 'https://makeitsell.org/images/logo%20(2).png'
+    const instagramUrl = 'https://www.instagram.com/makeitsell.ng/?__pwa=1'
+    const twitterUrl = 'https://x.com/makeitsellorg'
     const safeName = this.escapeHtml(name || 'there')
     const subject = (overrides?.subject || 'Important: registration link issue update').trim()
     const loginButtonText = this.escapeHtml((overrides?.loginButtonText || 'Sign in').trim())
@@ -934,6 +936,11 @@ class EmailService {
             </div>
           ` : ''}
           <p style="margin-bottom: 0; color: #1f2937 !important;"><a href="mailto:${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}" style="color: #8a2d12; font-weight: 600; text-decoration: none;">${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}</a></p>
+          <div style="margin: 14px 0 2px 0; text-align: left;">
+            <a href="${instagramUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; width: 30px; height: 30px; line-height: 30px; text-align: center; border: 1px solid #8a2d12; border-radius: 50%; color: #8a2d12; text-decoration: none; font-weight: 700; margin-right: 8px;">IG</a>
+            <a href="${twitterUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; width: 30px; height: 30px; line-height: 30px; text-align: center; border: 1px solid #8a2d12; border-radius: 50%; color: #8a2d12; text-decoration: none; font-weight: 700; margin-right: 8px;">X</a>
+            <span style="display: inline-block; width: 30px; height: 30px; line-height: 30px; text-align: center; border: 1px solid #c4c4c4; border-radius: 50%; color: #9ca3af; font-weight: 700;">f</span>
+          </div>
         </div>
       </div>
     `
@@ -967,6 +974,9 @@ class EmailService {
         `${overrides?.signatureImageUrl ? `Signature image: ${overrides.signatureImageUrl}` : ''}`,
       ] : []),
       `Support: ${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}`,
+      `Instagram: ${instagramUrl}`,
+      `X: ${twitterUrl}`,
+      'Facebook: coming soon',
     ].filter(Boolean).join('\n')
 
     return { subject, html, text }
