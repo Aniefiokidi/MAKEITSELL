@@ -822,6 +822,7 @@ class EmailService {
   } {
     const signatureToken = '{{signature}}'
     const appBase = this.getAppBaseUrl()
+    const logoUrl = 'https://makeitsell.org/images/logo%20(2).png'
     const safeName = this.escapeHtml(name || 'there')
     const subject = (overrides?.subject || 'Important: registration link issue update').trim()
     const loginButtonText = this.escapeHtml((overrides?.loginButtonText || 'Sign in').trim())
@@ -852,7 +853,7 @@ class EmailService {
       : ''
 
     const eSignatureHtml = eSignatureText
-      ? `<div style="font-family: 'Brush Script MT', 'Segoe Script', cursive; font-size: 28px; line-height: 1.1; color: #8a2d12; margin-bottom: 6px;">${eSignatureText}</div>`
+      ? `<div style="font-family: 'Brush Script MT', 'Segoe Script', cursive; font-size: 22px; line-height: 1.1; color: #161616; margin-bottom: 4px;">${eSignatureText}</div>`
       : ''
 
     const senderMetaHtml = [senderTitle, senderCompany]
@@ -863,6 +864,7 @@ class EmailService {
     const hasSignatureBlock = !!(signatureImageUrl || eSignatureText)
     const tokenFoundInBody = bodySource.includes(signatureToken)
     const signatureStageHeight = Math.max(96, signatureYOffsetPx + 96)
+    const signatureInlineWidthPx = this.clampNumber(signatureWidthPx, 90, 220, 150)
 
     const signaturePlacementHtml = hasSignatureBlock
       ? `
@@ -871,6 +873,15 @@ class EmailService {
             ${signatureVisualHtml}
             ${eSignatureHtml}
           </div>
+        </div>
+      `
+      : ''
+
+    const signatureInlineHtml = hasSignatureBlock
+      ? `
+        <div style="margin: 8px 0 8px 0; text-align: left;">
+          ${signatureImageUrl ? `<img src="${signatureImageUrl}" alt="Signature" style="width: ${signatureInlineWidthPx}px; max-width: ${signatureInlineWidthPx}px; max-height: 56px; width: auto; height: auto; object-fit: contain; display: block; margin: 0 0 4px 0;" />` : ''}
+          ${eSignatureHtml}
         </div>
       `
       : ''
@@ -885,10 +896,10 @@ class EmailService {
       const splits = paragraph.split(signatureToken)
       splits.forEach((part, index) => {
         if (part.trim()) {
-          htmlBodyParts.push(`<p>${this.escapeHtml(part)}</p>`)
+          htmlBodyParts.push(`<p style="margin: 0 0 10px 0; color: #1f2937 !important;">${this.escapeHtml(part)}</p>`)
         }
-        if (index < splits.length - 1 && signaturePlacementHtml) {
-          htmlBodyParts.push(signaturePlacementHtml)
+        if (index < splits.length - 1 && signatureInlineHtml) {
+          htmlBodyParts.push(signatureInlineHtml)
         }
       })
     }
@@ -898,13 +909,14 @@ class EmailService {
     const showSenderMetaBlock = !tokenFoundInBody
 
     const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; background: #ffffff; border: 1px solid #eee; border-radius: 10px; overflow: hidden;">
-        <div style="background: #8a2d12; color: #fff; padding: 24px 20px;">
-          <h1 style="margin: 0; font-size: 22px;">Important update from Make It Sell</h1>
-          <p style="margin: 8px 0 0 0; opacity: 0.95;">Registration link delivery issue</p>
+      <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; background: #ffffff !important; color: #1f2937 !important; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; color-scheme: light; supported-color-schemes: light;">
+        <div style="background: #ffffff !important; color: #1f2937 !important; padding: 18px 20px 14px 20px; border-bottom: 1px solid #e5e7eb;">
+          <img src="${logoUrl}" alt="Make It Sell" style="height: 34px; width: auto; display: block; margin-bottom: 10px;" />
+          <h1 style="margin: 0; font-size: 22px; color: #111827 !important;">Important update from Make It Sell</h1>
+          <p style="margin: 8px 0 0 0; color: #6b7280 !important;">Registration link delivery issue</p>
         </div>
-        <div style="padding: 22px 20px; color: #222; line-height: 1.6;">
-          <p style="margin-top: 0;">Hi ${safeName},</p>
+        <div style="padding: 22px 20px; background: #ffffff !important; color: #1f2937 !important; line-height: 1.6;">
+          <p style="margin-top: 0; color: #1f2937 !important;">Hi ${safeName},</p>
           ${htmlBody}
           <div style="margin: 22px 0; text-align: center;">
             <a href="${appBase}/login" style="display: inline-block; background: #8a2d12; color: #fff; text-decoration: none; padding: 12px 20px; border-radius: 8px; margin-right: 8px;">${loginButtonText}</a>
@@ -917,7 +929,7 @@ class EmailService {
               <div style="color: #555; line-height: 1.4;">${senderMetaHtml}</div>
             </div>
           ` : ''}
-          <p style="margin-bottom: 0;"><a href="mailto:${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}" style="color: #8a2d12; font-weight: 600; text-decoration: none;">${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}</a></p>
+          <p style="margin-bottom: 0; color: #1f2937 !important;"><a href="mailto:${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}" style="color: #8a2d12; font-weight: 600; text-decoration: none;">${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}</a></p>
         </div>
       </div>
     `

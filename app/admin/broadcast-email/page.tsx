@@ -648,7 +648,7 @@ export default function AdminBroadcastEmailPage() {
                   <Button type="button" variant="outline" onClick={insertSignatureTokenInBody}>
                     Insert Signature In Text
                   </Button>
-                  <p className="text-xs text-muted-foreground">Use blank lines for paragraphs. Place {SIGNATURE_TOKEN} where signature should appear inside this body text.</p>
+                  <p className="text-xs text-muted-foreground">Use blank lines for paragraphs. Place {SIGNATURE_TOKEN} where signature should appear inside this body text (inline and left-aligned).</p>
                 </div>
               </div>
 
