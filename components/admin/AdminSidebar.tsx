@@ -17,6 +17,7 @@ import {
   Store,
   Briefcase,
   Activity,
+  Mail,
 } from "lucide-react"
 
 const adminNavItems = [
@@ -74,6 +75,11 @@ const adminNavItems = [
     title: "Performance",
     href: "/admin/performance",
     icon: Activity,
+  },
+  {
+    title: "Broadcast Email",
+    href: "/admin/broadcast-email",
+    icon: Mail,
   },
   {
     title: "Reports",

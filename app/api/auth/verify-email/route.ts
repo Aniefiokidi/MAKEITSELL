@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
+import { emailService } from '@/lib/email'
+
+function getVerificationBaseUrl(request: NextRequest): string {
+  const explicit = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL
+  if (explicit) return explicit.replace(/\/$/, '')
+
+  const host = request.headers.get('host') || 'www.makeitsell.org'
+  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https'
+  return `${protocol}://${host}`
+}
 
 export async function GET(request: NextRequest) {
     // Redirect any Vercel domain to www.makeitsell.org
@@ -120,23 +130,27 @@ export async function POST(request: NextRequest) {
     await user.save()
 
 
-    // Respond to the user immediately for faster feedback
-    const response = NextResponse.json({
+    const verificationUrl = `${getVerificationBaseUrl(request)}/verify-email?token=${verificationToken}`
+
+    // Await send so request reports real delivery status.
+    const sent = await emailService.sendEmailVerification({
+      email: user.email,
+      name: user.name || user.displayName || 'User',
+      verificationUrl,
+    })
+
+    if (!sent) {
+      return NextResponse.json({
+        success: false,
+        error: 'Could not send verification email right now. Please try again in a minute.'
+      }, { status: 502 })
+    }
+
+    console.log(`[verify-email] Verification code resent to: ${user.email}`)
+    return NextResponse.json({
       success: true,
       message: 'Verification code sent successfully'
     })
-
-    // Send verification email in the background (no await)
-    import('@/lib/email').then(({ emailService }) => {
-      emailService.sendEmailVerification({
-        email: user.email,
-        name: user.name || user.displayName || 'User',
-        verificationUrl: `https://www.makeitsell.org/verify-email?token=${verificationToken}`
-      })
-    })
-
-    console.log(`[verify-email] Verification code resent to: ${user.email}`)
-    return response
 
   } catch (error: any) {
     console.error('[verify-email] Error:', error)

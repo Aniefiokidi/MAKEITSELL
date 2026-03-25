@@ -4,6 +4,9 @@ interface EmailData {
   to: string
   subject: string
   html: string
+  text?: string
+  replyTo?: string
+  headers?: Record<string, string>
   attachments?: any[]
 }
 
@@ -58,6 +61,41 @@ class EmailService {
     this.transporter = nodemailer.createTransport(smtpConfig)
   }
 
+  private getFromAddress(): string {
+    if (process.env.EMAIL_FROM) {
+      return process.env.EMAIL_FROM
+    }
+
+    return `"${process.env.SMTP_FROM_NAME || 'Make It Sell'}" <${process.env.SMTP_FROM_EMAIL || process.env.EMAIL_USER}>`
+  }
+
+  private getAppBaseUrl(): string {
+    return (process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.org').replace(/\/$/, '')
+  }
+
+  private htmlToText(html: string): string {
+    return html
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+
+  private async sleep(ms: number): Promise<void> {
+    await new Promise(resolve => setTimeout(resolve, ms))
+  }
+
+  private isRetryableEmailError(error: any): boolean {
+    const responseCode = Number(error?.responseCode)
+    const code = String(error?.code || '').toUpperCase()
+
+    if ([421, 425, 429, 450, 451, 452, 454].includes(responseCode)) return true
+    if (responseCode >= 500 && responseCode < 600) return true
+
+    return ['ETIMEDOUT', 'ECONNECTION', 'ESOCKET', 'ECONNRESET', 'EAI_AGAIN'].includes(code)
+  }
+
   private calculateDeliveryEstimate(): { min: number; max: number } {
     // Random delivery estimate between 1-5 days
     const min = Math.floor(Math.random() * 3) + 1 // 1-3 days
@@ -79,25 +117,46 @@ class EmailService {
   async sendEmail(emailData: EmailData): Promise<boolean> {
     console.log('[emailService.sendEmail] Attempting to send email to:', emailData.to)
     console.log('[emailService.sendEmail] Subject:', emailData.subject)
-    console.log('[emailService.sendEmail] From address:', process.env.EMAIL_FROM || `"${process.env.SMTP_FROM_NAME || 'Make It Sell'}" <${process.env.SMTP_FROM_EMAIL || process.env.EMAIL_USER}>`)
-    
-    try {
-      const result = await this.transporter.sendMail({
-        from: process.env.EMAIL_FROM || `"${process.env.SMTP_FROM_NAME || 'Make It Sell'}" <${process.env.SMTP_FROM_EMAIL || process.env.EMAIL_USER}>`,
-        to: emailData.to,
-        subject: emailData.subject,
-        html: emailData.html,
-        attachments: emailData.attachments,
-      })
-      
-      console.log('[emailService.sendEmail] Email sent successfully to:', emailData.to)
-      console.log('[emailService.sendEmail] Message ID:', result.messageId)
-      return true
-    } catch (error) {
-      console.error('[emailService.sendEmail] Email sending failed for:', emailData.to)
-      console.error('[emailService.sendEmail] Error details:', error)
-      return false
+    console.log('[emailService.sendEmail] From address:', this.getFromAddress())
+
+    const maxAttempts = 3
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const result = await this.transporter.sendMail({
+          from: this.getFromAddress(),
+          to: emailData.to,
+          subject: emailData.subject,
+          html: emailData.html,
+          text: emailData.text || this.htmlToText(emailData.html),
+          replyTo: emailData.replyTo || process.env.EMAIL_REPLY_TO || process.env.SUPPORT_EMAIL,
+          headers: {
+            'X-Auto-Response-Suppress': 'OOF, AutoReply',
+            'Auto-Submitted': 'auto-generated',
+            ...(emailData.headers || {}),
+          },
+          attachments: emailData.attachments,
+        })
+
+        console.log('[emailService.sendEmail] Email sent successfully to:', emailData.to)
+        console.log('[emailService.sendEmail] Message ID:', result.messageId)
+        return true
+      } catch (error) {
+        const retryable = this.isRetryableEmailError(error)
+        console.error(`[emailService.sendEmail] Attempt ${attempt}/${maxAttempts} failed for:`, emailData.to)
+        console.error('[emailService.sendEmail] Error details:', error)
+
+        if (!retryable || attempt === maxAttempts) {
+          return false
+        }
+
+        const delayMs = 700 * attempt
+        console.log(`[emailService.sendEmail] Retrying in ${delayMs}ms...`)
+        await this.sleep(delayMs)
+      }
     }
+
+    return false
   }
 
   async sendOrderConfirmationEmails(orderData: OrderEmailData): Promise<boolean> {
@@ -327,7 +386,7 @@ class EmailService {
                style="background: #667eea; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 600; margin-right: 10px;">
               Contact Support
             </a>
-            <a href="${process.env.NEXT_PUBLIC_APP_URL}/order?orderId=${orderData.orderId}" 
+            <a href="${this.getAppBaseUrl()}/order?orderId=${orderData.orderId}" 
                style="background: white; color: #667eea; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 600; border: 2px solid #667eea;">
               Track Order
             </a>
@@ -425,7 +484,7 @@ class EmailService {
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.NEXT_PUBLIC_APP_URL}/vendor/orders" 
+            <a href="${this.getAppBaseUrl()}/vendor/orders" 
                style="background: #4caf50; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
               View Order in Dashboard
             </a>
@@ -475,7 +534,7 @@ class EmailService {
         </div>
 
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${process.env.NEXT_PUBLIC_APP_URL}/vendor/dashboard" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 12px 25px; border-radius: 6px; font-weight: 600;">Go to Dashboard</a>
+          <a href="${this.getAppBaseUrl()}/vendor/dashboard" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 12px 25px; border-radius: 6px; font-weight: 600;">Go to Dashboard</a>
         </div>
 
         <hr style="border: none; height: 1px; background-color: #eee; margin: 30px 0;">
@@ -717,6 +776,57 @@ class EmailService {
       to: email,
       subject: 'Verify your email address - Make It Sell',
       html: emailHtml
+    })
+  }
+
+  async sendRegistrationIssueAnnouncement({ email, name }: {
+    email: string
+    name?: string
+  }): Promise<boolean> {
+    const appBase = this.getAppBaseUrl()
+    const safeName = name || 'there'
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; background: #ffffff; border: 1px solid #eee; border-radius: 10px; overflow: hidden;">
+        <div style="background: #8a2d12; color: #fff; padding: 24px 20px;">
+          <h1 style="margin: 0; font-size: 22px;">Important update from Make It Sell</h1>
+          <p style="margin: 8px 0 0 0; opacity: 0.95;">Registration link delivery issue</p>
+        </div>
+        <div style="padding: 22px 20px; color: #222; line-height: 1.6;">
+          <p style="margin-top: 0;">Hi ${safeName},</p>
+          <p>Some users recently experienced delays or failures receiving registration and verification links. We sincerely apologize for the inconvenience.</p>
+          <p>The issue has been fixed. If you were affected, please try signing in again or request a new verification link.</p>
+          <div style="margin: 22px 0; text-align: center;">
+            <a href="${appBase}/login" style="display: inline-block; background: #8a2d12; color: #fff; text-decoration: none; padding: 12px 20px; border-radius: 8px; margin-right: 8px;">Sign in</a>
+            <a href="${appBase}/signup" style="display: inline-block; background: #ffffff; color: #8a2d12; text-decoration: none; padding: 11px 20px; border-radius: 8px; border: 1px solid #8a2d12;">Create account</a>
+          </div>
+          <p style="margin-bottom: 0;">If you still do not receive your link, contact us and we will assist immediately.</p>
+          <p style="margin-bottom: 0;"><a href="mailto:${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}" style="color: #8a2d12; font-weight: 600; text-decoration: none;">${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}</a></p>
+        </div>
+      </div>
+    `
+
+    const text = [
+      `Hi ${safeName},`,
+      '',
+      'Some users recently experienced delays or failures receiving registration and verification links.',
+      'We sincerely apologize for the inconvenience.',
+      '',
+      'The issue has been fixed. Please try signing in again or request a new verification link.',
+      `Sign in: ${appBase}/login`,
+      `Create account: ${appBase}/signup`,
+      '',
+      `Support: ${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}`,
+    ].join('\n')
+
+    return await this.sendEmail({
+      to: email,
+      subject: 'Important: registration link issue update',
+      html,
+      text,
+      headers: {
+        'X-Entity-Ref-ID': `registration-issue-${Date.now()}`,
+      },
     })
   }
 }
