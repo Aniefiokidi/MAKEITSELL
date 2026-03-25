@@ -940,8 +940,7 @@ class EmailService {
 
     const showExternalSignatureBlock = hasSignatureBlock && !tokenFoundInBody
     const showSenderMetaBlock = !tokenFoundInBody
-    const brandAccent = 'oklch(0.35 0.15 15)'
-    const brandAccentFallback = '#5b2f21'
+    const brandAccent = '#5b2f21'
     const brandAccentSoft = '#f8f3f1'
 
     const html = `
@@ -955,8 +954,16 @@ class EmailService {
           <p style="margin-top: 0; color: #1f2937 !important;">Hi ${safeName},</p>
           ${htmlBody}
           <div style="margin: 22px 0; text-align: center;">
-            <a href="${appBase}/login" style="display: inline-block; background: ${brandAccentFallback}; background: ${brandAccent}; color: #fff; text-decoration: none; padding: 12px 20px; border-radius: 8px; border: 1px solid ${brandAccentFallback}; border: 1px solid ${brandAccent}; font-weight: 700; margin-right: 8px;">${loginButtonText}</a>
-            <a href="${appBase}/signup" style="display: inline-block; background: ${brandAccentSoft}; color: ${brandAccentFallback}; color: ${brandAccent}; text-decoration: none; padding: 12px 20px; border-radius: 8px; border: 1px solid ${brandAccentFallback}; border: 1px solid ${brandAccent}; font-weight: 700;">${signupButtonText}</a>
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto; border-collapse: separate; border-spacing: 10px 0;">
+              <tr>
+                <td bgcolor="${brandAccent}" style="border-radius: 10px;">
+                  <a href="${appBase}/login" style="display: inline-block; padding: 12px 24px; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.2; font-weight: 700; color: #ffffff !important; text-decoration: none !important; border-radius: 10px; border: 1px solid ${brandAccent};">${loginButtonText}</a>
+                </td>
+                <td bgcolor="${brandAccentSoft}" style="border-radius: 10px;">
+                  <a href="${appBase}/signup" style="display: inline-block; padding: 12px 24px; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.2; font-weight: 700; color: ${brandAccent} !important; text-decoration: none !important; border-radius: 10px; border: 1px solid ${brandAccent};">${signupButtonText}</a>
+                </td>
+              </tr>
+            </table>
           </div>
           ${showExternalSignatureBlock ? signaturePlacementHtml : ''}
           ${showSenderMetaBlock ? `
@@ -965,25 +972,11 @@ class EmailService {
               <div style="color: #555; line-height: 1.4;">${senderMetaHtml}</div>
             </div>
           ` : ''}
-          <p style="margin-bottom: 0; color: #1f2937 !important;"><a href="mailto:${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}" style="color: ${brandAccentFallback}; color: ${brandAccent}; font-weight: 600; text-decoration: none;">${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}</a></p>
+          <p style="margin-bottom: 0; color: #1f2937 !important;"><a href="mailto:${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}" style="color: ${brandAccent} !important; font-weight: 600; text-decoration: none;">${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}</a></p>
           <div style="margin: 14px 0 2px 0; text-align: left;">
-            <a href="${instagramUrl}" target="_blank" rel="noopener noreferrer" aria-label="Instagram" style="display: inline-block; color: ${brandAccentFallback}; color: ${brandAccent}; text-decoration: none; margin-right: 20px; vertical-align: middle;">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="3.2" y="3.2" width="17.6" height="17.6" rx="5.2" stroke="currentColor" stroke-width="1.8"/>
-                <circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.8"/>
-                <circle cx="17.2" cy="6.8" r="1.2" fill="currentColor"/>
-              </svg>
-            </a>
-            <a href="${twitterUrl}" target="_blank" rel="noopener noreferrer" aria-label="X" style="display: inline-block; color: ${brandAccentFallback}; color: ${brandAccent}; text-decoration: none; margin-right: 20px; vertical-align: middle;">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                <path d="M18.244 2H21l-6.56 7.496L22.5 22h-6.3l-4.934-6.458L5.53 22H2.77l7.014-8.014L1.5 2h6.46l4.46 5.893L18.244 2zm-2.208 18h1.64L7.067 3.896H5.31L16.036 20z"/>
-              </svg>
-            </a>
-            <span aria-label="Facebook coming soon" style="display: inline-block; color: ${brandAccentFallback}; color: ${brandAccent}; opacity: 0.6; vertical-align: middle;">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                <path d="M13.5 8.5V6.9c0-.7.3-1.1 1.2-1.1H16V3.1c-.2 0-.9-.1-1.8-.1-1.8 0-3.1 1.1-3.1 3.3v2.2H9v2.8h2.1V21h2.9v-9.7h2.3l.4-2.8h-2.7z"/>
-              </svg>
-            </span>
+            <a href="${instagramUrl}" target="_blank" rel="noopener noreferrer" aria-label="Instagram" style="display: inline-block; width: 22px; height: 22px; line-height: 22px; text-align: center; border: 1px solid ${brandAccent}; border-radius: 999px; color: ${brandAccent} !important; text-decoration: none !important; font-family: Arial, sans-serif; font-size: 11px; font-weight: 700; margin-right: 10px; vertical-align: middle;">IG</a>
+            <a href="${twitterUrl}" target="_blank" rel="noopener noreferrer" aria-label="X" style="display: inline-block; width: 22px; height: 22px; line-height: 22px; text-align: center; border: 1px solid ${brandAccent}; border-radius: 999px; color: ${brandAccent} !important; text-decoration: none !important; font-family: Arial, sans-serif; font-size: 12px; font-weight: 700; margin-right: 10px; vertical-align: middle;">X</a>
+            <span aria-label="Facebook coming soon" style="display: inline-block; width: 22px; height: 22px; line-height: 22px; text-align: center; border: 1px solid #bdbdbd; border-radius: 999px; color: #9ca3af; font-family: Arial, sans-serif; font-size: 12px; font-weight: 700; vertical-align: middle;">f</span>
           </div>
         </div>
       </div>
