@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import AdminLayout from "@/components/admin/AdminLayout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -50,6 +50,14 @@ type MessagePreviewResponse = {
   error?: string
 }
 
+const TEMPLATE_STORAGE_KEY = "adminBroadcastTemplateV1"
+
+const DEFAULT_SUBJECT = "Important: registration link issue update"
+const DEFAULT_BODY =
+  "Some users recently experienced delays or failures receiving registration and verification links. We sincerely apologize for the inconvenience.\n\nThe issue has been fixed. If you were affected, please try signing in again or request a new verification link.\n\nIf you still do not receive your link, contact us and we will assist immediately."
+const DEFAULT_LOGIN_BUTTON = "Sign in"
+const DEFAULT_SIGNUP_BUTTON = "Create account"
+
 export default function AdminBroadcastEmailPage() {
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [loadingSend, setLoadingSend] = useState(false)
@@ -63,16 +71,31 @@ export default function AdminBroadcastEmailPage() {
   const [onlyUnverified, setOnlyUnverified] = useState(false)
   const [includeAdmins, setIncludeAdmins] = useState(false)
   const [previewName, setPreviewName] = useState("Preview User")
-  const [customSubject, setCustomSubject] = useState("Important: registration link issue update")
-  const [customBody, setCustomBody] = useState(
-    "Some users recently experienced delays or failures receiving registration and verification links. We sincerely apologize for the inconvenience.\n\nThe issue has been fixed. If you were affected, please try signing in again or request a new verification link.\n\nIf you still do not receive your link, contact us and we will assist immediately."
-  )
-  const [loginButtonText, setLoginButtonText] = useState("Sign in")
-  const [signupButtonText, setSignupButtonText] = useState("Create account")
+  const [customSubject, setCustomSubject] = useState(DEFAULT_SUBJECT)
+  const [customBody, setCustomBody] = useState(DEFAULT_BODY)
+  const [loginButtonText, setLoginButtonText] = useState(DEFAULT_LOGIN_BUTTON)
+  const [signupButtonText, setSignupButtonText] = useState(DEFAULT_SIGNUP_BUTTON)
+  const [saveMessage, setSaveMessage] = useState("")
 
   const [preview, setPreview] = useState<PreviewResponse | null>(null)
   const [result, setResult] = useState<SendResponse | null>(null)
   const [messagePreview, setMessagePreview] = useState<MessagePreviewResponse | null>(null)
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(TEMPLATE_STORAGE_KEY)
+      if (!raw) return
+
+      const parsed = JSON.parse(raw)
+      if (parsed.subject) setCustomSubject(String(parsed.subject))
+      if (parsed.body) setCustomBody(String(parsed.body))
+      if (parsed.loginButtonText) setLoginButtonText(String(parsed.loginButtonText))
+      if (parsed.signupButtonText) setSignupButtonText(String(parsed.signupButtonText))
+      setSaveMessage("Saved template loaded")
+    } catch (error) {
+      console.error("[admin/broadcast-email] Failed to load saved template:", error)
+    }
+  }, [])
 
   const makeHeaders = () => {
     const headers: Record<string, string> = {
@@ -201,6 +224,33 @@ export default function AdminBroadcastEmailPage() {
     }
   }
 
+  const saveTemplate = () => {
+    try {
+      localStorage.setItem(
+        TEMPLATE_STORAGE_KEY,
+        JSON.stringify({
+          subject: customSubject,
+          body: customBody,
+          loginButtonText,
+          signupButtonText,
+        })
+      )
+      setSaveMessage("Template saved on this browser")
+    } catch (error) {
+      console.error("[admin/broadcast-email] Failed to save template:", error)
+      setSaveMessage("Could not save template")
+    }
+  }
+
+  const resetTemplate = () => {
+    setCustomSubject(DEFAULT_SUBJECT)
+    setCustomBody(DEFAULT_BODY)
+    setLoginButtonText(DEFAULT_LOGIN_BUTTON)
+    setSignupButtonText(DEFAULT_SIGNUP_BUTTON)
+    localStorage.removeItem(TEMPLATE_STORAGE_KEY)
+    setSaveMessage("Template reset to default")
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -286,6 +336,16 @@ export default function AdminBroadcastEmailPage() {
                   onChange={(e) => setSignupButtonText(e.target.value)}
                   placeholder="Create account"
                 />
+              </div>
+
+              <div className="md:col-span-2 flex flex-wrap gap-2">
+                <Button type="button" variant="secondary" onClick={saveTemplate}>
+                  Save Template
+                </Button>
+                <Button type="button" variant="outline" onClick={resetTemplate}>
+                  Reset to Default
+                </Button>
+                {saveMessage && <span className="text-xs text-muted-foreground self-center">{saveMessage}</span>}
               </div>
             </div>
 
