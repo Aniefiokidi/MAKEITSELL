@@ -20,15 +20,27 @@ export default function Footer() {
               Your trusted marketplace with AI-powered customer service. Connecting buyers and sellers with confidence.
             </p>
             <div className="flex justify-center sm:justify-start space-x-5">
-              <Link href="#" className="text-accent hover:text-accent transition-colors">
+              <span className="text-accent/60" title="Facebook link coming soon" aria-label="Facebook link coming soon">
                 <Facebook className="h-5 w-5 text-accent" />
-              </Link>
-              <Link href="#" className="text-accent hover:text-accent transition-colors">
+              </span>
+              <Link
+                href="https://x.com/makeitsellorg"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent hover:text-accent transition-colors"
+                aria-label="Follow Make It Sell on X"
+              >
                 <svg className="h-5 w-5 text-accent" viewBox="0 0 24 24" fill="currentColor" aria-label="X">
                   <path d="M18.244 2H21l-6.56 7.496L22.5 22h-6.3l-4.934-6.458L5.53 22H2.77l7.014-8.014L1.5 2h6.46l4.46 5.893L18.244 2zm-2.208 18h1.64L7.067 3.896H5.31L16.036 20z" />
                 </svg>
               </Link>
-              <Link href="#" className="text-accent hover:text-accent transition-colors">
+              <Link
+                href="https://www.instagram.com/makeitsell.ng/?__pwa=1"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent hover:text-accent transition-colors"
+                aria-label="Follow Make It Sell on Instagram"
+              >
                 <Instagram className="h-5 w-5 text-accent" />
               </Link>
             </div>
