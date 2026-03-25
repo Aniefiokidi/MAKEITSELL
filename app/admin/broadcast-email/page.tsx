@@ -53,6 +53,11 @@ type MessagePreviewResponse = {
   error?: string
 }
 
+type FailedRecipientItem = {
+  email: string
+  name: string
+}
+
 const DEFAULT_SUBJECT = "Important: registration link issue update"
 const DEFAULT_HEADER_TITLE = "Important update from Make It Sell"
 const DEFAULT_HEADER_SUBTITLE = "Registration link delivery issue"
@@ -84,6 +89,7 @@ const MAX_SIGNATURE_FILE_SIZE_MB = 2
 const MAX_SIGNATURE_FILE_SIZE_BYTES = MAX_SIGNATURE_FILE_SIZE_MB * 1024 * 1024
 const MAX_POSTER_FILE_SIZE_MB = 5
 const MAX_POSTER_FILE_SIZE_BYTES = MAX_POSTER_FILE_SIZE_MB * 1024 * 1024
+const DEFAULT_AUTO_RUN_CAP = 2000
 
 async function compressSignatureImage(file: File): Promise<File> {
   // Keep signatures lightweight for faster upload and better email loading.
@@ -158,14 +164,18 @@ async function compressPosterImage(file: File): Promise<File> {
 export default function AdminBroadcastEmailPage() {
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [loadingSend, setLoadingSend] = useState(false)
+  const [loadingSendAll, setLoadingSendAll] = useState(false)
   const [loadingResendFailed, setLoadingResendFailed] = useState(false)
+  const [loadingResendAllFailed, setLoadingResendAllFailed] = useState(false)
+  const [loadingFailedList, setLoadingFailedList] = useState(false)
   const [loadingMessagePreview, setLoadingMessagePreview] = useState(false)
 
   const [adminKey, setAdminKey] = useState("")
   const [emailFilter, setEmailFilter] = useState("")
-  const [limit, setLimit] = useState(200)
+  const [limit, setLimit] = useState(20)
   const [skip, setSkip] = useState(0)
   const [delayMs, setDelayMs] = useState(350)
+  const [autoRunCap, setAutoRunCap] = useState(DEFAULT_AUTO_RUN_CAP)
   const [onlyUnverified, setOnlyUnverified] = useState(false)
   const [includeAdmins, setIncludeAdmins] = useState(false)
   const [previewName, setPreviewName] = useState("Preview User")
@@ -194,6 +204,7 @@ export default function AdminBroadcastEmailPage() {
   const [preview, setPreview] = useState<PreviewResponse | null>(null)
   const [result, setResult] = useState<SendResponse | null>(null)
   const [messagePreview, setMessagePreview] = useState<MessagePreviewResponse | null>(null)
+  const [failedRecipientsList, setFailedRecipientsList] = useState<FailedRecipientItem[]>([])
   const [loadingTemplateSync, setLoadingTemplateSync] = useState(false)
   const [uploadingSignatureImage, setUploadingSignatureImage] = useState(false)
   const [uploadingPosterImage, setUploadingPosterImage] = useState(false)
@@ -213,10 +224,34 @@ export default function AdminBroadcastEmailPage() {
     mode: "drag" | "resize"
   } | null>(null)
   const bodyTextareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const stopSendAllRef = useRef(false)
+  const stopResendAllRef = useRef(false)
 
   useEffect(() => {
     loadServerTemplate()
+    loadFailedRecipientsList()
   }, [])
+
+  const loadFailedRecipientsList = async () => {
+    setLoadingFailedList(true)
+    try {
+      const response = await fetch("/api/admin/broadcast-email", {
+        method: "POST",
+        credentials: "include",
+        headers: makeHeaders(),
+        body: JSON.stringify({ action: "failed-list" }),
+      })
+
+      const data = await response.json()
+      if (!data.success) return
+
+      setFailedRecipientsList(Array.isArray(data.recipients) ? data.recipients : [])
+    } catch (error) {
+      console.error("[admin/broadcast-email] Failed to load failed recipients:", error)
+    } finally {
+      setLoadingFailedList(false)
+    }
+  }
 
   const loadServerTemplate = async () => {
     setLoadingTemplateSync(true)
@@ -365,12 +400,149 @@ export default function AdminBroadcastEmailPage() {
       if (typeof data.nextSkip === "number") {
         setSkip(data.nextSkip)
       }
+      await loadFailedRecipientsList()
     } catch (error) {
       console.error("[admin/broadcast-email] Send error:", error)
       alert("Broadcast failed")
     } finally {
       setLoadingSend(false)
     }
+  }
+
+  const runSendAllRemaining = async () => {
+    if (!confirm("Send all remaining recipients from current Skip using repeated batches?")) {
+      return
+    }
+
+    setLoadingSendAll(true)
+  stopSendAllRef.current = false
+
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+    let currentSkip = Math.max(0, skip)
+    let totalProcessed = 0
+    let totalSent = 0
+    let totalFailed = 0
+    let totalMatching = 0
+    let remainingFailed = 0
+    let hasMore = true
+    let reachedCap = false
+    let lastFailedEmails: string[] = []
+
+    try {
+      for (let round = 1; round <= 2000 && hasMore; round++) {
+        if (stopSendAllRef.current) {
+          setSaveMessage(`Auto-send stopped manually at skip ${currentSkip}`)
+          break
+        }
+
+        setSaveMessage(`Auto-send in progress... batch ${round}, skip ${currentSkip}`)
+
+        const remainingQuota = Math.max(0, autoRunCap - totalProcessed)
+        if (remainingQuota <= 0) {
+          reachedCap = true
+          setSaveMessage(`Auto-send stopped at safety cap (${autoRunCap})`)
+          break
+        }
+
+        const chunkLimit = Math.max(1, Math.min(limit, remainingQuota))
+
+        let data: SendResponse | null = null
+        let lastError = ""
+
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          if (stopSendAllRef.current) {
+            break
+          }
+
+          try {
+            const response = await fetch("/api/admin/broadcast-email", {
+              method: "POST",
+              credentials: "include",
+              headers: makeHeaders(),
+              body: JSON.stringify({
+                action: "send",
+                ...buildPayload(),
+                skip: currentSkip,
+                limit: chunkLimit,
+              }),
+            })
+
+            const payload = await response.json()
+            if (!payload.success) {
+              throw new Error(payload.error || "Broadcast failed")
+            }
+
+            data = payload
+            break
+          } catch (error: any) {
+            lastError = error?.message || "Broadcast failed"
+            if (attempt < 3) {
+              await sleep(1200 * attempt)
+            }
+          }
+        }
+
+        if (stopSendAllRef.current) {
+          break
+        }
+
+        if (!data) {
+          alert(`Auto-send stopped at skip ${currentSkip}: ${lastError}`)
+          break
+        }
+
+        totalProcessed += data.processed || 0
+        totalSent += data.sent || 0
+        totalFailed += data.failed || 0
+        totalMatching = data.totalMatching || totalMatching
+        remainingFailed = typeof data.remainingFailed === "number" ? data.remainingFailed : remainingFailed
+        hasMore = !!data.hasMore
+        lastFailedEmails = data.failedEmails || []
+
+        const next = typeof data.nextSkip === "number"
+          ? data.nextSkip
+          : currentSkip + (data.processed || 0)
+
+        if ((data.processed || 0) === 0) {
+          hasMore = false
+        }
+
+        currentSkip = next
+        setSkip(next)
+      }
+
+      setResult({
+        success: true,
+        action: "send-all",
+        processed: totalProcessed,
+        sent: totalSent,
+        failed: totalFailed,
+        remainingFailed,
+        totalMatching,
+        skip: currentSkip,
+        limit,
+        hasMore: reachedCap ? true : hasMore,
+        nextSkip: currentSkip,
+        failedEmails: lastFailedEmails,
+      })
+
+      if (reachedCap) {
+        setSaveMessage(`Safety cap reached at ${autoRunCap} processed. Continue from skip ${currentSkip} to send more.`)
+      } else if (!hasMore) {
+        setSaveMessage(`Auto-send completed: ${totalSent} sent, ${totalFailed} failed`)
+      }
+      await loadFailedRecipientsList()
+    } catch (error) {
+      console.error("[admin/broadcast-email] Send all remaining error:", error)
+      alert("Auto-send failed")
+    } finally {
+      setLoadingSendAll(false)
+    }
+  }
+
+  const stopSendAllRemaining = () => {
+    stopSendAllRef.current = true
+    setSaveMessage("Stopping auto-send after current request...")
   }
 
   const runResendFailed = async () => {
@@ -400,12 +572,133 @@ export default function AdminBroadcastEmailPage() {
       }
 
       setSaveMessage(`Resend complete: ${data.sent || 0} sent, ${data.failed || 0} failed`)
+      await loadFailedRecipientsList()
     } catch (error) {
       console.error("[admin/broadcast-email] Resend failed error:", error)
       alert("Resend failed")
     } finally {
       setLoadingResendFailed(false)
     }
+  }
+
+  const runResendAllFailed = async () => {
+    if (!confirm("Resend to all failed recipients in segmented batches until none remain?")) {
+      return
+    }
+
+    setLoadingResendAllFailed(true)
+    stopResendAllRef.current = false
+
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+    let totalProcessed = 0
+    let totalSent = 0
+    let totalFailed = 0
+    let remainingFailed = failedRecipientsList.length
+    let reachedCap = false
+    let lastFailedEmails: string[] = []
+
+    try {
+      for (let round = 1; round <= 2000; round++) {
+        if (stopResendAllRef.current) {
+          setSaveMessage("Auto-resend stopped manually")
+          break
+        }
+
+        setSaveMessage(`Auto-resend in progress... batch ${round}`)
+
+        const remainingQuota = Math.max(0, autoRunCap - totalProcessed)
+        if (remainingQuota <= 0) {
+          reachedCap = true
+          setSaveMessage(`Auto-resend stopped at safety cap (${autoRunCap})`)
+          break
+        }
+
+        const chunkLimit = Math.max(1, Math.min(limit, remainingQuota))
+
+        let data: SendResponse | null = null
+        let lastError = ""
+
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          if (stopResendAllRef.current) break
+
+          try {
+            const response = await fetch("/api/admin/broadcast-email", {
+              method: "POST",
+              credentials: "include",
+              headers: makeHeaders(),
+              body: JSON.stringify({
+                action: "resend-failed",
+                ...buildPayload(),
+                limit: chunkLimit,
+              }),
+            })
+
+            const payload = await response.json()
+            if (!payload.success) {
+              throw new Error(payload.error || "Resend failed")
+            }
+
+            data = payload
+            break
+          } catch (error: any) {
+            lastError = error?.message || "Resend failed"
+            if (attempt < 3) {
+              await sleep(1200 * attempt)
+            }
+          }
+        }
+
+        if (stopResendAllRef.current) break
+
+        if (!data) {
+          alert(`Auto-resend stopped: ${lastError}`)
+          break
+        }
+
+        totalProcessed += data.processed || 0
+        totalSent += data.sent || 0
+        totalFailed += data.failed || 0
+        remainingFailed = typeof data.remainingFailed === "number" ? data.remainingFailed : remainingFailed
+        lastFailedEmails = data.failedEmails || []
+
+        if ((data.processed || 0) === 0 || remainingFailed <= 0) {
+          break
+        }
+      }
+
+      setResult({
+        success: true,
+        action: "resend-all-failed",
+        processed: totalProcessed,
+        sent: totalSent,
+        failed: totalFailed,
+        remainingFailed,
+        totalMatching: 0,
+        skip,
+        limit,
+        hasMore: reachedCap ? true : remainingFailed > 0,
+        nextSkip: skip,
+        failedEmails: lastFailedEmails,
+      })
+
+      if (reachedCap) {
+        setSaveMessage(`Safety cap reached at ${autoRunCap} processed. Run again to continue resending failed.`)
+      } else if (remainingFailed <= 0) {
+        setSaveMessage(`Auto-resend completed: ${totalSent} sent, ${totalFailed} still failing`)
+      }
+
+      await loadFailedRecipientsList()
+    } catch (error) {
+      console.error("[admin/broadcast-email] Resend all failed error:", error)
+      alert("Auto-resend failed")
+    } finally {
+      setLoadingResendAllFailed(false)
+    }
+  }
+
+  const stopResendAllFailed = () => {
+    stopResendAllRef.current = true
+    setSaveMessage("Stopping auto-resend after current request...")
   }
 
   const runMessagePreview = async () => {
@@ -1310,10 +1603,15 @@ export default function AdminBroadcastEmailPage() {
                   id="limit"
                   type="number"
                   min={1}
-                  max={1000}
+                  max={200}
                   value={limit}
-                  onChange={(e) => setLimit(Number(e.target.value || 200))}
+                  onChange={(e) => setLimit(Number(e.target.value || 20))}
                 />
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => setLimit(10)}>10</Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setLimit(20)}>20</Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setLimit(50)}>50</Button>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -1338,6 +1636,18 @@ export default function AdminBroadcastEmailPage() {
                   onChange={(e) => setDelayMs(Number(e.target.value || 350))}
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="auto-run-cap">Auto-Run Safety Cap</Label>
+                <Input
+                  id="auto-run-cap"
+                  type="number"
+                  min={100}
+                  max={50000}
+                  value={autoRunCap}
+                  onChange={(e) => setAutoRunCap(Math.max(100, Math.min(50000, Number(e.target.value || DEFAULT_AUTO_RUN_CAP))))}
+                />
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-4 text-sm">
@@ -1360,18 +1670,36 @@ export default function AdminBroadcastEmailPage() {
             </div>
 
             <div className="flex gap-3 flex-wrap">
-              <Button variant="outline" onClick={runPreview} disabled={loadingPreview || loadingSend}>
+              <Button variant="outline" onClick={runPreview} disabled={loadingPreview || loadingSend || loadingSendAll || loadingResendAllFailed}>
                 {loadingPreview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                 Preview Recipients
               </Button>
-              <Button onClick={runSend} disabled={loadingSend || loadingPreview} className="bg-orange-600 hover:bg-orange-700">
+              <Button onClick={runSend} disabled={loadingSend || loadingPreview || loadingSendAll || loadingResendAllFailed} className="bg-orange-600 hover:bg-orange-700">
                 {loadingSend ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 Send This Batch
               </Button>
-              <Button variant="outline" onClick={runResendFailed} disabled={loadingResendFailed || loadingSend || loadingPreview}>
+              <Button onClick={runSendAllRemaining} disabled={loadingSendAll || loadingSend || loadingPreview || loadingResendFailed || loadingResendAllFailed} className="bg-orange-700 hover:bg-orange-800 text-white">
+                {loadingSendAll ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                Send All Remaining
+              </Button>
+              <Button variant="outline" onClick={runResendFailed} disabled={loadingResendFailed || loadingSend || loadingPreview || loadingSendAll || loadingResendAllFailed}>
                 {loadingResendFailed ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
                 Resend Failed Only
               </Button>
+              <Button variant="outline" onClick={runResendAllFailed} disabled={loadingResendAllFailed || loadingSend || loadingPreview || loadingSendAll || loadingResendFailed}>
+                {loadingResendAllFailed ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+                Resend All Failed
+              </Button>
+              {loadingSendAll ? (
+                <Button variant="destructive" onClick={stopSendAllRemaining}>
+                  Stop Send All
+                </Button>
+              ) : null}
+              {loadingResendAllFailed ? (
+                <Button variant="destructive" onClick={stopResendAllFailed}>
+                  Stop Resend All
+                </Button>
+              ) : null}
             </div>
           </CardContent>
         </Card>
@@ -1433,11 +1761,44 @@ export default function AdminBroadcastEmailPage() {
           </Card>
         )}
 
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between gap-3">
+              <span>Failed Recipients</span>
+              <Button variant="outline" size="sm" onClick={loadFailedRecipientsList} disabled={loadingFailedList}>
+                {loadingFailedList ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Refresh
+              </Button>
+            </CardTitle>
+            <CardDescription>
+              Stored failure list accumulates across batch runs for safer retries.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex gap-2 flex-wrap">
+              <Badge variant="outline">Count: {failedRecipientsList.length}</Badge>
+              <Badge variant="outline">Current batch size: {limit}</Badge>
+            </div>
+            {failedRecipientsList.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No failed recipients right now.</div>
+            ) : (
+              <div className="max-h-64 overflow-auto border rounded-md">
+                {failedRecipientsList.slice(0, 500).map((item, idx) => (
+                  <div key={`${item.email}-${idx}`} className="text-sm p-2 border-b last:border-b-0 flex flex-wrap gap-2 items-center">
+                    <Badge variant="outline">{item.email}</Badge>
+                    <span className="text-muted-foreground">{item.name || "User"}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {result && (
           <Alert className={result.failed > 0 ? "border-yellow-300 bg-yellow-50" : "border-green-300 bg-green-50"}>
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              <div className="font-semibold mb-2">{result.action === "resend-failed" ? "Resend Failed Completed" : "Batch Completed"}</div>
+              <div className="font-semibold mb-2">{result.action === "resend-failed" ? "Resend Failed Completed" : result.action === "resend-all-failed" ? "Resend All Failed Completed" : result.action === "send-all" ? "Full Broadcast Completed" : "Batch Completed"}</div>
               <div className="flex flex-wrap gap-2 mb-2">
                 <Badge variant="outline">Processed: {result.processed}</Badge>
                 <Badge variant="outline">Sent: {result.sent}</Badge>

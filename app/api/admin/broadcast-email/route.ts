@@ -44,7 +44,7 @@ function sanitizeNumberInRange(value: unknown, min: number, max: number, fallbac
 }
 
 type BroadcastRequest = {
-  action?: 'preview' | 'send' | 'message-preview' | 'template-get' | 'template-save' | 'resend-failed'
+  action?: 'preview' | 'send' | 'message-preview' | 'template-get' | 'template-save' | 'resend-failed' | 'failed-list'
   dryRun?: boolean
   limit?: number
   skip?: number
@@ -118,6 +118,24 @@ async function setStoredFailedRecipients(recipients: FailedRecipient[]): Promise
   )
 }
 
+function mergeFailedRecipients(existing: FailedRecipient[], incoming: FailedRecipient[]): FailedRecipient[] {
+  const map = new Map<string, FailedRecipient>()
+
+  for (const item of existing) {
+    const email = String(item.email || '').trim().toLowerCase()
+    if (!email) continue
+    map.set(email, { email, name: item.name || 'User' })
+  }
+
+  for (const item of incoming) {
+    const email = String(item.email || '').trim().toLowerCase()
+    if (!email) continue
+    map.set(email, { email, name: item.name || 'User' })
+  }
+
+  return Array.from(map.values())
+}
+
 function buildUserQuery(input: BroadcastRequest) {
   const query: any = {}
 
@@ -151,7 +169,7 @@ export async function POST(request: NextRequest) {
     const body: BroadcastRequest = await request.json()
 
     const action = body.action || (body.dryRun ? 'preview' : 'send')
-    const limit = Math.max(1, Math.min(body.limit || 200, 1000))
+    const limit = Math.max(1, Math.min(body.limit || 20, 200))
     const skip = Math.max(0, body.skip || 0)
     const delayMs = Math.max(0, Math.min(body.delayMs || 350, 2000))
 
@@ -267,6 +285,17 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    if (action === 'failed-list') {
+      const failedRecipients = await getStoredFailedRecipients()
+
+      return NextResponse.json({
+        success: true,
+        action: 'failed-list',
+        count: failedRecipients.length,
+        recipients: failedRecipients,
+      })
+    }
+
     const query = buildUserQuery(body)
     const totalMatching = await User.countDocuments(query)
 
@@ -335,7 +364,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    await setStoredFailedRecipients(failedRecipients)
+    const existingFailed = await getStoredFailedRecipients()
+    const mergedFailed = mergeFailedRecipients(existingFailed, failedRecipients)
+    await setStoredFailedRecipients(mergedFailed)
 
     return NextResponse.json({
       success: true,
@@ -348,6 +379,7 @@ export async function POST(request: NextRequest) {
       limit,
       hasMore: skip + users.length < totalMatching,
       nextSkip: skip + users.length,
+      remainingFailed: mergedFailed.length,
       failedEmails: failedEmails.slice(0, 50),
       message: 'Broadcast run completed',
     })
