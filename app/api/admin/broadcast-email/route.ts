@@ -6,6 +6,12 @@ import { requireAdminAccess } from '@/lib/server-route-auth'
 import { AdminSetting } from '@/lib/models/AdminSetting'
 
 const BROADCAST_TEMPLATE_KEY = 'broadcast_registration_issue_template'
+const BROADCAST_FAILED_KEY = 'broadcast_registration_issue_failed_recipients'
+
+type FailedRecipient = {
+  email: string
+  name: string
+}
 
 type TemplateOverrides = {
   subject?: string
@@ -31,7 +37,7 @@ function sanitizeNumberInRange(value: unknown, min: number, max: number, fallbac
 }
 
 type BroadcastRequest = {
-  action?: 'preview' | 'send' | 'message-preview' | 'template-get' | 'template-save'
+  action?: 'preview' | 'send' | 'message-preview' | 'template-get' | 'template-save' | 'resend-failed'
   dryRun?: boolean
   limit?: number
   skip?: number
@@ -68,6 +74,34 @@ async function getStoredTemplateOverrides(): Promise<TemplateOverrides | undefin
   }
 
   return sanitizeTemplateOverrides(existing.value as TemplateOverrides)
+}
+
+async function getStoredFailedRecipients(): Promise<FailedRecipient[]> {
+  const existing = await AdminSetting.findOne({ key: BROADCAST_FAILED_KEY }).lean()
+  const value = existing?.value as any
+  const recipients = Array.isArray(value?.recipients) ? value.recipients : []
+
+  return recipients
+    .map((item: any) => ({
+      email: String(item?.email || '').trim(),
+      name: String(item?.name || 'User').trim() || 'User',
+    }))
+    .filter((item: FailedRecipient) => !!item.email)
+}
+
+async function setStoredFailedRecipients(recipients: FailedRecipient[]): Promise<void> {
+  await AdminSetting.findOneAndUpdate(
+    { key: BROADCAST_FAILED_KEY },
+    {
+      key: BROADCAST_FAILED_KEY,
+      value: {
+        recipients,
+        count: recipients.length,
+        updatedAt: new Date().toISOString(),
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  )
 }
 
 function buildUserQuery(input: BroadcastRequest) {
@@ -162,6 +196,63 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    if (action === 'resend-failed') {
+      const failedRecipients = await getStoredFailedRecipients()
+
+      if (!failedRecipients.length) {
+        return NextResponse.json({
+          success: true,
+          action: 'resend-failed',
+          processed: 0,
+          sent: 0,
+          failed: 0,
+          remainingFailed: 0,
+          failedEmails: [],
+          message: 'No failed recipients to resend',
+        })
+      }
+
+      const toProcess = failedRecipients.slice(0, limit)
+      const untouched = failedRecipients.slice(limit)
+
+      let sent = 0
+      let failed = 0
+      const failedAgain: FailedRecipient[] = []
+
+      for (const recipient of toProcess) {
+        const ok = await emailService.sendRegistrationIssueAnnouncement({
+          email: recipient.email,
+          name: recipient.name || 'User',
+          overrides: effectiveOverrides,
+        })
+
+        if (ok) {
+          sent++
+        } else {
+          failed++
+          failedAgain.push(recipient)
+        }
+
+        if (delayMs > 0) {
+          await sleep(delayMs)
+        }
+      }
+
+      const remaining = [...failedAgain, ...untouched]
+      await setStoredFailedRecipients(remaining)
+
+      return NextResponse.json({
+        success: true,
+        action: 'resend-failed',
+        processed: toProcess.length,
+        sent,
+        failed,
+        remainingFailed: remaining.length,
+        failedEmails: failedAgain.slice(0, 100).map(item => item.email),
+        message: 'Resend to failed recipients completed',
+      })
+    }
+
     const query = buildUserQuery(body)
     const totalMatching = await User.countDocuments(query)
 
@@ -199,6 +290,7 @@ export async function POST(request: NextRequest) {
     let sent = 0
     let failed = 0
     const failedEmails: string[] = []
+    const failedRecipients: FailedRecipient[] = []
 
     for (const user of users) {
       const email = String(user.email || '').trim()
@@ -218,12 +310,18 @@ export async function POST(request: NextRequest) {
       } else {
         failed++
         failedEmails.push(email)
+        failedRecipients.push({
+          email,
+          name: user.name || user.displayName || 'User',
+        })
       }
 
       if (delayMs > 0) {
         await sleep(delayMs)
       }
     }
+
+    await setStoredFailedRecipients(failedRecipients)
 
     return NextResponse.json({
       success: true,

@@ -31,9 +31,11 @@ type PreviewResponse = {
 
 type SendResponse = {
   success: boolean
+  action?: string
   processed: number
   sent: number
   failed: number
+  remainingFailed?: number
   totalMatching: number
   skip: number
   limit: number
@@ -109,6 +111,7 @@ async function compressSignatureImage(file: File): Promise<File> {
 export default function AdminBroadcastEmailPage() {
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [loadingSend, setLoadingSend] = useState(false)
+  const [loadingResendFailed, setLoadingResendFailed] = useState(false)
   const [loadingMessagePreview, setLoadingMessagePreview] = useState(false)
 
   const [adminKey, setAdminKey] = useState("")
@@ -294,6 +297,41 @@ export default function AdminBroadcastEmailPage() {
       alert("Broadcast failed")
     } finally {
       setLoadingSend(false)
+    }
+  }
+
+  const runResendFailed = async () => {
+    if (!confirm("Resend only to failed recipients from the previous run?")) {
+      return
+    }
+
+    setLoadingResendFailed(true)
+
+    try {
+      const response = await fetch("/api/admin/broadcast-email", {
+        method: "POST",
+        credentials: "include",
+        headers: makeHeaders(),
+        body: JSON.stringify({
+          action: "resend-failed",
+          ...buildPayload(),
+        }),
+      })
+
+      const data = await response.json()
+      setResult(data)
+
+      if (!data.success) {
+        alert(data.error || "Resend failed")
+        return
+      }
+
+      setSaveMessage(`Resend complete: ${data.sent || 0} sent, ${data.failed || 0} failed`)
+    } catch (error) {
+      console.error("[admin/broadcast-email] Resend failed error:", error)
+      alert("Resend failed")
+    } finally {
+      setLoadingResendFailed(false)
     }
   }
 
@@ -932,6 +970,10 @@ export default function AdminBroadcastEmailPage() {
                 {loadingSend ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 Send This Batch
               </Button>
+              <Button variant="outline" onClick={runResendFailed} disabled={loadingResendFailed || loadingSend || loadingPreview}>
+                {loadingResendFailed ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+                Resend Failed Only
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -997,13 +1039,14 @@ export default function AdminBroadcastEmailPage() {
           <Alert className={result.failed > 0 ? "border-yellow-300 bg-yellow-50" : "border-green-300 bg-green-50"}>
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              <div className="font-semibold mb-2">Batch Completed</div>
+              <div className="font-semibold mb-2">{result.action === "resend-failed" ? "Resend Failed Completed" : "Batch Completed"}</div>
               <div className="flex flex-wrap gap-2 mb-2">
                 <Badge variant="outline">Processed: {result.processed}</Badge>
                 <Badge variant="outline">Sent: {result.sent}</Badge>
                 <Badge variant="outline">Failed: {result.failed}</Badge>
-                <Badge variant="outline">Next skip: {result.nextSkip}</Badge>
-                <Badge variant="outline">Has more: {result.hasMore ? "Yes" : "No"}</Badge>
+                {typeof result.remainingFailed === "number" ? <Badge variant="outline">Remaining failed: {result.remainingFailed}</Badge> : null}
+                {typeof result.nextSkip === "number" ? <Badge variant="outline">Next skip: {result.nextSkip}</Badge> : null}
+                {typeof result.hasMore === "boolean" ? <Badge variant="outline">Has more: {result.hasMore ? "Yes" : "No"}</Badge> : null}
               </div>
               {!!result.failedEmails?.length && (
                 <div className="text-sm">Failed samples: {result.failedEmails.slice(0, 10).join(", ")}</div>
