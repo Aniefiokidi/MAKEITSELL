@@ -3,6 +3,9 @@ import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 import { emailService } from '@/lib/email'
 import { requireAdminAccess } from '@/lib/server-route-auth'
+import { AdminSetting } from '@/lib/models/AdminSetting'
+
+const BROADCAST_TEMPLATE_KEY = 'broadcast_registration_issue_template'
 
 type TemplateOverrides = {
   subject?: string
@@ -12,7 +15,7 @@ type TemplateOverrides = {
 }
 
 type BroadcastRequest = {
-  action?: 'preview' | 'send' | 'message-preview'
+  action?: 'preview' | 'send' | 'message-preview' | 'template-get' | 'template-save'
   dryRun?: boolean
   limit?: number
   skip?: number
@@ -22,6 +25,24 @@ type BroadcastRequest = {
   delayMs?: number
   previewName?: string
   templateOverrides?: TemplateOverrides
+}
+
+function sanitizeTemplateOverrides(input?: TemplateOverrides): TemplateOverrides {
+  return {
+    subject: input?.subject?.trim() || undefined,
+    body: input?.body?.trim() || undefined,
+    loginButtonText: input?.loginButtonText?.trim() || undefined,
+    signupButtonText: input?.signupButtonText?.trim() || undefined,
+  }
+}
+
+async function getStoredTemplateOverrides(): Promise<TemplateOverrides | undefined> {
+  const existing = await AdminSetting.findOne({ key: BROADCAST_TEMPLATE_KEY }).lean()
+  if (!existing || !existing.value || typeof existing.value !== 'object') {
+    return undefined
+  }
+
+  return sanitizeTemplateOverrides(existing.value as TemplateOverrides)
 }
 
 function buildUserQuery(input: BroadcastRequest) {
@@ -61,10 +82,50 @@ export async function POST(request: NextRequest) {
     const skip = Math.max(0, body.skip || 0)
     const delayMs = Math.max(0, Math.min(body.delayMs || 350, 2000))
 
+    if (action === 'template-get') {
+      await connectToDatabase()
+      const stored = await getStoredTemplateOverrides()
+
+      return NextResponse.json({
+        success: true,
+        action: 'template-get',
+        templateOverrides: stored || {},
+      })
+    }
+
+    if (action === 'template-save') {
+      await connectToDatabase()
+      const cleaned = sanitizeTemplateOverrides(body.templateOverrides)
+
+      await AdminSetting.findOneAndUpdate(
+        { key: BROADCAST_TEMPLATE_KEY },
+        {
+          key: BROADCAST_TEMPLATE_KEY,
+          value: cleaned,
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      )
+
+      return NextResponse.json({
+        success: true,
+        action: 'template-save',
+        templateOverrides: cleaned,
+        message: 'Template saved',
+      })
+    }
+
+    await connectToDatabase()
+    const storedOverrides = await getStoredTemplateOverrides()
+    const requestOverrides = sanitizeTemplateOverrides(body.templateOverrides)
+    const effectiveOverrides: TemplateOverrides = {
+      ...(storedOverrides || {}),
+      ...(requestOverrides || {}),
+    }
+
     if (action === 'message-preview') {
       const template = emailService.getRegistrationIssueAnnouncementTemplate({
         name: body.previewName || 'Preview User',
-        overrides: body.templateOverrides,
+        overrides: effectiveOverrides,
       })
 
       return NextResponse.json({
@@ -75,8 +136,6 @@ export async function POST(request: NextRequest) {
         text: template.text,
       })
     }
-
-    await connectToDatabase()
 
     const query = buildUserQuery(body)
     const totalMatching = await User.countDocuments(query)
@@ -126,7 +185,7 @@ export async function POST(request: NextRequest) {
       const ok = await emailService.sendRegistrationIssueAnnouncement({
         email,
         name: user.name || user.displayName || 'User',
-        overrides: body.templateOverrides,
+        overrides: effectiveOverrides,
       })
 
       if (ok) {

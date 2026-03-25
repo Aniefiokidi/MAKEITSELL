@@ -50,8 +50,6 @@ type MessagePreviewResponse = {
   error?: string
 }
 
-const TEMPLATE_STORAGE_KEY = "adminBroadcastTemplateV1"
-
 const DEFAULT_SUBJECT = "Important: registration link issue update"
 const DEFAULT_BODY =
   "Some users recently experienced delays or failures receiving registration and verification links. We sincerely apologize for the inconvenience.\n\nThe issue has been fixed. If you were affected, please try signing in again or request a new verification link.\n\nIf you still do not receive your link, contact us and we will assist immediately."
@@ -80,22 +78,41 @@ export default function AdminBroadcastEmailPage() {
   const [preview, setPreview] = useState<PreviewResponse | null>(null)
   const [result, setResult] = useState<SendResponse | null>(null)
   const [messagePreview, setMessagePreview] = useState<MessagePreviewResponse | null>(null)
+  const [loadingTemplateSync, setLoadingTemplateSync] = useState(false)
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(TEMPLATE_STORAGE_KEY)
-      if (!raw) return
-
-      const parsed = JSON.parse(raw)
-      if (parsed.subject) setCustomSubject(String(parsed.subject))
-      if (parsed.body) setCustomBody(String(parsed.body))
-      if (parsed.loginButtonText) setLoginButtonText(String(parsed.loginButtonText))
-      if (parsed.signupButtonText) setSignupButtonText(String(parsed.signupButtonText))
-      setSaveMessage("Saved template loaded")
-    } catch (error) {
-      console.error("[admin/broadcast-email] Failed to load saved template:", error)
-    }
+    loadServerTemplate()
   }, [])
+
+  const loadServerTemplate = async () => {
+    setLoadingTemplateSync(true)
+    try {
+      const response = await fetch("/api/admin/broadcast-email", {
+        method: "POST",
+        credentials: "include",
+        headers: makeHeaders(),
+        body: JSON.stringify({ action: "template-get" }),
+      })
+
+      const data = await response.json()
+      if (!data.success) {
+        setSaveMessage("No shared template loaded")
+        return
+      }
+
+      const t = data.templateOverrides || {}
+      if (typeof t.subject === "string" && t.subject.trim()) setCustomSubject(t.subject)
+      if (typeof t.body === "string" && t.body.trim()) setCustomBody(t.body)
+      if (typeof t.loginButtonText === "string" && t.loginButtonText.trim()) setLoginButtonText(t.loginButtonText)
+      if (typeof t.signupButtonText === "string" && t.signupButtonText.trim()) setSignupButtonText(t.signupButtonText)
+      setSaveMessage("Shared template loaded")
+    } catch (error) {
+      console.error("[admin/broadcast-email] Failed to load shared template:", error)
+      setSaveMessage("Could not load shared template")
+    } finally {
+      setLoadingTemplateSync(false)
+    }
+  }
 
   const makeHeaders = () => {
     const headers: Record<string, string> = {
@@ -225,30 +242,69 @@ export default function AdminBroadcastEmailPage() {
   }
 
   const saveTemplate = () => {
-    try {
-      localStorage.setItem(
-        TEMPLATE_STORAGE_KEY,
-        JSON.stringify({
-          subject: customSubject,
-          body: customBody,
-          loginButtonText,
-          signupButtonText,
+    ;(async () => {
+      setLoadingTemplateSync(true)
+      try {
+        const response = await fetch("/api/admin/broadcast-email", {
+          method: "POST",
+          credentials: "include",
+          headers: makeHeaders(),
+          body: JSON.stringify({
+            action: "template-save",
+            templateOverrides: {
+              subject: customSubject,
+              body: customBody,
+              loginButtonText,
+              signupButtonText,
+            },
+          }),
         })
-      )
-      setSaveMessage("Template saved on this browser")
-    } catch (error) {
-      console.error("[admin/broadcast-email] Failed to save template:", error)
-      setSaveMessage("Could not save template")
-    }
+        const data = await response.json()
+        if (!data.success) {
+          setSaveMessage(data.error || "Could not save shared template")
+          return
+        }
+        setSaveMessage("Shared template saved")
+      } catch (error) {
+        console.error("[admin/broadcast-email] Failed to save shared template:", error)
+        setSaveMessage("Could not save shared template")
+      } finally {
+        setLoadingTemplateSync(false)
+      }
+    })()
   }
 
   const resetTemplate = () => {
-    setCustomSubject(DEFAULT_SUBJECT)
-    setCustomBody(DEFAULT_BODY)
-    setLoginButtonText(DEFAULT_LOGIN_BUTTON)
-    setSignupButtonText(DEFAULT_SIGNUP_BUTTON)
-    localStorage.removeItem(TEMPLATE_STORAGE_KEY)
-    setSaveMessage("Template reset to default")
+    ;(async () => {
+      setCustomSubject(DEFAULT_SUBJECT)
+      setCustomBody(DEFAULT_BODY)
+      setLoginButtonText(DEFAULT_LOGIN_BUTTON)
+      setSignupButtonText(DEFAULT_SIGNUP_BUTTON)
+
+      setLoadingTemplateSync(true)
+      try {
+        await fetch("/api/admin/broadcast-email", {
+          method: "POST",
+          credentials: "include",
+          headers: makeHeaders(),
+          body: JSON.stringify({
+            action: "template-save",
+            templateOverrides: {
+              subject: DEFAULT_SUBJECT,
+              body: DEFAULT_BODY,
+              loginButtonText: DEFAULT_LOGIN_BUTTON,
+              signupButtonText: DEFAULT_SIGNUP_BUTTON,
+            },
+          }),
+        })
+        setSaveMessage("Template reset and saved as shared default")
+      } catch (error) {
+        console.error("[admin/broadcast-email] Failed to reset shared template:", error)
+        setSaveMessage("Template reset locally; shared save failed")
+      } finally {
+        setLoadingTemplateSync(false)
+      }
+    })()
   }
 
   return (
@@ -339,11 +395,14 @@ export default function AdminBroadcastEmailPage() {
               </div>
 
               <div className="md:col-span-2 flex flex-wrap gap-2">
-                <Button type="button" variant="secondary" onClick={saveTemplate}>
+                <Button type="button" variant="secondary" onClick={saveTemplate} disabled={loadingTemplateSync}>
                   Save Template
                 </Button>
-                <Button type="button" variant="outline" onClick={resetTemplate}>
+                <Button type="button" variant="outline" onClick={resetTemplate} disabled={loadingTemplateSync}>
                   Reset to Default
+                </Button>
+                <Button type="button" variant="outline" onClick={loadServerTemplate} disabled={loadingTemplateSync}>
+                  {loadingTemplateSync ? "Syncing..." : "Load Shared Template"}
                 </Button>
                 {saveMessage && <span className="text-xs text-muted-foreground self-center">{saveMessage}</span>}
               </div>
