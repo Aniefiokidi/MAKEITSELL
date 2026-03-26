@@ -70,7 +70,16 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
     }
 
     if (Array.isArray(body.packageOptions)) {
-      patch.packageOptions = body.packageOptions.filter((pkg: any) => pkg && pkg.name && Number(pkg.price) >= 0)
+      patch.packageOptions = body.packageOptions
+        .filter((pkg: any) => pkg && pkg.name && Number(pkg.price) >= 0)
+        .map((pkg: any) => ({
+          ...pkg,
+          images: Array.isArray(pkg.images)
+            ? pkg.images
+                .filter((img: any) => typeof img === 'string' && img.trim())
+                .slice(0, 5)
+            : [],
+        }))
     }
 
     if (Array.isArray(body.addOnOptions)) {

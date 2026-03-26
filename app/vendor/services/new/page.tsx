@@ -125,6 +125,7 @@ type LocationPricingRule = {
 }
 
 const makeOptionId = () => `opt-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
+const MAX_PACKAGE_IMAGES = 5
 
 export default function NewServicePage() {
   const router = useRouter()
@@ -385,6 +386,14 @@ export default function NewServicePage() {
     setPackageImageAssignments((prev) => {
       const current = prev[packageId] || []
       const exists = current.includes(imageIndex)
+      if (!exists && current.length >= MAX_PACKAGE_IMAGES) {
+        toast({
+          title: "Package image limit reached",
+          description: `Each package can contain up to ${MAX_PACKAGE_IMAGES} images.`,
+          variant: "destructive",
+        })
+        return prev
+      }
       return {
         ...prev,
         [packageId]: exists
@@ -461,6 +470,7 @@ export default function NewServicePage() {
           const assignedImages = assignedIndexes
             .map((imgIndex) => imageUrls[imgIndex])
             .filter((imgUrl): imgUrl is string => Boolean(imgUrl))
+            .slice(0, MAX_PACKAGE_IMAGES)
 
           return {
             id: pkg.id,
@@ -1425,7 +1435,7 @@ export default function NewServicePage() {
                 <div className="rounded-lg border p-4 space-y-3">
                   <div>
                     <Label className="text-base">Assign Images To Packages</Label>
-                    <p className="text-xs text-muted-foreground">Select which uploaded images belong to each package.</p>
+                    <p className="text-xs text-muted-foreground">Select which uploaded images belong to each package (max 5 per package).</p>
                   </div>
 
                   <div className="space-y-4">

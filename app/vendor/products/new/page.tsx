@@ -33,6 +33,7 @@ const categories = [
 
 const fashionSubcategories = [
   "Shoes",
+  "Wig",
   "Jewelry",
   "Shirts",
   "Sweaters",

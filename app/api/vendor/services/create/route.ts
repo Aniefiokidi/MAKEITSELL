@@ -62,6 +62,9 @@ function validateServicePayload(serviceData: any): { valid: boolean; message?: s
         if (!Array.isArray(pkg.images) || pkg.images.some((img: any) => typeof img !== 'string' || !img.trim())) {
           return { valid: false, message: 'Package images must be an array of image URLs' }
         }
+        if (pkg.images.length > 5) {
+          return { valid: false, message: 'Each package can contain up to 5 images' }
+        }
       }
       if (pkg.attachments !== undefined) {
         if (!Array.isArray(pkg.attachments)) {

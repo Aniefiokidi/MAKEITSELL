@@ -108,6 +108,7 @@ const dedupeById = <T extends { id?: string; _id?: string }>(items: T[]) => {
 const fashionSubcategories = [
   "All Fashion",
   "Shoes",
+  "Wig",
   "Jewelry",
   "Shirts",
   "Sweaters",

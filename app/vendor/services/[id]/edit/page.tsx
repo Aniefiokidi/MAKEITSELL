@@ -36,6 +36,7 @@ const SERVICE_CATEGORIES = [
 ]
 
 const makeOptionId = () => `opt-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
+const MAX_PACKAGE_IMAGES = 5
 
 type ServicePackageOption = {
   id: string
@@ -247,6 +248,14 @@ export default function ServiceEditPage() {
         packageOptions: current.map((pkg) => {
           if (pkg.id !== packageId) return pkg
           const images = Array.isArray(pkg.images) ? pkg.images : []
+          if (images.length >= MAX_PACKAGE_IMAGES) {
+            toast({
+              title: "Package image limit reached",
+              description: `Each package can contain up to ${MAX_PACKAGE_IMAGES} images.`,
+              variant: "destructive",
+            })
+            return pkg
+          }
           return { ...pkg, images: [...images, ""] }
         }),
       }
@@ -299,8 +308,22 @@ export default function ServiceEditPage() {
     }
 
     try {
+      const currentPackage = (service?.packageOptions || []).find((pkg) => pkg.id === packageId)
+      const currentImages = Array.isArray(currentPackage?.images) ? currentPackage!.images! : []
+      const remainingSlots = Math.max(0, MAX_PACKAGE_IMAGES - currentImages.length)
+
+      if (remainingSlots <= 0) {
+        toast({ title: "Package image limit reached", description: `Each package can contain up to ${MAX_PACKAGE_IMAGES} images.`, variant: "destructive" })
+        return
+      }
+
+      const uploadList = valid.slice(0, remainingSlots)
+      if (uploadList.length < valid.length) {
+        toast({ title: "Some images skipped", description: `Only ${remainingSlots} more image(s) can be added to this package.`, variant: "destructive" })
+      }
+
       setPackageUploading((prev) => ({ ...prev, [packageId]: true }))
-      const uploaded = await Promise.all(valid.map((file) => uploadToCloudinary(file)))
+      const uploaded = await Promise.all(uploadList.map((file) => uploadToCloudinary(file)))
       const urls = uploaded.map((url) => String(url || "").trim()).filter(Boolean)
       if (!urls.length) return
 
@@ -393,7 +416,7 @@ export default function ServiceEditPage() {
           isDefault: Boolean(pkg.isDefault) || index === 0,
           active: pkg.active !== false,
           images: Array.isArray(pkg.images)
-            ? pkg.images.map((img) => String(img || "").trim()).filter(Boolean)
+            ? pkg.images.map((img) => String(img || "").trim()).filter(Boolean).slice(0, MAX_PACKAGE_IMAGES)
             : [],
           attachments: Array.isArray(pkg.attachments) ? pkg.attachments : [],
         }))
@@ -820,6 +843,7 @@ export default function ServiceEditPage() {
                           Add Image URL
                         </Button>
                       </div>
+                      <p className="text-xs text-muted-foreground">Max {MAX_PACKAGE_IMAGES} images per package.</p>
                       <div className="space-y-2">
                         <Label htmlFor={`package-image-upload-${pkg.id}`} className="text-xs text-muted-foreground">Upload package images</Label>
                         <Input
