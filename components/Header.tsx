@@ -565,14 +565,14 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
   return (
     <header
       className={
-        `sticky top-0 z-50 w-full pt-1.5 pb-2 ${homeBg
+        `sticky top-0 z-50 w-full pt-[clamp(0.2rem,1vw,0.375rem)] pb-[clamp(0.35rem,1.4vw,0.5rem)] ${homeBg
           ? 'bg-white/45 supports-backdrop-filter:bg-white/30 backdrop-blur-xl border-b border-white/40' 
           : 'bg-white/95 backdrop-blur-md'}
         `
         
       }
     >
-      <div className="w-full px-2 sm:px-4 lg:px-10">
+      <div className="w-full px-[clamp(0.625rem,2.8vw,1rem)] sm:px-4 lg:px-10">
               {/* Gradient animation styles for homeBg */}
               {homeBg && (
                 <style jsx global>{`
@@ -588,13 +588,13 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                   }
                 `}</style>
               )}
-        <div className="flex h-10 md:h-14 lg:h-16 items-center justify-between gap-1">
+        <div className="flex h-[clamp(2.5rem,10vw,3.25rem)] md:h-14 lg:h-16 items-center justify-between gap-1">
           {/* Logo */}
           <Link href="/" className="flex items-center shrink-0">
             <img
               src="/images/logo (2).png"
               alt="Make It Sell"
-              className="h-5 sm:h-6 lg:h-8 w-auto object-contain transition-all duration-300 hover:scale-105"
+              className="h-[clamp(1rem,4.4vw,1.5rem)] sm:h-6 lg:h-8 w-auto object-contain transition-all duration-300 hover:scale-105"
               onError={(e) => {
                 // Fallback to text logo if image fails
                 e.currentTarget.style.display = 'none'
@@ -668,7 +668,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                   }
                 }}
                 title={userProfile?.role === "vendor" ? "Click to manage vendor wallet" : "Open wallet"}
-                className="flex items-center gap-1 rounded-full border border-[oklch(0.21_0.194_29.234)]/25 bg-white/90 px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-medium text-[oklch(0.21_0.194_29.234)] hover:bg-accent/10 transition-colors cursor-pointer"
+                className="flex items-center gap-1 rounded-full border border-[oklch(0.21_0.194_29.234)]/25 bg-white/90 px-2 sm:px-3 py-1 text-[clamp(0.65rem,2.5vw,0.75rem)] sm:text-xs font-medium text-[oklch(0.21_0.194_29.234)] hover:bg-accent/10 transition-colors cursor-pointer"
               >
                 <Wallet className="h-3.5 w-3.5" />
                 <span>{formattedWalletBalance}</span>

@@ -19,15 +19,16 @@ import { initPersonalizationSync, personalizeProducts, trackProductQuickView, tr
 // Static categories - fallback if API fails
 const defaultCategories = [
   { id: "all", name: "All Categories" },
-  { id: "electronics", name: "Electronics" },
-  { id: "fashion", name: "Fashion" },
-  { id: "home", name: "Home & Garden" },
-  { id: "beauty", name: "Beauty & Personal Care" },
-  { id: "sports", name: "Sports & Outdoors" },
-  { id: "automotive", name: "Automotive" },
-  { id: "books", name: "Books & Media" },
-  { id: "food", name: "Food & Beverages" },
-  { id: "other", name: "Other" },
+  { id: "Electronics", name: "Electronics" },
+  { id: "Fashion", name: "Fashion" },
+  { id: "Home & Garden", name: "Home & Garden" },
+  { id: "Sports & Outdoors", name: "Sports & Outdoors" },
+  { id: "Books", name: "Books" },
+  { id: "Toys & Games", name: "Toys & Games" },
+  { id: "Health & Beauty", name: "Health & Beauty" },
+  { id: "Automotive", name: "Automotive" },
+  { id: "Tools", name: "Tools" },
+  { id: "Food & Beverages", name: "Food & Beverages" },
 ]
 
 interface Product {

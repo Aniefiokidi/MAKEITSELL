@@ -4,19 +4,19 @@ import { Facebook, Instagram, Mail, Phone } from "lucide-react"
 export default function Footer() {
   return (
     <footer className="bg-muted/50 border-t">
-      <div className="container mx-auto px-4 py-10">
+      <div className="container mx-auto px-[clamp(0.875rem,3.8vw,1.5rem)] py-[clamp(1.75rem,7vw,2.5rem)]">
         {/* Top Section */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 text-center sm:text-left">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-[clamp(1.25rem,5vw,2.5rem)] text-center sm:text-left">
           {/* Company Info */}
           <div>
             <Link href="/" className="flex justify-center sm:justify-start items-center mb-4">
               <img
                 src="/images/logo (2).png"
                 alt="Logo"
-                className="h-8 w-auto object-contain transition-transform duration-300 hover:scale-105"
+                className="h-[clamp(1.5rem,6vw,2rem)] w-auto object-contain transition-transform duration-300 hover:scale-105"
               />
             </Link>
-            <p className="text-accent mb-5 text-sm leading-relaxed max-w-xs mx-auto sm:mx-0">
+            <p className="text-accent mb-5 text-[clamp(0.84rem,3.5vw,0.95rem)] leading-relaxed max-w-xs mx-auto sm:mx-0">
               Your trusted marketplace with AI-powered customer service. Connecting buyers and sellers with confidence.
             </p>
             <div className="flex justify-center sm:justify-start space-x-5">
@@ -48,8 +48,8 @@ export default function Footer() {
 
           {/* Quick Links */}
           <div>
-            <h3 className="font-semibold mb-4 text-lg text-center sm:text-left text-accent">Quick Links</h3>
-            <ul className="space-y-2 text-sm">
+            <h3 className="font-semibold mb-4 text-[clamp(1rem,4.2vw,1.125rem)] text-center sm:text-left text-accent">Quick Links</h3>
+            <ul className="space-y-2 text-[clamp(0.84rem,3.5vw,0.95rem)]">
               <li><Link href="/stores" className="text-accent">Stores</Link></li>
               <li><Link href="/categories" className="text-accent">Categories</Link></li>
               <li><Link href="/services" className="text-accent">Services</Link></li>
@@ -59,8 +59,8 @@ export default function Footer() {
 
           {/* Customer Service */}
           <div>
-            <h3 className="font-semibold mb-4 text-lg text-center sm:text-left text-accent">Customer Service</h3>
-            <ul className="space-y-2 text-sm">
+            <h3 className="font-semibold mb-4 text-[clamp(1rem,4.2vw,1.125rem)] text-center sm:text-left text-accent">Customer Service</h3>
+            <ul className="space-y-2 text-[clamp(0.84rem,3.5vw,0.95rem)]">
               <li><Link href="/support" className="text-accent">Help Center</Link></li>
               <li><Link href="/contact" className="text-accent">Contact Us</Link></li>
               <li><Link href="/returns" className="text-accent">Returns & Refunds</Link></li>
@@ -70,8 +70,8 @@ export default function Footer() {
 
           {/* Contact Info */}
           <div>
-            <h3 className="font-semibold mb-4 text-lg text-center sm:text-left text-accent">Contact Info</h3>
-            <ul className="space-y-3 text-sm">
+            <h3 className="font-semibold mb-4 text-[clamp(1rem,4.2vw,1.125rem)] text-center sm:text-left text-accent">Contact Info</h3>
+            <ul className="space-y-3 text-[clamp(0.84rem,3.5vw,0.95rem)]">
               <li className="flex justify-center sm:justify-start items-center space-x-3">
                 <Mail className="h-4 w-4 text-accent" />
                 <span className="text-accent">noreply@makeitsell.org</span>
@@ -93,11 +93,11 @@ export default function Footer() {
         </div>
 
         {/* Bottom Section */}
-        <div className="border-t mt-10 pt-6 flex flex-col md:flex-row justify-between items-center text-center md:text-left gap-3">
-          <p className="text-accent text-sm">
+        <div className="border-t mt-[clamp(1.5rem,6vw,2.5rem)] pt-[clamp(1rem,4vw,1.5rem)] flex flex-col md:flex-row justify-between items-center text-center md:text-left gap-3">
+          <p className="text-accent text-[clamp(0.84rem,3.5vw,0.95rem)]">
             © {new Date().getFullYear()} Make It Sell Marketplace. All rights reserved.
           </p>
-          <div className="flex flex-wrap justify-center md:justify-end gap-x-6 gap-y-2 text-sm">
+          <div className="flex flex-wrap justify-center md:justify-end gap-x-6 gap-y-2 text-[clamp(0.84rem,3.5vw,0.95rem)]">
             <Link href="/privacy" className="text-accent">
               Privacy Policy
             </Link>
