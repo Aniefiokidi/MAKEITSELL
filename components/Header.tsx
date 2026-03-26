@@ -1100,25 +1100,24 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
 
       {/* Background overlay */}
       <div
-        className={`fixed inset-0 bg-black z-90 xl:hidden transition-opacity duration-200 ease-out ${
-          isMenuOpen ? "opacity-50 pointer-events-auto" : "opacity-0 pointer-events-none"
+        className={`fixed inset-0 bg-black/50 z-90 xl:hidden transition-opacity duration-200 ${
+          isMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
         onClick={() => setIsMenuOpen(false)}
       />
 
       {/* Drawer Panel */}
       <div
-        className={`fixed top-0 right-0 h-screen max-w-xs transform-gpu bg-linear-to-br from-gray-50 to-gray-100 shadow-xl z-100 flex flex-col overflow-hidden xl:hidden ${
-          isMenuOpen ? "pointer-events-auto" : "pointer-events-none"
+        className={`fixed top-0 right-0 h-screen max-w-xs transform-gpu bg-linear-to-br from-gray-50 to-gray-100 shadow-xl z-100 flex flex-col overflow-hidden xl:hidden transition-transform duration-300 pointer-events-auto ${
+          isMenuOpen ? "translate-x-0" : "translate-x-full"
         }`}
         style={{
           width: mobileDrawerWidth,
           height: "100dvh",
-          transform: isMenuOpen ? "translate3d(0,0,0)" : "translate3d(100%,0,0)",
-          transition: "transform 280ms cubic-bezier(0.22, 1, 0.36, 1)",
           willChange: "transform",
           contain: "paint",
           backfaceVisibility: "hidden",
+          transitionTimingFunction: "cubic-bezier(0.34, 1.56, 0.64, 1)",
         }}
       >
               {/* Header */}

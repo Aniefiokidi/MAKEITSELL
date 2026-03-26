@@ -1,12 +1,18 @@
 html, body, #__next, main, .safe-area, .header, .navbar {
   padding-top: env(safe-area-inset-top);
 }
+
+html,
+body {
+  overflow-x: hidden;
+}
 @import "tailwindcss";
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  --mobile-scale: 1;
   --background: oklch(1 0 0);
   --foreground: oklch(0.295 0.014 258.338);
   --card: oklch(0.976 0 0);
@@ -40,6 +46,12 @@ html, body, #__next, main, .safe-area, .header, .navbar {
   --sidebar-accent-foreground: oklch(1 0 0);
   --sidebar-border: oklch(0.898 0 0);
   --sidebar-ring: oklch(0.35 0.15 15 / 0.5);
+}
+
+@media (max-width: 430px) {
+  :root {
+    --mobile-scale: clamp(0.84, calc(100vw / 430), 1);
+  }
 }
 
 .dark {
@@ -122,8 +134,53 @@ html, body, #__next, main, .safe-area, .header, .navbar {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
   body {
     @apply bg-background text-foreground;
+  }
+
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="number"],
+  textarea,
+  select {
+    border-color: color-mix(in oklab, var(--accent) 25%, transparent);
+  }
+
+  @media (max-width: 767px) {
+    input,
+    textarea,
+    select {
+      font-size: 16px;
+    }
+  }
+
+  @media (max-width: 430px) {
+    [data-slot="input"] {
+      min-height: calc(2.25rem * var(--mobile-scale));
+      padding-left: calc(0.75rem * var(--mobile-scale));
+      padding-right: calc(0.75rem * var(--mobile-scale));
+      border-radius: calc(0.5rem * var(--mobile-scale));
+    }
+
+    [data-slot="button"] {
+      min-height: calc(2.25rem * var(--mobile-scale));
+      font-size: clamp(0.85rem, calc(1rem * var(--mobile-scale)), 1rem);
+      border-radius: calc(0.75rem * var(--mobile-scale));
+    }
+
+    [data-slot="select-trigger"] {
+      min-height: calc(2.5rem * var(--mobile-scale));
+      font-size: clamp(0.8rem, calc(0.95rem * var(--mobile-scale)), 0.95rem);
+      border-radius: calc(0.5rem * var(--mobile-scale));
+    }
   }
 }
 

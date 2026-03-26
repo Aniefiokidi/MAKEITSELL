@@ -473,7 +473,7 @@ function HeroButtons({ isLoggedIn }: { isLoggedIn: boolean }) {
         <Link
           href={storesHref}
           prefetch
-          className="px-8 py-3 text-lg font-semibold rounded-full shadow-2xl bg-accent text-white border-2 border-accent transition-all duration-300 hover:bg-accent/10 hover:text-accent hover:border-accent flex items-center justify-center group overflow-hidden relative min-w-[200px] sm:min-w-[260px]"
+          className="px-6 sm:px-8 py-3 text-[clamp(1rem,4.1vw,1.125rem)] font-semibold rounded-full shadow-2xl bg-accent text-white border-2 border-accent transition-all duration-300 hover:bg-accent/10 hover:text-accent hover:border-accent flex items-center justify-center group overflow-hidden relative min-w-[clamp(180px,74vw,260px)] sm:min-w-[260px]"
           onMouseEnter={() => router.prefetch(storesHref)}
           onTouchStart={() => router.prefetch(storesHref)}
           onClick={(e) => triggerSlideNavigation(e, storesHref, 'right')}
@@ -481,7 +481,7 @@ function HeroButtons({ isLoggedIn }: { isLoggedIn: boolean }) {
           <span className="w-full text-center">{isLoggedIn ? 'Check out Stores' : 'Start Shopping'}</span>
           <span
             className={
-              "inline-flex items-center absolute right-20 sm:right-3 top-1/2 -translate-y-1/2 transition-transform group-hover:translate-x-1 motion-reduce:transform-none animate-bounce-x"
+              "inline-flex items-center absolute right-4 sm:right-3 top-1/2 -translate-y-1/2 transition-transform group-hover:translate-x-1 motion-reduce:transform-none animate-bounce-x"
             }
           >
             <svg width="24" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" className="text-white group-hover:text-accent">
@@ -492,7 +492,7 @@ function HeroButtons({ isLoggedIn }: { isLoggedIn: boolean }) {
         <Link
           href={servicesHref}
           prefetch
-          className="px-8 py-3 text-lg font-semibold rounded-full shadow-2xl border-2 border-accent text-accent bg-white hover:bg-accent/10 transition-all duration-300 flex items-center justify-center group overflow-hidden relative min-w-[200px] sm:min-w-[260px]"
+          className="px-6 sm:px-8 py-3 text-[clamp(1rem,4.1vw,1.125rem)] font-semibold rounded-full shadow-2xl border-2 border-accent text-accent bg-white hover:bg-accent/10 transition-all duration-300 flex items-center justify-center group overflow-hidden relative min-w-[clamp(180px,74vw,260px)] sm:min-w-[260px]"
           onMouseEnter={() => router.prefetch(servicesHref)}
           onTouchStart={() => router.prefetch(servicesHref)}
           onClick={(e) => triggerSlideNavigation(e, servicesHref, 'right')}
@@ -500,7 +500,7 @@ function HeroButtons({ isLoggedIn }: { isLoggedIn: boolean }) {
           <span className="w-full text-center">{isLoggedIn ? 'Check out Services' : 'Become a Seller'}</span>
           <span
             className={
-              "inline-flex items-center absolute right-20 sm:right-3 top-1/2 -translate-y-1/2 transition-transform group-hover:translate-x-1 motion-reduce:transform-none animate-bounce-x"
+              "inline-flex items-center absolute right-4 sm:right-3 top-1/2 -translate-y-1/2 transition-transform group-hover:translate-x-1 motion-reduce:transform-none animate-bounce-x"
             }
           >
             <svg width="24" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" className="text-accent group-hover:text-white">
@@ -644,20 +644,20 @@ export default function HomePage() {
             </div>
           )}
           {/* HERO SECTION */}
-          <section className="relative min-h-screen flex items-center justify-center -mt-20 overflow-hidden">
+          <section className="relative min-h-screen flex items-center justify-center mt-0 md:-mt-20 overflow-hidden">
             <div className="container mx-auto px-4 sm:px-8 max-w-[1600px]">
               <div className="flex flex-col-reverse items-center justify-center text-center gap-1 sm:gap-4 md:flex-row md:text-left md:items-center md:gap-0">
                 {/* Left: Texts */}
                 <div className="w-full md:w-[40%] flex flex-col justify-center md:justify-center md:items-start md:text-left gap-4 sm:gap-6 -mt-4 sm:-mt-2 md:mt-0">
-                  <span className="text-accent font-bold text-lg sm:text-xl tracking-wide">
+                  <span className="text-accent font-bold text-[clamp(1rem,4vw,1.25rem)] tracking-wide">
                     WHERE EVERYTHING SELLS!
                   </span>
-                  <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold text-neutral-900 mb-2">
+                  <h1 className="text-[clamp(2.1rem,9vw,3.75rem)] font-extrabold text-neutral-900 mb-2 leading-[1.1]">
                     Find What You Love,
                     <br />
                     <span className="text-accent">From Real People</span>
                   </h1>
-                  <p className="text-base sm:text-lg md:text-xl text-neutral-700 max-w-2xl mb-2">
+                  <p className="text-[clamp(1rem,4.2vw,1.25rem)] text-neutral-700 max-w-2xl mb-2">
                     Nigeria's most trusted marketplace for unique products, unbeatable prices, and real customer support.
                   </p>
                   {/* Search Form (existing) */}
@@ -675,12 +675,12 @@ export default function HomePage() {
                       value={searchValue}
                       onChange={e => setSearchValue(e.target.value)}
                       placeholder="What are you looking for today?"
-                      className="flex-1 px-4 py-2 text-neutral-900 bg-transparent outline-none placeholder:text-neutral-500"
+                      className="flex-1 px-4 h-11 text-[clamp(0.95rem,3.8vw,1.05rem)] text-neutral-900 bg-transparent outline-none placeholder:text-neutral-500"
                       aria-label="Search products"
                     />
                     <button
                       type="submit"
-                      className="rounded-none rounded-r-full bg-accent hover:bg-accent/90 text-white px-4"
+                      className="rounded-none rounded-r-full bg-accent hover:bg-accent/90 text-white px-4 h-11 text-[clamp(0.95rem,3.7vw,1.05rem)] font-semibold"
                     >
                       Search
                     </button>
@@ -692,7 +692,7 @@ export default function HomePage() {
                   <img
                     src="/MISHG.png"
                     alt="MakeItSell Logo"
-                    className="w-[82vw] h-[86vw] sm:w-[76vw] sm:h-[80vw] md:w-[108%] md:h-auto lg:w-[112%] xl:w-[115%] md:max-w-none rounded-xl object-contain md:p-0 p-1 md:-ml-8 lg:-ml-12 xl:-ml-14"
+                    className="w-[clamp(250px,82vw,340px)] h-auto sm:w-[76vw] sm:h-[80vw] md:w-[108%] md:h-auto lg:w-[112%] xl:w-[115%] md:max-w-none rounded-xl object-contain md:p-0 p-1 md:-ml-8 lg:-ml-12 xl:-ml-14"
                   />
                 </div> 
               </div>

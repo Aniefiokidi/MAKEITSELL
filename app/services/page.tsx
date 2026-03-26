@@ -529,7 +529,7 @@ export default function ServicesPage() {
             </Button>
             {/* Category Filter */}
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-[70px] sm:w-[110px] md:w-[150px] lg:w-[180px] border-2 border-accent/20 hover:border-accent/40 transition-colors h-8 sm:h-9 md:h-10 lg:h-12 text-[9px] sm:text-xs md:text-sm p-1">
+              <SelectTrigger className="w-[92px] sm:w-[120px] md:w-[150px] lg:w-[180px] border-2 border-accent/20 hover:border-accent/40 transition-colors h-9 sm:h-10 md:h-10 lg:h-12 text-xs md:text-sm p-1.5">
                 <SelectValue placeholder="Cat" />
               </SelectTrigger>
               <SelectContent>
@@ -549,7 +549,7 @@ export default function ServicesPage() {
                 setSelectedCity("all")
               }}
             >
-              <SelectTrigger className="w-[75px] sm:w-[120px] md:w-[150px] lg:w-[170px] h-8 sm:h-9 md:h-10 lg:h-12 border-accent/20 text-[9px] sm:text-xs md:text-sm p-1">
+              <SelectTrigger className="w-[98px] sm:w-[130px] md:w-[150px] lg:w-[170px] h-9 sm:h-10 md:h-10 lg:h-12 border-accent/20 text-xs md:text-sm p-1.5">
                 <SelectValue placeholder="State" />
               </SelectTrigger>
               <SelectContent>
@@ -566,7 +566,7 @@ export default function ServicesPage() {
               onValueChange={setSelectedCity}
               disabled={selectedState === "all"}
             >
-              <SelectTrigger className="w-[70px] sm:w-[110px] md:w-[140px] lg:w-40 h-8 sm:h-9 md:h-10 lg:h-12 border-accent/20 text-[9px] sm:text-xs md:text-sm p-1">
+              <SelectTrigger className="w-[88px] sm:w-[120px] md:w-[140px] lg:w-40 h-9 sm:h-10 md:h-10 lg:h-12 border-accent/20 text-xs md:text-sm p-1.5">
                 <SelectValue placeholder="City" />
               </SelectTrigger>
               <SelectContent>
@@ -601,7 +601,7 @@ export default function ServicesPage() {
                 placeholder="Search services..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-9 sm:h-10 border-2 focus:border-primary transition-colors w-full text-xs sm:text-sm"
+                className="pl-9 h-10 border-2 focus:border-primary transition-colors w-full text-sm"
                 autoFocus
               />
             </div>
