@@ -128,7 +128,7 @@ export default function CartSidebar() {
                 <span>₦{totalPrice.toFixed(2)}</span>
               </div>
               <div className="space-y-2">
-                <Button asChild className="w-full" onClick={() => setIsOpen(false)}>
+                <Button asChild className="w-full border border-accent/40 bg-white text-accent hover:bg-accent hover:text-white transition-all" onClick={() => setIsOpen(false)}>
                   <Link href="/checkout">Proceed to Checkout</Link>
                 </Button>
                 <Button variant="outline" asChild className="w-full bg-transparent" onClick={() => setIsOpen(false)}>

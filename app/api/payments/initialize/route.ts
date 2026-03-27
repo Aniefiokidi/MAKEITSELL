@@ -24,6 +24,11 @@ export async function POST(request: NextRequest) {
       totalAmount: clientTotalAmount
     } = body
 
+    const normalizedPaymentMethod = paymentMethod === 'paystack' ? 'xoro_pay' : paymentMethod
+    if (paymentMethod === 'paystack') {
+      console.warn('[PAYMENT INIT] Remapping deprecated paystack method to xoro_pay')
+    }
+
     // Validate required fields
     if (!items || !shippingInfo || !customerId || !shippingInfo.email || !String(shippingInfo.deliveryInstructions || '').trim()) {
       console.error('Missing fields:', {
@@ -43,13 +48,13 @@ export async function POST(request: NextRequest) {
     // Generate unique order ID
     const orderId = uuidv4()
 
-    // Group items by vendor
+    // Group items by store first (fallback to vendor) so each store gets its own payout bucket.
     const vendorOrders = new Map()
     
     for (const item of items) {
-      const vendorId = item.vendorId
+      const vendorId = String(item?.vendorId || '').trim()
       // Try to get storeId from item, fallback to product lookup if missing
-      let storeId = item.storeId
+      let storeId = String(item?.storeId || '').trim()
       if (!storeId && item.productId) {
         // Fetch product to get storeId
         try {
@@ -57,13 +62,14 @@ export async function POST(request: NextRequest) {
           if (productRes.ok) {
             const productJson = await productRes.json();
             if (productJson.success && productJson.data && productJson.data.storeId) {
-              storeId = productJson.data.storeId;
+              storeId = String(productJson.data.storeId || '').trim();
             }
           }
         } catch {}
       }
-      if (!vendorOrders.has(vendorId)) {
-        vendorOrders.set(vendorId, {
+      const groupingKey = storeId ? `store:${storeId}` : `vendor:${vendorId}`
+      if (!vendorOrders.has(groupingKey)) {
+        vendorOrders.set(groupingKey, {
           vendorId,
           vendorName: item.vendorName,
           storeId,
@@ -71,9 +77,12 @@ export async function POST(request: NextRequest) {
           total: 0
         })
       }
-      const vendor = vendorOrders.get(vendorId)
+      const vendor = vendorOrders.get(groupingKey)
+      if (!vendor.storeId && storeId) {
+        vendor.storeId = storeId
+      }
       vendor.items.push({ ...item, storeId })
-      vendor.total += item.price * item.quantity
+      vendor.total += Number(item?.price || 0) * Number(item?.quantity || 0)
     }
 
     const subtotal = (Array.isArray(items) ? items : []).reduce((sum: number, item: any) => {
@@ -151,7 +160,7 @@ export async function POST(request: NextRequest) {
         country: shippingInfo.country,
         instructions: shippingInfo.deliveryInstructions,
       },
-      paymentMethod,
+      paymentMethod: normalizedPaymentMethod,
       subtotal,
       vat,
       shipping,
@@ -169,7 +178,7 @@ export async function POST(request: NextRequest) {
     console.log('Order created successfully:', order)
 
     // Initialize payment with Paystack
-    if (paymentMethod === 'paystack') {
+    if (normalizedPaymentMethod === 'paystack') {
       const paystackAmounts = calculatePaystackCheckoutAmounts(Number(computedTotalAmount))
       if (paystackAmounts.payableAmount <= 0) {
         return NextResponse.json(
@@ -230,7 +239,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Initialize payment with Xoro Pay
-    if (paymentMethod === 'xoro_pay') {
+    if (normalizedPaymentMethod === 'xoro_pay') {
       console.log('Initializing Xoro Pay payment with data:', {
         email: shippingInfo.email,
         amount: computedTotalAmount,
@@ -282,7 +291,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (paymentMethod === 'wallet') {
+    if (normalizedPaymentMethod === 'wallet') {
       console.log('[WALLET] Processing wallet payment for order:', orderId)
       console.log('[WALLET] Customer ID:', customerId)
       console.log('[WALLET] Total amount:', computedTotalAmount)
@@ -299,7 +308,7 @@ export async function POST(request: NextRequest) {
       console.log('[WALLET] Database connected')
 
       // Check current wallet balance first
-      const currentUser = await User.findOne({ _id: customerId, role: 'customer' })
+      const currentUser = await User.findOne({ _id: customerId })
       console.log('[WALLET] Current user found:', !!currentUser)
       console.log('[WALLET] Current wallet balance:', currentUser?.walletBalance)
 
@@ -322,7 +331,6 @@ export async function POST(request: NextRequest) {
       const walletDebitResult = await User.updateOne(
         {
           _id: customerId,
-          role: 'customer',
           walletBalance: { $gte: normalizedAmount },
         },
         {

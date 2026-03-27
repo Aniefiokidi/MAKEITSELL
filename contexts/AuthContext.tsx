@@ -16,6 +16,7 @@ interface AuthContextType {
   user: User | null
   userProfile: UserProfile | null
   loading: boolean
+  refreshProfile: () => Promise<void>
   login: (email: string, password: string) => Promise<{ user: User; userProfile: UserProfile | null }>
   register: (
     email: string,
@@ -32,6 +33,9 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   userProfile: null,
   loading: true,
+  refreshProfile: async () => {
+    throw new Error("AuthProvider not initialized")
+  },
   login: async () => {
     throw new Error("AuthProvider not initialized")
   },
@@ -85,6 +89,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  const refreshProfile = async () => {
+    if (typeof window === "undefined") return
+
+    try {
+      const storedToken = sessionStorage.getItem('sessionToken')
+      const res = await fetch('/api/auth/me', {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(storedToken ? { 'X-Session-Token': storedToken } : {}),
+        },
+      })
+
+      if (!res.ok) return
+
+      const data = await res.json()
+      if (!data?.user) return
+
+      const safeVendorType =
+        data.user?.vendorType === 'goods' ||
+        data.user?.vendorType === 'services' ||
+        data.user?.vendorType === 'both'
+          ? data.user.vendorType
+          : undefined
+
+      const derivedProfile = data.userProfile || {
+        uid: data.user.id,
+        email: data.user.email,
+        displayName: data.user.name,
+        role: data.user.role,
+        vendorType: data.user.role === 'vendor' ? safeVendorType : undefined,
+        walletBalance: typeof data.user.walletBalance === 'number' ? data.user.walletBalance : 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+
+      setUserProfile(derivedProfile)
+    } catch (error) {
+      console.error('[AuthContext] Failed to refresh profile:', error)
+    }
+  }
 
   useEffect(() => {
     // Only run on client-side
@@ -240,14 +287,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Handle hydration mismatch
   if (!mounted) {
     return (
-      <AuthContext.Provider value={{ user: null, userProfile: null, loading: true, login, register, logout }}>
+      <AuthContext.Provider value={{ user: null, userProfile: null, loading: true, refreshProfile, login, register, logout }}>
         {children}
       </AuthContext.Provider>
     )
   }
 
   return (
-    <AuthContext.Provider value={{ user, userProfile, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, userProfile, loading, refreshProfile, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   )

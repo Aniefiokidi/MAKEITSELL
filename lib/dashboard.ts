@@ -166,10 +166,8 @@ export async function getVendorDashboard(vendorId: string, options?: { funnelLoo
     totalBookings: bookings.length,
     pendingBookings: bookings.filter((b: any) => b.status === 'pending').length,
     recentBookings: bookings.slice(0, 5),
-    vendorWalletBalance: (typeof vendorAccount?.walletBalance === 'number' ? vendorAccount.walletBalance : 0)
-      + (typeof store?.walletBalance === 'number' ? store.walletBalance : 0),
-    storeWalletBalance: (typeof vendorAccount?.walletBalance === 'number' ? vendorAccount.walletBalance : 0)
-      + (typeof store?.walletBalance === 'number' ? store.walletBalance : 0),
+    vendorWalletBalance: (typeof vendorAccount?.walletBalance === 'number' ? vendorAccount.walletBalance : 0),
+    storeWalletBalance: (typeof vendorAccount?.walletBalance === 'number' ? vendorAccount.walletBalance : 0),
     linkedWalletUserId: store?.linkedWalletUserId || vendorId,
     customerSegmentation: {
       new: segmentResult.segments.new.length,

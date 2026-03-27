@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { mapboxService, Address } from '@/lib/mapbox'
 import { connectToDatabase } from '@/lib/mongodb'
 import { Store } from '@/lib/models/Store'
 import { estimateShippingFee } from '@/lib/aco-logistics-rates'
@@ -34,8 +33,7 @@ export async function POST(request: NextRequest) {
 
     let totalCost = 0
     let hasTbd = false
-    let usedMapboxFallback = false
-    const breakdown: Array<{ vendorId: string; storeName: string; cost: number | null; source: 'matrix' | 'mapbox' | 'tbd' }> = []
+    const breakdown: Array<{ vendorId: string; storeName: string; cost: number | null; source: 'matrix' | 'tbd' }> = []
 
     for (const vendorId of vendorIds) {
       const store = storeByVendorId.get(vendorId)
@@ -58,39 +56,13 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      const pickupForMapbox: Address = {
-        address: String(store?.address || ''),
-        city: String(store?.city || ''),
-        state: String(store?.state || ''),
-        country: 'Nigeria',
-      }
-
-      const dropoffForMapbox: Address = {
-        address: String(customerAddress?.address || ''),
-        city: String(customerAddress?.city || ''),
-        state: String(customerAddress?.state || ''),
-        country: String(customerAddress?.country || 'Nigeria'),
-      }
-
-      const mapboxEstimate = await mapboxService.estimateDelivery(pickupForMapbox, dropoffForMapbox)
-      if (mapboxEstimate?.cost && Number.isFinite(mapboxEstimate.cost)) {
-        totalCost += mapboxEstimate.cost
-        usedMapboxFallback = true
-        breakdown.push({
-          vendorId,
-          storeName: String(store?.storeName || 'Store'),
-          cost: mapboxEstimate.cost,
-          source: 'mapbox',
-        })
-      } else {
-        hasTbd = true
-        breakdown.push({
-          vendorId,
-          storeName: String(store?.storeName || 'Store'),
-          cost: null,
-          source: 'tbd',
-        })
-      }
+      hasTbd = true
+      breakdown.push({
+        vendorId,
+        storeName: String(store?.storeName || 'Store'),
+        cost: null,
+        source: 'tbd',
+      })
     }
 
     return NextResponse.json({
@@ -98,7 +70,7 @@ export async function POST(request: NextRequest) {
       estimate: {
         cost: totalCost,
         hasTbd,
-        source: usedMapboxFallback ? 'mixed' : 'matrix',
+        source: hasTbd ? 'tbd' : 'matrix',
         breakdown,
       },
     })

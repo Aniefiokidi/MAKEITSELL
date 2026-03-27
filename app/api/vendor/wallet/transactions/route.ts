@@ -3,7 +3,6 @@ import { cookies } from 'next/headers'
 import { getUserBySessionToken } from '@/lib/auth'
 import { connectToDatabase } from '@/lib/mongodb'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
-import { Store } from '@/lib/models/Store'
 import { User } from '@/lib/models/User'
 import { xoroPayService } from '@/lib/xoro-pay'
 import mongoose from 'mongoose'
@@ -193,14 +192,7 @@ export async function GET(request: NextRequest) {
       .limit(20)
       .lean()
 
-    const store = await Store.findOne({ linkedWalletUserId: String(currentUser.id) })
-      .sort({ createdAt: -1 })
-      .select('walletBalance')
-      .lean()
-
     const userBalance = typeof currentUser.walletBalance === 'number' ? currentUser.walletBalance : 0
-    const storeBalance = typeof store?.walletBalance === 'number' ? store.walletBalance : 0
-    const combinedBalance = userBalance + storeBalance
 
     const data = transactions.map((tx: any) => {
       const isManualReview =
@@ -229,11 +221,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       transactions: data,
-      walletBalance: combinedBalance,
-      breakdown: {
-        userBalance,
-        storeBalance,
-      },
+      walletBalance: userBalance,
     })
   } catch (error: any) {
     return NextResponse.json(

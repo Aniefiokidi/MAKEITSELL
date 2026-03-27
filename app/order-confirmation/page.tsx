@@ -86,24 +86,11 @@ export default function OrderConfirmationPage() {
           </Card>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button asChild className="hover:bg-accent/50 hover:text-white hover:scale-105 transition-all hover:shadow-lg">
+            <Button asChild variant="outline" className="border-accent/60 text-accent hover:bg-accent hover:text-accent-foreground hover:scale-105 transition-all hover:shadow-lg">
               <Link href="/order">View Order Status</Link>
             </Button>
             <Button variant="outline" asChild className="hover:bg-accent/10 hover:text-accent transition-all">
               <Link href="/stores">Continue Shopping</Link>
-            </Button>
-            {/* Debug button - remove in production */}
-            <Button 
-              onClick={async () => {
-                console.log('Manual cart clear triggered, current items:', items)
-                await clearCart()
-                console.log('Manual cart clear completed, items now:', items)
-              }}
-              variant="ghost" 
-              size="sm"
-              className="text-xs opacity-50"
-            >
-              Clear Cart (Debug)
             </Button>
           </div>
         </div>

@@ -117,7 +117,7 @@ export const creditVendorWalletsForOrder = async (
       const hasValidWalletUserId = mongoose.Types.ObjectId.isValid(walletUserIdCandidate);
       const walletUserId = hasValidWalletUserId ? walletUserIdCandidate : '';
 
-      const reference = `vendor_order_credit_${orderId}_${vendorId}`;
+      const reference = `vendor_order_credit_${orderId}_${vendorId}_${storeIdToCredit || 'nostore'}`;
       const paymentReference = options?.paymentReference || order.paymentReference;
       const provider = options?.provider || order?.paymentMethod || 'paystack';
       const source = options?.source || 'order_payment';
@@ -157,7 +157,7 @@ export const creditVendorWalletsForOrder = async (
 
       if (walletUserId) {
         const vendorCreditResult = await UserModel.updateOne(
-          { _id: walletUserId, role: 'vendor' },
+          { _id: walletUserId },
           {
             $inc: { walletBalance: amount },
             $set: { updatedAt: new Date() },
@@ -172,31 +172,6 @@ export const creditVendorWalletsForOrder = async (
         }
       } else {
         console.warn('[wallet-credit] Skipping vendor wallet update due to invalid vendor ID for order:', orderId, 'vendorId:', vendorId);
-      }
-
-      if (storeIdToCredit && mongoose.Types.ObjectId.isValid(storeIdToCredit)) {
-        const storeQuery: any = { _id: storeIdToCredit };
-        if (vendorStore?.vendorId) {
-          storeQuery.vendorId = String(vendorStore.vendorId);
-        }
-
-        const storeUpdateSet: any = { updatedAt: new Date() };
-        if (walletUserId) {
-          storeUpdateSet.linkedWalletUserId = walletUserId;
-        }
-
-        const storeResult = await StoreModel.updateOne(
-          storeQuery,
-          {
-            $inc: { walletBalance: amount },
-            $set: storeUpdateSet,
-          }
-        );
-
-        if (storeResult.modifiedCount > 0) {
-          creditedStores += 1;
-          creditedAny = true;
-        }
       }
 
       if (creditedAny) {

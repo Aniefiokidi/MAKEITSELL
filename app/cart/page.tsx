@@ -200,7 +200,7 @@ export default function CartPage() {
                     <span>Total</span>
                     <span>₦{(totalPrice * 1.08).toLocaleString('en-NG', {minimumFractionDigits: 2})}</span>
                   </div>
-                  <Button asChild className="w-full hover:bg-accent/80 hover:scale-105 transition-all hover:shadow-lg" size="lg">
+                  <Button asChild className="w-full border border-accent/40 bg-white text-accent hover:bg-accent hover:text-white hover:scale-105 transition-all hover:shadow-lg" size="lg">
                     <Link href="/checkout">Proceed to Checkout</Link>
                   </Button>
                   <Button variant="outline" asChild className="w-full bg-transparent hover:bg-accent/10 hover:text-accent transition-all">

@@ -4,7 +4,6 @@ import { getUserBySessionToken } from '@/lib/auth'
 import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
-import { Store } from '@/lib/models/Store'
 import { xoroPayService } from '@/lib/xoro-pay'
 import crypto from 'crypto'
 
@@ -129,53 +128,30 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const store = await Store.findOne({ linkedWalletUserId: String(currentUser.id) })
-      .sort({ createdAt: -1 })
-      .select('_id walletBalance')
-      .lean()
-
     const userBalance = typeof userForPin.walletBalance === 'number' ? userForPin.walletBalance : 0
-    const storeBalance = typeof store?.walletBalance === 'number' ? store.walletBalance : 0
-    const totalAvailable = userBalance + storeBalance
-
-    if (totalAvailable < normalizedAmount) {
+    if (userBalance < normalizedAmount) {
       return NextResponse.json(
         { success: false, error: 'Insufficient wallet balance for this withdrawal' },
         { status: 400 }
       )
     }
 
-    const withdrawFromStore = Math.min(storeBalance, normalizedAmount)
-    const withdrawFromUser = normalizedAmount - withdrawFromStore
-
-    if (withdrawFromStore > 0 && store?._id) {
-      await Store.updateOne(
-        { _id: store._id, walletBalance: { $gte: withdrawFromStore } },
-        {
-          $inc: { walletBalance: -withdrawFromStore },
-          $set: { updatedAt: new Date() },
-        }
-      )
-    }
-
-    if (withdrawFromUser > 0) {
-      const updateResult = await User.updateOne(
-        {
-          _id: currentUser.id,
-          walletBalance: { $gte: withdrawFromUser },
-        },
-        {
-          $inc: { walletBalance: -withdrawFromUser },
-          $set: { updatedAt: new Date() },
-        }
-      )
-
-      if (updateResult.modifiedCount === 0) {
-        return NextResponse.json(
-          { success: false, error: 'Unable to process withdrawal right now. Please try again.' },
-          { status: 400 }
-        )
+    const updateResult = await User.updateOne(
+      {
+        _id: currentUser.id,
+        walletBalance: { $gte: normalizedAmount },
+      },
+      {
+        $inc: { walletBalance: -normalizedAmount },
+        $set: { updatedAt: new Date() },
       }
+    )
+
+    if (updateResult.modifiedCount === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Unable to process withdrawal right now. Please try again.' },
+        { status: 400 }
+      )
     }
 
     const reference = `vendor_withdraw_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`
@@ -267,25 +243,13 @@ export async function POST(request: NextRequest) {
     }
 
     if (!transferCode) {
-      if (withdrawFromStore > 0 && store?._id) {
-        await Store.updateOne(
-          { _id: store._id },
-          {
-            $inc: { walletBalance: withdrawFromStore },
-            $set: { updatedAt: new Date() },
-          }
-        )
-      }
-
-      if (withdrawFromUser > 0) {
-        await User.updateOne(
-          { _id: currentUser.id },
-          {
-            $inc: { walletBalance: withdrawFromUser },
-            $set: { updatedAt: new Date() },
-          }
-        )
-      }
+      await User.updateOne(
+        { _id: currentUser.id },
+        {
+          $inc: { walletBalance: normalizedAmount },
+          $set: { updatedAt: new Date() },
+        }
+      )
 
       console.warn('[vendor/wallet/withdraw] auto-transfer unavailable, debit rolled back', {
         userId: String(currentUser.id),
@@ -331,14 +295,8 @@ export async function POST(request: NextRequest) {
     })
 
     // Fetch updated balance
-    const [updatedUser, updatedStore] = await Promise.all([
-      User.findById(currentUser.id).select('walletBalance').lean(),
-      store?._id ? Store.findById(store._id).select('walletBalance').lean() : Promise.resolve(null),
-    ])
-
-    const updatedUserBalance = typeof updatedUser?.walletBalance === 'number' ? updatedUser.walletBalance : 0
-    const updatedStoreBalance = typeof updatedStore?.walletBalance === 'number' ? updatedStore.walletBalance : 0
-    const newBalance = updatedUserBalance + updatedStoreBalance
+    const updatedUser = await User.findById(currentUser.id).select('walletBalance').lean()
+    const newBalance = typeof updatedUser?.walletBalance === 'number' ? updatedUser.walletBalance : 0
 
     return NextResponse.json({
       success: true,
@@ -350,10 +308,6 @@ export async function POST(request: NextRequest) {
       reference,
       newBalance,
       balance: newBalance,
-      breakdown: {
-        userBalance: updatedUserBalance,
-        storeBalance: updatedStoreBalance,
-      },
     })
   } catch (error: any) {
     console.error('[vendor/wallet/withdraw] error:', error)

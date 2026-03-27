@@ -21,18 +21,17 @@ import Link from "next/link"
 import Header from "@/components/Header"
 import ProtectedRoute from "@/components/auth/ProtectedRoute"
 import { trackFunnelEvent } from "@/lib/funnel-tracker"
-import { calculatePaystackCheckoutAmounts } from "@/lib/paystack-charges"
 import { NIGERIA_STATE_CITY_OPTIONS, NIGERIA_STATES } from "@/lib/nigeria-locations"
 
 export default function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCart()
-  const { user, userProfile } = useAuth()
+  const { user, userProfile, refreshProfile } = useAuth()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [shippingLoading, setShippingLoading] = useState(false)
   const [error, setError] = useState("")
   const [shippingEstimate, setShippingEstimate] = useState<{ cost: number; hasTbd?: boolean; source?: string } | null>(null)
-  const [paymentMethod, setPaymentMethod] = useState("paystack") // Keep Paystack as default checkout method
+  const [paymentMethod, setPaymentMethod] = useState("xoro_pay")
   const [checkoutTracked, setCheckoutTracked] = useState(false)
 
   const [shippingInfo, setShippingInfo] = useState({
@@ -73,8 +72,7 @@ export default function CheckoutPage() {
     : 0
   const shippingIsTbd = !shippingEstimate || Boolean(shippingEstimate.hasTbd)
   const total = subtotal + vat + resolvedShipping
-  const paystackQuote = calculatePaystackCheckoutAmounts(total)
-  const checkoutPayableTotal = paymentMethod === "paystack" ? paystackQuote.payableAmount : total
+  const checkoutPayableTotal = total
 
   useEffect(() => {
     if (checkoutTracked || items.length === 0) return
@@ -257,6 +255,7 @@ export default function CheckoutPage() {
           throw new Error(result.error || 'Wallet payment failed')
         }
 
+        await refreshProfile()
         await clearCart()
         router.push('/order-confirmation?orderId=' + encodeURIComponent(result.orderId || ''))
         return
@@ -492,15 +491,9 @@ export default function CheckoutPage() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="space-y-3">
-                        <div className="flex items-start space-x-2 rounded-md border p-3">
-                          <RadioGroupItem value="paystack" id="paystack" className="mt-1" />
-                          <div>
-                            <Label htmlFor="paystack" className="font-medium text-foreground">Paystack (Card/Bank)</Label>
-                            <p className="text-xs text-muted-foreground">You will be redirected to Paystack to complete payment</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-start space-x-2 rounded-md border p-3">
+                        <div
+                          className={`flex items-start space-x-2 rounded-md border border-accent/35 p-3 transition-colors ${paymentMethod === "xoro_pay" ? "border-accent bg-accent/10" : "bg-background"}`}
+                        >
                           <RadioGroupItem value="xoro_pay" id="xoro_pay" className="mt-1" />
                           <div>
                             <Label htmlFor="xoro_pay" className="font-medium text-foreground">Xoro Pay (Card/Bank)</Label>
@@ -508,7 +501,9 @@ export default function CheckoutPage() {
                           </div>
                         </div>
 
-                        <div className="flex items-start space-x-2 rounded-md border p-3">
+                        <div
+                          className={`flex items-start space-x-2 rounded-md border border-accent/35 p-3 transition-colors ${paymentMethod === "wallet" ? "border-accent bg-accent/10" : "bg-background"}`}
+                        >
                           <RadioGroupItem value="wallet" id="wallet" className="mt-1" />
                           <div>
                             <Label htmlFor="wallet" className="font-medium text-foreground">Wallet Balance</Label>
@@ -518,16 +513,6 @@ export default function CheckoutPage() {
                           </div>
                         </div>
                       </RadioGroup>
-
-                      {paymentMethod === "paystack" && (
-                        <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg">
-                          <Shield className="h-4 w-4 text-green-600" />
-                          <div className="text-center">
-                            <p className="font-medium text-foreground">Secure Payment with Paystack</p>
-                            <p className="text-xs">You will be redirected to complete your payment securely</p>
-                          </div>
-                        </div>
-                      )}
 
                       {paymentMethod === "xoro_pay" && (
                         <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg">
@@ -617,18 +602,6 @@ export default function CheckoutPage() {
                           <span>Total</span>
                           <span>₦{formatCurrency(total)}</span>
                         </div>
-                        {paymentMethod === "paystack" && paystackQuote.chargeAmount > 0 && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Paystack charge</span>
-                            <span>₦{formatCurrency(paystackQuote.chargeAmount)}</span>
-                          </div>
-                        )}
-                        {paymentMethod === "paystack" && paystackQuote.chargeAmount > 0 && (
-                          <div className="flex justify-between text-base font-semibold">
-                            <span>Total payable</span>
-                            <span>₦{formatCurrency(paystackQuote.payableAmount)}</span>
-                          </div>
-                        )}
                         <div className="text-xs text-muted-foreground text-right">
                           {shippingIsTbd
                             ? '*Delivery fee not yet determined for at least one route.'
@@ -637,7 +610,7 @@ export default function CheckoutPage() {
                       </div>
 
                       <div className="pt-4">
-                        <Button type="submit" className="w-full hover:bg-accent/80 hover:scale-105 transition-all hover:shadow-lg" size="lg" disabled={loading}>
+                        <Button type="submit" className="w-full border border-accent/40 bg-white text-accent hover:bg-accent hover:text-white hover:scale-105 transition-all hover:shadow-lg" size="lg" disabled={loading}>
                           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                           {loading
                             ? "Processing..."
