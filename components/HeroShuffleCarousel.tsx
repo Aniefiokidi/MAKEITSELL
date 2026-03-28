@@ -364,7 +364,7 @@ export default function HeroShuffleCarousel() {
                     <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] sm:text-xs font-semibold uppercase tracking-wide ${detailsToneClass(slide.id).chip}`}>
                       {slide.kind}
                     </span>
-                    <span className="text-[10px] sm:text-xs">Auto shuffle</span>
+                    
                   </div>
                   <h3 className="mt-2 text-base sm:text-xl font-bold leading-tight line-clamp-2 [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]">
                     {slide.title}
