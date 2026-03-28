@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState, type SyntheticEvent } from "react"
 import Link from "next/link"
 import { ArrowUpRight } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 
 type SlideKind = "store" | "product" | "service"
 
@@ -16,6 +17,13 @@ type CarouselSlide = {
 }
 
 const INVALID_IMAGE_PATTERN = /(placeholder|default|no[-_ ]?image|avatar-default|image-not-found)/i
+const HERO_CAROUSEL_CACHE_KEY = "mis:hero-carousel:v1"
+const FALLBACK_IMAGE = "/MISHG.png"
+const X_BY_OFFSET: Record<number, number> = { [-2]: -118, [-1]: -64, [0]: 0, [1]: 64, [2]: 118 }
+const Y_BY_OFFSET: Record<number, number> = { [-2]: -46, [-1]: -48, [0]: -50, [1]: -48, [2]: -46 }
+const SCALE_BY_OFFSET: Record<number, number> = { [-2]: 0.72, [-1]: 0.84, [0]: 1, [1]: 0.84, [2]: 0.72 }
+const ROTATE_BY_OFFSET: Record<number, number> = { [-2]: -8, [-1]: -4, [0]: 0, [1]: 4, [2]: 8 }
+const Z_BY_OFFSET: Record<number, number> = { [-2]: 5, [-1]: 20, [0]: 30, [1]: 20, [2]: 5 }
 
 function hasValidImage(value: unknown): value is string {
   if (typeof value !== "string") return false
@@ -49,11 +57,76 @@ function shuffle<T>(items: T[]): T[] {
   return next
 }
 
+function isCarouselSlide(value: any): value is CarouselSlide {
+  return (
+    !!value &&
+    typeof value.id === "string" &&
+    typeof value.kind === "string" &&
+    typeof value.title === "string" &&
+    typeof value.subtitle === "string" &&
+    typeof value.image === "string" &&
+    typeof value.href === "string"
+  )
+}
+
+function readCachedSlides(): CarouselSlide[] {
+  if (typeof window === "undefined") return []
+
+  try {
+    const raw = window.sessionStorage.getItem(HERO_CAROUSEL_CACHE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(isCarouselSlide)
+  } catch {
+    return []
+  }
+}
+
+async function verifyImageLoad(src: string, timeoutMs = 7000): Promise<boolean> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    let settled = false
+
+    const done = (ok: boolean) => {
+      if (settled) return
+      settled = true
+      resolve(ok)
+    }
+
+    const timeout = window.setTimeout(() => done(false), timeoutMs)
+    img.onload = () => {
+      window.clearTimeout(timeout)
+      done(true)
+    }
+    img.onerror = () => {
+      window.clearTimeout(timeout)
+      done(false)
+    }
+    img.src = src
+  })
+}
+
 export default function HeroShuffleCarousel() {
-  const [slides, setSlides] = useState<CarouselSlide[]>([])
+  const [slides, setSlides] = useState<CarouselSlide[]>(() => readCachedSlides())
   const [activeIndex, setActiveIndex] = useState(0)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => readCachedSlides().length === 0)
   const [lightImageMap, setLightImageMap] = useState<Record<string, boolean>>({})
+  const warmedImagesRef = useRef<Set<string>>(new Set())
+
+  const warmImage = (src?: string) => {
+    if (!src || warmedImagesRef.current.has(src)) return
+    warmedImagesRef.current.add(src)
+
+    const img = new Image()
+    img.decoding = "async"
+    img.src = src
+    if (typeof img.decode === "function") {
+      img.decode().catch(() => {
+        // Ignore decode failures; runtime onError handles true failures.
+      })
+    }
+  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -162,7 +235,32 @@ export default function HeroShuffleCarousel() {
           .filter(Boolean) as CarouselSlide[]
 
         const mixed = shuffle([...storeSlides, ...productSlides, ...serviceSlides]).slice(0, 24)
-        setSlides(mixed)
+
+        // Keep only images that can be loaded to avoid broken slides.
+        const validated = await Promise.all(
+          mixed.map(async (slide) => ((await verifyImageLoad(slide.image)) ? slide : null))
+        )
+        const verifiedSlides = validated.filter(Boolean) as CarouselSlide[]
+
+        const finalSlides =
+          verifiedSlides.length > 0
+            ? verifiedSlides
+            : [
+                {
+                  id: "fallback-hero",
+                  kind: "store" as const,
+                  title: "Make It Sell",
+                  subtitle: "Discover products, services and stores",
+                  image: FALLBACK_IMAGE,
+                  href: "/stores",
+                },
+              ]
+
+        setSlides(finalSlides)
+        finalSlides.slice(0, 10).forEach((slide) => warmImage(slide.image))
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem(HERO_CAROUSEL_CACHE_KEY, JSON.stringify(finalSlides))
+        }
       } catch {
         setSlides([])
       } finally {
@@ -190,19 +288,17 @@ export default function HeroShuffleCarousel() {
   useEffect(() => {
     if (!slides.length) return
 
-    // Preload nearby images so the next rotation is already decoded.
+    // Warm nearby images so transitions stay smooth.
     const preloadIndexes = [
       (activeIndex + 1) % slides.length,
       (activeIndex + 2) % slides.length,
+      (activeIndex + 3) % slides.length,
       (activeIndex - 1 + slides.length) % slides.length,
     ]
 
     preloadIndexes.forEach((idx) => {
       const src = slides[idx]?.image
-      if (!src) return
-      const img = new Image()
-      img.decoding = "async"
-      img.src = src
+      warmImage(src)
     })
   }, [activeIndex, slides])
 
@@ -254,18 +350,29 @@ export default function HeroShuffleCarousel() {
     }
   }
 
-  const detailsToneClass = (slideId: string) =>
-    lightImageMap[slideId]
-      ? {
-          text: "text-[oklch(0.21_0.194_29.234)]",
-          chip: "border-[oklch(0.21_0.194_29.234)]/40 bg-white/85 text-[oklch(0.21_0.194_29.234)]",
-          button: "border-[oklch(0.21_0.194_29.234)]/50 bg-white/82 text-[oklch(0.21_0.194_29.234)] hover:bg-white",
-        }
-      : {
-          text: "text-white",
-          chip: "border-white/55 bg-black/35 text-white",
-          button: "border-white/60 bg-black/35 text-white hover:bg-black/50",
-        }
+  const handleSlideImageError = (slideId: string, event: SyntheticEvent<HTMLImageElement>) => {
+    event.currentTarget.style.visibility = "hidden"
+
+    setSlides((current) => {
+      const failedIndex = current.findIndex((slide) => slide.id === slideId)
+      if (failedIndex === -1) return current
+
+      const nextSlides = current.filter((slide) => slide.id !== slideId)
+
+      setActiveIndex((prev) => {
+        if (!nextSlides.length) return 0
+        if (prev > failedIndex) return prev - 1
+        if (prev === failedIndex) return prev % nextSlides.length
+        return prev
+      })
+
+      if (typeof window !== "undefined") {
+        window.sessionStorage.setItem(HERO_CAROUSEL_CACHE_KEY, JSON.stringify(nextSlides))
+      }
+
+      return nextSlides
+    })
+  }
 
   const frameClass =
     "w-full max-w-[620px] sm:max-w-[700px] md:max-w-[820px] lg:max-w-[900px] xl:max-w-[980px] h-[clamp(380px,96vw,560px)] sm:h-[clamp(320px,54vw,500px)] md:h-[clamp(340px,45vw,560px)] lg:h-[clamp(360px,40vw,620px)]"
@@ -279,7 +386,7 @@ export default function HeroShuffleCarousel() {
   if (!slides.length) {
     return (
       <img
-        src="/MISHG.png"
+        src={FALLBACK_IMAGE}
         alt="MakeItSell Logo"
         className={`${frameClass} rounded-xl object-cover mx-auto`}
       />
@@ -297,47 +404,7 @@ export default function HeroShuffleCarousel() {
 
           if (!isNear) return null
 
-          const xByOffset: Record<number, number> = {
-            [-2]: -118,
-            [-1]: -64,
-            [0]: 0,
-            [1]: 64,
-            [2]: 118,
-          }
-
-          const yByOffset: Record<number, number> = {
-            [-2]: -46,
-            [-1]: -48,
-            [0]: -50,
-            [1]: -48,
-            [2]: -46,
-          }
-
-          const scaleByOffset: Record<number, number> = {
-            [-2]: 0.72,
-            [-1]: 0.84,
-            [0]: 1,
-            [1]: 0.84,
-            [2]: 0.72,
-          }
-
-          const rotateByOffset: Record<number, number> = {
-            [-2]: -8,
-            [-1]: -4,
-            [0]: 0,
-            [1]: 4,
-            [2]: 8,
-          }
-
-          const zByOffset: Record<number, number> = {
-            [-2]: 5,
-            [-1]: 20,
-            [0]: 30,
-            [1]: 20,
-            [2]: 5,
-          }
-
-          const transform = `translate3d(calc(-50% + ${xByOffset[offset] || 0}%), ${yByOffset[offset] || -50}%, 0) scale(${scaleByOffset[offset] || 1}) rotate(${rotateByOffset[offset] || 0}deg)`
+          const transform = `translate3d(calc(-50% + ${X_BY_OFFSET[offset] || 0}%), ${Y_BY_OFFSET[offset] || -50}%, 0) scale(${SCALE_BY_OFFSET[offset] || 1}) rotate(${ROTATE_BY_OFFSET[offset] || 0}deg)`
           const opacity = Math.abs(offset) === 2 ? 0.15 : 1
           const pointerEvents = isActive || isSide ? "auto" : "none"
 
@@ -345,9 +412,9 @@ export default function HeroShuffleCarousel() {
             <Link
               key={slide.id}
               href={slide.href}
-              className="absolute left-1/2 top-1/2 h-[84%] w-[56%] sm:w-[52%] md:w-[46%] rounded-2xl sm:rounded-3xl overflow-hidden block transform-gpu will-change-transform will-change-opacity transition-transform duration-700 ease-[cubic-bezier(0.22,0.7,0.2,1)]"
+              className="absolute left-1/2 top-1/2 h-[84%] w-[56%] sm:w-[52%] md:w-[46%] rounded-2xl sm:rounded-3xl overflow-hidden block transform-gpu will-change-transform will-change-opacity transition-[transform,opacity] duration-600 ease-[cubic-bezier(0.22,0.7,0.2,1)]"
               aria-hidden={!isActive && !isSide}
-              style={{ transform, opacity, zIndex: zByOffset[offset] || 1, pointerEvents }}
+              style={{ transform, opacity, zIndex: Z_BY_OFFSET[offset] || 1, pointerEvents, backfaceVisibility: "hidden" }}
             >
           <img
             src={slide.image}
@@ -355,30 +422,50 @@ export default function HeroShuffleCarousel() {
             className="h-full w-full object-cover"
             loading={index === activeIndex ? "eager" : "lazy"}
             onLoad={(e) => detectImageTone(slide.id, e.currentTarget)}
+            onError={(e) => handleSlideImageError(slide.id, e)}
           />
               <div className="absolute inset-0 bg-linear-to-t from-black/78 via-black/40 to-transparent" />
 
               {isActive && (
-                <div className={`absolute left-3 right-3 sm:left-4 sm:right-4 bottom-3 sm:bottom-4 z-30 rounded-2xl border backdrop-blur-xl p-3 sm:p-4 bg-white/18 ${detailsToneClass(slide.id).text}`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] sm:text-xs font-semibold uppercase tracking-wide ${detailsToneClass(slide.id).chip}`}>
+                <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-2.5 md:p-3 backdrop-blur-xl bg-accent/10 border border-white/30 rounded-2xl sm:rounded-3xl z-30 space-y-1 gap-1 sm:gap-2">
+                  <Badge
+                    variant="outline"
+                    className="inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow hover:opacity-90 transition min-h-5 sm:min-h-6 items-center justify-center text-center leading-tight bg-accent text-white"
+                    style={{
+                      whiteSpace: "normal",
+                      wordBreak: "break-word",
+                      hyphens: "auto",
+                      lineHeight: "1.2",
+                    }}
+                  >
+                    <span className="line-clamp-2 sm:line-clamp-1">{slide.title}</span>
+                  </Badge>
+
+                  <div className="flex items-center justify-between gap-1 sm:gap-2">
+                    <Badge
+                      variant="outline"
+                      className="text-[9px] sm:text-[10px] md:text-xs backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 text-white bg-accent"
+                    >
+                      {slide.subtitle}
+                    </Badge>
+
+                    <Badge
+                      variant="outline"
+                      className="text-[9px] sm:text-[10px] md:text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 backdrop-blur-sm bg-white/70 text-accent uppercase"
+                    >
                       {slide.kind}
-                    </span>
-                    
+                    </Badge>
                   </div>
-                  <h3 className="mt-2 text-base sm:text-xl font-bold leading-tight line-clamp-2 [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]">
-                    {slide.title}
-                  </h3>
-                  <p className="mt-1 text-xs sm:text-sm line-clamp-1 [text-shadow:0_1px_2px_rgba(0,0,0,0.3)]">{slide.subtitle}</p>
-                  <span className={`mt-3 inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs sm:text-sm font-semibold transition-colors ${detailsToneClass(slide.id).button}`}>
-                    View details
-                    <ArrowUpRight className="h-3.5 w-3.5" />
+
+                  <span className="w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black rounded-md">
+                    <img src="/images/logo3.png" alt="View" className="w-6 sm:w-7 md:w-8 h-6 sm:h-7 md:h-8 -mt-1 sm:-mt-2" />
+                    <span className="leading-none text-accent inline-flex items-center gap-1">View details <ArrowUpRight className="h-3.5 w-3.5" /></span>
                   </span>
                 </div>
               )}
 
               {!isActive && isSide && (
-                <div className={`absolute left-2 right-2 bottom-2 rounded-xl border p-2 backdrop-blur-md bg-white/18 ${detailsToneClass(slide.id).text}`}>
+                <div className="absolute left-2 right-2 bottom-2 rounded-xl border border-white/30 p-2 backdrop-blur-md bg-accent/15 text-white">
                   <p className="text-[10px] font-semibold line-clamp-1">{slide.title}</p>
                 </div>
               )}
