@@ -89,7 +89,7 @@ export default function OrderConfirmationPage() {
             <Button asChild variant="outline" className="border-accent/60 text-accent hover:bg-accent hover:text-accent-foreground hover:scale-105 transition-all hover:shadow-lg">
               <Link href="/order">View Order Status</Link>
             </Button>
-            <Button variant="outline" asChild className="hover:bg-accent/10 hover:text-accent transition-all">
+            <Button variant="outline" asChild className="border-accent/60 text-accent hover:bg-accent hover:text-accent-foreground hover:scale-105 transition-all hover:shadow-lg">
               <Link href="/stores">Continue Shopping</Link>
             </Button>
           </div>

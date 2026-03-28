@@ -1,7 +1,7 @@
 "use client"
 
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion } from "framer-motion"
@@ -42,6 +42,8 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
   const { user, userProfile, loading } = useAuth()
   const notification = useNotification()
   const pathname = usePathname()
+  const headerRef = useRef<HTMLElement | null>(null)
+  const [headerHeight, setHeaderHeight] = useState(0)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [walletModalOpen, setWalletModalOpen] = useState(false)
@@ -72,6 +74,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
   const [walletTransactions, setWalletTransactions] = useState<WalletTx[]>([])
   const [walletTxLoading, setWalletTxLoading] = useState(false)
   const [mobileDrawerWidth, setMobileDrawerWidth] = useState("85vw")
+  const [isScrolled, setIsScrolled] = useState(false)
 
   const profileWalletBalance =
     userProfile?.role === "customer"
@@ -556,38 +559,59 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
     setIsMenuOpen(false)
   }, [pathname])
 
+  // Drive glass effect only after page starts scrolling.
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 8)
+    }
+
+    handleScroll()
+    window.addEventListener("scroll", handleScroll, { passive: true })
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll)
+    }
+  }, [])
+
   // Handle smart search
   const handleSearch = (query: string) => {
     // Navigate to search results
     window.location.href = `/search?query=${encodeURIComponent(query)}`
   }
 
+  // Keep spacer height synced with real header height across responsive breakpoints.
+  useEffect(() => {
+    const element = headerRef.current
+    if (!element) return
+
+    const updateHeight = () => setHeaderHeight(element.offsetHeight)
+    updateHeight()
+
+    const observer = new ResizeObserver(updateHeight)
+    observer.observe(element)
+    window.addEventListener("resize", updateHeight)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener("resize", updateHeight)
+    }
+  }, [])
+
   return (
+    <>
+    {/** Transparent at top (home), liquid-glass once scrolled. */}
     <header
+      ref={headerRef}
       className={
-        `sticky top-0 z-50 w-full pt-[clamp(0.2rem,1vw,0.375rem)] pb-[clamp(0.35rem,1.4vw,0.5rem)] ${homeBg
-          ? 'bg-white/45 supports-backdrop-filter:bg-white/30 backdrop-blur-xl border-b border-white/40' 
-          : 'bg-white/95 backdrop-blur-md'}
+        `fixed inset-x-0 top-0 z-1000 w-full pt-[clamp(0.2rem,1vw,0.375rem)] pb-[clamp(0.35rem,1.4vw,0.5rem)] transition-colors duration-300 ${homeBg && !isScrolled && !isMenuOpen
+          ? 'bg-transparent border-b border-transparent backdrop-blur-0 shadow-none'
+          : 'bg-white/55 supports-backdrop-filter:bg-white/40 backdrop-blur-xl backdrop-saturate-150 border-b border-white/40 shadow-sm'}
         `
         
       }
+      style={{ zIndex: 1000 }}
     >
       <div className="w-full px-[clamp(0.625rem,2.8vw,1rem)] sm:px-4 lg:px-10">
-              {/* Gradient animation styles for homeBg */}
-              {homeBg && (
-                <style jsx global>{`
-                  .animated-gradient-bg {
-                    background: linear-gradient(120deg, var(--accent) 0%, #fff 50%, var(--accent) 100%);
-                    background-size: 200% 200%;
-                    animation: gradientWave 12s ease-in-out infinite;
-                  }
-@keyframes gradientWave {
-                    0% { background-position: 0% 50%; }
-                    50% { background-position: 100% 50%; }
-                    100% { background-position: 0% 50%; }
-                  }
-                `}</style>
-              )}
         <div className="flex h-[clamp(2.5rem,10vw,3.25rem)] md:h-14 lg:h-16 items-center justify-between gap-1">
           {/* Logo */}
           <Link href="/" className="flex items-center shrink-0">
@@ -1228,6 +1252,8 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
               )}
       </div>
     </header>
+    <div aria-hidden="true" style={{ height: headerHeight }} />
+    </>
   )
 }
 

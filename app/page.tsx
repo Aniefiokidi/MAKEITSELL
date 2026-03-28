@@ -26,6 +26,7 @@ import { useNotification } from "@/contexts/NotificationContext"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Header from "@/components/Header"
+import HeroShuffleCarousel from "@/components/HeroShuffleCarousel"
 import Footer from "@/components/Footer"
 import { Shield, Users, Truck, Sparkles, ArrowRight, Smartphone, ShoppingBag, Sparkles as Beauty, HomeIcon, Settings, CarFront, UserCheck, Coffee, Verified, Clock, Banknote, Camera, Briefcase, Wrench, Palette, Dumbbell, GraduationCap, Scissors, Laptop } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -614,10 +615,9 @@ export default function HomePage() {
   }, [slideOut, slideTarget]);
 
   return (
-    <div className="min-h-screen flex flex-col relative">
+    <div className="min-h-screen flex flex-col relative pt-3 sm:pt-0">
       <div
-        className={`min-h-screen flex flex-col transition-opacity duration-1000 ${fadeIn ? 'opacity-100' : 'opacity-0'} animated-gradient-bg main-slide-anim${slideOut ? (slideDirection === 'left' ? ' slide-out-left' : ' slide-out-right') : ''}`}
-        style={{ willChange: 'transform, opacity' }}
+        className={`min-h-screen flex flex-col transition-opacity duration-1000 ${fadeIn ? 'opacity-100' : 'opacity-0'} main-slide-anim${slideOut ? (slideDirection === 'left' ? ' slide-out-left' : ' slide-out-right') : ''}`}
       >
         <Header homeBg={true} />
         <main
@@ -686,14 +686,15 @@ export default function HomePage() {
                     </button>
                   </form>
                   <HeroButtons isLoggedIn={!!user} />
+
+                  {/* Mobile: show carousel after CTA buttons */}
+                  <div className="md:hidden w-full flex items-center justify-center pt-1">
+                    <HeroShuffleCarousel />
+                  </div>
                 </div>
                 {/* Right: Image */}
-                <div className="w-full md:w-[60%] flex items-center justify-center md:justify-start md:items-center">
-                  <img
-                    src="/MISHG.png"
-                    alt="MakeItSell Logo"
-                    className="w-[clamp(250px,82vw,340px)] h-auto sm:w-[76vw] sm:h-[80vw] md:w-[108%] md:h-auto lg:w-[112%] xl:w-[115%] md:max-w-none rounded-xl object-contain md:p-0 p-1 md:-ml-8 lg:-ml-12 xl:-ml-14"
-                  />
+                <div className="hidden md:flex w-full md:w-[60%] items-center justify-center md:justify-start md:items-center">
+                  <HeroShuffleCarousel />
                 </div> 
               </div>
             </div>
@@ -864,15 +865,6 @@ export default function HomePage() {
         }
         .feature-card:not(.feature-animate) {
           animation-play-state: paused !important;
-        }
-        .animated-gradient-bg {
-          position: relative;
-          background: #fff;
-        }
-@keyframes gradientWave {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
         }
       `}</style>
     </div>
