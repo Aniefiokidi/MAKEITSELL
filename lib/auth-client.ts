@@ -8,6 +8,8 @@ export interface UserProfile {
   displayName: string
   role: "customer" | "vendor" | "admin" | "csa"
   phone?: string
+  phoneNumber?: string
+  phoneVerified?: boolean
   address?: string
   city?: string
   state?: string
@@ -67,6 +69,9 @@ export const signUp = async (
           email: result.user.email,
           displayName: result.user.name,
           role: result.user.role,
+          phone: result.user.phone,
+          phoneNumber: result.user.phone_number,
+          phoneVerified: !!result.user.phone_verified,
           address: result.user.address,
           city: result.user.city,
           state: result.user.state,
@@ -115,6 +120,9 @@ export const signIn = async (email: string, password: string) => {
           email: result.user.email,
           displayName: result.user.name,
           role: result.user.role,
+          phone: result.user.phone,
+          phoneNumber: result.user.phone_number,
+          phoneVerified: !!result.user.phone_verified,
           address: result.user.address,
           city: result.user.city,
           state: result.user.state,
