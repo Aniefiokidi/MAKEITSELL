@@ -52,11 +52,13 @@ export async function POST(request: NextRequest) {
 
       console.log(`[forgot-password] OTP saved to database`)
 
+      let emailSent = false
+
       // Send password reset email
       try {
         // Ensure emailService has the method before calling
         if (typeof emailService.sendPasswordResetEmail === 'function') {
-          const emailSent = await emailService.sendPasswordResetEmail({
+          emailSent = await emailService.sendPasswordResetEmail({
             email: user.email,
             name: user.name || 'User',
             resetCode: token
@@ -73,7 +75,16 @@ export async function POST(request: NextRequest) {
         }
       } catch (emailError) {
         console.error(`[forgot-password] Email service error:`, emailError)
-        // Don't fail the request if email fails - user can still use token in development
+      }
+
+      if (!emailSent) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Could not send reset code right now. Please check your email settings and try again.',
+          },
+          { status: 502 }
+        )
       }
 
       return NextResponse.json(

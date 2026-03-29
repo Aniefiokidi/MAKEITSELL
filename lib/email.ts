@@ -50,9 +50,16 @@ class EmailService {
   private transporter: nodemailer.Transporter
 
   constructor() {
-    // Use Mailtrap for local development
+    // Prefer Mailtrap in local development only when fully configured.
     let smtpConfig: any;
-    if (process.env.NODE_ENV === 'development') {
+    const hasMailtrapConfig = !!(
+      process.env.MAILTRAP_HOST &&
+      process.env.MAILTRAP_PORT &&
+      process.env.MAILTRAP_USER &&
+      process.env.MAILTRAP_PASS
+    )
+
+    if (process.env.NODE_ENV === 'development' && hasMailtrapConfig) {
       smtpConfig = {
         host: process.env.MAILTRAP_HOST,
         port: parseInt(process.env.MAILTRAP_PORT || '2525'),
@@ -67,6 +74,9 @@ class EmailService {
         socketTimeout: 60000,
       }
     } else {
+      if (process.env.NODE_ENV === 'development' && !hasMailtrapConfig) {
+        console.warn('[emailService] MAILTRAP_* vars not fully configured. Falling back to EMAIL_*/SMTP_* settings in development.')
+      }
       smtpConfig = {
         host: process.env.EMAIL_HOST || process.env.SMTP_HOST || 'smtp.gmail.com',
         port: parseInt(process.env.EMAIL_PORT || process.env.SMTP_PORT || '587'),

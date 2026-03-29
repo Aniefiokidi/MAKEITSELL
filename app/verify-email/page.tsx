@@ -194,12 +194,12 @@ export default function VerifyEmailPage() {
                       onChange={(value) => setOtp(value.replace(/\D/g, "").slice(0, 6))}
                     >
                       <InputOTPGroup>
-                        <InputOTPSlot index={0} />
-                        <InputOTPSlot index={1} />
-                        <InputOTPSlot index={2} />
-                        <InputOTPSlot index={3} />
-                        <InputOTPSlot index={4} />
-                        <InputOTPSlot index={5} />
+                        <InputOTPSlot index={0} className="border-accent/40" />
+                        <InputOTPSlot index={1} className="border-accent/40" />
+                        <InputOTPSlot index={2} className="border-accent/40" />
+                        <InputOTPSlot index={3} className="border-accent/40" />
+                        <InputOTPSlot index={4} className="border-accent/40" />
+                        <InputOTPSlot index={5} className="border-accent/40" />
                       </InputOTPGroup>
                     </InputOTP>
                   </div>
