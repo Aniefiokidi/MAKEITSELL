@@ -9,6 +9,12 @@ const RESEND_COOLDOWN_SECONDS = 60
 const OTP_EXPIRY_MINUTES = 5
 const ATTEMPT_RESET_HOURS = 4
 
+type SmsSendResult = {
+  ok: boolean
+  errorMessage?: string
+  payload?: any
+}
+
 function generateOtpCode(): string {
   return String(Math.floor(100000 + Math.random() * 900000))
 }
@@ -32,6 +38,50 @@ function normalizeNigerianPhone(input: string): string | null {
   }
 
   return null
+}
+
+async function sendTermiiOtpSms({
+  baseUrl,
+  apiKey,
+  to,
+  sender,
+  otpCode,
+}: {
+  baseUrl: string
+  apiKey: string
+  to: string
+  sender: string
+  otpCode: string
+}): Promise<SmsSendResult> {
+  try {
+    const response = await fetch(`${baseUrl}/api/sms/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to,
+        from: sender,
+        sms: `Your Make It Sell OTP is ${otpCode}`,
+        type: 'plain',
+        channel: 'generic',
+        api_key: apiKey,
+      }),
+    })
+
+    const payload = await response.json().catch(() => ({}))
+    const apiAccepted = payload?.status === 'success' || payload?.status === true || payload?.code === 'ok'
+
+    if (!response.ok || !apiAccepted) {
+      return {
+        ok: false,
+        payload,
+        errorMessage: String(payload?.message || payload?.error || `HTTP ${response.status}`),
+      }
+    }
+
+    return { ok: true, payload }
+  } catch (error: any) {
+    return { ok: false, errorMessage: error?.message || 'SMS send request failed' }
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -103,6 +153,7 @@ export async function POST(request: NextRequest) {
     const termiiApiKey = String(process.env.TERMII_API_KEY || '').trim()
     const termiiBaseUrl = String(process.env.TERMII_BASE_URL || 'https://api.ng.termii.com').replace(/\/$/, '')
     const termiiFrom = String(process.env.TERMII_SENDER || 'MakeItSell').trim()
+    const termiiFallbackSender = String(process.env.TERMII_SENDER_FALLBACK || 'N-Alert').trim()
 
     if (!termiiApiKey) {
       return NextResponse.json(
@@ -113,25 +164,35 @@ export async function POST(request: NextRequest) {
 
     const otpCode = generateOtpCode()
 
-    const termiiResponse = await fetch(`${termiiBaseUrl}/api/sms/send`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to: normalizedPhone,
-        from: termiiFrom,
-        sms: `Your Make It Sell OTP is ${otpCode}`,
-        type: 'plain',
-        channel: 'generic',
-        api_key: termiiApiKey,
-      }),
+    let smsResult = await sendTermiiOtpSms({
+      baseUrl: termiiBaseUrl,
+      apiKey: termiiApiKey,
+      to: normalizedPhone,
+      sender: termiiFrom,
+      otpCode,
     })
 
-    const termiiResult = await termiiResponse.json().catch(() => ({}))
+    const senderNotConfigured = String(smsResult.errorMessage || '').toLowerCase().includes('applicationsenderid not found')
 
-    if (!termiiResponse.ok) {
-      console.error('[phone/send-otp] Termii error:', termiiResult)
+    if (!smsResult.ok && senderNotConfigured && termiiFallbackSender && termiiFallbackSender !== termiiFrom) {
+      smsResult = await sendTermiiOtpSms({
+        baseUrl: termiiBaseUrl,
+        apiKey: termiiApiKey,
+        to: normalizedPhone,
+        sender: termiiFallbackSender,
+        otpCode,
+      })
+    }
+
+    if (!smsResult.ok) {
+      const rawMessage = String(smsResult.errorMessage || '')
+      const friendlyMessage = rawMessage.toLowerCase().includes('applicationsenderid not found')
+        ? 'Termii sender name is not approved. Update TERMII_SENDER to a valid registered sender ID in your Termii dashboard.'
+        : rawMessage || 'Failed to send OTP SMS.'
+
+      console.error('[phone/send-otp] Termii error:', smsResult.payload || rawMessage)
       return NextResponse.json(
-        { success: false, error: termiiResult?.message || 'Failed to send OTP SMS.' },
+        { success: false, error: friendlyMessage },
         { status: 502 }
       )
     }

@@ -10,6 +10,13 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { Loader2, Smartphone } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 
+function sanitizePhonePrefill(value: string): string {
+  const normalized = String(value || '').trim()
+  if (!normalized) return ''
+  if (normalized.includes('@')) return ''
+  return normalized
+}
+
 export default function PhoneVerificationModal() {
   const { user, userProfile, refreshProfile } = useAuth()
   const [open, setOpen] = useState(false)
@@ -64,10 +71,8 @@ export default function PhoneVerificationModal() {
 
   useEffect(() => {
     const initialPhone = userProfile?.phoneNumber || userProfile?.phone || ''
-    if (initialPhone) {
-      setPhoneNumber(initialPhone)
-    }
-  }, [userProfile?.phoneNumber, userProfile?.phone])
+    setPhoneNumber(sanitizePhonePrefill(initialPhone))
+  }, [userProfile?.phoneNumber, userProfile?.phone, open])
 
   useEffect(() => {
     if (countdown <= 0) return
@@ -173,11 +178,16 @@ export default function PhoneVerificationModal() {
               onChange={(event) => setPhoneNumber(event.target.value)}
               placeholder="e.g. 08012345678"
               disabled={sending || verifying}
+              className="border-accent/40 focus-visible:ring-accent/30"
             />
           </div>
 
           {!otpSent ? (
-            <Button onClick={sendOtp} disabled={sending || !phoneNumber.trim()} className="w-full">
+            <Button
+              onClick={sendOtp}
+              disabled={sending || !phoneNumber.trim()}
+              className="w-full border border-accent/40 bg-white text-accent hover:bg-accent hover:text-white transition-all"
+            >
               {sending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {sending ? 'Sending OTP...' : 'Send OTP'}
             </Button>
@@ -203,7 +213,11 @@ export default function PhoneVerificationModal() {
                 </div>
               </div>
 
-              <Button onClick={verifyOtp} disabled={verifying || otp.length !== 6} className="w-full">
+              <Button
+                onClick={verifyOtp}
+                disabled={verifying || otp.length !== 6}
+                className="w-full border border-accent/40 bg-white text-accent hover:bg-accent hover:text-white transition-all"
+              >
                 {verifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {verifying ? 'Verifying OTP...' : 'Verify OTP'}
               </Button>
@@ -212,7 +226,7 @@ export default function PhoneVerificationModal() {
                 {countdown > 0 ? (
                   <span>Resend OTP in {countdown}s</span>
                 ) : (
-                  <Button variant="link" className="h-auto p-0 text-accent" onClick={sendOtp} disabled={sending}>
+                  <Button variant="link" className="h-auto p-0 text-accent hover:text-accent/80" onClick={sendOtp} disabled={sending}>
                     Resend OTP
                   </Button>
                 )}
