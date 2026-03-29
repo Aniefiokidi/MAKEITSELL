@@ -621,7 +621,9 @@ class EmailService {
         <div style="text-align: center; padding: 40px 20px; background: linear-gradient(135deg, oklch(0.35 0.15 15) 0%, oklch(0.45 0.18 20) 100%); border-radius: 12px 12px 0 0; position: relative; overflow: hidden;">
           <div style="position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%); animation: float 6s ease-in-out infinite;"></div>
           <div style="position: relative; z-index: 1;">
-            <img src="https://makeitsell.org/images/logo (2).png" alt="Make It Sell Logo" style="height: 60px; width: auto; margin-bottom: 20px; filter: brightness(0) invert(1);" />
+            <div style="display: inline-block; background: #ffffff; border-radius: 12px; padding: 12px 18px; margin-bottom: 20px;">
+              <img src="https://makeitsell.org/images/logo (2).png" alt="Make It Sell Logo" style="height: 60px; width: auto; display: block;" />
+            </div>
             <h1 style="color: white; margin: 0 0 10px 0; font-size: 32px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">🔑 Password Reset</h1>
             <p style="color: rgba(255, 255, 255, 0.95); margin: 0; font-size: 16px; line-height: 1.5; font-weight: 400;">
               Secure access to your Make It Sell account
@@ -765,7 +767,9 @@ class EmailService {
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
         <!-- Header -->
         <div style="text-align: center; margin-bottom: 30px; padding: 20px; background: linear-gradient(135deg, oklch(0.35 0.15 15) 0%, oklch(0.45 0.18 20) 100%); border-radius: 10px;">
-          <img src="https://makeitsell.org/images/logo%20(2).png" alt="Make It Sell Logo" style="height: 48px; width: auto; margin-bottom: 12px;" />
+          <div style="display: inline-block; background: #ffffff; border-radius: 10px; padding: 10px 16px; margin-bottom: 12px;">
+            <img src="https://makeitsell.org/images/logo%20(2).png" alt="Make It Sell Logo" style="height: 48px; width: auto; display: block;" />
+          </div>
           <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700;">Verify Your Email</h1>
           <p style="color: white; margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Complete your account setup</p>
         </div>
