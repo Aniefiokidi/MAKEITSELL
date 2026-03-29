@@ -63,6 +63,7 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
   const [selectedColor, setSelectedColor] = useState<string>("")
   const [selectedSize, setSelectedSize] = useState<string>("")
   const [copied, setCopied] = useState(false)
+  const [isMainImageLight, setIsMainImageLight] = useState(false)
 
   // Compute the best store name fallback
   const fallbackStoreName = storeName
@@ -76,19 +77,11 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
     setSelectedSize("")
     setMainImage("")
     setCopied(false)
+    setIsMainImageLight(false)
   }, [open, product])
 
-  if (!product) return null
-
-  const handleColorSelect = (color: string) => {
-    setSelectedColor(color)
-    if (product.colorImages && product.colorImages[color]) {
-      setMainImage(product.colorImages[color])
-    }
-  }
-
-  const displayImage = mainImage || product.images?.[0] || "/placeholder.svg"
-  const productSlug = String(product.id || product._id || "").trim()
+  const displayImage = mainImage || product?.images?.[0] || "/placeholder.svg"
+  const productSlug = String(product?.id || product?._id || "").trim()
   const shareUrl = typeof window !== "undefined"
     ? `${window.location.origin}/products/${encodeURIComponent(productSlug)}`
     : ""
@@ -119,6 +112,55 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
     }
   }
 
+  useEffect(() => {
+    if (!open || !displayImage) return
+
+    const probe = new window.Image()
+    probe.crossOrigin = "anonymous"
+
+    probe.onload = () => {
+      try {
+        const canvas = document.createElement("canvas")
+        const ctx = canvas.getContext("2d")
+        if (!ctx) return
+
+        const w = 16
+        const h = 16
+        canvas.width = w
+        canvas.height = h
+        ctx.drawImage(probe, 0, 0, w, h)
+
+        const { data } = ctx.getImageData(0, 0, w, h)
+        let luminanceTotal = 0
+        const pixels = data.length / 4
+
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i]
+          const g = data[i + 1]
+          const b = data[i + 2]
+          luminanceTotal += 0.2126 * r + 0.7152 * g + 0.0722 * b
+        }
+
+        const averageLuminance = luminanceTotal / pixels
+        setIsMainImageLight(averageLuminance >= 165)
+      } catch {
+        setIsMainImageLight(false)
+      }
+    }
+
+    probe.onerror = () => setIsMainImageLight(false)
+    probe.src = displayImage
+  }, [displayImage, open])
+
+  if (!product) return null
+
+  const handleColorSelect = (color: string) => {
+    setSelectedColor(color)
+    if (product.colorImages && product.colorImages[color]) {
+      setMainImage(product.colorImages[color])
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <style>{cursorStyle}</style>
@@ -144,6 +186,25 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
           }
           .product-quick-view-modal::-webkit-scrollbar {
             display: none;
+          }
+          .product-quick-view-modal [data-slot="dialog-close"] {
+            top: 0.75rem;
+            right: 0.75rem;
+            border-radius: 9999px;
+            background: rgba(0, 0, 0, 0.68);
+            color: #ffffff;
+            opacity: 1;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(8px);
+          }
+          .product-quick-view-modal [data-slot="dialog-close"]:hover {
+            background: rgba(255, 255, 255, 0.95);
+            color: #111827;
+          }
+          .product-quick-view-modal [data-slot="dialog-close"] svg {
+            width: 1.15rem;
+            height: 1.15rem;
           }
         `}</style>
         <VisuallyHidden>
@@ -295,9 +356,13 @@ export function ProductQuickView({ product, open, onClose, onAddToCart, storeNam
                           target="_blank"
                           rel="noopener noreferrer"
                           aria-label="Share on X"
-                          className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-xs transition-all hover:-translate-y-0.5 hover:border-slate-400 hover:bg-slate-100"
+                          className={`flex h-11 w-11 items-center justify-center rounded-xl border shadow-xs transition-all hover:-translate-y-0.5 ${
+                            isMainImageLight
+                              ? "border-slate-200 bg-white hover:border-slate-400 hover:bg-slate-100"
+                              : "border-slate-700 bg-slate-900 hover:border-slate-500 hover:bg-slate-800"
+                          }`}
                         >
-                          <BrandIcon path={siX.path} color="#000000" label="X" />
+                          <BrandIcon path={siX.path} color={isMainImageLight ? "#000000" : "#FFFFFF"} label="X" />
                         </a>
                         <a
                           href={`https://wa.me/?text=${encodeURIComponent((product.title || product.name || 'Check this product!') + ' ' + shareUrl)}`}

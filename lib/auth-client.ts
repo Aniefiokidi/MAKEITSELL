@@ -53,7 +53,7 @@ export const signUp = async (
       }),
     });
     const result = await response.json();
-    if (result.success && result.user && result.sessionToken) {
+    if (result.success && result.user) {
       // Session is managed by HTTP-only cookie only
       return {
         user: {
@@ -98,14 +98,9 @@ export const signIn = async (email: string, password: string) => {
     
     console.log('[signIn] Response status:', response.status)
     const result = await response.json();
-    console.log('[signIn] Response result:', { success: result.success, hasUser: !!result.user, hasToken: !!result.sessionToken, error: result.error })
+    console.log('[signIn] Response result:', { success: result.success, hasUser: !!result.user, error: result.error })
     
-    if (result.success && result.user && result.sessionToken) {
-      // Store session token in sessionStorage as backup
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('sessionToken', result.sessionToken)
-        console.log('[signIn] Stored sessionToken in sessionStorage')
-      }
+    if (result.success && result.user) {
       // Session is also managed by HTTP-only cookie
       const safeVendorType = getSafeVendorType(result.user.vendorType)
       return {
@@ -154,7 +149,6 @@ export const logOut = async () => {
   // Always clear local storage
   if (typeof window !== 'undefined') {
     localStorage.removeItem('currentUser')
-    localStorage.removeItem('sessionToken')
   }
 }
 
@@ -215,9 +209,6 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
 
 // Get session token for API requests
 export const getSessionToken = (): string | null => {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('sessionToken')
-  }
   return null
 }
 

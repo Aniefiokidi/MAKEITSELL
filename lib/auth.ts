@@ -2,10 +2,7 @@
 import { connectToDatabase } from './mongodb';
 import crypto from 'crypto';
 import { User } from './models/User';
-
-function hashPassword(password: string) {
-  return crypto.createHash('sha256').update(password).digest('hex');
-}
+import { hashPassword, needsPasswordRehash, verifyPassword } from './password';
 
 export async function signUp({ email, password, name, role, vendorInfo, phone }: { email: string, password: string, name: string, role?: string, vendorInfo?: any, phone?: string }) {
   await connectToDatabase();
@@ -85,21 +82,22 @@ export async function signIn({ email, password }: { email: string, password: str
     }
   }
   
-  const inputPasswordHash = hashPassword(password);
+  let shouldRehash = false
 
   // Primary path: use passwordHash
   if (user.passwordHash) {
-    if (user.passwordHash !== inputPasswordHash) throw new Error('Invalid credentials');
+    if (!verifyPassword(password, user.passwordHash)) throw new Error('Invalid credentials');
+    shouldRehash = needsPasswordRehash(user.passwordHash)
   } else {
     // Backward compatibility: some legacy users only have `password` field
     const legacyPassword: string | undefined = (user as any).password;
 
     // If legacy password matches plaintext input OR hashed input, accept and upgrade
-    const legacyMatches = legacyPassword === password || legacyPassword === inputPasswordHash;
+    const legacyMatches = legacyPassword === password || verifyPassword(password, legacyPassword);
     if (!legacyPassword || !legacyMatches) {
       throw new Error('Your account is missing a password hash. Please reset your password or contact support.');
     }
-
+    shouldRehash = true
   }
   
   // Generate new session token
@@ -116,7 +114,7 @@ export async function signIn({ email, password }: { email: string, password: str
     { 
       $set: { 
         sessionToken: newSessionToken,
-        passwordHash: inputPasswordHash, // Ensure passwordHash is always set
+        ...(shouldRehash ? { passwordHash: hashPassword(password) } : {}),
         walletBalance,
         updatedAt: new Date()
       } 

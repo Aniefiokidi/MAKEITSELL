@@ -45,9 +45,8 @@ export const signUp = async (
       updatedAt: new Date(),
     }
 
-    // Store session token for future requests
+    // Store non-sensitive user summary only.
     if (typeof window !== 'undefined') {
-      localStorage.setItem('sessionToken', result.sessionToken)
       localStorage.setItem('currentUser', JSON.stringify({
         id: result.user.id,
         email: result.user.email,
@@ -96,9 +95,8 @@ export const signIn = async (email: string, password: string) => {
         updatedAt: new Date()
       }
 
-      // Store session token
+      // Store non-sensitive user summary only.
       if (typeof window !== 'undefined') {
-        localStorage.setItem('sessionToken', result.sessionToken)
         localStorage.setItem('currentUser', JSON.stringify({
           id: result.user.id,
           email: result.user.email,
@@ -136,11 +134,10 @@ export const signIn = async (email: string, password: string) => {
 // Sign out user
 export const logOut = async () => {
   try {
-    const sessionToken = typeof window !== 'undefined' ? localStorage.getItem('sessionToken') : null
-    
-    if (sessionToken) {
-      await (mongoAuth as any).signOut(sessionToken)
-    }
+    await fetch('/api/auth/signout', {
+      method: 'POST',
+      credentials: 'include',
+    })
   } catch (error) {
     console.warn("MongoDB signout error:", error)
   }
@@ -148,7 +145,6 @@ export const logOut = async () => {
   // Always clear local storage
   if (typeof window !== 'undefined') {
     localStorage.removeItem('currentUser')
-    localStorage.removeItem('sessionToken')
   }
 }
 
@@ -160,29 +156,6 @@ export const getCurrentUser = async () => {
       return JSON.parse(storedUser)
     }
 
-    const sessionToken = localStorage.getItem('sessionToken')
-    if (sessionToken) {
-      try {
-        const result = await (mongoAuth as any).getCurrentUser(sessionToken)
-        if (result.success && result.user) {
-          // Update localStorage
-          localStorage.setItem('currentUser', JSON.stringify({
-            id: result.user.id,
-            email: result.user.email,
-            name: result.user.name,
-            type: result.user.role
-          }))
-          return {
-            id: result.user.id,
-            email: result.user.email,
-            name: result.user.name,
-            type: result.user.role
-          }
-        }
-      } catch (error) {
-        console.warn("Failed to get current user from MongoDB:", error)
-      }
-    }
   }
   
   return null

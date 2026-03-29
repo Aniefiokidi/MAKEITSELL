@@ -1,23 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { connectToDatabase } from '@/lib/mongodb'
-import crypto from 'crypto'
 import { User } from '@/lib/models/User'
-
-function hashPassword(password: string) {
-  return crypto.createHash('sha256').update(password).digest('hex');
-}
+import { getSessionUserFromRequest } from '@/lib/server-route-auth'
+import { hashPassword } from '@/lib/password'
+import { enforceRateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, newPassword, adminSecret } = await request.json()
-    
-    // Simple admin verification (change this secret!)
-    if (adminSecret !== 'TEMP_ADMIN_RESET_2026') {
+    const rateLimitResponse = enforceRateLimit(request, {
+      key: 'auth-admin-reset-password',
+      maxRequests: 5,
+      windowMs: 60_000,
+    })
+    if (rateLimitResponse) return rateLimitResponse
+
+    const sessionUser = await getSessionUserFromRequest(request)
+    if (!sessionUser || sessionUser.role !== 'admin') {
       return NextResponse.json({
         success: false,
         error: 'Unauthorized'
       }, { status: 403 })
     }
+
+    const { email, newPassword } = await request.json()
 
     await connectToDatabase()
     
@@ -36,8 +41,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Password updated for ${email}`,
-      newPasswordHash: user.passwordHash
+      message: `Password updated for ${email}`
     })
   } catch (error: any) {
     console.error('Reset password error:', error)

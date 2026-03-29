@@ -11,7 +11,7 @@ type SessionUser = {
 
 export async function getSessionUserFromRequest(request: NextRequest): Promise<SessionUser | null> {
   const cookieStore = await cookies()
-  const sessionToken = cookieStore.get('sessionToken')?.value || request.headers.get('X-Session-Token')
+  const sessionToken = cookieStore.get('sessionToken')?.value
 
   if (!sessionToken) return null
 

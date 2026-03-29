@@ -1,5 +1,7 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { xoroPayService } from '@/lib/xoro-pay'
+import { getSessionUserFromRequest } from '@/lib/server-route-auth'
+import { enforceRateLimit } from '@/lib/rate-limit'
 
 let cachedBanks: any[] | null = null
 let cachedAt: number | null = null
@@ -42,8 +44,20 @@ const fetchPaystackBanks = async () => {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const rateLimitResponse = enforceRateLimit(request, {
+      key: 'vendor-banks-list',
+      maxRequests: 40,
+      windowMs: 60_000,
+    })
+    if (rateLimitResponse) return rateLimitResponse
+
+    const sessionUser = await getSessionUserFromRequest(request)
+    if (!sessionUser) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+
     if (cachedBanks && cachedAt && Date.now() - cachedAt < CACHE_TTL_MS) {
       return NextResponse.json({ success: true, banks: cachedBanks })
     }

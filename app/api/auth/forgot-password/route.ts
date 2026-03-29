@@ -3,9 +3,18 @@ import { connectToDatabase } from '@/lib/mongodb'
 import crypto from 'crypto'
 import { emailService } from '@/lib/email'
 import { User } from '@/lib/models/User'
+import { hashPassword } from '@/lib/password'
+import { enforceRateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimitResponse = enforceRateLimit(request, {
+      key: 'auth-forgot-password',
+      maxRequests: 6,
+      windowMs: 60_000,
+    })
+    if (rateLimitResponse) return rateLimitResponse
+
     await connectToDatabase()
 
     const body = await request.json()
@@ -25,9 +34,7 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      console.log(`[forgot-password] Generating NEW token for: ${email}`)
-      console.log(`[forgot-password] Old token: ${user.resetToken || 'none'}`)
-      console.log(`[forgot-password] Old expiry: ${user.resetTokenExpiry || 'none'}`)
+      console.log(`[forgot-password] Generating password reset token for: ${email}`)
 
       // Generate NEW reset token (always fresh)
       const token = crypto.randomBytes(32).toString('hex')
@@ -39,8 +46,6 @@ export async function POST(request: NextRequest) {
       user.updatedAt = new Date()
       await user.save()
 
-      console.log(`[forgot-password] NEW token generated: ${token}`)
-      console.log(`[forgot-password] NEW expiry: ${tokenExpiry}`)
       console.log(`[forgot-password] Token saved to database`)
 
       // Send password reset email
@@ -71,8 +76,6 @@ export async function POST(request: NextRequest) {
         // Don't fail the request if email fails - user can still use token in development
       }
 
-      console.log(`[forgot-password] Reset token for ${email}: ${token}`)
-
       return NextResponse.json(
         {
           success: true,
@@ -89,7 +92,6 @@ export async function POST(request: NextRequest) {
     // Case 2: Reset password with token
     if (email && resetToken && newPassword) {
       console.log(`[forgot-password] Reset attempt for email: ${email}`)
-      console.log(`[forgot-password] Token received (length ${resetToken.length}): ${resetToken}`)
       
       const user = await User.findOne({ email })
       if (!user) {
@@ -101,10 +103,6 @@ export async function POST(request: NextRequest) {
       }
 
       console.log(`[forgot-password] User found: ${email}`)
-      console.log(`[forgot-password] Stored token (length ${user.resetToken?.length || 0}): ${user.resetToken}`)
-      console.log(`[forgot-password] Token expiry: ${user.resetTokenExpiry}`)
-      console.log(`[forgot-password] Current time: ${new Date()}`)
-      console.log(`[forgot-password] Tokens match: ${user.resetToken === resetToken}`)
 
       // Verify reset token exists
       if (!user.resetToken || !user.resetTokenExpiry) {
@@ -133,11 +131,6 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Update password
-      function hashPassword(password: string) {
-        return crypto.createHash('sha256').update(password).digest('hex')
-      }
-
       user.passwordHash = hashPassword(newPassword)
       user.resetToken = undefined
       user.resetTokenExpiry = undefined
@@ -150,7 +143,6 @@ export async function POST(request: NextRequest) {
         {
           success: true,
           message: 'Password reset successfully',
-          sessionToken: user.sessionToken,
         },
         { status: 200 }
       )

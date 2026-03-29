@@ -93,10 +93,12 @@ export default function StorePage() {
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [quickViewOpen, setQuickViewOpen] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
   const [imageBrightness, setImageBrightness] = useState<{ [key: string]: 'light' | 'dark' }>({})
   const [storeVisitTracked, setStoreVisitTracked] = useState(false)
+  const PRODUCTS_PER_PAGE = 12
   const isPdfAsset = (value?: string) => {
     if (!value) return false
     return /\.pdf(\?|#|$)/i.test(value)
@@ -260,12 +262,6 @@ export default function StorePage() {
           setProducts(productsResult.data)
           setFilteredProducts(productsResult.data)
           
-          // Detect brightness for each product image
-          productsResult.data.forEach((product: Product) => {
-            if (product.images?.[0]) {
-              detectImageBrightness(product.images[0], product.id)
-            }
-          })
         } else {
           console.error("Failed to fetch products:", productsResult.error)
         }
@@ -409,6 +405,34 @@ export default function StorePage() {
     setFilteredProducts(filtered)
   }, [products, searchQuery, sortBy, categoryFilter, priceRange])
 
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, sortBy, categoryFilter, priceRange])
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE))
+  const safeCurrentPage = Math.min(currentPage, totalPages)
+  const pageStartIndex = (safeCurrentPage - 1) * PRODUCTS_PER_PAGE
+  const pageEndIndex = pageStartIndex + PRODUCTS_PER_PAGE
+  const paginatedProducts = filteredProducts.slice(pageStartIndex, pageEndIndex)
+
+  const getVisiblePageNumbers = () => {
+    const maxVisible = 5
+    if (totalPages <= maxVisible) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1)
+    }
+
+    const half = Math.floor(maxVisible / 2)
+    let start = Math.max(1, safeCurrentPage - half)
+    let end = start + maxVisible - 1
+
+    if (end > totalPages) {
+      end = totalPages
+      start = end - maxVisible + 1
+    }
+
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i)
+  }
+
   const handleAddToCart = (product: Product) => {
     if (!product || !product.id || !(product.title || product.name)) {
       console.error('Cannot add invalid product to cart:', product)
@@ -527,10 +551,17 @@ export default function StorePage() {
         <img
           src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"
           alt={(product.title || (product as any).name || 'Product') as string}
+          loading="lazy"
+          decoding="async"
           className={`absolute inset-0 w-full h-full ${store?.category?.toLowerCase() === 'electronics' ? 'object-contain bg-white' : 'object-cover'} group-hover:scale-110 transition-transform duration-500 ${product.stock === 0 ? 'grayscale' : ''}`}
         />
       )
     }
+
+    const activeImage =
+      product.images[currentImageIndex] ||
+      product.images[0] ||
+      "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"
 
     return (
       <div 
@@ -538,24 +569,20 @@ export default function StorePage() {
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        {/* Show only one image at a time with multiple layers for fade effect */}
-        {product.images.map((image, index) => (
-          <img
-            key={index}
-            src={image || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"}
-            alt={(product.title || (product as any).name || 'Product') as string}
-            className={`absolute inset-0 w-full h-full ${store?.category?.toLowerCase() === 'electronics' ? 'object-contain bg-white' : 'object-cover'} group-hover:scale-110 transition-all duration-500 ${product.stock === 0 ? 'grayscale' : ''} ${
-              index === currentImageIndex 
-                ? 'opacity-100' 
-                : 'opacity-0'
-            }`}
-            style={{ 
-              transitionProperty: 'opacity, transform', 
-              transitionDuration: '500ms, 500ms',
-              transitionTimingFunction: 'ease-in-out, ease-out'
-            }}
-          />
-        ))}
+        <img
+          key={`${product.id}-${currentImageIndex}`}
+          src={activeImage}
+          alt={(product.title || (product as any).name || 'Product') as string}
+          loading="lazy"
+          decoding="async"
+          fetchPriority="low"
+          className={`absolute inset-0 w-full h-full ${store?.category?.toLowerCase() === 'electronics' ? 'object-contain bg-white' : 'object-cover'} group-hover:scale-110 transition-all duration-500 ${product.stock === 0 ? 'grayscale' : ''} opacity-100`}
+          style={{
+            transitionProperty: 'opacity, transform',
+            transitionDuration: '450ms, 450ms',
+            transitionTimingFunction: 'ease-in-out, ease-out'
+          }}
+        />
       </div>
     )
   }
@@ -854,7 +881,7 @@ export default function StorePage() {
             ) : (
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4 md:gap-6 auto-rows-max">
-                  {filteredProducts.filter(product => product && product.id).map((product) => (
+                  {paginatedProducts.filter(product => product && product.id).map((product) => (
                     <Card 
                       key={product.id} 
                       className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100 cursor-pointer"
@@ -936,7 +963,7 @@ export default function StorePage() {
                         </Badge>
                         
                         <div className="flex items-center justify-between gap-1 sm:gap-2">
-                          <Badge variant="outline" className={`text-[9px] sm:text-[10px] md:text-xs backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 ${
+                          <Badge variant="outline" className={`${(product.category || '').length > 12 ? 'text-[8px] sm:text-[9px] md:text-[10px]' : 'text-[9px] sm:text-[10px] md:text-xs'} backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 max-w-[58%] min-w-0 whitespace-nowrap overflow-hidden text-ellipsis ${
                             imageBrightness[product.id] === 'light' ? 'text-white bg-accent' : 'text-white bg-accent'
                           }`}>
                             {product.category}
@@ -989,6 +1016,51 @@ export default function StorePage() {
                     </Card>
                   ))}
                 </div>
+
+                {filteredProducts.length > PRODUCTS_PER_PAGE && (
+                  <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-xs sm:text-sm text-muted-foreground">
+                      Showing {pageStartIndex + 1}-{Math.min(pageEndIndex, filteredProducts.length)} of {filteredProducts.length} products
+                    </p>
+
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={safeCurrentPage === 1}
+                        onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                        className="h-8 px-2 sm:px-3"
+                      >
+                        Prev
+                      </Button>
+
+                      {getVisiblePageNumbers().map((page) => (
+                        <Button
+                          key={page}
+                          type="button"
+                          variant={safeCurrentPage === page ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(page)}
+                          className="h-8 min-w-8 px-2"
+                        >
+                          {page}
+                        </Button>
+                      ))}
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={safeCurrentPage === totalPages}
+                        onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                        className="h-8 px-2 sm:px-3"
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </TabsContent>

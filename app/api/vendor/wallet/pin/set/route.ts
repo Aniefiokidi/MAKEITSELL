@@ -4,6 +4,8 @@ import { getUserBySessionToken } from '@/lib/auth'
 import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 import crypto from 'crypto'
+import { enforceRateLimit } from '@/lib/rate-limit'
+import { enforceSameOrigin } from '@/lib/request-security'
 
 const hashWithdrawalPin = (pin: string, userId: string) => {
   return crypto.createHash('sha256').update(`${pin}:${userId}`).digest('hex')
@@ -11,10 +13,20 @@ const hashWithdrawalPin = (pin: string, userId: string) => {
 
 export async function POST(request: NextRequest) {
   try {
+    const originCheck = enforceSameOrigin(request)
+    if (originCheck) return originCheck
+
+    const rateLimitResponse = enforceRateLimit(request, {
+      key: 'vendor-wallet-pin-set',
+      maxRequests: 10,
+      windowMs: 60_000,
+    })
+    if (rateLimitResponse) return rateLimitResponse
+
     const body = await request.json()
     const { newPin, confirmNewPin, currentPin } = body
     const cookieStore = await cookies()
-    const sessionToken = cookieStore.get('sessionToken')?.value || request.headers.get('X-Session-Token')
+    const sessionToken = cookieStore.get('sessionToken')?.value
 
     if (!sessionToken) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })

@@ -275,11 +275,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true })
     }
 
-    const handledUnsignedXoro = await maybeHandleUnsignedXoroWebhook(payload)
-    if (handledUnsignedXoro) {
-      return NextResponse.json({ success: true, unsigned: true })
-    }
-
     return NextResponse.json({ error: 'Missing webhook signature' }, { status: 400 })
 
   } catch (error) {

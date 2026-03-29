@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
-// Use client-side environment variable with fallback
-const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY
+// Use server-side secret only.
+const apiKey = process.env.GEMINI_API_KEY
 
 if (!apiKey) {
   console.warn('Gemini API key not found. AI features will be limited.')

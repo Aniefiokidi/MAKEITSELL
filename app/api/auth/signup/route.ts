@@ -2,10 +2,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { serialize } from 'cookie'
 import { signUp } from '@/lib/auth'
+import { enforceRateLimit } from '@/lib/rate-limit'
 
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimitResponse = enforceRateLimit(request, {
+      key: 'auth-signup',
+      maxRequests: 6,
+      windowMs: 60_000,
+    })
+    if (rateLimitResponse) return rateLimitResponse
+
     const { email, password, name, role, vendorType, phone } = await request.json()
 
     const isValidVendorType = vendorType === "goods" || vendorType === "services" || vendorType === "both"
@@ -39,7 +47,11 @@ export async function POST(request: NextRequest) {
         sameSite: 'lax',
         secure: process.env.NODE_ENV === 'production',
       })
-      return new NextResponse(JSON.stringify(result), {
+      const safePayload = {
+        ...result,
+        sessionToken: undefined,
+      }
+      return new NextResponse(JSON.stringify(safePayload), {
         status: 200,
         headers: { 'Set-Cookie': cookie, 'Content-Type': 'application/json' },
       })

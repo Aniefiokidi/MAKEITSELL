@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "title is required" }, { status: 400 })
     }
 
-    const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY
+    const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey || apiKey.length < 10) {
       return NextResponse.json({
         success: true,
@@ -76,7 +76,6 @@ Tags: ${tags || "None"}`
         data: {
           description: buildFallbackDescription({ title: "Your service" }),
           source: "fallback",
-          error: error?.message || "AI generation failed",
         },
       },
       { status: 200 }

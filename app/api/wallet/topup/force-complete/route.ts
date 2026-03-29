@@ -1,22 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import mongoose from 'mongoose'
-import { getUserBySessionToken } from '@/lib/auth'
 import { connectToDatabase } from '@/lib/mongodb'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { User } from '@/lib/models/User'
+import { getSessionUserFromRequest } from '@/lib/server-route-auth'
+import { enforceRateLimit } from '@/lib/rate-limit'
+import { enforceSameOrigin } from '@/lib/request-security'
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies()
-    const sessionToken = cookieStore.get('sessionToken')?.value || request.headers.get('X-Session-Token')
+    const originCheck = enforceSameOrigin(request)
+    if (originCheck) return originCheck
 
-    if (!sessionToken) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-    }
+    const rateLimitResponse = enforceRateLimit(request, {
+      key: 'wallet-topup-force-complete',
+      maxRequests: 5,
+      windowMs: 60_000,
+    })
+    if (rateLimitResponse) return rateLimitResponse
 
-    const currentUser = await getUserBySessionToken(sessionToken)
-    if (!currentUser || currentUser.role !== 'customer') {
+    const sessionUser = await getSessionUserFromRequest(request)
+    if (!sessionUser || sessionUser.role !== 'admin') {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -40,7 +44,6 @@ export async function POST(request: NextRequest) {
 
     const transaction = await WalletTransaction.findOne({
       reference,
-      userId: String(currentUser.id),
       type: 'topup',
     })
 

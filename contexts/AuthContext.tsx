@@ -94,13 +94,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (typeof window === "undefined") return
 
     try {
-      const storedToken = sessionStorage.getItem('sessionToken')
       const res = await fetch('/api/auth/me', {
         method: 'GET',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          ...(storedToken ? { 'X-Session-Token': storedToken } : {}),
         },
       })
 
@@ -140,30 +138,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return
     }
 
-    // Check for existing session using HTTP-only cookie and session storage
+    // Check for existing session using HTTP-only cookie
     const checkAuth = async () => {
       try {
         console.log('[AuthContext] Checking session on mount');
-        
-        // Try to restore from sessionStorage first (fallback for if cookie isn't working)
-        const storedToken = sessionStorage.getItem('sessionToken')
-        if (storedToken) {
-          console.log('[AuthContext] Found sessionToken in sessionStorage');
-        }
-        
+
         const res = await fetch('/api/auth/me', { 
           method: 'GET',
           credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
-            ...(storedToken ? { 'X-Session-Token': storedToken } : {})
           }
         })
         console.log('[AuthContext] /api/auth/me response status:', res.status);
         
         if (!res.ok) {
           console.log('[AuthContext] Auth check returned non-200 status:', res.status);
-          sessionStorage.removeItem('sessionToken')
           setUser(null)
           setUserProfile(null)
           setLoading(false)
@@ -201,13 +191,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUserProfile(derivedProfile)
         } else {
           console.log('[AuthContext] No user found in response');
-          sessionStorage.removeItem('sessionToken')
           setUser(null)
           setUserProfile(null)
         }
       } catch (error) {
         console.log('[AuthContext] Error checking session:', error);
-        sessionStorage.removeItem('sessionToken')
         setUser(null)
         setUserProfile(null)
       } finally {

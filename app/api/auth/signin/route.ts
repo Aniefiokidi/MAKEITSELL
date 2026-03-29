@@ -4,20 +4,25 @@ import { signIn } from '@/lib/auth'
 import crypto from 'crypto'
 import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
+import { enforceRateLimit } from '@/lib/rate-limit'
+import { hashPassword } from '@/lib/password'
 
-const LOGISTICS_USERNAME = 'A&CO@makeitselll.org'
-const LOGISTICS_PASSWORD = 'MAKEITSELL4L'
-
-function hashPassword(password: string) {
-  return crypto.createHash('sha256').update(password).digest('hex')
-}
+const LOGISTICS_USERNAME = process.env.LOGISTICS_USERNAME || ''
+const LOGISTICS_PASSWORD = process.env.LOGISTICS_PASSWORD || ''
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimitResponse = enforceRateLimit(request, {
+      key: 'auth-signin',
+      maxRequests: 10,
+      windowMs: 60_000,
+    })
+    if (rateLimitResponse) return rateLimitResponse
+
     const { email, password } = await request.json()
 
     // Ensure requested logistics credentials can log in from the normal login page.
-    if (email === LOGISTICS_USERNAME && password === LOGISTICS_PASSWORD) {
+    if (LOGISTICS_USERNAME && LOGISTICS_PASSWORD && email === LOGISTICS_USERNAME && password === LOGISTICS_PASSWORD) {
       await connectToDatabase()
 
       const sessionToken = crypto.randomBytes(32).toString('hex')
@@ -69,7 +74,6 @@ export async function POST(request: NextRequest) {
             role: logisticsUser.role || 'csa',
             walletBalance: typeof logisticsUser.walletBalance === 'number' ? logisticsUser.walletBalance : 0,
           },
-          sessionToken,
         }),
         {
           status: 200,
@@ -92,7 +96,12 @@ export async function POST(request: NextRequest) {
           sameSite: 'lax',
           secure: process.env.NODE_ENV === 'production',
         })
-        return new NextResponse(JSON.stringify(result), {
+        const safePayload = {
+          ...result,
+          sessionToken: undefined,
+        }
+
+        return new NextResponse(JSON.stringify(safePayload), {
           status: 200,
           headers: { 'Set-Cookie': cookie, 'Content-Type': 'application/json' },
         })

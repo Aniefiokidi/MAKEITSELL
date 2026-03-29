@@ -6,6 +6,8 @@ import { User } from '@/lib/models/User'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { xoroPayService } from '@/lib/xoro-pay'
 import crypto from 'crypto'
+import { enforceRateLimit } from '@/lib/rate-limit'
+import { enforceSameOrigin } from '@/lib/request-security'
 
 const hashWithdrawalPin = (pin: string, userId: string) => {
   return crypto.createHash('sha256').update(`${pin}:${userId}`).digest('hex')
@@ -41,6 +43,16 @@ const normalizeText = (value: any) => String(value || '').trim()
 
 export async function POST(request: NextRequest) {
   try {
+    const originCheck = enforceSameOrigin(request)
+    if (originCheck) return originCheck
+
+    const rateLimitResponse = enforceRateLimit(request, {
+      key: 'wallet-withdraw',
+      maxRequests: 8,
+      windowMs: 60_000,
+    })
+    if (rateLimitResponse) return rateLimitResponse
+
     const body = await request.json()
     const amount = Number(body?.amount)
     const bankName = String(body?.bankName || '').trim()
@@ -76,7 +88,7 @@ export async function POST(request: NextRequest) {
     }
 
     const cookieStore = await cookies()
-    const sessionToken = cookieStore.get('sessionToken')?.value || request.headers.get('X-Session-Token')
+    const sessionToken = cookieStore.get('sessionToken')?.value
     if (!sessionToken) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
@@ -300,7 +312,7 @@ export async function POST(request: NextRequest) {
     })
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error?.message || 'Failed to create withdrawal request' },
+      { success: false, error: 'Failed to create withdrawal request' },
       { status: 500 }
     )
   }

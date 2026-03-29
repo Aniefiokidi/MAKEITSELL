@@ -1,12 +1,10 @@
 // Update user profile via API
 export const updateUserProfile = async (uid: string, updates: Record<string, any>) => {
-  const sessionToken = typeof window !== 'undefined' ? localStorage.getItem('sessionToken') : null;
-  if (!sessionToken) throw new Error('Not authenticated');
   const response = await fetch('/api/auth/update-profile', {
     method: 'POST',
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${sessionToken}`
     },
     body: JSON.stringify({ uid, ...updates })
   });

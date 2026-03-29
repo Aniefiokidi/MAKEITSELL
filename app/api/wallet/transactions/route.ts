@@ -53,7 +53,7 @@ const pickTransferStatus = (tx: any) => {
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies()
-    const sessionToken = cookieStore.get('sessionToken')?.value || request.headers.get('X-Session-Token')
+    const sessionToken = cookieStore.get('sessionToken')?.value
 
     if (!sessionToken) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })

@@ -371,10 +371,7 @@ export default function VendorStoreSettingsPage() {
         setProfileUploading(false);
       }
       // Update user profile if fullName or email changed (only if authenticated)
-      let canUpdateProfile = true;
-      if (typeof window !== 'undefined') {
-        canUpdateProfile = !!localStorage.getItem('sessionToken');
-      }
+      const canUpdateProfile = false;
       if (
         canUpdateProfile &&
         ((settings.fullName && settings.fullName !== userProfile?.displayName) ||

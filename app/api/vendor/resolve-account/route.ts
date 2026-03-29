@@ -1,5 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { xoroPayService } from '@/lib/xoro-pay'
+import { getSessionUserFromRequest } from '@/lib/server-route-auth'
+import { enforceRateLimit } from '@/lib/rate-limit'
+import { enforceSameOrigin } from '@/lib/request-security'
 
 const PAYSTACK_BASE_URL = 'https://api.paystack.co'
 const denormalizeBankCodeForProvider = (code: string) => {
@@ -45,8 +48,23 @@ interface ResolveBody {
   accountNumber?: string
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const originCheck = enforceSameOrigin(req)
+    if (originCheck) return originCheck
+
+    const rateLimitResponse = enforceRateLimit(req, {
+      key: 'vendor-resolve-account',
+      maxRequests: 30,
+      windowMs: 60_000,
+    })
+    if (rateLimitResponse) return rateLimitResponse
+
+    const sessionUser = await getSessionUserFromRequest(req)
+    if (!sessionUser) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = (await req.json()) as ResolveBody
     const bankCode = body.bankCode?.trim()
     const accountNumber = body.accountNumber?.trim()

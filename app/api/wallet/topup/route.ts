@@ -6,9 +6,21 @@ import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { connectToDatabase } from '@/lib/mongodb'
 import { calculateTopupAmounts } from '@/lib/topup-fee'
 import crypto from 'crypto'
+import { enforceRateLimit } from '@/lib/rate-limit'
+import { enforceSameOrigin } from '@/lib/request-security'
 
 export async function POST(request: NextRequest) {
   try {
+    const originCheck = enforceSameOrigin(request)
+    if (originCheck) return originCheck
+
+    const rateLimitResponse = enforceRateLimit(request, {
+      key: 'wallet-topup',
+      maxRequests: 12,
+      windowMs: 60_000,
+    })
+    if (rateLimitResponse) return rateLimitResponse
+
     const body = await request.json()
     const rawAmount = Number(body?.amount)
 
@@ -36,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     const cookieStore = await cookies()
-    const sessionToken = cookieStore.get('sessionToken')?.value || request.headers.get('X-Session-Token')
+    const sessionToken = cookieStore.get('sessionToken')?.value
 
     if (!sessionToken) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
@@ -96,7 +108,6 @@ export async function POST(request: NextRequest) {
           success: false,
           error: paymentResult.message || providerError || 'Failed to initialize wallet top-up',
           provider: 'xoro_pay',
-          details: paymentResult.raw || null,
         },
         { status: 400 }
       )
@@ -135,7 +146,7 @@ export async function POST(request: NextRequest) {
     )
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error?.message || 'Failed to top up wallet' },
+      { success: false, error: 'Failed to top up wallet' },
       { status: 500 }
     )
   }
