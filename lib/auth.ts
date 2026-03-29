@@ -12,9 +12,9 @@ export async function signUp({ email, password, name, role, vendorInfo, phone }:
   const passwordHash = hashPassword(password);
   const sessionToken = crypto.randomBytes(32).toString('hex');
   
-  // Generate email verification token
-  const emailVerificationToken = crypto.randomBytes(32).toString('hex');
-  const emailVerificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  // Generate a 6-digit verification OTP code valid for 10 minutes.
+  const emailVerificationToken = String(Math.floor(100000 + Math.random() * 900000));
+  const emailVerificationTokenExpiry = new Date(Date.now() + 10 * 60 * 1000);
   
   const user = await User.create({
     email,
@@ -33,13 +33,10 @@ export async function signUp({ email, password, name, role, vendorInfo, phone }:
   // Send verification email
   try {
     const { emailService } = require('./email');
-    // Use SITE_URL or NEXT_PUBLIC_SITE_URL, fallback to makeitsell.org, never VERCEL_URL
-    const baseUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://www.makeitsell.org';
-    const verificationUrl = `${baseUrl}/verify-email?token=${emailVerificationToken}`;
     await emailService.sendEmailVerification({
       email: user.email,
       name: user.name || 'User',
-      verificationUrl
+      verificationCode: emailVerificationToken
     });
     console.log(`[auth.signUp] Verification email sent to: ${user.email}`);
   } catch (emailError) {
@@ -77,8 +74,8 @@ export async function signIn({ email, password }: { email: string, password: str
       // This is likely a legacy user - we'll offer to send verification email
       throw new Error('EMAIL_NOT_VERIFIED_LEGACY');
     } else {
-      // User has been sent verification email but hasn't verified
-      throw new Error('Please verify your email address before signing in. Check your inbox for a verification email.');
+      // User has been sent verification email but hasn't verified.
+      throw new Error('Please verify your email address before signing in. Check your inbox for your OTP code.');
     }
   }
   
@@ -93,8 +90,10 @@ export async function signIn({ email, password }: { email: string, password: str
     const legacyPassword: string | undefined = (user as any).password;
 
     // If legacy password matches plaintext input OR hashed input, accept and upgrade
-    const legacyMatches = legacyPassword === password || verifyPassword(password, legacyPassword);
-    if (!legacyPassword || !legacyMatches) {
+    const legacyMatches = !!legacyPassword && (
+      legacyPassword === password || verifyPassword(password, legacyPassword)
+    );
+    if (!legacyMatches) {
       throw new Error('Your account is missing a password hash. Please reset your password or contact support.');
     }
     shouldRehash = true

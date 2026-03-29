@@ -218,8 +218,8 @@ export default function SignupForm() {
           }
         }
 
-        console.log("Step 3: Redirecting to verification notice...")
-        router.push(`/signup/verify-notice?email=${encodeURIComponent(formData.email)}&vendor=true`)
+        console.log("Step 3: Redirecting to OTP verification...")
+        router.push(`/verify-email?email=${encodeURIComponent(formData.email)}`)
         return
       }
 
@@ -235,8 +235,8 @@ export default function SignupForm() {
         )
         console.log("Step 1: Customer/admin account created successfully")
         
-        console.log("Step 2: Redirecting to verification notice...")
-        router.push(`/signup/verify-notice?email=${encodeURIComponent(formData.email)}`)
+        console.log("Step 2: Redirecting to OTP verification...")
+        router.push(`/verify-email?email=${encodeURIComponent(formData.email)}`)
         return
       }
 

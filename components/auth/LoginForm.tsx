@@ -47,12 +47,12 @@ export default function LoginForm() {
       const result = await response.json()
 
       if (result.success) {
-        alert("Verification email sent! Please check your inbox.")
+        alert("Verification code sent! Please check your inbox.")
       } else {
-        alert(result.error || "Failed to send verification email")
+        alert(result.error || "Failed to send verification code")
       }
     } catch (error) {
-      alert("An error occurred while sending the email")
+      alert("An error occurred while sending the code")
     } finally {
       setResendLoading(false)
     }
@@ -102,7 +102,7 @@ export default function LoginForm() {
           const result = await response.json()
           
           if (result.success) {
-            setError(`We've sent a verification email to ${email}. Please check your inbox and click the verification link to complete your account setup.`)
+            setError(`We've sent a verification code to ${email}. Please check your inbox and enter the OTP to complete your account setup.`)
           } else {
             setError('Your account needs email verification. Please contact support for assistance.')
           }
@@ -162,7 +162,7 @@ export default function LoginForm() {
                       className="w-full mt-2"
                     >
                       {resendLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      {resendLoading ? "Sending..." : "Resend Verification Email"}
+                      {resendLoading ? "Sending..." : "Resend Verification Code"}
                     </Button>
                   </div>
                 )}

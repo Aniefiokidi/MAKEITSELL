@@ -6,26 +6,32 @@ import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
 import { CheckCircle, XCircle, Loader2, Mail, RefreshCw } from "lucide-react"
 
 export default function VerifyEmailPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const token = searchParams.get("token")
+  const emailFromQuery = searchParams.get("email") || ""
 
-  const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [message, setMessage] = useState("")
-  const [email, setEmail] = useState("")
+  const [email, setEmail] = useState(emailFromQuery)
+  const [otp, setOtp] = useState("")
+  const [verifyLoading, setVerifyLoading] = useState(false)
   const [resendLoading, setResendLoading] = useState(false)
 
   useEffect(() => {
     if (token) {
+      setStatus("loading")
       verifyEmail(token)
-    } else {
-      setStatus("error")
-      setMessage("No verification token provided")
     }
   }, [token])
+
+  useEffect(() => {
+    setEmail(emailFromQuery)
+  }, [emailFromQuery])
 
   const verifyEmail = async (verificationToken: string) => {
     try {
@@ -50,6 +56,47 @@ export default function VerifyEmailPage() {
     }
   }
 
+  const verifyOtp = async () => {
+    if (!email.trim()) {
+      setStatus("error")
+      setMessage("Please enter your email address")
+      return
+    }
+
+    if (otp.length !== 6) {
+      setStatus("error")
+      setMessage("Please enter the full 6-digit OTP code")
+      return
+    }
+
+    setVerifyLoading(true)
+    setStatus("loading")
+    try {
+      const response = await fetch("/api/auth/verify-email", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), code: otp })
+      })
+      const result = await response.json()
+
+      if (result.success) {
+        setStatus("success")
+        setMessage("Your email has been verified successfully!")
+        setTimeout(() => {
+          router.push(result.redirectUrl || "/stores")
+        }, 2000)
+      } else {
+        setStatus("error")
+        setMessage(result.error || "Verification failed")
+      }
+    } catch (error) {
+      setStatus("error")
+      setMessage("An error occurred during verification")
+    } finally {
+      setVerifyLoading(false)
+    }
+  }
+
   const resendVerificationEmail = async () => {
     if (!email) {
       alert("Please enter your email address")
@@ -66,12 +113,12 @@ export default function VerifyEmailPage() {
       const result = await response.json()
 
       if (result.success) {
-        alert("Verification email sent! Please check your inbox.")
+        alert("Verification code sent! Please check your inbox.")
       } else {
-        alert(result.error || "Failed to send verification email")
+        alert(result.error || "Failed to send verification code")
       }
     } catch (error) {
-      alert("An error occurred while sending the email")
+      alert("An error occurred while sending the code")
     } finally {
       setResendLoading(false)
     }
@@ -83,18 +130,21 @@ export default function VerifyEmailPage() {
         <Card>
           <CardHeader className="text-center">
             <div className="mx-auto w-16 h-16 flex items-center justify-center rounded-full bg-gray-100 mb-4">
-              {status === "loading" && <Loader2 className="h-8 w-8 animate-spin text-blue-500" />}
+              {status === "loading" && <Loader2 className="h-8 w-8 animate-spin text-accent" />}
               {status === "success" && <CheckCircle className="h-8 w-8 text-green-500" />}
               {status === "error" && <XCircle className="h-8 w-8 text-red-500" />}
+              {status === "idle" && <Mail className="h-8 w-8 text-accent" />}
             </div>
             
             <CardTitle className="text-2xl">
-              {status === "loading" && "Verifying Email..."}
+              {status === "idle" && "One-Time Password"}
+              {status === "loading" && "Verifying..."}
               {status === "success" && "Email Verified!"}
               {status === "error" && "Verification Failed"}
             </CardTitle>
             
             <CardDescription>
+              {status === "idle" && "Enter the 6-digit code sent to your email"}
               {status === "loading" && "Please wait while we verify your email address"}
               {status === "success" && "Your account is now active"}
               {status === "error" && "There was a problem verifying your email"}
@@ -103,18 +153,79 @@ export default function VerifyEmailPage() {
 
           <CardContent className="space-y-6">
             <Alert className={`${
-              status === "success" ? "border-green-200 bg-green-50" : 
-              status === "error" ? "border-red-200 bg-red-50" : 
-              "border-blue-200 bg-blue-50"
+              status === "success" ? "border-green-200 bg-green-50" :
+              status === "error" ? "border-red-200 bg-red-50" :
+              "border-accent/20 bg-accent/5"
             }`}>
               <AlertDescription className={`${
-                status === "success" ? "text-green-800" : 
-                status === "error" ? "text-red-800" : 
-                "text-blue-800"
+                status === "success" ? "text-green-800" :
+                status === "error" ? "text-red-800" :
+                "text-foreground"
               }`}>
-                {message}
+                {message || "We emailed your verification OTP. It expires in 10 minutes."}
               </AlertDescription>
             </Alert>
+
+            {!token && status !== "success" && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="email" className="text-sm font-medium text-gray-700">
+                    Email address
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      id="email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Verification code</label>
+                  <div className="flex justify-center">
+                    <InputOTP
+                      maxLength={6}
+                      value={otp}
+                      onChange={(value) => setOtp(value.replace(/\D/g, "").slice(0, 6))}
+                    >
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
+                </div>
+
+                <Button onClick={verifyOtp} disabled={verifyLoading} className="w-full">
+                  {verifyLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {verifyLoading ? "Verifying..." : "Verify"}
+                </Button>
+
+                <Button
+                  onClick={resendVerificationEmail}
+                  disabled={resendLoading}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {resendLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {resendLoading ? "Sending..." : (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Resend Code
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
 
             {status === "success" && (
               <div className="space-y-4">
@@ -136,11 +247,11 @@ export default function VerifyEmailPage() {
               </div>
             )}
 
-            {status === "error" && (
+            {status === "error" && token && (
               <div className="space-y-4">
                 <div className="space-y-2">
                   <label htmlFor="email" className="text-sm font-medium text-gray-700">
-                    Enter your email to resend verification:
+                    Enter your email to resend verification code:
                   </label>
                   <div className="flex space-x-2">
                     <div className="flex-1 relative">
@@ -187,7 +298,7 @@ export default function VerifyEmailPage() {
         <div className="text-center text-sm text-gray-500">
           <p>
             Need help? Contact us at{" "}
-            <a href="mailto:noreply@makeitsell.org" className="text-blue-600 hover:underline">
+            <a href="mailto:noreply@makeitsell.org" className="text-accent hover:underline">
               noreply@makeitsell.org
             </a>
           </p>

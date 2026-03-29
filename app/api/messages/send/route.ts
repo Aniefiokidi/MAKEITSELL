@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createChatMessage } from '@/lib/database-client';
+import { createChatMessage } from '@/lib/mongodb-operations';
 import { NextRequest } from 'next/server';
 import { getSessionUserFromRequest } from '@/lib/server-route-auth';
 import connectToDatabase from '@/lib/mongodb';

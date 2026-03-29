@@ -16,11 +16,12 @@ export async function POST(request: NextRequest) {
 
     await connectToDatabase()
 
-    const { email, resetToken, newPassword } = await request.json()
+    const { email, resetCode, resetToken, newPassword } = await request.json()
+    const codeInput = String(resetCode ?? resetToken ?? '').trim()
 
-    if (!email || !resetToken || !newPassword) {
+    if (!email || !codeInput || !newPassword) {
       return NextResponse.json(
-        { success: false, error: 'Email, reset token and new password required' },
+        { success: false, error: 'Email, reset code and new password required' },
         { status: 400 }
       )
     }
@@ -43,14 +44,14 @@ export async function POST(request: NextRequest) {
 
     if (new Date() > user.resetTokenExpiry) {
       return NextResponse.json(
-        { success: false, error: 'Reset token has expired' },
+        { success: false, error: 'Reset code has expired' },
         { status: 400 }
       )
     }
 
-    if (user.resetToken !== String(resetToken)) {
+    if (user.resetToken !== codeInput) {
       return NextResponse.json(
-        { success: false, error: 'Invalid reset token' },
+        { success: false, error: 'Invalid reset code' },
         { status: 400 }
       )
     }

@@ -67,7 +67,7 @@ export default function VerifyNoticePage() {
             
             <CardTitle className="text-2xl text-foreground">Check Your Email</CardTitle>
             <CardDescription className="text-muted-foreground">
-              We've sent a verification link to your email address
+              We've sent a 6-digit verification code to your email address
             </CardDescription>
           </CardHeader>
 
@@ -76,7 +76,7 @@ export default function VerifyNoticePage() {
               <CheckCircle className="h-4 w-4 text-accent" />
               <AlertDescription className="text-foreground">
                 <strong>Account created successfully!</strong><br />
-                A verification email has been sent to:
+                A verification code has been sent to:
                 <div className="mt-2 font-semibold break-all text-accent">
                   {email}
                 </div>
@@ -88,24 +88,30 @@ export default function VerifyNoticePage() {
                 <h3 className="font-medium text-foreground mb-2">What's next?</h3>
                 <ol className="list-decimal list-inside text-sm text-muted-foreground space-y-1">
                   <li>Check your email inbox (including spam/junk folder)</li>
-                  <li>Click the verification link in the email</li>
-                  <li>You'll be redirected back to sign in</li>
+                  <li>Copy the 6-digit OTP code</li>
+                  <li>Enter the code on the verification page</li>
                   <li>Start using your Make It Sell account!</li>
                 </ol>
               </div>
+
+              <Button asChild className="w-full bg-accent hover:bg-accent/90 text-white">
+                <Link href={`/verify-email?email=${encodeURIComponent(email)}`}>
+                  Enter Verification Code
+                </Link>
+              </Button>
 
               {resendSuccess && (
                 <Alert className="border-green-500/20 bg-green-50">
                   <CheckCircle className="h-4 w-4 text-green-600" />
                   <AlertDescription className="text-green-800">
-                    Verification email sent successfully!
+                    Verification code sent successfully!
                   </AlertDescription>
                 </Alert>
               )}
 
               <div className="text-center space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  Didn't receive the email?
+                  Didn't receive the code?
                 </p>
                 <Button
                   onClick={resendVerificationEmail}
@@ -117,7 +123,7 @@ export default function VerifyNoticePage() {
                   {resendLoading ? "Sending..." : (
                     <>
                       <RefreshCw className="mr-2 h-4 w-4" />
-                      Resend Verification Email
+                      Resend Verification Code
                     </>
                   )}
                 </Button>

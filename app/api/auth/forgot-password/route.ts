@@ -6,6 +6,10 @@ import { User } from '@/lib/models/User'
 import { hashPassword } from '@/lib/password'
 import { enforceRateLimit } from '@/lib/rate-limit'
 
+function generateResetCode(): string {
+  return String(Math.floor(100000 + Math.random() * 900000))
+}
+
 export async function POST(request: NextRequest) {
   try {
     const rateLimitResponse = enforceRateLimit(request, {
@@ -18,10 +22,11 @@ export async function POST(request: NextRequest) {
     await connectToDatabase()
 
     const body = await request.json()
-    const { email, resetToken, newPassword } = body
+    const { email, resetCode, resetToken, newPassword } = body
+    const codeInput = String(resetCode ?? resetToken ?? '').trim()
 
-    // Case 1: Request password reset
-    if (email && !resetToken) {
+    // Case 1: Request password reset code
+    if (email && !codeInput) {
       const user = await User.findOne({ email })
       if (!user) {
         // Don't reveal if email exists or not
@@ -34,11 +39,10 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      console.log(`[forgot-password] Generating password reset token for: ${email}`)
+      console.log(`[forgot-password] Generating password reset OTP for: ${email}`)
 
-      // Generate NEW reset token (always fresh)
-      const token = crypto.randomBytes(32).toString('hex')
-      const tokenExpiry = new Date(Date.now() + 30 * 60 * 1000) // 30 minutes
+      const token = generateResetCode()
+      const tokenExpiry = new Date(Date.now() + 10 * 60 * 1000)
 
       // Clear old token and set new one
       user.resetToken = token
@@ -46,20 +50,16 @@ export async function POST(request: NextRequest) {
       user.updatedAt = new Date()
       await user.save()
 
-      console.log(`[forgot-password] Token saved to database`)
+      console.log(`[forgot-password] OTP saved to database`)
 
       // Send password reset email
       try {
-        const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.org'
-        const resetUrl = `${baseUrl}/forgot-password?token=${token}&email=${encodeURIComponent(email)}`
-        
         // Ensure emailService has the method before calling
         if (typeof emailService.sendPasswordResetEmail === 'function') {
           const emailSent = await emailService.sendPasswordResetEmail({
             email: user.email,
             name: user.name || 'User',
-            resetUrl: resetUrl,
-            resetToken: token
+            resetCode: token
           })
           
           if (emailSent) {
@@ -80,17 +80,16 @@ export async function POST(request: NextRequest) {
         {
           success: true,
           message: process.env.NODE_ENV === 'production' 
-            ? 'If an account exists, you will receive password reset instructions'
-            : 'Password reset email sent! Check your inbox.',
-          // For development/testing, return token (remove in production)
-          token: process.env.NODE_ENV === 'development' ? token : undefined,
+            ? 'If an account exists, you will receive a password reset code'
+            : 'Password reset code sent! Check your inbox.',
+          code: process.env.NODE_ENV === 'development' ? token : undefined,
         },
         { status: 200 }
       )
     }
 
-    // Case 2: Reset password with token
-    if (email && resetToken && newPassword) {
+    // Case 2: Reset password with OTP code
+    if (email && codeInput && newPassword) {
       console.log(`[forgot-password] Reset attempt for email: ${email}`)
       
       const user = await User.findOne({ email })
@@ -104,29 +103,29 @@ export async function POST(request: NextRequest) {
 
       console.log(`[forgot-password] User found: ${email}`)
 
-      // Verify reset token exists
+      // Verify reset code exists
       if (!user.resetToken || !user.resetTokenExpiry) {
         console.log(`[forgot-password] No reset token found for user`)
         return NextResponse.json(
-          { success: false, error: 'No password reset request found. Please request a new reset link.' },
+          { success: false, error: 'No password reset request found. Please request a new code.' },
           { status: 400 }
         )
       }
 
-      // Check if token has expired first
+      // Check if code has expired first
       if (new Date() > user.resetTokenExpiry) {
         console.log(`[forgot-password] Token expired`)
         return NextResponse.json(
-          { success: false, error: 'Reset token has expired. Please request a new reset link.' },
+          { success: false, error: 'Reset code has expired. Please request a new code.' },
           { status: 400 }
         )
       }
 
-      // Verify reset token matches (case-sensitive)
-      if (user.resetToken !== resetToken) {
+      // Verify reset code matches.
+      if (user.resetToken !== codeInput) {
         console.log(`[forgot-password] Token mismatch`)
         return NextResponse.json(
-          { success: false, error: 'Invalid reset token. Please check the link in your email or request a new one.' },
+          { success: false, error: 'Invalid reset code. Please check the code in your email or request a new one.' },
           { status: 400 }
         )
       }

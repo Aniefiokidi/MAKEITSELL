@@ -591,14 +591,19 @@ class EmailService {
     })
   }
 
-  async sendPasswordResetEmail({ email, name, resetUrl, resetToken }: {
+  async sendPasswordResetEmail({ email, name, resetCode, resetUrl, resetToken }: {
     email: string
     name: string
-    resetUrl: string
-    resetToken: string
+    resetCode?: string
+    resetUrl?: string
+    resetToken?: string
   }): Promise<boolean> {
     console.log('[emailService] Sending password reset email to:', email)
+    console.log('[emailService] Reset code:', resetCode)
     console.log('[emailService] Reset URL:', resetUrl)
+
+    const displayCode = (resetCode || resetToken || '').replace(/\D/g, '').slice(0, 6)
+    const hasCode = displayCode.length === 6
     
     const emailHtml = `
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 650px; margin: 0 auto; padding: 0; background-color: #ffffff; border-radius: 12px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);">
@@ -630,14 +635,21 @@ class EmailService {
               🚀 Quick Reset Instructions
             </h3>
             <p style="color: #4a5568; margin: 0 0 20px 0; line-height: 1.7; font-size: 15px;">
-              Click the button below to securely reset your password. This link will expire in <strong style="color: oklch(0.35 0.15 15);">30 minutes</strong> for your security.
+              Enter this 6-digit OTP to reset your password. This code expires in <strong style="color: oklch(0.35 0.15 15);">10 minutes</strong> for your security.
             </p>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${resetUrl}" 
-                 style="display: inline-block; background: linear-gradient(135deg, oklch(0.35 0.15 15) 0%, oklch(0.45 0.18 20) 100%); color: white; text-decoration: none; padding: 16px 32px; border-radius: 12px; font-weight: 700; font-size: 16px; box-shadow: 0 8px 24px oklch(0.35 0.15 15 / 0.4); transform: translateY(0); transition: all 0.3s ease;">
-                🔑 Reset My Password Now
-              </a>
+              ${hasCode ? `
+                <div style="display: inline-block; letter-spacing: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 36px; font-weight: 800; color: #111827; background: #ffffff; border: 1px dashed #d1d5db; border-radius: 10px; padding: 16px 26px;">
+                  ${displayCode}
+                </div>
+                <div style="margin-top: 12px; color: #6b7280; font-size: 13px;">Enter this code in the reset screen</div>
+              ` : `
+                <a href="${resetUrl || '#'}" 
+                   style="display: inline-block; background: linear-gradient(135deg, oklch(0.35 0.15 15) 0%, oklch(0.45 0.18 20) 100%); color: white; text-decoration: none; padding: 16px 32px; border-radius: 12px; font-weight: 700; font-size: 16px; box-shadow: 0 8px 24px oklch(0.35 0.15 15 / 0.4); transform: translateY(0); transition: all 0.3s ease;">
+                  Reset My Password
+                </a>
+              `}
             </div>
           </div>
 
@@ -647,24 +659,25 @@ class EmailService {
               🛡️ Security Notice
             </h3>
             <ul style="color: #9a3412; margin: 0; padding-left: 0; list-style: none; line-height: 1.7;">
-              <li style="margin-bottom: 8px; display: flex; align-items: flex-start;"><span style="color: #f97316; margin-right: 8px; font-weight: bold;">•</span> This link expires in exactly 30 minutes</li>
+              <li style="margin-bottom: 8px; display: flex; align-items: flex-start;"><span style="color: #f97316; margin-right: 8px; font-weight: bold;">•</span> This OTP expires in exactly 10 minutes</li>
               <li style="margin-bottom: 8px; display: flex; align-items: flex-start;"><span style="color: #f97316; margin-right: 8px; font-weight: bold;">•</span> If you didn't request this, you can safely ignore this email</li>
-              <li style="margin-bottom: 0; display: flex; align-items: flex-start;"><span style="color: #f97316; margin-right: 8px; font-weight: bold;">•</span> Your password won't change unless you click the button</li>
+              <li style="margin-bottom: 0; display: flex; align-items: flex-start;"><span style="color: #f97316; margin-right: 8px; font-weight: bold;">•</span> Your password won't change unless the OTP is entered</li>
             </ul>
           </div>
 
-          <!-- Alternative Access -->
-          <div style="background: linear-gradient(135deg, #f0fdf4 0%, #e6ffed 100%); padding: 20px; border-radius: 12px; border-left: 5px solid oklch(0.35 0.15 15); margin-bottom: 30px;">
-            <h4 style="color: #15803d; margin: 0 0 12px 0; font-weight: 700; font-size: 14px; display: flex; align-items: center;">
-              🔗 Button not working?
-            </h4>
-            <p style="color: #166534; margin: 0 0 10px 0; font-size: 14px; line-height: 1.6;">
-              Copy and paste this link into your browser:
-            </p>
-            <div style="background: white; padding: 12px; border-radius: 8px; border: 1px solid #bbf7d0; word-break: break-all;">
-              <code style="font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 12px; color: #374151; line-height: 1.4;">${resetUrl}</code>
+          ${!hasCode ? `
+            <div style="background: linear-gradient(135deg, #f0fdf4 0%, #e6ffed 100%); padding: 20px; border-radius: 12px; border-left: 5px solid oklch(0.35 0.15 15); margin-bottom: 30px;">
+              <h4 style="color: #15803d; margin: 0 0 12px 0; font-weight: 700; font-size: 14px; display: flex; align-items: center;">
+                Button not working?
+              </h4>
+              <p style="color: #166534; margin: 0 0 10px 0; font-size: 14px; line-height: 1.6;">
+                Copy and paste this link into your browser:
+              </p>
+              <div style="background: white; padding: 12px; border-radius: 8px; border: 1px solid #bbf7d0; word-break: break-all;">
+                <code style="font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 12px; color: #374151; line-height: 1.4;">${resetUrl || ''}</code>
+              </div>
             </div>
-          </div>
+          ` : ''}
 
           <!-- Development Token (only in dev mode) -->
           ${process.env.NODE_ENV === 'development' ? `
@@ -673,9 +686,9 @@ class EmailService {
               🛠️ Development Mode Only
             </h4>
             <p style="color: #d97706; margin: 0 0 8px 0; font-size: 13px;">
-              Manual token for testing:
+              Manual code for testing:
             </p>
-            <code style="background: white; padding: 8px 12px; border-radius: 6px; font-family: 'Monaco', 'Menlo', monospace; font-size: 12px; color: #374151; border: 1px solid #fcd34d; display: inline-block;">${resetToken}</code>
+            <code style="background: white; padding: 8px 12px; border-radius: 6px; font-family: 'Monaco', 'Menlo', monospace; font-size: 12px; color: #374151; border: 1px solid #fcd34d; display: inline-block;">${displayCode || ''}</code>
           </div>
           ` : ''}
 
@@ -714,17 +727,19 @@ class EmailService {
 
     return await this.sendEmail({
       to: email,
-      subject: '🔑 Reset your password - Make It Sell',
+      subject: hasCode ? 'Your Make It Sell password reset code' : 'Reset your password - Make It Sell',
       html: emailHtml
     })
   }
 
-  async sendEmailVerification({ email, name, verificationUrl }: {
+  async sendEmailVerification({ email, name, verificationCode, verificationUrl }: {
     email: string
     name: string
-    verificationUrl: string
+    verificationCode?: string
+    verificationUrl?: string
   }): Promise<boolean> {
     console.log('[emailService] Sending verification email to:', email)
+    console.log('[emailService] Verification code:', verificationCode)
     console.log('[emailService] Verification URL:', verificationUrl)
     console.log('[emailService] SMTP Config:', {
       host: process.env.EMAIL_HOST || process.env.SMTP_HOST,
@@ -733,6 +748,9 @@ class EmailService {
       from: process.env.EMAIL_FROM || `"${process.env.SMTP_FROM_NAME || 'Make It Sell'}" <${process.env.SMTP_FROM_EMAIL || process.env.EMAIL_USER}>`
     })
     
+    const displayCode = (verificationCode || '').replace(/\D/g, '').slice(0, 6)
+    const hasCode = displayCode.length === 6
+
     const emailHtml = `
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
         <!-- Header -->
@@ -746,23 +764,30 @@ class EmailService {
         <div style="text-align: center; margin-bottom: 30px;">
           <h2 style="color: oklch(0.295 0.014 258.338); margin: 0 0 10px 0; font-size: 24px;">Welcome to Make It Sell, ${name}!</h2>
           <p style="color: oklch(0.631 0 0); margin: 0; font-size: 16px; line-height: 1.5;">
-            Thanks for joining our marketplace! To get started, please verify your email address.
+            Thanks for joining our marketplace! Use the one-time code below to verify your email address.
           </p>
         </div>
 
         <!-- Verification Instructions -->
         <div style="background-color: oklch(0.976 0 0); padding: 25px; border-radius: 10px; margin-bottom: 25px; border: 1px solid oklch(0.898 0 0);">
-          <h3 style="color: oklch(0.295 0.014 258.338); margin: 0 0 15px 0; font-size: 18px;">Just one more step...</h3>
+          <h3 style="color: oklch(0.295 0.014 258.338); margin: 0 0 15px 0; font-size: 18px;">One-Time Password (OTP)</h3>
           <p style="color: oklch(0.631 0 0); margin: 0 0 20px 0; line-height: 1.6;">
-            Click the button below to verify your email address and activate your account. 
-            This link will expire in 24 hours for security reasons.
+            Enter this 6-digit code in the verification screen to activate your account.
+            This code expires in 10 minutes.
           </p>
           
           <div style="text-align: center; margin: 25px 0;">
-            <a href="${verificationUrl}" 
-               style="display: inline-block; background: linear-gradient(135deg, oklch(0.35 0.15 15) 0%, oklch(0.45 0.18 20) 100%); color: white; text-decoration: none; padding: 15px 30px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px oklch(0.35 0.15 15 / 0.3);">
-              ✅ Verify My Email
-            </a>
+            ${hasCode ? `
+              <div style="display: inline-block; letter-spacing: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 36px; font-weight: 800; color: #111827; background: #ffffff; border: 1px dashed #d1d5db; border-radius: 10px; padding: 16px 26px;">
+                ${displayCode}
+              </div>
+              <div style="margin-top: 12px; color: #6b7280; font-size: 13px;">Enter this code where prompted</div>
+            ` : `
+              <a href="${verificationUrl || '#'}" 
+                 style="display: inline-block; background: linear-gradient(135deg, oklch(0.35 0.15 15) 0%, oklch(0.45 0.18 20) 100%); color: white; text-decoration: none; padding: 15px 30px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px oklch(0.35 0.15 15 / 0.3);">
+                Verify My Email
+              </a>
+            `}
           </div>
         </div>
 
@@ -778,18 +803,19 @@ class EmailService {
           </ul>
         </div>
 
-        <!-- Alternative Link -->
-        <div style="background-color: oklch(0.35 0.15 15 / 0.08); padding: 15px; border-radius: 8px; border-left: 4px solid oklch(0.35 0.15 15); margin-bottom: 25px;">
-          <p style="color: oklch(0.295 0.014 258.338); margin: 0 0 10px 0; font-weight: 600; font-size: 14px;">
-            🔗 Can't click the button?
-          </p>
-          <p style="color: oklch(0.295 0.014 258.338); margin: 0; font-size: 14px; line-height: 1.5;">
-            Copy and paste this link into your browser:<br>
-            <span style="word-break: break-all; font-family: monospace; background: oklch(0.898 0 0); padding: 2px 4px; border-radius: 3px;">
-              ${verificationUrl}
-            </span>
-          </p>
-        </div>
+        ${hasCode ? '' : `
+          <div style="background-color: oklch(0.35 0.15 15 / 0.08); padding: 15px; border-radius: 8px; border-left: 4px solid oklch(0.35 0.15 15); margin-bottom: 25px;">
+            <p style="color: oklch(0.295 0.014 258.338); margin: 0 0 10px 0; font-weight: 600; font-size: 14px;">
+              Can't click the button?
+            </p>
+            <p style="color: oklch(0.295 0.014 258.338); margin: 0; font-size: 14px; line-height: 1.5;">
+              Copy and paste this link into your browser:<br>
+              <span style="word-break: break-all; font-family: monospace; background: oklch(0.898 0 0); padding: 2px 4px; border-radius: 3px;">
+                ${verificationUrl || ''}
+              </span>
+            </p>
+          </div>
+        `}
 
         <!-- Support -->
         <div style="text-align: center; color: oklch(0.631 0 0); font-size: 14px; padding-top: 20px; border-top: 1px solid oklch(0.898 0 0);">
@@ -812,7 +838,7 @@ class EmailService {
 
     return await this.sendEmail({
       to: email,
-      subject: 'Verify your email address - Make It Sell',
+      subject: hasCode ? 'Your Make It Sell verification code' : 'Verify your email address - Make It Sell',
       html: emailHtml
     })
   }

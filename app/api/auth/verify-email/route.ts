@@ -3,6 +3,44 @@ import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 import { emailService } from '@/lib/email'
 
+function generateVerificationCode(): string {
+  return String(Math.floor(100000 + Math.random() * 900000))
+}
+
+function buildSessionCookie(sessionToken: string) {
+  const { serialize } = require('cookie')
+  return serialize('sessionToken', sessionToken, {
+    httpOnly: true,
+    path: '/',
+    maxAge: 60 * 60 * 24 * 30,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+  })
+}
+
+async function finalizeVerifiedUser(user: any) {
+  user.isEmailVerified = true
+  user.emailVerificationToken = undefined
+  user.emailVerificationTokenExpiry = undefined
+  user.updatedAt = new Date()
+
+  const crypto = require('crypto')
+  const sessionToken = crypto.randomBytes(32).toString('hex')
+  user.sessionToken = sessionToken
+  await user.save()
+
+  console.log(`[verify-email] Email verified for user: ${user.email}`)
+
+  return new NextResponse(JSON.stringify({
+    success: true,
+    message: 'Email verified successfully',
+    redirectUrl: '/stores'
+  }), {
+    status: 200,
+    headers: { 'Set-Cookie': buildSessionCookie(sessionToken), 'Content-Type': 'application/json' },
+  })
+}
+
 function getVerificationBaseUrl(request: NextRequest): string {
   const explicit = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL
   if (explicit) return explicit.replace(/\/$/, '')
@@ -47,41 +85,57 @@ export async function GET(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Mark email as verified
-    user.isEmailVerified = true
-    user.emailVerificationToken = undefined
-    user.emailVerificationTokenExpiry = undefined
-    user.updatedAt = new Date()
-
-    // Generate new session token
-    const crypto = require('crypto')
-    const sessionToken = crypto.randomBytes(32).toString('hex')
-    user.sessionToken = sessionToken
-    await user.save()
-
-    console.log(`[verify-email] Email verified for user: ${user.email}`)
-
-    // Set session cookie
-    const { serialize } = require('cookie')
-    const cookie = serialize('sessionToken', sessionToken, {
-      httpOnly: true,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 30, // 30 days
-      sameSite: 'lax',
-      secure: true,
-    })
-
-    return new NextResponse(JSON.stringify({
-      success: true,
-      message: 'Email verified successfully',
-      redirectUrl: '/stores'
-    }), {
-      status: 200,
-      headers: { 'Set-Cookie': cookie, 'Content-Type': 'application/json' },
-    })
+    return await finalizeVerifiedUser(user)
 
   } catch (error: any) {
     console.error('[verify-email] Error:', error)
+    return NextResponse.json({
+      success: false,
+      error: 'Internal server error'
+    }, { status: 500 })
+  }
+}
+
+// Verify OTP code
+export async function PUT(request: NextRequest) {
+  try {
+    const { email, code } = await request.json()
+
+    if (!email || !code) {
+      return NextResponse.json({
+        success: false,
+        error: 'Email and verification code are required'
+      }, { status: 400 })
+    }
+
+    const normalizedEmail = String(email).trim().toLowerCase()
+    const normalizedCode = String(code).trim()
+
+    if (!/^\d{6}$/.test(normalizedCode)) {
+      return NextResponse.json({
+        success: false,
+        error: 'Verification code must be 6 digits'
+      }, { status: 400 })
+    }
+
+    await connectToDatabase()
+
+    const user = await User.findOne({
+      email: normalizedEmail,
+      emailVerificationToken: normalizedCode,
+      emailVerificationTokenExpiry: { $gt: new Date() }
+    })
+
+    if (!user) {
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid or expired verification code'
+      }, { status: 400 })
+    }
+
+    return await finalizeVerifiedUser(user)
+  } catch (error: any) {
+    console.error('[verify-email][PUT] Error:', error)
     return NextResponse.json({
       success: false,
       error: 'Internal server error'
@@ -119,24 +173,19 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Generate new verification token
-    const crypto = require('crypto')
-    const verificationToken = crypto.randomBytes(32).toString('hex')
-    const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+    const verificationCode = generateVerificationCode()
+    const tokenExpiry = new Date(Date.now() + 10 * 60 * 1000)
 
-    user.emailVerificationToken = verificationToken
+    user.emailVerificationToken = verificationCode
     user.emailVerificationTokenExpiry = tokenExpiry
     user.updatedAt = new Date()
     await user.save()
-
-
-    const verificationUrl = `${getVerificationBaseUrl(request)}/verify-email?token=${verificationToken}`
 
     // Await send so request reports real delivery status.
     const sent = await emailService.sendEmailVerification({
       email: user.email,
       name: user.name || user.displayName || 'User',
-      verificationUrl,
+      verificationCode,
     })
 
     if (!sent) {

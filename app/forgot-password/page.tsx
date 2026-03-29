@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
 import { AlertCircle, CheckCircle, Mail, Lock } from "lucide-react"
 
 export default function ForgotPasswordPage() {
@@ -16,26 +17,27 @@ export default function ForgotPasswordPage() {
   const searchParams = useSearchParams()
   const [step, setStep] = useState<"email" | "reset">("email")
   const [email, setEmail] = useState("")
-  const [resetToken, setResetToken] = useState("")
+  const [resetCode, setResetCode] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
-  // Check URL params for token and email (from email link)
+  // Preserve legacy support if a token exists in URL while moving users to OTP flow.
   useEffect(() => {
     const token = searchParams.get('token')
     const emailParam = searchParams.get('email')
-    
-    console.log('[forgot-password] URL params:', { token: token?.substring(0, 20) + '...', email: emailParam, tokenLength: token?.length })
-    
-    if (token && emailParam) {
-      setResetToken(token.trim())
+
+    if (emailParam) {
       setEmail(decodeURIComponent(emailParam).trim())
+    }
+
+    if (token && emailParam) {
+      setResetCode(token.trim().replace(/\D/g, '').slice(0, 6))
       setStep('reset')
       setMessage({
         type: 'success',
-        text: `✅ Password reset link loaded! Token length: ${token.length} characters. Enter your new password below.`
+        text: 'Password reset code loaded. Enter your new password below.'
       })
     }
   }, [searchParams])
@@ -57,17 +59,16 @@ export default function ForgotPasswordPage() {
       if (data.success) {
         setMessage({
           type: "success",
-          text: data.token
-            ? `✅ Password reset email sent to ${email}! Check your inbox (and spam folder).`
-            : "✅ Password reset email sent! Check your inbox and spam folder.",
+          text: data.code
+            ? `Password reset code sent to ${email}. Check your inbox and enter the OTP below.`
+            : "If an account exists, a password reset code has been sent.",
         })
-        if (data.token) {
-          // Auto-fill the token and switch to reset step in dev mode
-          setResetToken(data.token)
-          setTimeout(() => setStep("reset"), 3000)
+        if (data.code) {
+          setResetCode(String(data.code).replace(/\D/g, '').slice(0, 6))
         }
+        setStep("reset")
       } else {
-        setMessage({ type: "error", text: data.error || "Failed to send reset email" })
+        setMessage({ type: "error", text: data.error || "Failed to send reset code" })
       }
     } catch (error) {
       setMessage({ type: "error", text: "An error occurred. Please try again." })
@@ -98,7 +99,7 @@ export default function ForgotPasswordPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
-          resetToken,
+          resetCode,
           newPassword,
         }),
       })
@@ -111,8 +112,8 @@ export default function ForgotPasswordPage() {
       } else {
         // Check if it's an expired token error
         const isExpiredToken = data.error?.toLowerCase().includes('expired')
-        const errorMessage = isExpiredToken 
-          ? "⏰ This reset link has expired (links expire after 30 minutes). Please request a new password reset link below."
+        const errorMessage = isExpiredToken
+          ? "This reset code has expired. Please request a new code below."
           : data.error || "Failed to reset password"
         
         setMessage({ type: "error", text: errorMessage })
@@ -121,8 +122,8 @@ export default function ForgotPasswordPage() {
         if (isExpiredToken) {
           setTimeout(() => {
             setStep("email")
-            setResetToken("")
-            setMessage({ type: "error", text: "Your previous reset link expired. Enter your email below to get a new one." })
+            setResetCode("")
+            setMessage({ type: "error", text: "Your previous reset code expired. Enter your email below to get a new one." })
           }, 3000)
         }
       }
@@ -150,8 +151,8 @@ export default function ForgotPasswordPage() {
             <CardTitle className="text-2xl font-bold">Reset Password</CardTitle>
             <CardDescription className="text-center">
               {step === "email" 
-                ? "Enter your email address and we'll send you a secure link to reset your password (expires in 30 minutes)" 
-                : "Enter your new password below"}
+                ? "Enter your email address and we'll send a 6-digit code to reset your password" 
+                : "Enter the OTP code and your new password"}
             </CardDescription>
           </CardHeader>
 
@@ -160,19 +161,18 @@ export default function ForgotPasswordPage() {
               <Alert className={message.type === "success" ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}>
                 <div className="flex gap-2">
                   {message.type === "success" ? (
-                    <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
                   ) : (
-                    <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
+                    <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
                   )}
                   <div className="flex-1">
                     <AlertDescription className={message.type === "success" ? "text-green-800" : "text-red-800"}>
                       {message.text}
                     </AlertDescription>
-                    {/* Show token info separately in development mode */}
-                    {message.type === "success" && resetToken && process.env.NODE_ENV === "development" && (
+                    {message.type === "success" && resetCode && process.env.NODE_ENV === "development" && (
                       <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
                         <p className="font-medium mb-1">🛠️ Development Mode</p>
-                        <p>Token auto-filled below. Switching to reset form in 3 seconds...</p>
+                        <p>Code auto-filled below for testing.</p>
                       </div>
                     )}
                   </div>
@@ -204,12 +204,12 @@ export default function ForgotPasswordPage() {
                   {loading ? (
                     <>
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                      Sending Reset Link...
+                      Sending Reset Code...
                     </>
                   ) : (
                     <>
                       <Mail className="w-5 h-5 mr-2" />
-                      Send Reset Link
+                      Send Reset Code
                     </>
                   )}
                 </Button>
@@ -225,24 +225,25 @@ export default function ForgotPasswordPage() {
               </form>
             ) : (
               <form onSubmit={handleResetPassword} className="space-y-4">
-                {/* Always show token input field for development and if user doesn't have email link */}
-                {(process.env.NODE_ENV === "development" || !searchParams.get('token')) && (
-                  <div className="space-y-2">
-                    <Label htmlFor="token">Reset Token</Label>
-                    <Input
-                      id="token"
-                      placeholder="Enter the token from your email or the confirmation message"
-                      value={resetToken}
-                      onChange={(e) => setResetToken(e.target.value)}
-                      required
-                      disabled={loading}
-                      className="h-12 font-mono text-sm"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Check your email for the reset token or click the link in the email instead.
-                    </p>
+                <div className="space-y-2">
+                  <Label>Reset Code</Label>
+                  <div className="flex justify-center">
+                    <InputOTP
+                      maxLength={6}
+                      value={resetCode}
+                      onChange={(value) => setResetCode(value.replace(/\D/g, "").slice(0, 6))}
+                    >
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
                   </div>
-                )}
+                </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="password">New Password</Label>
@@ -297,16 +298,16 @@ export default function ForgotPasswordPage() {
                     className="flex-1 h-12"
                     onClick={() => {
                       setStep("email")
-                      setResetToken("")
+                      setResetCode("")
                       setNewPassword("")
                       setConfirmPassword("")
-                      setMessage({ type: "error", text: "Requesting a new reset link. Enter your email below." })
+                      setMessage({ type: "error", text: "Requesting a new reset code. Enter your email below." })
                       // Clear URL params
                       router.replace('/forgot-password')
                     }}
                     disabled={loading}
                   >
-                    ← Request New Link
+                    ← Request New Code
                   </Button>
                 </div>
               </form>
@@ -314,8 +315,7 @@ export default function ForgotPasswordPage() {
 
             <div className="pt-4 border-t">
               <p className="text-xs text-muted-foreground text-center mb-4">
-                📝 <strong>Instructions:</strong> Enter your email above and check both your inbox and spam folder for the reset link. 
-                The link will take you directly to the password reset form.
+                <strong>Instructions:</strong> Enter your email above and check both your inbox and spam folder for the 6-digit reset code.
               </p>
               
               <div className="text-center space-y-2">
