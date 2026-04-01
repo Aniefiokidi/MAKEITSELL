@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, type ReactElement } from "react"
 import { useRouter } from "next/navigation"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
@@ -50,6 +50,7 @@ export default function MessagesPage() {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState("")
+  const [pastedImages, setPastedImages] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [backgroundLoading, setBackgroundLoading] = useState(false)
   const [sending, setSending] = useState(false)
@@ -136,13 +137,87 @@ export default function MessagesPage() {
     }
   }
 
+  const renderMessageContent = (content: string) => {
+    const imageTokenRegex = /\[\[img:(data:image\/[^\]]+)\]\]/g
+    const nodes: ReactElement[] = []
+    let lastIndex = 0
+    let match: RegExpExecArray | null = null
+
+    while ((match = imageTokenRegex.exec(content)) !== null) {
+      const textChunk = content.slice(lastIndex, match.index)
+      if (textChunk.trim()) {
+        nodes.push(
+          <p key={`text-${match.index}-${lastIndex}`} className="whitespace-pre-wrap wrap-break-word">
+            {textChunk}
+          </p>
+        )
+      }
+
+      const imageSrc = match[1]
+      nodes.push(
+        <img
+          key={`img-${match.index}`}
+          src={imageSrc}
+          alt="Pasted attachment"
+          className="max-h-56 w-auto rounded-md border border-white/20"
+        />
+      )
+
+      lastIndex = imageTokenRegex.lastIndex
+    }
+
+    const tail = content.slice(lastIndex)
+    if (tail.trim()) {
+      nodes.push(
+        <p key="text-tail" className="whitespace-pre-wrap wrap-break-word">
+          {tail}
+        </p>
+      )
+    }
+
+    if (nodes.length === 0) {
+      return <p className="whitespace-pre-wrap wrap-break-word">{content}</p>
+    }
+
+    return <div className="space-y-2">{nodes}</div>
+  }
+
+  const handlePasteImage = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const items = Array.from(e.clipboardData?.items || [])
+    const imageItem = items.find((item) => item.type.startsWith("image/"))
+    if (!imageItem) return
+
+    e.preventDefault()
+    const blob = imageItem.getAsFile()
+    if (!blob) return
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : ""
+      if (!result) return
+      setPastedImages((prev) => [...prev, result])
+    }
+    reader.readAsDataURL(blob)
+  }
+
+  const removePastedImage = (indexToRemove: number) => {
+    setPastedImages((prev) => prev.filter((_, index) => index !== indexToRemove))
+  }
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newMessage.trim() || !selectedConversation || !user || !userProfile) return
+    if ((!newMessage.trim() && pastedImages.length === 0) || !selectedConversation || !user || !userProfile) return
 
     try {
       setSending(true)
       const isProvider = userProfile.role === "vendor"
+      const composedMessage = [
+        newMessage.trim(),
+        ...pastedImages.map((src) => `[[img:${src}]]`),
+      ]
+        .filter(Boolean)
+        .join("\n")
+
       const messageData = {
         conversationId: selectedConversation.id!,
         senderId: user.uid,
@@ -150,7 +225,7 @@ export default function MessagesPage() {
         senderRole: isProvider ? "provider" : "customer",
         receiverId: isProvider ? selectedConversation.customerId : selectedConversation.providerId,
         receiverName: isProvider ? selectedConversation.customerName : selectedConversation.providerName,
-        message: newMessage.trim(),
+        message: composedMessage,
         read: false,
       }
       await fetch("/api/messages/send", {
@@ -159,6 +234,7 @@ export default function MessagesPage() {
         body: JSON.stringify(messageData),
       })
       setNewMessage("")
+      setPastedImages([])
       await fetchConversations() // Refetch conversations after sending
       if (selectedConversation) {
         await fetchMessages(selectedConversation.id!)
@@ -237,10 +313,16 @@ export default function MessagesPage() {
           )}
           {/* MOBILE: Chat Overlay */}
           {showMobileChat && selectedConversation && (
-            <div className="fixed inset-0 z-50 bg-background flex flex-col">
+            <div className="fixed inset-x-0 bottom-0 top-[72px] z-995 bg-background flex flex-col">
               <div className="flex items-center gap-2 px-2 py-3 border-b bg-background/95">
-                <Button variant="ghost" size="icon" onClick={() => setShowMobileChat(false)}>
-                  <ArrowLeft className="h-6 w-6" />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="rounded-full border-accent/40 hover:bg-accent hover:text-white"
+                  onClick={() => setShowMobileChat(false)}
+                  aria-label="Back to conversations"
+                >
+                  <ArrowLeft className="h-5 w-5" />
                 </Button>
                 <Avatar className="h-9 w-9">
                   <AvatarImage src={selectedConversation.storeImage || undefined} alt={userProfile?.role === "vendor" ? selectedConversation.customerName : selectedConversation.providerName} />
@@ -279,7 +361,7 @@ export default function MessagesPage() {
                                     ? "bg-accent text-accent-foreground rounded-br-sm"
                                     : "bg-muted rounded-bl-sm"
                                 }`}>
-                                  <p className="whitespace-pre-wrap break-words">{msg.message}</p>
+                                  {renderMessageContent(msg.message)}
                                 </div>
                                 <div className={`flex items-center gap-1 mt-1 px-2 ${isOwnMessage ? "justify-end" : "justify-start"}`}>
                                   <p className="text-xs text-muted-foreground">
@@ -297,17 +379,37 @@ export default function MessagesPage() {
                 </ScrollArea>
                 {/* Message Input */}
                 <form onSubmit={handleSendMessage} className="flex items-center gap-2 p-2 border-t bg-background">
+                  {pastedImages.length > 0 && (
+                    <div className="absolute bottom-16 left-2 right-2 z-10 rounded-md border bg-background p-2 shadow-sm">
+                      <div className="flex gap-2 overflow-x-auto">
+                        {pastedImages.map((src, idx) => (
+                          <div key={`mobile-paste-${idx}`} className="relative shrink-0">
+                            <img src={src} alt="Pasted preview" className="h-14 w-14 rounded object-cover border" />
+                            <button
+                              type="button"
+                              onClick={() => removePastedImage(idx)}
+                              className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-black/70 text-white text-xs"
+                              aria-label="Remove pasted image"
+                            >
+                              x
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <Input
                     ref={inputRef}
                     type="text"
                     placeholder="Type your message..."
                     value={newMessage}
                     onChange={e => setNewMessage(e.target.value)}
+                    onPaste={handlePasteImage}
                     disabled={sending}
                     className="flex-1 rounded-full"
                     autoComplete="off"
                   />
-                  <Button type="submit" disabled={!newMessage.trim() || sending} className="rounded-full">
+                  <Button type="submit" disabled={(!newMessage.trim() && pastedImages.length === 0) || sending} className="rounded-full">
                     <Send className="h-5 w-5" />
                   </Button>
                 </form>
@@ -466,7 +568,7 @@ export default function MessagesPage() {
                                       ? "bg-accent text-accent-foreground rounded-br-sm"
                                       : "bg-muted rounded-bl-sm"
                                   }`}>
-                                    <p className="whitespace-pre-wrap break-words">{msg.message}</p>
+                                    {renderMessageContent(msg.message)}
                                   </div>
                                   <div className={`flex items-center gap-1 mt-1 px-2 ${isOwnMessage ? "justify-end" : "justify-start"}`}>
                                     <p className="text-xs text-muted-foreground">
@@ -483,18 +585,38 @@ export default function MessagesPage() {
                     </div>
                   </ScrollArea>
                   {/* Message Input */}
-                  <form onSubmit={handleSendMessage} className="flex items-center gap-2 p-2 border-t bg-background">
+                  <form onSubmit={handleSendMessage} className="relative flex items-center gap-2 p-2 border-t bg-background">
+                    {pastedImages.length > 0 && (
+                      <div className="absolute bottom-16 left-2 right-2 z-10 rounded-md border bg-background p-2 shadow-sm">
+                        <div className="flex gap-2 overflow-x-auto">
+                          {pastedImages.map((src, idx) => (
+                            <div key={`desktop-paste-${idx}`} className="relative shrink-0">
+                              <img src={src} alt="Pasted preview" className="h-16 w-16 rounded object-cover border" />
+                              <button
+                                type="button"
+                                onClick={() => removePastedImage(idx)}
+                                className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-black/70 text-white text-xs"
+                                aria-label="Remove pasted image"
+                              >
+                                x
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <Input
                       ref={inputRef}
                       type="text"
                       placeholder="Type your message..."
                       value={newMessage}
                       onChange={e => setNewMessage(e.target.value)}
+                      onPaste={handlePasteImage}
                       disabled={sending}
                       className="flex-1 rounded-full"
                       autoComplete="off"
                     />
-                    <Button type="submit" disabled={!newMessage.trim() || sending} className="rounded-full">
+                    <Button type="submit" disabled={(!newMessage.trim() && pastedImages.length === 0) || sending} className="rounded-full">
                       <Send className="h-5 w-5" />
                     </Button>
                   </form>

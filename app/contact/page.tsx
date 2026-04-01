@@ -242,8 +242,8 @@ export default function ContactPage() {
               </div>
             </div>
           ) : (
-            <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
-              <Card className="lg:col-span-2 border-accent/30">
+            <div className="grid xl:grid-cols-3 gap-4 sm:gap-6">
+              <Card className="xl:col-span-2 border-accent/30 w-full">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <MessageCircle className="h-5 w-5 text-accent" />
@@ -286,7 +286,7 @@ export default function ContactPage() {
                 </CardContent>
               </Card>
 
-              <Card className="lg:col-span-3 bg-linear-to-r from-accent/10 to-primary/10 border-accent/30">
+              <Card className="xl:col-span-3 bg-linear-to-r from-accent/10 to-primary/10 border-accent/30">
                 <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div>
                     <p className="font-semibold">Want to message the team directly?</p>

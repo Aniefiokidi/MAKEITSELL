@@ -324,7 +324,7 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
   }
 
   return (
-    <Card className="h-[600px] w-full flex flex-col">
+    <Card className="h-[72vh] min-h-[560px] sm:h-[600px] w-full flex flex-col overflow-hidden">
       <CardHeader className="pb-3 shrink-0">
         <CardTitle className="flex items-center gap-2">
           <MessageCircle className="h-5 w-5" />
@@ -349,7 +349,7 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
                   </Avatar>
 
                   <div
-                    className={`flex flex-col gap-1 max-w-[70%] min-w-0 ${
+                    className={`flex flex-col gap-1 max-w-[82%] sm:max-w-[70%] min-w-0 ${
                       message.senderRole === "customer" ? "items-end" : "items-start"
                     }`}
                   >

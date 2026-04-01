@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/contexts/AuthContext"
+import { ArrowLeft } from "lucide-react"
 import { Send, MessageCircle, CheckCheck, Check } from "lucide-react"
 import { format, isToday, isYesterday } from "date-fns"
 
@@ -208,6 +209,16 @@ export default function VendorMessagesPage() {
               {/* Chat Header */}
               <CardHeader className="border-b">
                 <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="rounded-full border-accent/40 text-accent hover:bg-accent hover:text-white lg:hidden"
+                    onClick={() => setSelectedConversation(null)}
+                    aria-label="Back to conversations"
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </Button>
                   <Avatar>
                     <AvatarImage 
                       src={selectedConversation.storeImage || undefined} 
