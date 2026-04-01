@@ -53,6 +53,7 @@ export default function Footer() {
               <li><Link href="/stores" className="text-accent">Stores</Link></li>
               <li><Link href="/categories" className="text-accent">Categories</Link></li>
               <li><Link href="/services" className="text-accent">Services</Link></li>
+              <li><Link href="/bidding" className="text-accent">Bidding</Link></li>
               <li><Link href="/products" className="text-accent">Products</Link></li>
             </ul>
           </div>
@@ -61,8 +62,9 @@ export default function Footer() {
           <div>
             <h3 className="font-semibold mb-4 text-[clamp(1rem,4.2vw,1.125rem)] text-center sm:text-left text-accent">Customer Service</h3>
             <ul className="space-y-2 text-[clamp(0.84rem,3.5vw,0.95rem)]">
-              <li><Link href="/support" className="text-accent">Help Center</Link></li>
-              <li><Link href="/contact" className="text-accent">Contact Us</Link></li>
+              <li><Link href="/contact" className="text-accent">Help</Link></li>
+              <li><Link href="/contact?tab=contact" className="text-accent">Contact Team</Link></li>
+              <li><Link href="/contact?tab=support" className="text-accent">Support Center</Link></li>
               <li><Link href="/returns" className="text-accent">Returns & Refunds</Link></li>
               <li><Link href="/shipping" className="text-accent">Shipping Info</Link></li>
             </ul>

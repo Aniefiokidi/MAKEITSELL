@@ -34,6 +34,9 @@ export interface IBooking extends Document {
   quoteExpiredAt?: Date;
   cancellationPolicyPercent?: number;
   cancellationWindowHours?: number;
+  bookingFeeAmount?: number;
+  bookingFeeStatus?: "pending" | "charged" | "waived";
+  bookingFeeReference?: string;
   cancellationFeeApplied?: boolean;
   cancellationFeeAmount?: number;
   cancellationFeeStatus?: "none" | "charged" | "pending" | "waived";
@@ -92,6 +95,9 @@ const BookingSchema = new Schema<IBooking>({
   quoteExpiredAt: { type: Date },
   cancellationPolicyPercent: { type: Number, default: 30 },
   cancellationWindowHours: { type: Number, default: 24 },
+  bookingFeeAmount: { type: Number, default: 0 },
+  bookingFeeStatus: { type: String, enum: ["pending", "charged", "waived"], default: "waived" },
+  bookingFeeReference: { type: String },
   cancellationFeeApplied: { type: Boolean, default: false },
   cancellationFeeAmount: { type: Number, default: 0 },
   cancellationFeeStatus: { type: String, enum: ["none", "charged", "pending", "waived"], default: "none" },

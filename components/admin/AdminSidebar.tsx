@@ -16,6 +16,7 @@ import {
   FileText,
   Store,
   Briefcase,
+  Gavel,
   Activity,
   Mail,
 } from "lucide-react"
@@ -60,6 +61,11 @@ const adminNavItems = [
     title: "Services",
     href: "/admin/services",
     icon: Briefcase,
+  },
+  {
+    title: "Bidding",
+    href: "/admin/bidding",
+    icon: Gavel,
   },
   {
     title: "Support",

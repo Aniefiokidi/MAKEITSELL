@@ -153,12 +153,8 @@ export default function PhoneVerificationModal() {
   }
 
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => setOpen(nextOpen ? true : shouldRequireVerification)}>
-      <DialogContent
-        className="sm:max-w-md"
-        onInteractOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => event.preventDefault()}
-      >
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-2xl flex items-center gap-2">
             <Smartphone className="h-5 w-5 text-accent" />

@@ -365,11 +365,19 @@ export default function SearchResults({ query }: { query: string }) {
                   </div>
                   <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-b-[2.5rem] border-t border-white/10 p-2">
                     <div className="flex items-start justify-between gap-2 mb-1">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-xs sm:text-lg font-bold tracking-tight mb-0.5 text-white drop-shadow-lg truncate">{service.title}</h3>
+                      <div className="flex-1 min-w-0 min-h-[72px] sm:min-h-[86px]">
+                        <h3
+                          className={`font-bold tracking-tight mb-0.5 text-white drop-shadow-lg line-clamp-2 leading-tight ${
+                            String(service.title || "").length > 34 ? "text-[11px] sm:text-sm" : "text-xs sm:text-lg"
+                          }`}
+                        >
+                          {service.title}
+                        </h3>
                         {service.providerName && (
                           <div className="flex items-center gap-0.5 text-[7px] sm:text-xs font-medium text-white/90 tracking-wide mb-1">
-                            <Badge variant="outline" className="w-fit text-[7px] sm:text-[10px] font-semibold py-0.5 px-1.5 sm:px-2 h-4 sm:h-5 tracking-wide border-2 border-white/40 bg-white/10 text-white backdrop-blur-sm">{service.providerName}</Badge>
+                            <Badge variant="outline" className="max-w-full text-[7px] sm:text-[10px] font-semibold py-0.5 px-1.5 sm:px-2 h-4 sm:h-5 tracking-wide border-2 border-white/40 bg-white/10 text-white backdrop-blur-sm">
+                              <span className="line-clamp-1">{service.providerName}</span>
+                            </Badge>
                           </div>
                         )}
                         <Badge variant="outline" className="w-fit text-[7px] sm:text-[10px] font-semibold py-0.5 px-1.5 sm:px-2 h-4 sm:h-5 tracking-wide border-2 border-white/40 bg-white/10 text-white backdrop-blur-sm">{service.category}</Badge>

@@ -15,6 +15,8 @@ import { useNotification } from "@/contexts/NotificationContext"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 
+const BOOKING_FEE_NAIRA = 500
+
 interface BookingModalProps {
   service: Service
   selectedPackage?: {
@@ -63,6 +65,18 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
     ? parsedTripDistanceMiles * distanceRatePerMile
     : 0
   const estimatedTotal = Math.max(0, Math.round(basePackagePrice + addOnTotal + tripDistanceFee))
+  const locationType = service.locationType === "store"
+    ? "store"
+    : service.locationType === "home-service"
+      ? "home-service"
+      : service.locationType === "in-person"
+        ? "store"
+        : "online"
+  const isOnlineService = locationType === "online"
+  const isStoreService = locationType === "store"
+  const isHomeService = locationType === "home-service"
+  const hasHourlyPricing = (selectedPackage?.pricingType || service.pricingType) === "hourly"
+  const hasSessionPricing = (selectedPackage?.pricingType || service.pricingType) === "per-session"
 
   // Generate available time slots based on service availability
   const getAvailableTimeSlots = () => {
@@ -161,14 +175,6 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
       const endMinute = endMinutes % 60
       const endTime = `${String(endHour).padStart(2, "0")}:${String(endMinute).padStart(2, "0")}`
 
-      const locationType = service.locationType === "store"
-        ? "store"
-        : service.locationType === "home-service"
-          ? "home-service"
-          : service.locationType === "in-person"
-            ? "store"
-            : "online"
-
       const bookingData = {
         serviceId: service.id!,
         selectedPackageId: selectedPackage?.id,
@@ -182,6 +188,7 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
         tripDistanceMiles: Number.isFinite(parsedTripDistanceMiles) && parsedTripDistanceMiles > 0 ? parsedTripDistanceMiles : undefined,
         cancellationPolicyPercent: 30,
         cancellationWindowHours: 24,
+        bookingFeeAmount: BOOKING_FEE_NAIRA,
         customerId: user.uid,
         customerName: userProfile.displayName,
         customerEmail: userProfile.email,
@@ -255,6 +262,8 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
     }
   }
 
+  const availableTimeSlots = selectedDate ? getAvailableTimeSlots() : []
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -277,6 +286,32 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
                 {service.requiresQuote ? "Estimated Total" : "Total"}: ₦{estimatedTotal.toLocaleString('en-NG')}
               </p>
               <p className="capitalize">Location: {service.locationType.replace("-", " ")}</p>
+            </div>
+          </div>
+
+          <div className="bg-accent/5 border border-accent/20 p-4 rounded-lg">
+            <h4 className="font-semibold mb-2">Booking Type Details</h4>
+            <div className="text-sm space-y-1 text-muted-foreground">
+              {isOnlineService && (
+                <>
+                  <p>This is an online service. Meeting details are shared after provider confirmation.</p>
+                  <p>Ensure your phone number is active for updates.</p>
+                </>
+              )}
+              {isStoreService && (
+                <>
+                  <p>This is a store/in-person appointment.</p>
+                  <p>Bring any required items and arrive 10 minutes early.</p>
+                </>
+              )}
+              {isHomeService && (
+                <>
+                  <p>This is a home-service appointment. Your full service address is required.</p>
+                  <p>Provider arrival may vary with traffic and distance.</p>
+                </>
+              )}
+              {hasHourlyPricing && <p>Pricing type: hourly. Final charge is based on booked duration.</p>}
+              {hasSessionPricing && <p>Pricing type: per session. Price applies per booked session.</p>}
             </div>
           </div>
 
@@ -313,14 +348,19 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
                 <SelectTrigger>
                   <SelectValue placeholder="Choose a time slot" />
                 </SelectTrigger>
-                <SelectContent>
-                  {getAvailableTimeSlots().map((slot) => (
+                <SelectContent className="z-1400">
+                  {availableTimeSlots.map((slot) => (
                     <SelectItem key={slot} value={slot}>
                       {slot}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {availableTimeSlots.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No available time slots for the selected date. Please pick another date.
+                </p>
+              )}
             </div>
           )}
 
@@ -336,13 +376,15 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
             />
           </div>
 
-          {(service.locationType === "home-service" || service.locationType === "store") && (
+          {(isHomeService || isStoreService) && (
             <div className="space-y-2">
-              <Label htmlFor="customerLocation">Your Location / Address</Label>
+              <Label htmlFor="customerLocation">
+                {isHomeService ? "Your Full Service Address" : "Preferred Visit Area / Landmark"}
+              </Label>
               <Input
                 id="customerLocation"
                 type="text"
-                placeholder="Enter city, state or full address"
+                placeholder={isHomeService ? "Enter your full address" : "Enter area or nearest landmark"}
                 value={customerLocation}
                 onChange={(e) => setCustomerLocation(e.target.value)}
               />
@@ -391,6 +433,7 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
                 <p className="font-semibold text-accent">
                   {service.requiresQuote ? "Estimated Total" : "Total"}: ₦{estimatedTotal.toLocaleString('en-NG')}
                 </p>
+                <p>Booking fee (charged now): ₦{BOOKING_FEE_NAIRA.toLocaleString('en-NG')}</p>
                 {tripDistanceFee > 0 && (
                   <p className="text-xs text-muted-foreground">
                     Includes trip distance fee: ₦{Math.round(tripDistanceFee).toLocaleString('en-NG')}
@@ -400,7 +443,10 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
                   <p className="text-xs text-muted-foreground">Final amount will be confirmed by provider before acceptance.</p>
                 )}
                 <p className="text-xs text-muted-foreground pt-1">
-                  Cancellation policy: 30% fee applies if cancelled within 24 hours of start time.
+                  Cancellation policy: 30% cancellation fee applies when you cancel within 24 hours of start time.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Booking fee of ₦{BOOKING_FEE_NAIRA.toLocaleString('en-NG')} is charged at booking confirmation.
                 </p>
               </div>
             </div>
@@ -419,7 +465,7 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
             <Button
               onClick={handleBooking}
               className="flex-1"
-              disabled={!selectedDate || !selectedTime || !phone || loading || ((service.locationType === "home-service" || service.locationType === "store") && !customerLocation.trim())}
+              disabled={!selectedDate || !selectedTime || !phone || loading || ((isHomeService || isStoreService) && !customerLocation.trim())}
             >
               {loading ? "Booking..." : "Confirm Booking"}
             </Button>

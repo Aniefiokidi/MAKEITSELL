@@ -678,6 +678,8 @@ export default function ServicesPage() {
             {filteredServices.map((service, index) => {
               const serviceName = service.title || 'Service'
               const avatarImage = getServiceAvatarImage(service)
+              const isLongTitle = serviceName.length > 34
+              const isLongProvider = (service.providerName || '').length > 22
               
               return (
                 <Card 
@@ -733,16 +735,16 @@ export default function ServicesPage() {
                     </div>
 
                     {/* Content Overlay at Bottom */}
-                    <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-b-[2.5rem] border-t border-white/10 p-2 sm:p-4">
-                      <div className="flex items-start justify-between gap-2 sm:gap-3 mb-1 sm:mb-2">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-xs sm:text-lg md:text-xl font-bold tracking-tight mb-0.5 sm:mb-1 text-white drop-shadow-lg leading-tight wrap-break-word whitespace-normal">
+                    <div className="absolute bottom-0 left-0 right-0 z-10 h-[108px] sm:h-[140px] backdrop-blur-md bg-black/20 rounded-b-[2.5rem] border-t border-white/10 p-2 sm:p-4 flex flex-col justify-between">
+                      <div className="flex items-start justify-between gap-2 sm:gap-3">
+                        <div className="flex-1 min-w-0 min-h-14 sm:min-h-[74px]">
+                          <h3 className={`${isLongTitle ? 'text-[10px] sm:text-sm md:text-base' : 'text-xs sm:text-lg md:text-xl'} line-clamp-2 font-bold tracking-tight mb-0.5 sm:mb-1 text-white drop-shadow-lg leading-tight`}>
                             {serviceName}
                           </h3>
                           {service.providerName && (
-                            <div className="flex items-center gap-0.5 text-[7px] sm:text-xs font-medium text-white/90 tracking-wide mb-1 sm:mb-2">
+                            <div className={`${isLongProvider ? 'text-[7px] sm:text-[10px]' : 'text-[7px] sm:text-xs'} flex items-center gap-0.5 font-medium text-white/90 tracking-wide mb-1 sm:mb-2`}>
                               <Verified className="h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0" />
-                              <span className="leading-tight wrap-break-word whitespace-normal">{service.providerName}</span>
+                              <span className="leading-tight line-clamp-1">{service.providerName}</span>
                             </div>
                           )}
                           
@@ -768,7 +770,7 @@ export default function ServicesPage() {
                       </div>
 
                       {/* Stats */}
-                      <div className="flex items-center gap-3 text-[11px] font-medium text-white/80 tracking-wide">
+                      <div className="flex items-center justify-between gap-3 text-[10px] sm:text-[11px] font-medium text-white/80 tracking-wide">
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
                           <span>{getServiceDisplayDuration(service)}</span>

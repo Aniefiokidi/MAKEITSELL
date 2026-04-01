@@ -19,7 +19,7 @@ type CarouselSlide = {
 const INVALID_IMAGE_PATTERN = /(placeholder|default|no[-_ ]?image|avatar-default|image-not-found)/i
 const HERO_CAROUSEL_CACHE_KEY = "mis:hero-carousel:v1"
 const FALLBACK_IMAGE = "/MISHG.png"
-const X_BY_OFFSET: Record<number, number> = { [-2]: -118, [-1]: -64, [0]: 0, [1]: 64, [2]: 118 }
+const X_PX_BY_OFFSET: Record<number, number> = { [-2]: -250, [-1]: -135, [0]: 0, [1]: 135, [2]: 250 }
 const Y_BY_OFFSET: Record<number, number> = { [-2]: -46, [-1]: -48, [0]: -50, [1]: -48, [2]: -46 }
 const SCALE_BY_OFFSET: Record<number, number> = { [-2]: 0.72, [-1]: 0.84, [0]: 1, [1]: 0.84, [2]: 0.72 }
 const ROTATE_BY_OFFSET: Record<number, number> = { [-2]: -8, [-1]: -4, [0]: 0, [1]: 4, [2]: 8 }
@@ -107,6 +107,24 @@ async function verifyImageLoad(src: string, timeoutMs = 7000): Promise<boolean> 
   })
 }
 
+async function fetchJsonWithTimeout(url: string, signal: AbortSignal, timeoutMs = 12000) {
+  let timeoutHandle: number | undefined
+  try {
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutHandle = window.setTimeout(() => reject(new Error("Request timed out")), timeoutMs)
+    })
+
+    const response = (await Promise.race([
+      fetch(url, { signal }),
+      timeoutPromise,
+    ])) as Response
+
+    return await response.json()
+  } finally {
+    if (timeoutHandle) window.clearTimeout(timeoutHandle)
+  }
+}
+
 export default function HeroShuffleCarousel() {
   const [slides, setSlides] = useState<CarouselSlide[]>(() => readCachedSlides())
   const [activeIndex, setActiveIndex] = useState(0)
@@ -133,16 +151,10 @@ export default function HeroShuffleCarousel() {
 
     const loadSlides = async () => {
       try {
-        const [productsRes, servicesRes, storesRes] = await Promise.all([
-          fetch("/api/database/products?limit=18", { signal: controller.signal }),
-          fetch("/api/database/services?limit=18", { signal: controller.signal }),
-          fetch("/api/database/stores?limit=18&sortBy=for-you", { signal: controller.signal }),
-        ])
-
         const [productsJson, servicesJson, storesJson] = await Promise.all([
-          productsRes.json(),
-          servicesRes.json(),
-          storesRes.json(),
+          fetchJsonWithTimeout("/api/database/products?limit=18", controller.signal),
+          fetchJsonWithTimeout("/api/database/services?limit=18", controller.signal),
+          fetchJsonWithTimeout("/api/database/stores?limit=18&sortBy=for-you", controller.signal),
         ])
 
         const products = Array.isArray(productsJson?.data) ? productsJson.data : []
@@ -236,15 +248,9 @@ export default function HeroShuffleCarousel() {
 
         const mixed = shuffle([...storeSlides, ...productSlides, ...serviceSlides]).slice(0, 24)
 
-        // Keep only images that can be loaded to avoid broken slides.
-        const validated = await Promise.all(
-          mixed.map(async (slide) => ((await verifyImageLoad(slide.image)) ? slide : null))
-        )
-        const verifiedSlides = validated.filter(Boolean) as CarouselSlide[]
-
         const finalSlides =
-          verifiedSlides.length > 0
-            ? verifiedSlides
+          mixed.length > 0
+            ? mixed
             : [
                 {
                   id: "fallback-hero",
@@ -404,7 +410,7 @@ export default function HeroShuffleCarousel() {
 
           if (!isNear) return null
 
-          const transform = `translate3d(calc(-50% + ${X_BY_OFFSET[offset] || 0}%), ${Y_BY_OFFSET[offset] || -50}%, 0) scale(${SCALE_BY_OFFSET[offset] || 1}) rotate(${ROTATE_BY_OFFSET[offset] || 0}deg)`
+          const transform = `translate(-50%, ${Y_BY_OFFSET[offset] || -50}%) translateX(${X_PX_BY_OFFSET[offset] || 0}px) scale(${SCALE_BY_OFFSET[offset] || 1}) rotate(${ROTATE_BY_OFFSET[offset] || 0}deg)`
           const opacity = Math.abs(offset) === 2 ? 0.15 : 1
           const pointerEvents = isActive || isSide ? "auto" : "none"
 

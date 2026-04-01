@@ -120,13 +120,17 @@ export default function FeaturedServices() {
               </Link>
 
               <CardHeader className="p-2 sm:p-3 md:p-4">
-                <CardTitle className="line-clamp-1 text-xs sm:text-sm md:text-base">
+                <CardTitle
+                  className={`line-clamp-2 min-h-[2.2rem] sm:min-h-[2.6rem] md:min-h-12 leading-tight ${
+                    service.title.length > 36 ? "text-[11px] sm:text-xs md:text-sm" : "text-xs sm:text-sm md:text-base"
+                  }`}
+                >
                   <Link href={`/service/${service.id}`} className="hover:text-accent transition-colors">
                     {service.title}
                   </Link>
                 </CardTitle>
-                <CardDescription className="flex items-center gap-0.5 text-[7px] sm:text-[10px] md:text-xs">
-                  <span className="truncate">{service.providerName}</span>
+                <CardDescription className="flex items-center gap-0.5 text-[7px] sm:text-[10px] md:text-xs min-h-[1.2rem]">
+                  <span className="truncate max-w-[70%]">{service.providerName}</span>
                   {service.reviewCount > 0 && (
                     <span className="flex items-center gap-1 ml-2">
                       <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
@@ -138,12 +142,12 @@ export default function FeaturedServices() {
                 </CardDescription>
               </CardHeader>
 
-              <CardContent>
-                <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+              <CardContent className="pt-0">
+                <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 min-h-[2.4rem] sm:min-h-[2.8rem] mb-4">
                   {service.description}
                 </p>
 
-                <div className="space-y-2 text-sm">
+                <div className="space-y-2 text-xs sm:text-sm min-h-18">
                   {/* Price */}
                   <div className="flex items-center gap-2 text-accent font-semibold">
                     <Banknote className="h-4 w-4" />

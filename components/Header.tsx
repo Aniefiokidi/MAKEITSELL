@@ -75,6 +75,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
   const [walletTxLoading, setWalletTxLoading] = useState(false)
   const [mobileDrawerWidth, setMobileDrawerWidth] = useState("85vw")
   const [isScrolled, setIsScrolled] = useState(false)
+  const contentTopGap = homeBg ? 0 : 14
 
   const profileWalletBalance =
     userProfile?.role === "customer"
@@ -636,14 +637,22 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
 
           {/* Centralized Desktop Nav */}
           <nav className="hidden xl:flex flex-1 justify-center items-center space-x-2 uppercase">
-            {["Stores", "Services", "About", "Contact", "Support"].map((link) => {
-              const isActive = pathname === `/${link.toLowerCase()}` || 
-                (link === "Stores" && pathname === "/stores")
+            {[
+              { label: "Stores", href: "/stores" },
+              { label: "Services", href: "/services" },
+              { label: "About", href: "/about" },
+              { label: "Help", href: "/contact" },
+              { label: "Bidding", href: "/bidding" },
+            ].map((item) => {
+              const isActive =
+                (item.label === "Help" && (pathname === "/contact" || pathname === "/support")) ||
+                pathname === item.href ||
+                (item.label === "Stores" && pathname === "/stores")
               
               return (
                 <Link
-                  key={link}
-                  href={`/${link.toLowerCase()}`}
+                  key={item.label}
+                  href={item.href}
                   className={`relative px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm rounded-full font-medium transition-all duration-300 ${
                     isActive
                       ? "bg-white/20 backdrop-blur-md border border-white/30 text-[oklch(0.21_0.194_29.234)] shadow-lg shadow-accent/10"
@@ -670,7 +679,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                       />
                     </>
                   )}
-                  <span className="relative z-10">{link.toUpperCase()}</span>
+                  <span className="relative z-10">{item.label.toUpperCase()}</span>
                   {!isActive && (
                     <span className="absolute bottom-1 left-0 w-0 h-0.5 bg-[oklch(0.21_0.194_29.234)] transition-all duration-300 group-hover:w-full"></span>
                   )}
@@ -1124,7 +1133,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
 
       {/* Background overlay */}
       <div
-        className={`fixed inset-0 bg-black/50 z-90 xl:hidden transition-opacity duration-200 ${
+        className={`fixed inset-0 bg-black/50 z-1001 xl:hidden transition-opacity duration-200 ${
           isMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
         onClick={() => setIsMenuOpen(false)}
@@ -1132,7 +1141,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
 
       {/* Drawer Panel */}
       <div
-        className={`fixed top-0 right-0 h-screen max-w-xs transform-gpu bg-linear-to-br from-gray-50 to-gray-100 shadow-xl z-100 flex flex-col overflow-hidden xl:hidden transition-transform duration-300 pointer-events-auto ${
+        className={`fixed top-0 right-0 h-screen max-w-xs transform-gpu bg-linear-to-br from-gray-50 to-gray-100 shadow-xl z-1002 flex flex-col overflow-hidden xl:hidden transition-transform duration-300 pointer-events-auto ${
           isMenuOpen ? "translate-x-0" : "translate-x-full"
         }`}
         style={{
@@ -1191,21 +1200,21 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                   </div>
                 </Link>
                 <Link
-                  href="/support"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="block w-full"
-                >
-                  <div className="bg-[oklch(0.21_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
-                    FAQS
-                  </div>
-                </Link>
-                <Link
                   href="/contact"
                   onClick={() => setIsMenuOpen(false)}
                   className="block w-full"
                 >
                   <div className="bg-[oklch(0.21_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
-                    Contact Us
+                    Help
+                  </div>
+                </Link>
+                <Link
+                  href="/bidding"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="block w-full"
+                >
+                  <div className="bg-[oklch(0.21_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
+                    Bidding
                   </div>
                 </Link>
 
@@ -1252,7 +1261,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
               )}
       </div>
     </header>
-    <div aria-hidden="true" style={{ height: headerHeight }} />
+    <div aria-hidden="true" style={{ height: headerHeight + contentTopGap }} />
     </>
   )
 }

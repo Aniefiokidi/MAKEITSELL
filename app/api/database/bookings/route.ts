@@ -4,6 +4,11 @@ import { AppointmentEmailService } from "@/lib/appointment-emails"
 import { getServiceById } from "@/lib/mongodb-operations"
 import { applyLocationPricing } from "@/lib/service-pricing"
 import { getIcsBusyRanges, hasBusyOverlap } from "@/lib/calendar-sync"
+import { connectToDatabase } from "@/lib/mongodb"
+import { User as UserModel } from "@/lib/models/User"
+import { WalletTransaction } from "@/lib/models/WalletTransaction"
+
+const BOOKING_FEE_NAIRA = 500
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,6 +40,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  let bookingFeeCharged = false
+  let bookingFeeReference = ''
+  let bookingFeeCustomerId = ''
+
   try {
     const toLocalDateKey = (value: Date) => {
       const year = value.getFullYear()
@@ -92,6 +101,8 @@ export async function POST(request: NextRequest) {
       serviceAddress: typeof service?.location === 'string' ? service.location : bookingData?.serviceAddress,
       cancellationPolicyPercent: Number((service as any)?.cancellationPolicyPercent || 30),
       cancellationWindowHours: Number((service as any)?.cancellationWindowHours || 24),
+      bookingFeeAmount: BOOKING_FEE_NAIRA,
+      bookingFeeStatus: 'pending',
       quoteExpiresAt: requiresQuote ? new Date(Date.now() + quoteSlaHours * 60 * 60 * 1000) : null,
     }
     
@@ -185,10 +196,60 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // 2. Create the booking (no conflicts found)
+    // 2. Charge booking fee before creating booking.
+    await connectToDatabase()
+    bookingFeeCustomerId = String(normalizedBookingData.customerId || '')
+    if (!bookingFeeCustomerId) {
+      return NextResponse.json(
+        { success: false, error: 'Missing customer account for booking fee charge' },
+        { status: 400 }
+      )
+    }
+
+    const chargeResult = await UserModel.updateOne(
+      { _id: bookingFeeCustomerId, walletBalance: { $gte: BOOKING_FEE_NAIRA } },
+      {
+        $inc: { walletBalance: -BOOKING_FEE_NAIRA },
+        $set: { updatedAt: new Date() },
+      }
+    )
+
+    if (chargeResult.modifiedCount === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Insufficient wallet balance. You need ₦${BOOKING_FEE_NAIRA.toLocaleString('en-NG')} to place a booking.`,
+        },
+        { status: 402 }
+      )
+    }
+
+    bookingFeeCharged = true
+    bookingFeeReference = `booking_fee_${bookingFeeCustomerId}_${Date.now()}`
+
+    await WalletTransaction.create({
+      userId: bookingFeeCustomerId,
+      type: 'purchase_debit',
+      amount: BOOKING_FEE_NAIRA,
+      status: 'completed',
+      reference: bookingFeeReference,
+      provider: 'internal_wallet',
+      note: 'Service booking fee',
+      metadata: {
+        serviceId: normalizedBookingData.serviceId,
+        providerId: normalizedBookingData.providerId,
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+
+    normalizedBookingData.bookingFeeStatus = 'charged'
+    normalizedBookingData.bookingFeeReference = bookingFeeReference
+
+    // 3. Create the booking (no conflicts found)
     const booking = await createBooking(normalizedBookingData)
     
-    // 3. Send email notifications
+    // 4. Send email notifications
     try {
       // Get provider email
       const provider = await getUserById(providerId)
@@ -226,10 +287,39 @@ export async function POST(request: NextRequest) {
       success: true,
       id: booking?.id,
       data: booking,
-      message: 'Booking created successfully and notifications sent'
+      message: `Booking created successfully. ₦${BOOKING_FEE_NAIRA.toLocaleString('en-NG')} booking fee charged.`
     }, { status: 201 })
   } catch (error: any) {
     console.error('Create booking error:', error)
+
+    if (bookingFeeCharged && bookingFeeCustomerId) {
+      try {
+        await connectToDatabase()
+        await UserModel.updateOne(
+          { _id: bookingFeeCustomerId },
+          {
+            $inc: { walletBalance: BOOKING_FEE_NAIRA },
+            $set: { updatedAt: new Date() },
+          }
+        )
+
+        if (bookingFeeReference) {
+          await WalletTransaction.updateOne(
+            { reference: bookingFeeReference },
+            {
+              $set: {
+                status: 'failed',
+                note: 'Service booking fee refunded due to booking failure',
+                updatedAt: new Date(),
+              },
+            }
+          )
+        }
+      } catch (rollbackError) {
+        console.error('Booking fee rollback failed:', rollbackError)
+      }
+    }
+
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to create booking' },
       { status: 500 }

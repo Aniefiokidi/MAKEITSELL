@@ -276,12 +276,17 @@ export default function VendorSetupWizardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           bankCode: settings.bankCode,
+          bankName: settings.bankName,
           accountNumber: settings.accountNumber,
         }),
       })
       const result = await response.json()
       if (!response.ok || !result.success || !result.accountName) {
-        throw new Error(result.error || "Account verification failed")
+        const rawError = String(result?.error || '')
+        const friendlyError = rawError.toLowerCase() === 'not found'
+          ? 'Unable to verify this account now. Please confirm bank and account number and try again.'
+          : rawError || 'Account verification failed'
+        throw new Error(friendlyError)
       }
 
       setSettings((prev) => ({

@@ -266,12 +266,12 @@ export default function VendorDashboardPage() {
 
             {setupPopupType === "missing-store-image" ? (
               <>
-                <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg" variant="default" onClick={() => setShowSetupPopup(false)}>
+                <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg border border-accent/40" variant="default" onClick={() => setShowSetupPopup(false)}>
                   <Link href="/vendor/setup-wizard">
                     Quick Store Setup
                   </Link>
                 </Button>
-                <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg" variant="outline" onClick={() => setShowSetupPopup(false)}>
+                <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg border-accent/40 text-accent hover:bg-accent hover:text-white" variant="outline" onClick={() => setShowSetupPopup(false)}>
                   <Link href="/vendor/products/new">
                     Add First Product
                   </Link>
@@ -279,7 +279,7 @@ export default function VendorDashboardPage() {
               </>
             ) : null}
 
-            <Button variant="ghost" className="w-full mt-1 text-xs" onClick={dismissSetupPopupForToday}>
+            <Button variant="ghost" className="w-full mt-1 text-xs border border-accent/20 hover:bg-accent/10" onClick={dismissSetupPopupForToday}>
               Don't remind me today
             </Button>
           </div>
@@ -291,7 +291,7 @@ export default function VendorDashboardPage() {
             <h1 className="text-lg font-bold" style={{ textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))' }}>Dashboard</h1>
             <p className="text-xs text-muted-foreground">Welcome back! Here's what's happening with your {vendorType === "services" ? "services" : "store"}.</p>
             <div className="mt-2">
-              <Button asChild size="sm" variant="outline">
+              <Button asChild size="sm" variant="outline" className="border-accent/40 text-accent hover:bg-accent hover:text-white">
                 <Link href={(vendorType === "services" || (vendorType === "both" && activeTab === "services")) ? "/vendor/services/setup-wizard" : "/vendor/setup-wizard"}>{(vendorType === "services" || (vendorType === "both" && activeTab === "services")) ? "Open Service Setup Wizard" : "Open Setup Wizard"}</Link>
               </Button>
             </div>
@@ -301,7 +301,7 @@ export default function VendorDashboardPage() {
             disabled={dataLoading}
             variant="outline"
             size="sm"
-            className="gap-2"
+            className="gap-2 border-accent/40 text-accent hover:bg-accent hover:text-white"
           >
             {dataLoading ? (
               <>
@@ -471,7 +471,7 @@ export default function VendorDashboardPage() {
                 <div className="text-center py-8">
                   <ShoppingCart className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                   <p className="text-gray-600 mb-4">No orders yet</p>
-                   <Button asChild variant="outline" className="hover:bg-accent hover:scale-105 transition-all hover:shadow-lg">
+                   <Button asChild variant="outline" className="border-accent/40 text-accent hover:bg-accent hover:text-white hover:scale-105 transition-all hover:shadow-lg">
                                 <Link href="/vendor/products/new">
                                   <Plus className="mr-2 h-4 w-4" />
                                   Add Product
@@ -531,7 +531,7 @@ export default function VendorDashboardPage() {
                       </div>
                     ))}
                   </div>
-                  <Button variant="outline" className="mt-4 w-full" asChild>
+                  <Button variant="outline" className="mt-4 w-full border-accent/40 text-accent hover:bg-accent hover:text-white" asChild>
                     <Link href="/vendor/orders">View All Orders</Link>
                   </Button>
                 </>
@@ -563,7 +563,7 @@ export default function VendorDashboardPage() {
                       </div>
                     ))}
                   </div>
-                  <Button variant="outline" className="mt-4 w-full" asChild>
+                  <Button variant="outline" className="mt-4 w-full border-accent/40 text-accent hover:bg-accent hover:text-white" asChild>
                     <Link href="/vendor/products">Manage Inventory</Link>
                   </Button>
                 </>
@@ -605,7 +605,7 @@ export default function VendorDashboardPage() {
               {(funnel?.hints || []).slice(0, 2).map((hint: string, idx: number) => (
                 <p key={idx} className="text-xs text-muted-foreground">• {hint}</p>
               ))}
-              <Button asChild size="sm" variant="outline" className="w-full mt-2">
+              <Button asChild size="sm" variant="outline" className="w-full mt-2 border-accent/40 text-accent hover:bg-accent hover:text-white">
                 <Link href="/vendor/conversion-funnel">Open Full Funnel</Link>
               </Button>
             </CardContent>
@@ -629,7 +629,7 @@ export default function VendorDashboardPage() {
                 <p className="font-medium">Under N5,000</p>
                 <p className="text-xs text-muted-foreground">{(collections?.under5000 || []).length} products</p>
               </div>
-              <Button asChild size="sm" variant="outline" className="w-full">
+              <Button asChild size="sm" variant="outline" className="w-full border-accent/40 text-accent hover:bg-accent hover:text-white">
                 <Link href="/vendor/products">View Products</Link>
               </Button>
             </CardContent>
@@ -704,7 +704,7 @@ export default function VendorDashboardPage() {
                 <div className="text-center py-8">
                   <Calendar className="h-10 w-10 lg:h-12 lg:w-12 text-muted-foreground mx-auto mb-3" />
                   <p className="text-sm lg:text-base text-gray-600 mb-4">No bookings yet</p>
-                  <Button asChild variant="outline" size="sm" className="text-xs lg:text-sm">
+                  <Button asChild variant="outline" size="sm" className="text-xs lg:text-sm border-accent/40 text-accent hover:bg-accent hover:text-white">
                     <Link href="/vendor/services/setup-wizard">
                       <Plus className="mr-2 h-3 w-3 lg:h-4 lg:w-4" />
                       Add Your First Service
@@ -738,7 +738,7 @@ export default function VendorDashboardPage() {
                       </div>
                     ))}
                   </div>
-                  <Button variant="outline" className="mt-4 w-full" asChild>
+                  <Button variant="outline" className="mt-4 w-full border-accent/40 text-accent hover:bg-accent hover:text-white" asChild>
                     <Link href="/vendor/bookings">View All Bookings</Link>
                   </Button>
                 </>
@@ -779,7 +779,7 @@ export default function VendorDashboardPage() {
                   <p className="text-2xl font-bold text-amber-600">{pending}</p>
                 </div>
 
-                <Button variant="outline" className="w-full" asChild>
+                <Button variant="outline" className="w-full border-accent/40 text-accent hover:bg-accent hover:text-white" asChild>
                   <Link href="/vendor/services">Manage Services</Link>
                 </Button>
               </div>
