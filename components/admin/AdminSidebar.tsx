@@ -88,6 +88,11 @@ const adminNavItems = [
     icon: Mail,
   },
   {
+    title: "Unverified Recovery",
+    href: "/admin/unverified-recovery",
+    icon: Mail,
+  },
+  {
     title: "Reports",
     href: "/admin/reports",
     icon: FileText,

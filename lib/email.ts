@@ -50,6 +50,11 @@ export type RegistrationIssueTemplateOverrides = {
 
 class EmailService {
   private transporter: nodemailer.Transporter
+  private lastDeliveryError: string | null = null
+
+  getLastDeliveryError(): string | null {
+    return this.lastDeliveryError
+  }
 
   private parseSimpleEnvFile(filePath: string): Record<string, string> {
     if (!fs.existsSync(filePath)) return {}
@@ -272,6 +277,7 @@ class EmailService {
   }
 
   async sendEmail(emailData: EmailData): Promise<boolean> {
+    this.lastDeliveryError = null
     console.log('[emailService.sendEmail] Attempting to send email to:', emailData.to)
     console.log('[emailService.sendEmail] Subject:', emailData.subject)
     console.log('[emailService.sendEmail] From address:', this.getFromAddress())
@@ -308,6 +314,7 @@ class EmailService {
         })
 
         if (accepted.length === 0 || rejected.length > 0) {
+          this.lastDeliveryError = `SMTP rejected recipient (${emailData.to}). Response: ${String((result as any)?.response || '')}`
           console.error('[emailService.sendEmail] Recipient rejected by SMTP provider:', {
             to: emailData.to,
             accepted,
@@ -330,6 +337,8 @@ class EmailService {
           const fallbackOk = await this.tryFallbackEnvFileSmtp(emailData)
           if (fallbackOk) return true
         }
+
+        this.lastDeliveryError = String((error as any)?.message || 'Email send failed')
 
         if (!retryable || attempt === maxAttempts) {
           return false

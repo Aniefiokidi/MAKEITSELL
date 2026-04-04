@@ -84,6 +84,11 @@ export default function LoginForm() {
 
       console.log('Login successful:', result)
 
+      if (result.userProfile?.mustChangePassword) {
+        router.push('/account/complete-setup')
+        return
+      }
+
       const redirectTo = searchParams.get("redirect")
 
       if (redirectTo) {
@@ -164,6 +169,7 @@ export default function LoginForm() {
                   <>
                     <div className="font-semibold mb-2">📧 Email Verification Required</div>
                     <div>{error}</div>
+                    <div className="mt-2 text-sm">We are sorry some OTP messages were delayed earlier. You can continue with SMS verification below.</div>
                   </>
                 ) : error}
                 {(isEmailVerificationError && !isLegacyUserError) && (

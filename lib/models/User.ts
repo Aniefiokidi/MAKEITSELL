@@ -35,6 +35,8 @@ const UserSchema = new Schema({
   verificationEmailNextRetryAt: { type: Date },
   verificationEmailLastAttemptAt: { type: Date },
   verificationEmailLastError: { type: String },
+  mustChangePassword: { type: Boolean, default: false },
+  temporaryPasswordIssuedAt: { type: Date },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });

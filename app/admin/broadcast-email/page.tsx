@@ -35,6 +35,7 @@ type SendResponse = {
   processed: number
   sent: number
   failed: number
+  failureHint?: string | null
   remainingFailed?: number
   totalMatching: number
   skip: number
@@ -1812,6 +1813,9 @@ export default function AdminBroadcastEmailPage() {
               </div>
               {!!result.failedEmails?.length && (
                 <div className="text-sm">Failed samples: {result.failedEmails.slice(0, 10).join(", ")}</div>
+              )}
+              {result.failureHint && (
+                <div className="text-sm mt-1">Last failure hint: {result.failureHint}</div>
               )}
             </AlertDescription>
           </Alert>

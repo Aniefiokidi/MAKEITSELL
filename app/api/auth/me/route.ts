@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
         email: user.email,
         displayName: user.name,
         role: user.role,
+        mustChangePassword: !!(user as any).mustChangePassword,
         phone: (user as any).phone,
         phoneNumber: (user as any).phone_number,
         phoneVerified: !!(user as any).phone_verified,

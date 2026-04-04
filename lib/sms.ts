@@ -132,3 +132,18 @@ export async function sendBookingConfirmationSms({
     sms: `Booking confirmed for ${serviceTitle} on ${dateText} at ${startTime}.`,
   })
 }
+
+export async function sendCustomSms({
+  phoneNumber,
+  message,
+}: {
+  phoneNumber: string
+  message: string
+}): Promise<SmsSendResult> {
+  const sender = String(process.env.TERMII_SENDER || 'MakeItSell').trim()
+  return await sendTermiiSms({
+    to: phoneNumber,
+    sender,
+    sms: String(message || '').trim(),
+  })
+}

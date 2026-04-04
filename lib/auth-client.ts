@@ -20,6 +20,7 @@ export interface UserProfile {
   }
   vendorType?: "goods" | "services" | "both"
   walletBalance?: number
+  mustChangePassword?: boolean
   createdAt: Date
   updatedAt: Date
 }
@@ -80,6 +81,7 @@ export const signUp = async (
           postalCode: result.user.postalCode,
           vendorType: result.user.role === 'vendor' ? getSafeVendorType(result.user.vendorType) || getSafeVendorType(vendorType) : undefined,
           walletBalance: typeof result.user.walletBalance === 'number' ? result.user.walletBalance : 0,
+          mustChangePassword: !!result.user.mustChangePassword,
           createdAt: new Date(),
           updatedAt: new Date()
         }

@@ -394,6 +394,7 @@ export async function POST(request: NextRequest) {
       nextSkip: skip + users.length,
       remainingFailed: mergedFailed.length,
       failedEmails: failedEmails.slice(0, 50),
+      failureHint: failed > 0 ? emailService.getLastDeliveryError() : null,
       message: 'Broadcast run completed',
     })
   } catch (error: any) {
