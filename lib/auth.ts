@@ -58,6 +58,20 @@ export async function signUp({ email, password, name, role, vendorInfo, phone }:
     console.log(`[auth.signUp] Verification email sent to: ${user.email}`);
   } catch (emailError) {
     console.error('[auth.signUp] Failed to send verification email:', emailError);
+    const retryDelayMs = Number(process.env.VERIFICATION_RETRY_INITIAL_DELAY_MS || 2 * 60 * 1000);
+    await User.updateOne(
+      { _id: user._id },
+      {
+        $set: {
+          verificationEmailRetryPending: true,
+          verificationEmailRetryCount: 0,
+          verificationEmailNextRetryAt: new Date(Date.now() + retryDelayMs),
+          verificationEmailLastAttemptAt: new Date(),
+          verificationEmailLastError: String((emailError as any)?.message || emailError || 'Unknown email send failure'),
+          updatedAt: new Date(),
+        }
+      }
+    );
     throw new Error('VERIFICATION_EMAIL_SEND_FAILED');
   }
 

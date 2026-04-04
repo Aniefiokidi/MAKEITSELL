@@ -30,6 +30,11 @@ const UserSchema = new Schema({
   isEmailVerified: { type: Boolean, default: false },
   emailVerificationToken: { type: String },
   emailVerificationTokenExpiry: { type: Date },
+  verificationEmailRetryPending: { type: Boolean, default: false },
+  verificationEmailRetryCount: { type: Number, default: 0 },
+  verificationEmailNextRetryAt: { type: Date },
+  verificationEmailLastAttemptAt: { type: Date },
+  verificationEmailLastError: { type: String },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });

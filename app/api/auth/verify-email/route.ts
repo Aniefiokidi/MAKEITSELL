@@ -22,6 +22,10 @@ async function finalizeVerifiedUser(user: any) {
   user.isEmailVerified = true
   user.emailVerificationToken = undefined
   user.emailVerificationTokenExpiry = undefined
+  user.verificationEmailRetryPending = false
+  user.verificationEmailRetryCount = 0
+  user.verificationEmailNextRetryAt = undefined
+  user.verificationEmailLastError = undefined
   user.updatedAt = new Date()
 
   const crypto = require('crypto')
@@ -178,6 +182,7 @@ export async function POST(request: NextRequest) {
 
     user.emailVerificationToken = verificationCode
     user.emailVerificationTokenExpiry = tokenExpiry
+    user.verificationEmailLastAttemptAt = new Date()
     user.updatedAt = new Date()
     await user.save()
 
@@ -194,6 +199,14 @@ export async function POST(request: NextRequest) {
         error: 'Could not send verification email right now. Please try again in a minute.'
       }, { status: 502 })
     }
+
+    user.verificationEmailRetryPending = false
+    user.verificationEmailRetryCount = 0
+    user.verificationEmailNextRetryAt = undefined
+    user.verificationEmailLastError = undefined
+    user.verificationEmailLastAttemptAt = new Date()
+    user.updatedAt = new Date()
+    await user.save()
 
     console.log(`[verify-email] Verification code resent to: ${user.email}`)
     return NextResponse.json({
