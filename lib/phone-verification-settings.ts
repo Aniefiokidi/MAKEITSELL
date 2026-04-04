@@ -19,7 +19,7 @@ function normalizeEmail(input: unknown): string {
 }
 
 export function sanitizePhoneVerificationSettings(input: any): PhoneVerificationSettings {
-  const enabled = !!input?.enabled
+  const enabled = input?.enabled === undefined ? true : !!input?.enabled
   const rawEmails: unknown[] = Array.isArray(input?.allowedEmails) ? input.allowedEmails : []
   const normalizedEmails = rawEmails
     .map((email: unknown) => normalizeEmail(email))
@@ -44,5 +44,7 @@ export async function isPhoneVerificationEnabledForEmail(email: string): Promise
   }
 
   const settings = await getPhoneVerificationSettings()
-  return settings.enabled && settings.allowedEmails.includes(normalizedEmail)
+  if (!settings.enabled) return false
+  // Global rollout: when enabled, all authenticated users can verify phone.
+  return true
 }

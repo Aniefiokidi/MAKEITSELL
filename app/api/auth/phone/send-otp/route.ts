@@ -3,85 +3,14 @@ import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { enforceRateLimit } from '@/lib/rate-limit'
-import { isPhoneVerificationEnabledForEmail } from '@/lib/phone-verification-settings'
+import { normalizeNigerianPhone, sendOtpSms } from '@/lib/sms'
 
 const RESEND_COOLDOWN_SECONDS = 60
 const OTP_EXPIRY_MINUTES = 5
 const ATTEMPT_RESET_HOURS = 4
 
-type SmsSendResult = {
-  ok: boolean
-  errorMessage?: string
-  payload?: any
-}
-
 function generateOtpCode(): string {
   return String(Math.floor(100000 + Math.random() * 900000))
-}
-
-function normalizeNigerianPhone(input: string): string | null {
-  const raw = String(input || '').trim()
-  if (!raw) return null
-
-  const digits = raw.replace(/\D/g, '')
-
-  if (digits.startsWith('0') && digits.length === 11) {
-    return `+234${digits.slice(1)}`
-  }
-
-  if (digits.startsWith('234') && digits.length === 13) {
-    return `+${digits}`
-  }
-
-  if (raw.startsWith('+234') && digits.length === 13) {
-    return `+${digits}`
-  }
-
-  return null
-}
-
-async function sendTermiiOtpSms({
-  baseUrl,
-  apiKey,
-  to,
-  sender,
-  otpCode,
-}: {
-  baseUrl: string
-  apiKey: string
-  to: string
-  sender: string
-  otpCode: string
-}): Promise<SmsSendResult> {
-  try {
-    const response = await fetch(`${baseUrl}/api/sms/send`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to,
-        from: sender,
-        sms: `Your Make It Sell OTP is ${otpCode}`,
-        type: 'plain',
-        channel: 'generic',
-        api_key: apiKey,
-      }),
-    })
-
-    const payload = await response.json().catch(() => ({}))
-    const apiAccepted = payload?.status === 'success' || payload?.status === true || payload?.code === 'ok'
-
-    if (!response.ok || !apiAccepted) {
-      return {
-        ok: false,
-        payload,
-        errorMessage: String(payload?.message || payload?.error || `HTTP ${response.status}`),
-      }
-    }
-
-    return { ok: true, payload }
-  } catch (error: any) {
-    return { ok: false, errorMessage: error?.message || 'SMS send request failed' }
-  }
 }
 
 export async function POST(request: NextRequest) {
@@ -100,21 +29,17 @@ export async function POST(request: NextRequest) {
 
     await connectToDatabase()
 
-    const enabledForUser = await isPhoneVerificationEnabledForEmail(sessionUser.email)
-    if (!enabledForUser) {
-      return NextResponse.json({ success: false, error: 'Phone verification is not enabled for this account yet.' }, { status: 403 })
-    }
-
     const body = await request.json()
-    const normalizedPhone = normalizeNigerianPhone(body?.phoneNumber)
-
-    if (!normalizedPhone) {
-      return NextResponse.json({ success: false, error: 'Enter a valid Nigerian phone number.' }, { status: 400 })
-    }
-
     const user = await User.findById(sessionUser.id)
     if (!user) {
       return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
+    }
+
+    const phoneInput = body?.phoneNumber || (user as any)?.phone_number || (user as any)?.phone
+    const normalizedPhone = normalizeNigerianPhone(phoneInput)
+
+    if (!normalizedPhone) {
+      return NextResponse.json({ success: false, error: 'Enter a valid Nigerian phone number.' }, { status: 400 })
     }
 
     const now = new Date()
@@ -150,39 +75,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const termiiApiKey = String(process.env.TERMII_API_KEY || '').trim()
-    const termiiBaseUrl = String(process.env.TERMII_BASE_URL || 'https://api.ng.termii.com').replace(/\/$/, '')
-    const termiiFrom = String(process.env.TERMII_SENDER || 'MakeItSell').trim()
-    const termiiFallbackSender = String(process.env.TERMII_SENDER_FALLBACK || 'N-Alert').trim()
-
-    if (!termiiApiKey) {
-      return NextResponse.json(
-        { success: false, error: 'TERMII_API_KEY is not configured on the server.' },
-        { status: 500 }
-      )
-    }
-
     const otpCode = generateOtpCode()
-
-    let smsResult = await sendTermiiOtpSms({
-      baseUrl: termiiBaseUrl,
-      apiKey: termiiApiKey,
-      to: normalizedPhone,
-      sender: termiiFrom,
-      otpCode,
-    })
-
-    const senderNotConfigured = String(smsResult.errorMessage || '').toLowerCase().includes('applicationsenderid not found')
-
-    if (!smsResult.ok && senderNotConfigured && termiiFallbackSender && termiiFallbackSender !== termiiFrom) {
-      smsResult = await sendTermiiOtpSms({
-        baseUrl: termiiBaseUrl,
-        apiKey: termiiApiKey,
-        to: normalizedPhone,
-        sender: termiiFallbackSender,
-        otpCode,
-      })
-    }
+    const smsResult = await sendOtpSms(normalizedPhone, otpCode)
 
     if (!smsResult.ok) {
       const rawMessage = String(smsResult.errorMessage || '')

@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     })
     if (rateLimitResponse) return rateLimitResponse
 
-    const { email, password, name, role, vendorType, phone } = await request.json()
+    const { email, password, name, role, vendorType, phone, verificationChannel } = await request.json()
 
     const isValidVendorType = vendorType === "goods" || vendorType === "services" || vendorType === "both"
     if (role === "vendor" && !isValidVendorType) {
@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
       password,
       name,
       phone,
+      verificationChannel,
       role: role === "admin" ? "customer" : role,
       vendorInfo
     })
@@ -64,6 +65,22 @@ export async function POST(request: NextRequest) {
         error: 'We created your account, but we could not deliver your verification code right now. Please try again from the verification page.',
         code: 'VERIFICATION_EMAIL_SEND_FAILED'
       }, { status: 502 })
+    }
+
+    if (error?.message === 'VERIFICATION_SMS_SEND_FAILED') {
+      return NextResponse.json({
+        success: false,
+        error: 'We created your account, but we could not deliver OTP SMS right now. Please switch to email verification on the verification page.',
+        code: 'VERIFICATION_SMS_SEND_FAILED'
+      }, { status: 502 })
+    }
+
+    if (error?.message === 'VERIFICATION_SMS_PHONE_REQUIRED') {
+      return NextResponse.json({
+        success: false,
+        error: 'A valid Nigerian phone number is required for SMS verification.',
+        code: 'VERIFICATION_SMS_PHONE_REQUIRED'
+      }, { status: 400 })
     }
 
     return NextResponse.json({

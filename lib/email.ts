@@ -1,4 +1,6 @@
 import nodemailer from 'nodemailer'
+import fs from 'fs'
+import path from 'path'
 
 interface EmailData {
   to: string
@@ -48,6 +50,113 @@ export type RegistrationIssueTemplateOverrides = {
 
 class EmailService {
   private transporter: nodemailer.Transporter
+
+  private parseSimpleEnvFile(filePath: string): Record<string, string> {
+    if (!fs.existsSync(filePath)) return {}
+
+    const content = fs.readFileSync(filePath, 'utf8')
+    const env: Record<string, string> = {}
+
+    for (const line of content.split(/\r?\n/)) {
+      const trimmed = line.trim()
+      if (!trimmed || trimmed.startsWith('#')) continue
+
+      const eqIndex = trimmed.indexOf('=')
+      if (eqIndex <= 0) continue
+
+      const key = trimmed.slice(0, eqIndex).trim()
+      let value = trimmed.slice(eqIndex + 1).trim()
+
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
+        value = value.slice(1, -1)
+      }
+
+      env[key] = value
+    }
+
+    return env
+  }
+
+  private async tryFallbackEnvFileSmtp(emailData: EmailData): Promise<boolean> {
+    try {
+      const root = process.cwd()
+      const envFromFile = {
+        ...this.parseSimpleEnvFile(path.join(root, '.env')),
+        ...this.parseSimpleEnvFile(path.join(root, '.env.local')),
+      }
+
+      const host = envFromFile.EMAIL_HOST || envFromFile.SMTP_HOST
+      const user = envFromFile.EMAIL_USER || envFromFile.SMTP_USER
+      const pass = envFromFile.EMAIL_PASS || envFromFile.SMTP_PASS
+
+      if (!host || !user || !pass) {
+        return false
+      }
+
+      const configuredPort = Number(envFromFile.EMAIL_PORT || envFromFile.SMTP_PORT || '587')
+      const configuredSecure =
+        String(envFromFile.SMTP_SECURE || '').toLowerCase() === 'true' || configuredPort === 465
+
+      const from =
+        envFromFile.EMAIL_FROM ||
+        `"${envFromFile.SMTP_FROM_NAME || 'Make It Sell'}" <${envFromFile.SMTP_FROM_EMAIL || user}>`
+
+      const configs = [
+        { port: configuredPort, secure: configuredSecure },
+        { port: 587, secure: false },
+        { port: 465, secure: true },
+      ]
+
+      for (const cfg of configs) {
+        try {
+          const transporter = nodemailer.createTransport({
+            host,
+            port: cfg.port,
+            secure: cfg.secure,
+            auth: { user, pass },
+            tls: { rejectUnauthorized: false },
+            connectionTimeout: 60000,
+            greetingTimeout: 30000,
+            socketTimeout: 60000,
+          })
+
+          await transporter.verify()
+
+          const result = await transporter.sendMail({
+            from,
+            to: emailData.to,
+            subject: emailData.subject,
+            html: emailData.html,
+            text: emailData.text || this.htmlToText(emailData.html),
+            replyTo: emailData.replyTo || envFromFile.EMAIL_REPLY_TO || envFromFile.SUPPORT_EMAIL,
+            headers: {
+              'X-Auto-Response-Suppress': 'OOF, AutoReply',
+              'Auto-Submitted': 'auto-generated',
+              ...(emailData.headers || {}),
+            },
+            attachments: emailData.attachments,
+          })
+
+          const accepted = Array.isArray((result as any)?.accepted) ? (result as any).accepted : []
+          const rejected = Array.isArray((result as any)?.rejected) ? (result as any).rejected : []
+          if (accepted.length > 0 && rejected.length === 0) {
+            console.log('[emailService.sendEmail] Fallback SMTP auth succeeded via env file')
+            return true
+          }
+        } catch (fallbackError) {
+          console.error('[emailService.sendEmail] Fallback SMTP attempt failed:', fallbackError)
+        }
+      }
+
+      return false
+    } catch (error) {
+      console.error('[emailService.sendEmail] Fallback SMTP path errored:', error)
+      return false
+    }
+  }
 
   constructor() {
     // Prefer Mailtrap in local development only when fully configured.
@@ -213,8 +322,14 @@ class EmailService {
         return true
       } catch (error) {
         const retryable = this.isRetryableEmailError(error)
+        const code = String((error as any)?.code || '').toUpperCase()
         console.error(`[emailService.sendEmail] Attempt ${attempt}/${maxAttempts} failed for:`, emailData.to)
         console.error('[emailService.sendEmail] Error details:', error)
+
+        if (code === 'EAUTH') {
+          const fallbackOk = await this.tryFallbackEnvFileSmtp(emailData)
+          if (fallbackOk) return true
+        }
 
         if (!retryable || attempt === maxAttempts) {
           return false

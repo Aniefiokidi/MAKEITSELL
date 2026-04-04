@@ -3,7 +3,6 @@ import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { enforceRateLimit } from '@/lib/rate-limit'
-import { isPhoneVerificationEnabledForEmail } from '@/lib/phone-verification-settings'
 
 const ATTEMPT_RESET_HOURS = 4
 
@@ -43,11 +42,6 @@ export async function POST(request: NextRequest) {
     }
 
     await connectToDatabase()
-
-    const enabledForUser = await isPhoneVerificationEnabledForEmail(sessionUser.email)
-    if (!enabledForUser) {
-      return NextResponse.json({ success: false, error: 'Phone verification is not enabled for this account yet.' }, { status: 403 })
-    }
 
     const body = await request.json()
     const otpCode = String(body?.otp || '').trim()

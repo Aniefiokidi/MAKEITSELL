@@ -7,6 +7,7 @@ import { getIcsBusyRanges, hasBusyOverlap } from "@/lib/calendar-sync"
 import { connectToDatabase } from "@/lib/mongodb"
 import { User as UserModel } from "@/lib/models/User"
 import { WalletTransaction } from "@/lib/models/WalletTransaction"
+import { normalizeNigerianPhone, sendBookingConfirmationSms } from "@/lib/sms"
 
 const BOOKING_FEE_NAIRA = 500
 
@@ -275,6 +276,26 @@ export async function POST(request: NextRequest) {
           notes: normalizedBookingData.notes
         })
         console.log('✅ Booking confirmation emails sent successfully')
+
+        const customerPhone = normalizeNigerianPhone(normalizedBookingData.customerPhone || '')
+        if (customerPhone) {
+          await sendBookingConfirmationSms({
+            phoneNumber: customerPhone,
+            serviceTitle: normalizedBookingData.serviceTitle,
+            bookingDate: new Date(normalizedBookingData.bookingDate),
+            startTime: normalizedBookingData.startTime,
+          })
+        }
+
+        const providerPhone = normalizeNigerianPhone((provider as any)?.phone_number || (provider as any)?.phone || '')
+        if (providerPhone) {
+          await sendBookingConfirmationSms({
+            phoneNumber: providerPhone,
+            serviceTitle: normalizedBookingData.serviceTitle,
+            bookingDate: new Date(normalizedBookingData.bookingDate),
+            startTime: normalizedBookingData.startTime,
+          })
+        }
       } else {
         console.warn('⚠️ Provider email not found, skipping email notifications')
       }

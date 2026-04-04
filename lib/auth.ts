@@ -3,8 +3,9 @@ import { connectToDatabase } from './mongodb';
 import crypto from 'crypto';
 import { User } from './models/User';
 import { hashPassword, needsPasswordRehash, verifyPassword } from './password';
+import { normalizeNigerianPhone, sendOtpSms } from './sms';
 
-export async function signUp({ email, password, name, role, vendorInfo, phone }: { email: string, password: string, name: string, role?: string, vendorInfo?: any, phone?: string }) {
+export async function signUp({ email, password, name, role, vendorInfo, phone, verificationChannel }: { email: string, password: string, name: string, role?: string, vendorInfo?: any, phone?: string, verificationChannel?: 'email' | 'sms' }) {
   await connectToDatabase();
   const normalizedEmail = String(email || '').trim().toLowerCase();
   const existing = await User.findOne({ email: normalizedEmail });
@@ -12,6 +13,8 @@ export async function signUp({ email, password, name, role, vendorInfo, phone }:
   
   const passwordHash = hashPassword(password);
   const sessionToken = crypto.randomBytes(32).toString('hex');
+  const selectedVerificationChannel = verificationChannel === 'sms' ? 'sms' : 'email'
+  const normalizedPhone = phone ? normalizeNigerianPhone(phone) : null
   
   // Generate a 6-digit verification OTP code valid for 10 minutes.
   const emailVerificationToken = String(Math.floor(100000 + Math.random() * 900000));
@@ -22,7 +25,7 @@ export async function signUp({ email, password, name, role, vendorInfo, phone }:
     passwordHash,
     name,
     phone,
-    phone_number: phone,
+    phone_number: normalizedPhone || phone,
     phone_verified: false,
     role: role || 'customer',
     walletBalance: 0,
@@ -35,28 +38,50 @@ export async function signUp({ email, password, name, role, vendorInfo, phone }:
 
   // Send verification email
   try {
-    const { emailService } = require('./email');
-    let sent = await emailService.sendEmailVerification({
-      email: user.email,
-      name: user.name || 'User',
-      verificationCode: emailVerificationToken
-    });
+    if (selectedVerificationChannel === 'sms') {
+      if (!normalizedPhone) {
+        throw new Error('VERIFICATION_SMS_PHONE_REQUIRED')
+      }
 
-    // One extra explicit retry path to avoid edge-case delivery misses.
-    if (!sent) {
-      sent = await emailService.sendEmailVerification({
+      const smsResult = await sendOtpSms(normalizedPhone, emailVerificationToken)
+      if (!smsResult.ok) {
+        throw new Error('VERIFICATION_SMS_SEND_FAILED')
+      }
+      ;(user as any).otp_code = emailVerificationToken
+      ;(user as any).otp_expiry = emailVerificationTokenExpiry
+      ;(user as any).otp_last_sent_at = new Date()
+      ;(user as any).updatedAt = new Date()
+      await user.save()
+      console.log(`[auth.signUp] Verification SMS sent to: ${normalizedPhone}`)
+    } else {
+      const { emailService } = require('./email');
+      let sent = await emailService.sendEmailVerification({
         email: user.email,
         name: user.name || 'User',
         verificationCode: emailVerificationToken
       });
-    }
 
-    if (!sent) {
-      throw new Error('VERIFICATION_EMAIL_SEND_FAILED');
-    }
+      // One extra explicit retry path to avoid edge-case delivery misses.
+      if (!sent) {
+        sent = await emailService.sendEmailVerification({
+          email: user.email,
+          name: user.name || 'User',
+          verificationCode: emailVerificationToken
+        });
+      }
 
-    console.log(`[auth.signUp] Verification email sent to: ${user.email}`);
+      if (!sent) {
+        throw new Error('VERIFICATION_EMAIL_SEND_FAILED');
+      }
+
+      console.log(`[auth.signUp] Verification email sent to: ${user.email}`);
+    }
   } catch (emailError) {
+    const errorMessage = String((emailError as any)?.message || emailError || '')
+    if (errorMessage === 'VERIFICATION_SMS_SEND_FAILED' || errorMessage === 'VERIFICATION_SMS_PHONE_REQUIRED') {
+      throw new Error(errorMessage)
+    }
+
     console.error('[auth.signUp] Failed to send verification email:', emailError);
     const retryDelayMs = Number(process.env.VERIFICATION_RETRY_INITIAL_DELAY_MS || 2 * 60 * 1000);
     await User.updateOne(

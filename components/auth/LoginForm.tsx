@@ -58,6 +58,20 @@ export default function LoginForm() {
     }
   }
 
+  const goToPhoneVerification = () => {
+    if (!email) {
+      alert("Please enter your email address first")
+      return
+    }
+
+    const params = new URLSearchParams({
+      email,
+      channel: "sms",
+      delivery: "failed",
+    })
+    router.push(`/verify-email?${params.toString()}`)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -153,7 +167,7 @@ export default function LoginForm() {
                   </>
                 ) : error}
                 {(isEmailVerificationError && !isLegacyUserError) && (
-                  <div className="mt-2">
+                  <div className="mt-2 space-y-2">
                     <Button
                       onClick={resendVerificationEmail}
                       disabled={resendLoading}
@@ -163,6 +177,28 @@ export default function LoginForm() {
                     >
                       {resendLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       {resendLoading ? "Sending..." : "Resend Verification Code"}
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={goToPhoneVerification}
+                      variant="secondary"
+                      size="sm"
+                      className="w-full"
+                    >
+                      Verify With Phone (SMS OTP)
+                    </Button>
+                  </div>
+                )}
+                {isLegacyUserError && (
+                  <div className="mt-2">
+                    <Button
+                      type="button"
+                      onClick={goToPhoneVerification}
+                      variant="secondary"
+                      size="sm"
+                      className="w-full"
+                    >
+                      Verify With Phone (SMS OTP)
                     </Button>
                   </div>
                 )}

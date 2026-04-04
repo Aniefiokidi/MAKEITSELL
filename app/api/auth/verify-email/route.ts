@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 import { emailService } from '@/lib/email'
+import { normalizeNigerianPhone, sendOtpSms } from '@/lib/sms'
 
 function generateVerificationCode(): string {
   return String(Math.floor(100000 + Math.random() * 900000))
@@ -103,7 +104,7 @@ export async function GET(request: NextRequest) {
 // Verify OTP code
 export async function PUT(request: NextRequest) {
   try {
-    const { email, code } = await request.json()
+    const { email, code, channel, phoneNumber } = await request.json()
 
     if (!email || !code) {
       return NextResponse.json({
@@ -114,6 +115,7 @@ export async function PUT(request: NextRequest) {
 
     const normalizedEmail = String(email).trim().toLowerCase()
     const normalizedCode = String(code).trim()
+    const normalizedChannel = String(channel || 'email').trim().toLowerCase()
 
     if (!/^\d{6}$/.test(normalizedCode)) {
       return NextResponse.json({
@@ -124,17 +126,36 @@ export async function PUT(request: NextRequest) {
 
     await connectToDatabase()
 
-    const user = await User.findOne({
-      email: normalizedEmail,
-      emailVerificationToken: normalizedCode,
-      emailVerificationTokenExpiry: { $gt: new Date() }
-    })
+    const user = normalizedChannel === 'phone'
+      ? await User.findOne({
+          email: normalizedEmail,
+          otp_code: normalizedCode,
+          otp_expiry: { $gt: new Date() }
+        })
+      : await User.findOne({
+          email: normalizedEmail,
+          emailVerificationToken: normalizedCode,
+          emailVerificationTokenExpiry: { $gt: new Date() }
+        })
 
     if (!user) {
       return NextResponse.json({
         success: false,
         error: 'Invalid or expired verification code'
       }, { status: 400 })
+    }
+
+    if (normalizedChannel === 'phone') {
+      const normalizedPhone = phoneNumber ? normalizeNigerianPhone(phoneNumber) : null
+      if (phoneNumber && !normalizedPhone) {
+        return NextResponse.json({ success: false, error: 'Enter a valid Nigerian phone number' }, { status: 400 })
+      }
+
+      ;(user as any).phone_verified = true
+      ;(user as any).phone_number = normalizedPhone || (user as any).phone_number
+      ;(user as any).otp_code = undefined
+      ;(user as any).otp_expiry = undefined
+      ;(user as any).otp_last_sent_at = undefined
     }
 
     return await finalizeVerifiedUser(user)
@@ -150,7 +171,7 @@ export async function PUT(request: NextRequest) {
 // Resend verification email
 export async function POST(request: NextRequest) {
   try {
-    const { email } = await request.json()
+    const { email, channel, phoneNumber } = await request.json()
 
     if (!email) {
       return NextResponse.json({
@@ -179,6 +200,28 @@ export async function POST(request: NextRequest) {
 
     const verificationCode = generateVerificationCode()
     const tokenExpiry = new Date(Date.now() + 10 * 60 * 1000)
+    const normalizedChannel = String(channel || 'email').trim().toLowerCase()
+
+    if (normalizedChannel === 'phone') {
+      const normalizedPhone = normalizeNigerianPhone(phoneNumber || (user as any).phone_number || (user as any).phone || '')
+      if (!normalizedPhone) {
+        return NextResponse.json({ success: false, error: 'A valid Nigerian phone number is required for SMS OTP.' }, { status: 400 })
+      }
+
+      ;(user as any).phone_number = normalizedPhone
+      ;(user as any).otp_code = verificationCode
+      ;(user as any).otp_expiry = tokenExpiry
+      ;(user as any).otp_last_sent_at = new Date()
+      user.updatedAt = new Date()
+      await user.save()
+
+      const smsResult = await sendOtpSms(normalizedPhone, verificationCode)
+      if (!smsResult.ok) {
+        return NextResponse.json({ success: false, error: smsResult.errorMessage || 'Could not send OTP SMS right now.' }, { status: 502 })
+      }
+
+      return NextResponse.json({ success: true, message: 'OTP sent by SMS successfully' })
+    }
 
     user.emailVerificationToken = verificationCode
     user.emailVerificationTokenExpiry = tokenExpiry

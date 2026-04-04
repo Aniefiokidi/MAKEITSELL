@@ -38,7 +38,8 @@ export const signUp = async (
   displayName: string,
   role: "customer" | "vendor" | "admin" = "customer",
   vendorType?: "goods" | "services" | "both",
-  phone?: string
+  phone?: string,
+  verificationChannel: "email" | "sms" = "email"
 ) => {
   try {
     const response = await fetch('/api/auth/signup', {
@@ -50,6 +51,7 @@ export const signUp = async (
         password,
         name: displayName,
         phone,
+        verificationChannel,
         role: role === "admin" ? "customer" : role,
         vendorType
       }),
@@ -138,6 +140,9 @@ export const signIn = async (email: string, password: string) => {
       throw new Error(result.error || 'Authentication failed');
     }
   } catch (error: any) {
+    if (error instanceof Error) {
+      throw error
+    }
     throw new Error('Sign in failed. Please check your credentials and try again.');
   }
 };

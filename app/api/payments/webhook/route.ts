@@ -7,6 +7,7 @@ import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { User } from '@/lib/models/User'
 import { connectToDatabase } from '@/lib/mongodb'
 import mongoose from 'mongoose'
+import { normalizeNigerianPhone, sendOrderConfirmationSms } from '@/lib/sms'
 
 const pickFirstString = (source: any, keys: string[]) => {
   for (const key of keys) {
@@ -435,6 +436,24 @@ async function handleSuccessfulPayment(data: any) {
           items: vendor.items,
           total: vendor.total,
           shippingAddress: order.shippingInfo
+        })
+
+        const vendorPhone = normalizeNigerianPhone(vendor?.vendorPhone || vendor?.phone || vendor?.storePhone || '')
+        if (vendorPhone) {
+          await sendOrderConfirmationSms({
+            phoneNumber: vendorPhone,
+            orderId,
+            amount: Number(vendor?.total || order.totalAmount || 0),
+          })
+        }
+      }
+
+      const customerPhone = normalizeNigerianPhone(order.shippingInfo?.phone || '')
+      if (customerPhone) {
+        await sendOrderConfirmationSms({
+          phoneNumber: customerPhone,
+          orderId,
+          amount: Number(order.totalAmount || 0),
         })
       }
     }

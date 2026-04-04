@@ -28,6 +28,7 @@ export default function SignupForm() {
   const [formData, setFormData] = useState<{
     email: string
     customerPhone: string
+    verificationMethod: "email" | "sms"
     password: string
     confirmPassword: string
     displayName: string
@@ -43,6 +44,7 @@ export default function SignupForm() {
   }>({
     email: "",
     customerPhone: "",
+    verificationMethod: "email",
     password: "",
     confirmPassword: "",
     displayName: "",
@@ -110,6 +112,13 @@ export default function SignupForm() {
       return
     }
 
+    const verificationPhone = (formData.customerPhone || formData.storePhone || "").trim()
+    if (formData.verificationMethod === "sms" && !verificationPhone) {
+      setError("Phone number is required for SMS verification")
+      setLoading(false)
+      return
+    }
+
     // Additional validation for vendors
     if (formData.role === "vendor") {
       if (!formData.vendorType) {
@@ -171,8 +180,9 @@ export default function SignupForm() {
           formData.password,
           formData.displayName,
           "vendor",
-          undefined,
-          formData.vendorType as "goods" | "services" | "both"
+          verificationPhone || undefined,
+          formData.vendorType as "goods" | "services" | "both",
+          formData.verificationMethod
         )
 
         const vendorId = result?.user?.uid
@@ -219,7 +229,7 @@ export default function SignupForm() {
         }
 
         console.log("Step 3: Redirecting to OTP verification...")
-        router.push(`/verify-email?email=${encodeURIComponent(formData.email)}`)
+        router.push(`/verify-email?email=${encodeURIComponent(formData.email)}&channel=${formData.verificationMethod}&phone=${encodeURIComponent(verificationPhone)}`)
         return
       }
 
@@ -231,12 +241,14 @@ export default function SignupForm() {
           formData.password,
           formData.displayName,
           formData.role === "admin" ? "customer" : formData.role,
-          formData.customerPhone
+          verificationPhone,
+          undefined,
+          formData.verificationMethod
         )
         console.log("Step 1: Customer/admin account created successfully")
         
         console.log("Step 2: Redirecting to OTP verification...")
-        router.push(`/verify-email?email=${encodeURIComponent(formData.email)}`)
+        router.push(`/verify-email?email=${encodeURIComponent(formData.email)}&channel=${formData.verificationMethod}&phone=${encodeURIComponent(verificationPhone)}`)
         return
       }
 
@@ -246,8 +258,9 @@ export default function SignupForm() {
     } catch (error: any) {
       console.error("=== SIGNUP FORM ERROR ===", error)
       const errorMessage = String(error?.message || "")
-      if (errorMessage.includes('VERIFICATION_EMAIL_SEND_FAILED')) {
-        router.push(`/verify-email?email=${encodeURIComponent(formData.email)}&delivery=failed`)
+      if (errorMessage.includes('VERIFICATION_EMAIL_SEND_FAILED') || errorMessage.includes('VERIFICATION_SMS_SEND_FAILED')) {
+        const verificationPhone = (formData.customerPhone || formData.storePhone || "").trim()
+        router.push(`/verify-email?email=${encodeURIComponent(formData.email)}&delivery=failed&channel=${formData.verificationMethod}&phone=${encodeURIComponent(verificationPhone)}`)
         return
       }
 
@@ -302,6 +315,22 @@ export default function SignupForm() {
               required
               disabled={loading}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="verificationMethod">Verification Method</Label>
+            <Select
+              value={formData.verificationMethod}
+              onValueChange={(value: "email" | "sms") => handleInputChange("verificationMethod", value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select OTP method" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="email">Email OTP</SelectItem>
+                <SelectItem value="sms">SMS OTP</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {(formData.role === "customer" || formData.role === "admin") && (

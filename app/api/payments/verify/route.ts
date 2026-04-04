@@ -5,6 +5,7 @@ import { emailService } from '@/lib/email'
 import { updateOrder, getOrderById, getUserById, getStores, creditVendorWalletsForOrder } from '@/lib/mongodb-operations'
 import connectToDatabase from '@/lib/mongodb'
 import mongoose from 'mongoose'
+import { normalizeNigerianPhone, sendOrderConfirmationSms } from '@/lib/sms'
 
 type NormalizedVerification = {
   success: boolean
@@ -171,6 +172,7 @@ export async function GET(request: NextRequest) {
       // Get vendor details from store
       let vendorEmail = 'vendor@example.com'
       let vendorName = 'Vendor'
+      let vendorPhone = ''
       
       if (order.vendors && order.vendors.length > 0) {
         const vendorId = order.vendors[0].vendorId
@@ -179,6 +181,7 @@ export async function GET(request: NextRequest) {
           if (stores && stores.length > 0) {
             vendorEmail = stores[0].email || vendorEmail
             vendorName = stores[0].storeName || vendorName
+             vendorPhone = String(stores[0].storePhone || stores[0].phone || '')
           }
         } catch (error) {
           console.log('Could not fetch vendor store details:', error)
@@ -198,6 +201,24 @@ export async function GET(request: NextRequest) {
         total: order.totalAmount,
         shippingAddress: order.shippingInfo
       })
+
+      const customerPhone = normalizeNigerianPhone(order.shippingInfo?.phone || '')
+      if (customerPhone) {
+        await sendOrderConfirmationSms({
+          phoneNumber: customerPhone,
+          orderId,
+          amount: Number(order.totalAmount || 0),
+        })
+      }
+
+       const normalizedVendorPhone = normalizeNigerianPhone(vendorPhone)
+       if (normalizedVendorPhone) {
+         await sendOrderConfirmationSms({
+           phoneNumber: normalizedVendorPhone,
+           orderId,
+           amount: Number(order.totalAmount || 0),
+         })
+       }
     }
 
     // Redirect to order confirmation page with absolute URL
@@ -329,6 +350,7 @@ export async function POST(request: NextRequest) {
         // Get vendor details from store
         let vendorEmail = 'vendor@example.com'
         let vendorName = 'Vendor'
+        let vendorPhone = ''
         
         if (order.vendors && order.vendors.length > 0) {
           const vendorId = order.vendors[0].vendorId
@@ -337,6 +359,7 @@ export async function POST(request: NextRequest) {
             if (stores && stores.length > 0) {
               vendorEmail = stores[0].email || vendorEmail
               vendorName = stores[0].storeName || vendorName
+               vendorPhone = String(stores[0].storePhone || stores[0].phone || '')
             }
           } catch (error) {
             console.log('Could not fetch vendor store details:', error)
@@ -356,6 +379,24 @@ export async function POST(request: NextRequest) {
           total: order.totalAmount,
           shippingAddress: order.shippingInfo
         })
+
+        const customerPhone = normalizeNigerianPhone(order.shippingInfo?.phone || '')
+        if (customerPhone) {
+          await sendOrderConfirmationSms({
+            phoneNumber: customerPhone,
+            orderId,
+            amount: Number(order.totalAmount || 0),
+          })
+        }
+
+         const normalizedVendorPhone = normalizeNigerianPhone(vendorPhone)
+         if (normalizedVendorPhone) {
+           await sendOrderConfirmationSms({
+             phoneNumber: normalizedVendorPhone,
+             orderId,
+             amount: Number(order.totalAmount || 0),
+           })
+         }
       }
 
       return NextResponse.json({

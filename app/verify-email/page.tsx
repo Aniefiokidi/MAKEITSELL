@@ -14,11 +14,15 @@ export default function VerifyEmailPage() {
   const router = useRouter()
   const token = searchParams.get("token")
   const emailFromQuery = searchParams.get("email") || ""
+  const channelFromQuery = searchParams.get("channel") || "email"
+  const phoneFromQuery = searchParams.get("phone") || ""
   const deliveryStatus = searchParams.get("delivery")
 
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [message, setMessage] = useState("")
   const [email, setEmail] = useState(emailFromQuery)
+  const [channel, setChannel] = useState<"email" | "phone">(channelFromQuery === "phone" ? "phone" : "email")
+  const [phoneNumber, setPhoneNumber] = useState(phoneFromQuery)
   const [otp, setOtp] = useState("")
   const [verifyLoading, setVerifyLoading] = useState(false)
   const [resendLoading, setResendLoading] = useState(false)
@@ -33,6 +37,14 @@ export default function VerifyEmailPage() {
   useEffect(() => {
     setEmail(emailFromQuery)
   }, [emailFromQuery])
+
+  useEffect(() => {
+    setChannel(channelFromQuery === "phone" ? "phone" : "email")
+  }, [channelFromQuery])
+
+  useEffect(() => {
+    setPhoneNumber(phoneFromQuery)
+  }, [phoneFromQuery])
 
   useEffect(() => {
     if (deliveryStatus === "failed") {
@@ -83,7 +95,7 @@ export default function VerifyEmailPage() {
       const response = await fetch("/api/auth/verify-email", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), code: otp })
+        body: JSON.stringify({ email: email.trim().toLowerCase(), code: otp, channel, phoneNumber })
       })
       const result = await response.json()
 
@@ -116,12 +128,12 @@ export default function VerifyEmailPage() {
       const response = await fetch("/api/auth/verify-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email })
+        body: JSON.stringify({ email, channel, phoneNumber })
       })
       const result = await response.json()
 
       if (result.success) {
-        alert("Verification code sent! Please check your inbox.")
+        alert(channel === "phone" ? "OTP sent by SMS!" : "Verification code sent! Please check your inbox.")
       } else {
         alert(result.error || "Failed to send verification code")
       }
@@ -170,12 +182,34 @@ export default function VerifyEmailPage() {
                 status === "error" ? "text-red-800" :
                 "text-foreground"
               }`}>
-                {message || "We emailed your verification OTP. It expires in 10 minutes."}
+                {message || `We sent your verification OTP by ${channel === "phone" ? "SMS" : "email"}. It expires in 10 minutes.`}
               </AlertDescription>
             </Alert>
 
             {!token && status !== "success" && (
               <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">OTP channel</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant={channel === "email" ? "default" : "outline"} onClick={() => setChannel("email")} type="button">Email</Button>
+                    <Button variant={channel === "phone" ? "default" : "outline"} onClick={() => setChannel("phone")} type="button">Phone</Button>
+                  </div>
+                </div>
+
+                {channel === "phone" && (
+                  <div className="space-y-2">
+                    <label htmlFor="phone" className="text-sm font-medium text-gray-700">Phone number</label>
+                    <input
+                      id="phone"
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="080... or +234..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
+                    />
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <label htmlFor="email" className="text-sm font-medium text-gray-700">
                     Email address
