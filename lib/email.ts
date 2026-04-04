@@ -186,6 +186,28 @@ class EmailService {
           attachments: emailData.attachments,
         })
 
+        const accepted = Array.isArray((result as any)?.accepted) ? (result as any).accepted : []
+        const rejected = Array.isArray((result as any)?.rejected) ? (result as any).rejected : []
+        const pending = Array.isArray((result as any)?.pending) ? (result as any).pending : []
+
+        console.log('[emailService.sendEmail] SMTP delivery status:', {
+          to: emailData.to,
+          accepted: accepted.length,
+          rejected: rejected.length,
+          pending: pending.length,
+          response: (result as any)?.response,
+        })
+
+        if (accepted.length === 0 || rejected.length > 0) {
+          console.error('[emailService.sendEmail] Recipient rejected by SMTP provider:', {
+            to: emailData.to,
+            accepted,
+            rejected,
+            response: (result as any)?.response,
+          })
+          return false
+        }
+
         console.log('[emailService.sendEmail] Email sent successfully to:', emailData.to)
         console.log('[emailService.sendEmail] Message ID:', result.messageId)
         return true
@@ -1078,13 +1100,43 @@ class EmailService {
     name?: string
     overrides?: RegistrationIssueTemplateOverrides
   }): Promise<boolean> {
-    const template = this.getRegistrationIssueAnnouncementTemplate({ name, overrides })
+    const appBase = this.getAppBaseUrl()
+    const supportEmail = process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'
+    const safeName = this.escapeHtml(name || 'there')
+    const subject = (overrides?.subject || 'Important update from Make It Sell').trim()
+    const defaultBody = [
+      'Some users recently experienced delays receiving registration and verification emails.',
+      'The issue has been fixed. Please try signing in again or request a new verification code.',
+      `If you still have issues, reply to this email or contact ${supportEmail}.`,
+    ].join('\n\n')
+    const body = (overrides?.body || defaultBody).trim()
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; color: #111827; background: #ffffff;">
+        <h2 style="margin: 0 0 10px 0; font-size: 22px;">Important update from Make It Sell</h2>
+        <p style="margin: 0 0 12px 0;">Hi ${safeName},</p>
+        <p style="white-space: pre-line; margin: 0 0 16px 0; line-height: 1.6;">${this.escapeHtml(body)}</p>
+        <p style="margin: 0 0 10px 0;">Sign in: <a href="${appBase}/login">${appBase}/login</a></p>
+        <p style="margin: 0 0 10px 0;">Create account: <a href="${appBase}/signup">${appBase}/signup</a></p>
+        <p style="margin: 0;">Support: <a href="mailto:${supportEmail}">${supportEmail}</a></p>
+      </div>
+    `
+
+    const text = [
+      `Hi ${name || 'there'},`,
+      '',
+      body,
+      '',
+      `Sign in: ${appBase}/login`,
+      `Create account: ${appBase}/signup`,
+      `Support: ${supportEmail}`,
+    ].join('\n')
 
     return await this.sendEmail({
       to: email,
-      subject: template.subject,
-      html: template.html,
-      text: template.text,
+      subject,
+      html,
+      text,
       headers: {
         'X-Entity-Ref-ID': `registration-issue-${Date.now()}`,
       },

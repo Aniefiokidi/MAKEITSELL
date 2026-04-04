@@ -1801,11 +1801,14 @@ export default function AdminBroadcastEmailPage() {
               <div className="font-semibold mb-2">{result.action === "resend-failed" ? "Resend Failed Completed" : result.action === "resend-all-failed" ? "Resend All Failed Completed" : result.action === "send-all" ? "Full Broadcast Completed" : "Batch Completed"}</div>
               <div className="flex flex-wrap gap-2 mb-2">
                 <Badge variant="outline">Processed: {result.processed}</Badge>
-                <Badge variant="outline">Sent: {result.sent}</Badge>
+                <Badge variant="outline">Accepted by SMTP: {result.sent}</Badge>
                 <Badge variant="outline">Failed: {result.failed}</Badge>
                 {typeof result.remainingFailed === "number" ? <Badge variant="outline">Remaining failed: {result.remainingFailed}</Badge> : null}
                 {typeof result.nextSkip === "number" ? <Badge variant="outline">Next skip: {result.nextSkip}</Badge> : null}
                 {typeof result.hasMore === "boolean" ? <Badge variant="outline">Has more: {result.hasMore ? "Yes" : "No"}</Badge> : null}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Note: recipient servers can still reject later (bounce) if sender reputation or DNS auth is not trusted.
               </div>
               {!!result.failedEmails?.length && (
                 <div className="text-sm">Failed samples: {result.failedEmails.slice(0, 10).join(", ")}</div>
