@@ -6,7 +6,8 @@ import { hashPassword, needsPasswordRehash, verifyPassword } from './password';
 
 export async function signUp({ email, password, name, role, vendorInfo, phone }: { email: string, password: string, name: string, role?: string, vendorInfo?: any, phone?: string }) {
   await connectToDatabase();
-  const existing = await User.findOne({ email });
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const existing = await User.findOne({ email: normalizedEmail });
   if (existing) throw new Error('Email already in use');
   
   const passwordHash = hashPassword(password);
@@ -17,7 +18,7 @@ export async function signUp({ email, password, name, role, vendorInfo, phone }:
   const emailVerificationTokenExpiry = new Date(Date.now() + 10 * 60 * 1000);
   
   const user = await User.create({
-    email,
+    email: normalizedEmail,
     passwordHash,
     name,
     phone,
@@ -35,15 +36,29 @@ export async function signUp({ email, password, name, role, vendorInfo, phone }:
   // Send verification email
   try {
     const { emailService } = require('./email');
-    await emailService.sendEmailVerification({
+    let sent = await emailService.sendEmailVerification({
       email: user.email,
       name: user.name || 'User',
       verificationCode: emailVerificationToken
     });
+
+    // One extra explicit retry path to avoid edge-case delivery misses.
+    if (!sent) {
+      sent = await emailService.sendEmailVerification({
+        email: user.email,
+        name: user.name || 'User',
+        verificationCode: emailVerificationToken
+      });
+    }
+
+    if (!sent) {
+      throw new Error('VERIFICATION_EMAIL_SEND_FAILED');
+    }
+
     console.log(`[auth.signUp] Verification email sent to: ${user.email}`);
   } catch (emailError) {
     console.error('[auth.signUp] Failed to send verification email:', emailError);
-    // Don't fail signup if email fails - user can request resend
+    throw new Error('VERIFICATION_EMAIL_SEND_FAILED');
   }
 
   return {

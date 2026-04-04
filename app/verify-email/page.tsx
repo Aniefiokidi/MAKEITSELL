@@ -14,6 +14,7 @@ export default function VerifyEmailPage() {
   const router = useRouter()
   const token = searchParams.get("token")
   const emailFromQuery = searchParams.get("email") || ""
+  const deliveryStatus = searchParams.get("delivery")
 
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [message, setMessage] = useState("")
@@ -32,6 +33,13 @@ export default function VerifyEmailPage() {
   useEffect(() => {
     setEmail(emailFromQuery)
   }, [emailFromQuery])
+
+  useEffect(() => {
+    if (deliveryStatus === "failed") {
+      setStatus("error")
+      setMessage("We could not deliver your verification code during signup. Click Resend Code below to receive a fresh OTP.")
+    }
+  }, [deliveryStatus])
 
   const verifyEmail = async (verificationToken: string) => {
     try {

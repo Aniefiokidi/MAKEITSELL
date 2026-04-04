@@ -58,6 +58,14 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json(result)
   } catch (error: any) {
+    if (error?.message === 'VERIFICATION_EMAIL_SEND_FAILED') {
+      return NextResponse.json({
+        success: false,
+        error: 'We created your account, but we could not deliver your verification code right now. Please try again from the verification page.',
+        code: 'VERIFICATION_EMAIL_SEND_FAILED'
+      }, { status: 502 })
+    }
+
     return NextResponse.json({
       success: false,
       error: error.message || 'Failed to create account'

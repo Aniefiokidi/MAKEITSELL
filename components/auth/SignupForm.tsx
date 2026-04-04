@@ -245,6 +245,12 @@ export default function SignupForm() {
       console.log("=== SIGNUP FORM SUBMIT COMPLETED ===")
     } catch (error: any) {
       console.error("=== SIGNUP FORM ERROR ===", error)
+      const errorMessage = String(error?.message || "")
+      if (errorMessage.includes('VERIFICATION_EMAIL_SEND_FAILED')) {
+        router.push(`/verify-email?email=${encodeURIComponent(formData.email)}&delivery=failed`)
+        return
+      }
+
       setError(error.message || "Failed to create account")
       setLoading(false)
     }
