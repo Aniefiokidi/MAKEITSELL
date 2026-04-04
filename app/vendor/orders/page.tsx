@@ -164,6 +164,9 @@ export default function VendorOrdersPage() {
                     <CardDescription>
                       Placed on {order.createdAt ? (typeof order.createdAt === 'string' ? new Date(order.createdAt).toLocaleDateString() : order.createdAt?.toLocaleDateString?.()) : "Unknown date"}
                     </CardDescription>
+                    <CardDescription>
+                      Customer: {order.customerName || "N/A"}
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex flex-col gap-3">

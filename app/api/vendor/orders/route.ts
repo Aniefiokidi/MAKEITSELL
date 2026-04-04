@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getOrdersByVendor, updateOrder } from "@/lib/mongodb-operations";
 import connectToDatabase from "@/lib/mongodb";
 import mongoose from "mongoose";
+import { User } from "@/lib/models/User";
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,10 +18,42 @@ export async function GET(req: NextRequest) {
     const db = mongoose.connection.db;
     
     if (db) {
+      const customerIds = Array.from(
+        new Set(
+          orders
+            .map((order: any) => String(order.customerId || '').trim())
+            .filter(Boolean)
+        )
+      );
+
+      const customers = customerIds.length > 0
+        ? await User.find({ _id: { $in: customerIds } }, { _id: 1, name: 1, displayName: 1, email: 1, phone: 1 }).lean()
+        : [];
+
+      const customerById = new Map<string, any>();
+      for (const customer of customers as any[]) {
+        customerById.set(String(customer?._id || ''), customer);
+      }
+
       for (const order of orders) {
         // Find vendor-specific items from vendors array
         const vendorData = order.vendors?.find((v: any) => v.vendorId === vendorId);
         const items = vendorData?.items || order.items || [];
+
+        const customer = customerById.get(String(order.customerId || ''));
+        const shipping = order.shippingInfo || {};
+        order.customerName =
+          customer?.name ||
+          customer?.displayName ||
+          `${shipping.firstName || ''} ${shipping.lastName || ''}`.trim() ||
+          order.customerName ||
+          'N/A';
+        order.customerEmail = shipping.email || customer?.email || order.customerEmail || '';
+        order.customerPhone = shipping.phone || customer?.phone || order.customerPhone || '';
+
+        // Ensure vendor view always reflects vendor-specific status when available.
+        order.status = vendorData?.status || order.status;
+        order.vendor = vendorData || null;
         
         // Fetch product details for each item
         const enrichedProducts = await Promise.all(

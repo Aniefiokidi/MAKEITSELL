@@ -37,6 +37,8 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ o
     const { orderId } = await context.params
     const body = await request.json().catch(() => ({}))
     const requestedStatus = String(body?.status || '').trim()
+    const vendorId = String(body?.vendorId || '').trim()
+    const storeId = String(body?.storeId || '').trim()
 
     const allowedStatuses = new Set([
       'pending',
@@ -73,10 +75,60 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ o
     if (requestedStatus === 'received') timestampUpdates.receivedAt = now
     if (requestedStatus === 'cancelled') timestampUpdates.cancelledAt = now
 
-    const updatedOrder = await updateOrder(orderId, {
-      status: requestedStatus,
-      ...timestampUpdates,
-    })
+    let updatedOrder: any = null
+
+    if (vendorId || storeId) {
+      const query: any = { orderId }
+      const arrayFilter: any = {}
+
+      if (vendorId) {
+        query['vendors.vendorId'] = vendorId
+        arrayFilter.vendorId = vendorId
+      }
+      if (storeId) {
+        query['vendors.storeId'] = storeId
+        arrayFilter.storeId = storeId
+      }
+
+      const vendorTimestampUpdates = Object.fromEntries(
+        Object.entries(timestampUpdates).map(([key, value]) => [`vendors.$[entry].${key}`, value])
+      )
+
+      const updated = await Order.findOneAndUpdate(
+        query,
+        {
+          $set: {
+            'vendors.$[entry].status': requestedStatus,
+            ...vendorTimestampUpdates,
+          },
+        },
+        {
+          new: true,
+          arrayFilters: [arrayFilter],
+        }
+      ).lean()
+
+      if (updated) {
+        updatedOrder = updated
+
+        const vendorStatuses = (Array.isArray(updated.vendors) ? updated.vendors : [])
+          .map((entry: any) => String(entry?.status || '').trim().toLowerCase())
+          .filter(Boolean)
+
+        // Keep root status consistent only when all vendor entries are at the same terminal stage.
+        if (vendorStatuses.length > 0 && vendorStatuses.every((value: string) => value === requestedStatus.toLowerCase())) {
+          updatedOrder = await updateOrder(orderId, {
+            status: requestedStatus,
+            ...timestampUpdates,
+          })
+        }
+      }
+    } else {
+      updatedOrder = await updateOrder(orderId, {
+        status: requestedStatus,
+        ...timestampUpdates,
+      })
+    }
 
     if (!updatedOrder) {
       return NextResponse.json({ success: false, error: 'Failed to update order' }, { status: 500 })

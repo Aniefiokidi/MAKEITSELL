@@ -12,7 +12,10 @@ import { useAuth } from "@/contexts/AuthContext"
 import LogisticsLayout from "@/components/logistics/LogisticsLayout"
 
 type LogisticsOrder = {
+  rowId: string
   orderId: string
+  vendorId?: string
+  storeId?: string
   createdAt: string
   orderStatus: string
   paymentStatus: string
@@ -104,16 +107,21 @@ export default function LogisticsPage() {
     }
   }
 
-  const updateOrderStatus = async (orderId: string, value: string) => {
+  const updateOrderStatus = async (order: LogisticsOrder, value: string) => {
     const normalized = value === "en_route" ? "out_for_delivery" : value
-    setUpdatingOrderId(orderId)
+    const rowKey = order.rowId || `${order.orderId}:${order.vendorId || order.storeId || ''}`
+    setUpdatingOrderId(rowKey)
     setError("")
     try {
-      const response = await fetch(`/api/logistics/orders/${encodeURIComponent(orderId)}`, {
+      const response = await fetch(`/api/logistics/orders/${encodeURIComponent(order.orderId)}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: normalized }),
+        body: JSON.stringify({
+          status: normalized,
+          vendorId: order.vendorId,
+          storeId: order.storeId,
+        }),
       })
 
       const result = await response.json().catch(() => ({}))
@@ -199,7 +207,7 @@ export default function LogisticsPage() {
 
         <div className="space-y-4">
           {prioritizedOrders.map((order, index) => (
-            <Card key={`${order.orderId}-${index}`}>
+            <Card key={order.rowId || `${order.orderId}-${order.vendorId || order.storeId || index}`}>
               <CardContent className="pt-6 space-y-4">
                 <div className="flex flex-wrap gap-2 items-center justify-between">
                   <div>
@@ -214,8 +222,8 @@ export default function LogisticsPage() {
                     <div className="w-44">
                       <Select
                         value={order.orderStatus === "out_for_delivery" ? "en_route" : order.orderStatus}
-                        onValueChange={(value) => updateOrderStatus(order.orderId, value)}
-                        disabled={updatingOrderId === order.orderId}
+                        onValueChange={(value) => updateOrderStatus(order, value)}
+                        disabled={updatingOrderId === (order.rowId || `${order.orderId}:${order.vendorId || order.storeId || ''}`)}
                       >
                         <SelectTrigger className="h-8 text-xs">
                           <SelectValue placeholder="Update status" />

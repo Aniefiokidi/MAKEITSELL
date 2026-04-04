@@ -44,7 +44,7 @@ function sanitizeNumberInRange(value: unknown, min: number, max: number, fallbac
 }
 
 type BroadcastRequest = {
-  action?: 'preview' | 'send' | 'message-preview' | 'template-get' | 'template-save' | 'resend-failed' | 'failed-list'
+  action?: 'preview' | 'send' | 'send-all' | 'message-preview' | 'template-get' | 'template-save' | 'resend-failed' | 'resend-all-failed' | 'failed-list'
   dryRun?: boolean
   limit?: number
   skip?: number
@@ -54,6 +54,16 @@ type BroadcastRequest = {
   delayMs?: number
   previewName?: string
   templateOverrides?: TemplateOverrides
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function normalizeAction(action?: BroadcastRequest['action']): BroadcastRequest['action'] {
+  if (action === 'send-all') return 'send'
+  if (action === 'resend-all-failed') return 'resend-failed'
+  return action
 }
 
 function sanitizeTemplateOverrides(input?: TemplateOverrides): TemplateOverrides {
@@ -147,7 +157,10 @@ function buildUserQuery(input: BroadcastRequest) {
   }
 
   if (input.emailFilter) {
-    query.email = { $regex: input.emailFilter, $options: 'i' }
+    const sanitizedFilter = String(input.emailFilter).trim().slice(0, 120)
+    if (sanitizedFilter) {
+      query.email = { $regex: escapeRegExp(sanitizedFilter), $options: 'i' }
+    }
   }
 
   if (!input.includeAdmins) {
@@ -168,7 +181,7 @@ export async function POST(request: NextRequest) {
   try {
     const body: BroadcastRequest = await request.json()
 
-    const action = body.action || (body.dryRun ? 'preview' : 'send')
+    const action = normalizeAction(body.action || (body.dryRun ? 'preview' : 'send'))
     const limit = Math.max(1, Math.min(body.limit || 20, 200))
     const skip = Math.max(0, body.skip || 0)
     const delayMs = Math.max(0, Math.min(body.delayMs || 350, 2000))

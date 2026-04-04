@@ -155,9 +155,12 @@ export async function GET(request: NextRequest) {
           : (Array.isArray(order?.items) ? order.items : [])
 
         logisticsRows.push({
+          rowId: `${String(order.orderId || '')}:${String(vendorEntry?.vendorId || vendorEntry?.storeId || storeName || '')}`,
           orderId: order.orderId,
+          vendorId: String(vendorEntry?.vendorId || ''),
+          storeId: String(vendorEntry?.storeId || ''),
           createdAt: order.createdAt,
-          orderStatus: order.status || 'pending',
+          orderStatus: vendorEntry?.status || order.status || 'pending',
           paymentStatus: order.paymentStatus || 'pending',
           totalAmount: Number(order.totalAmount || 0),
           customerName,
