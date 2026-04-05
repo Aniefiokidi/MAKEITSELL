@@ -154,43 +154,40 @@ export default function SignupForm() {
         setLoading(false)
         return
       }
-      const requiresStoreSetup = formData.vendorType === "goods" || formData.vendorType === "both"
-      if (requiresStoreSetup) {
-        if (!formData.storeName.trim()) {
-          setError("Store name is required for goods sellers")
-          setLoading(false)
-          return
-        }
-        if (!formData.storeDescription.trim()) {
-          setError("Store description is required for goods sellers")
-          setLoading(false)
-          return
-        }
-        if (!formData.storeCategory) {
-          setError("Store category is required for goods sellers")
-          setLoading(false)
-          return
-        }
-        if (!formData.storeAddress.trim()) {
-          setError("Store address is required for goods sellers")
-          setLoading(false)
-          return
-        }
-        if (!formData.storePhone.trim()) {
-          setError("Store phone number is required for goods sellers")
-          setLoading(false)
-          return
-        }
-        if (!formData.storeState.trim()) {
-          setError("Store state is required for pricing")
-          setLoading(false)
-          return
-        }
-        if (!formData.storeCity.trim()) {
-          setError("Store city is required for pricing")
-          setLoading(false)
-          return
-        }
+      if (!formData.storeName.trim()) {
+        setError("Store name is required for vendor signup")
+        setLoading(false)
+        return
+      }
+      if (!formData.storeDescription.trim()) {
+        setError("Store description is required for vendor signup")
+        setLoading(false)
+        return
+      }
+      if (!formData.storeCategory) {
+        setError("Store category is required for vendor signup")
+        setLoading(false)
+        return
+      }
+      if (!formData.storeAddress.trim()) {
+        setError("Store address is required for vendor signup")
+        setLoading(false)
+        return
+      }
+      if (!formData.storePhone.trim()) {
+        setError("Store phone number is required for vendor signup")
+        setLoading(false)
+        return
+      }
+      if (!formData.storeState.trim()) {
+        setError("Store state is required for vendor signup")
+        setLoading(false)
+        return
+      }
+      if (!formData.storeCity.trim()) {
+        setError("Store city is required for vendor signup")
+        setLoading(false)
+        return
       }
     }
 
