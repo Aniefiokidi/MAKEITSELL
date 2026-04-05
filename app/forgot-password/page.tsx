@@ -159,24 +159,20 @@ export default function ForgotPasswordPage() {
           <CardContent className="space-y-4">
             {message && (
               <Alert className={message.type === "success" ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}>
-                <div className="flex gap-2">
-                  {message.type === "success" ? (
-                    <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
-                  ) : (
-                    <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
+                {message.type === "success" ? (
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                ) : (
+                  <AlertCircle className="h-4 w-4 text-red-600" />
+                )}
+                <AlertDescription className={message.type === "success" ? "text-green-800" : "text-red-800"}>
+                  <p>{message.text}</p>
+                  {message.type === "success" && resetCode && process.env.NODE_ENV === "development" && (
+                    <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
+                      <p className="font-medium mb-1">🛠️ Development Mode</p>
+                      <p>Code auto-filled below for testing.</p>
+                    </div>
                   )}
-                  <div className="flex-1">
-                    <AlertDescription className={message.type === "success" ? "text-green-800" : "text-red-800"}>
-                      {message.text}
-                    </AlertDescription>
-                    {message.type === "success" && resetCode && process.env.NODE_ENV === "development" && (
-                      <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
-                        <p className="font-medium mb-1">🛠️ Development Mode</p>
-                        <p>Code auto-filled below for testing.</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                </AlertDescription>
               </Alert>
             )}
 
@@ -321,8 +317,8 @@ export default function ForgotPasswordPage() {
               <div className="text-center space-y-2">
                 <p className="text-xs text-muted-foreground">
                   Need help? Contact{" "}
-                  <a href="mailto:noreply@makeitsell.org" className="text-accent hover:underline font-semibold">
-                    noreply@makeitsell.org
+                  <a href="mailto:support@makeitsell.org" className="text-accent hover:underline font-semibold">
+                    support@makeitsell.org
                   </a>
                 </p>
                 

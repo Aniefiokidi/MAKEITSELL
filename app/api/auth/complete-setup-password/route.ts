@@ -4,17 +4,15 @@ import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 import { getUserBySessionToken } from '@/lib/auth'
 import { hashPassword, verifyPassword } from '@/lib/password'
+import crypto from 'crypto'
 
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies()
     const sessionToken = cookieStore.get('sessionToken')?.value
 
-    if (!sessionToken) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-    }
-
     const body = await request.json()
+    const emailInput = String(body?.email || '').trim().toLowerCase()
     const currentPassword = String(body?.currentPassword || '')
     const newPassword = String(body?.newPassword || '')
 
@@ -27,14 +25,26 @@ export async function POST(request: NextRequest) {
     }
 
     await connectToDatabase()
-    const sessionUser = await getUserBySessionToken(sessionToken)
-    if (!sessionUser?.id) {
+
+    let user: any = null
+    if (sessionToken) {
+      const sessionUser = await getUserBySessionToken(sessionToken)
+      if (sessionUser?.id) {
+        user = await User.findById(sessionUser.id)
+      }
+    }
+
+    // Fallback: allow recovery users to complete setup with email + temporary password.
+    if (!user && emailInput) {
+      user = await User.findOne({ email: emailInput })
+    }
+
+    if (!user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
-    const user = await User.findById(sessionUser.id)
-    if (!user) {
-      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
+    if (!(user as any).mustChangePassword) {
+      return NextResponse.json({ success: false, error: 'No account setup action is pending for this user' }, { status: 400 })
     }
 
     const storedHash = String((user as any).passwordHash || '')
@@ -52,6 +62,7 @@ export async function POST(request: NextRequest) {
         $set: {
           passwordHash: hashPassword(newPassword),
           mustChangePassword: false,
+          sessionToken: crypto.randomBytes(32).toString('hex'),
           updatedAt: new Date(),
         },
         $unset: {

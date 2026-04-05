@@ -209,12 +209,20 @@ class EmailService {
   }
 
   private getFromAddress(): string {
-    if (process.env.EMAIL_FROM) {
-      return process.env.EMAIL_FROM
+    const supportEmail = String(process.env.SUPPORT_EMAIL || '').trim()
+    if (supportEmail) {
+      return `"${process.env.SMTP_FROM_NAME || 'Make It Sell Support'}" <${supportEmail}>`
+    }
+
+    const configuredFrom = String(process.env.EMAIL_FROM || '').trim()
+    if (configuredFrom) {
+      if (configuredFrom.toLowerCase().includes('noreply@makeitsell.org')) {
+        return `"${process.env.SMTP_FROM_NAME || 'Make It Sell Support'}" <support@makeitsell.org>`
+      }
+      return configuredFrom
     }
 
     const fallbackEmail =
-      process.env.SUPPORT_EMAIL ||
       process.env.SMTP_FROM_EMAIL ||
       process.env.EMAIL_USER ||
       process.env.SMTP_USER ||
@@ -822,133 +830,64 @@ class EmailService {
 
     const displayCode = (resetCode || resetToken || '').replace(/\D/g, '').slice(0, 6)
     const hasCode = displayCode.length === 6
-    
-    const emailHtml = `
-      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 650px; margin: 0 auto; padding: 0; background-color: #ffffff; border-radius: 12px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);">
-        <!-- Header with Logo -->
-        <div style="text-align: center; padding: 40px 20px; background: linear-gradient(135deg, oklch(0.35 0.15 15) 0%, oklch(0.45 0.18 20) 100%); border-radius: 12px 12px 0 0; position: relative; overflow: hidden;">
-          <div style="position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%); animation: float 6s ease-in-out infinite;"></div>
-          <div style="position: relative; z-index: 1;">
-            <div style="display: inline-block; background: #ffffff; border-radius: 12px; padding: 12px 18px; margin-bottom: 20px;">
-              <img src="https://makeitsell.org/images/logo (2).png" alt="Make It Sell Logo" style="height: 60px; width: auto; display: block;" />
-            </div>
-            <h1 style="color: white; margin: 0 0 10px 0; font-size: 32px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">🔑 Password Reset</h1>
-            <p style="color: rgba(255, 255, 255, 0.95); margin: 0; font-size: 16px; line-height: 1.5; font-weight: 400;">
-              Secure access to your Make It Sell account
-            </p>
-          </div>
+
+    const safeName = this.escapeHtml(name || 'there')
+    const supportEmail = process.env.SUPPORT_EMAIL || 'support@makeitsell.org'
+
+    const minimalHtml = hasCode
+      ? `
+        <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #111; line-height: 1.5;">
+          <p>Hi ${safeName},</p>
+          <p>Your Make It Sell password reset code is:</p>
+          <p style="font-size: 30px; letter-spacing: 8px; font-weight: 700; margin: 16px 0;">${displayCode}</p>
+          <p>This code will expire in 10 minutes.</p>
+          <p>If you didn't request this, you can ignore this email.</p>
+          <p>Make It Sell Support<br/><a href="mailto:${supportEmail}">${supportEmail}</a></p>
         </div>
-
-        <!-- Main Content -->
-        <div style="padding: 40px 30px;">
-          <!-- Personalized Greeting -->
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h2 style="color: #1a1a1a; margin: 0 0 10px 0; font-size: 26px; font-weight: 700;">Hello ${name}! 👋</h2>
-            <p style="color: #666666; margin: 0; font-size: 16px; line-height: 1.6;">
-              We received a request to reset your password. No worries - we've got you covered!
-            </p>
-          </div>
-
-          <!-- Reset Instructions Card -->
-          <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); padding: 30px; border-radius: 16px; margin-bottom: 30px; border: 1px solid #e2e8f0; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);">
-            <h3 style="color: #1a1a1a; margin: 0 0 15px 0; font-size: 20px; font-weight: 700; display: flex; align-items: center;">
-              🚀 Quick Reset Instructions
-            </h3>
-            <p style="color: #4a5568; margin: 0 0 20px 0; line-height: 1.7; font-size: 15px;">
-              Enter this 6-digit OTP to reset your password. This code expires in <strong style="color: oklch(0.35 0.15 15);">10 minutes</strong> for your security.
-            </p>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              ${hasCode ? `
-                <div style="display: inline-block; letter-spacing: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 36px; font-weight: 800; color: #111827; background: #ffffff; border: 1px dashed #d1d5db; border-radius: 10px; padding: 16px 26px;">
-                  ${displayCode}
-                </div>
-                <div style="margin-top: 12px; color: #6b7280; font-size: 13px;">Enter this code in the reset screen</div>
-              ` : `
-                <a href="${resetUrl || '#'}" 
-                   style="display: inline-block; background: linear-gradient(135deg, oklch(0.35 0.15 15) 0%, oklch(0.45 0.18 20) 100%); color: white; text-decoration: none; padding: 16px 32px; border-radius: 12px; font-weight: 700; font-size: 16px; box-shadow: 0 8px 24px oklch(0.35 0.15 15 / 0.4); transform: translateY(0); transition: all 0.3s ease;">
-                  Reset My Password
-                </a>
-              `}
-            </div>
-          </div>
-
-          <!-- Security Information -->
-          <div style="background: linear-gradient(135deg, #fef7f0 0%, #fdeee4 100%); padding: 25px; border-radius: 12px; border-left: 5px solid #f97316; margin-bottom: 25px;">
-            <h3 style="color: #9a3412; margin: 0 0 12px 0; font-size: 16px; font-weight: 700; display: flex; align-items: center;">
-              🛡️ Security Notice
-            </h3>
-            <ul style="color: #9a3412; margin: 0; padding-left: 0; list-style: none; line-height: 1.7;">
-              <li style="margin-bottom: 8px; display: flex; align-items: flex-start;"><span style="color: #f97316; margin-right: 8px; font-weight: bold;">•</span> This OTP expires in exactly 10 minutes</li>
-              <li style="margin-bottom: 8px; display: flex; align-items: flex-start;"><span style="color: #f97316; margin-right: 8px; font-weight: bold;">•</span> If you didn't request this, you can safely ignore this email</li>
-              <li style="margin-bottom: 0; display: flex; align-items: flex-start;"><span style="color: #f97316; margin-right: 8px; font-weight: bold;">•</span> Your password won't change unless the OTP is entered</li>
-            </ul>
-          </div>
-
-          ${!hasCode ? `
-            <div style="background: linear-gradient(135deg, #f0fdf4 0%, #e6ffed 100%); padding: 20px; border-radius: 12px; border-left: 5px solid oklch(0.35 0.15 15); margin-bottom: 30px;">
-              <h4 style="color: #15803d; margin: 0 0 12px 0; font-weight: 700; font-size: 14px; display: flex; align-items: center;">
-                Button not working?
-              </h4>
-              <p style="color: #166534; margin: 0 0 10px 0; font-size: 14px; line-height: 1.6;">
-                Copy and paste this link into your browser:
-              </p>
-              <div style="background: white; padding: 12px; border-radius: 8px; border: 1px solid #bbf7d0; word-break: break-all;">
-                <code style="font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 12px; color: #374151; line-height: 1.4;">${resetUrl || ''}</code>
-              </div>
-            </div>
-          ` : ''}
-
-          <!-- Development Token (only in dev mode) -->
-          ${process.env.NODE_ENV === 'development' ? `
-          <div style="background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); padding: 20px; border-radius: 12px; border-left: 5px solid #f59e0b; margin-bottom: 25px;">
-            <h4 style="color: #d97706; margin: 0 0 12px 0; font-weight: 700; font-size: 14px; display: flex; align-items: center;">
-              🛠️ Development Mode Only
-            </h4>
-            <p style="color: #d97706; margin: 0 0 8px 0; font-size: 13px;">
-              Manual code for testing:
-            </p>
-            <code style="background: white; padding: 8px 12px; border-radius: 6px; font-family: 'Monaco', 'Menlo', monospace; font-size: 12px; color: #374151; border: 1px solid #fcd34d; display: inline-block;">${displayCode || ''}</code>
-          </div>
-          ` : ''}
-
-          <!-- Support Section -->
-          <div style="text-align: center; padding: 25px 0; border-top: 2px solid #f1f5f9; margin-top: 20px;">
-            <h4 style="color: #374151; margin: 0 0 12px 0; font-size: 16px; font-weight: 600;">
-              Need Help? We're Here! 🙋‍♂️
-            </h4>
-            <p style="color: #6b7280; margin: 0 0 15px 0; font-size: 14px; line-height: 1.6;">
-              Having trouble with your password reset? Our support team is ready to help.
-            </p>
-            <a href="mailto:noreply@makeitsell.org" 
-               style="color: oklch(0.35 0.15 15); text-decoration: none; font-weight: 600; font-size: 15px; display: inline-flex; align-items: center; background: #f8fafc; padding: 10px 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
-               📧 noreply@makeitsell.org
-            </a>
-          </div>
+      `
+      : `
+        <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #111; line-height: 1.5;">
+          <p>Hi ${safeName},</p>
+          <p>Please reset your password for your Make It Sell account.</p>
+          <p style="margin: 16px 0;">
+            <a href="${resetUrl || '#'}">Reset password</a>
+          </p>
+          <p>This link may expire soon for your security.</p>
+          <p>If you didn't request this, you can ignore this email.</p>
+          <p>Make It Sell Support<br/><a href="mailto:${supportEmail}">${supportEmail}</a></p>
         </div>
+      `
 
-        <!-- Footer -->
-        <div style="text-align: center; color: #94a3b8; font-size: 12px; padding: 20px 30px; background: #f8fafc; border-radius: 0 0 12px 12px; border-top: 1px solid #e2e8f0;">
-          <div style="margin-bottom: 15px;">
-            <img src="https://makeitsell.org/images/logo (2).png" alt="Make It Sell" style="height: 20px; width: auto; opacity: 0.6;" />
-          </div>
-          <p style="margin: 0 0 8px 0; line-height: 1.5;">
-            This email was sent to <strong style="color: #64748b;">${email}</strong>
-          </p>
-          <p style="margin: 0; line-height: 1.5;">
-            If you didn't request this password reset, you can safely ignore this email.
-          </p>
-          <p style="margin: 12px 0 0 0; font-size: 11px; color: #a1a1aa;">
-            © 2026 Make It Sell Marketplace. All rights reserved.
-          </p>
-        </div>
-      </div>
-    `
+    const minimalText = hasCode
+      ? [
+          `Hi ${name || 'there'},`,
+          '',
+          'Your Make It Sell password reset code is:',
+          displayCode,
+          '',
+          'This code will expire in 10 minutes.',
+          '',
+          "If you didn't request this, you can ignore this email.",
+          '',
+          `Make It Sell Support (${supportEmail})`,
+        ].join('\n')
+      : [
+          `Hi ${name || 'there'},`,
+          '',
+          'Please reset your password for your Make It Sell account.',
+          resetUrl ? `Reset link: ${resetUrl}` : '',
+          '',
+          "If you didn't request this, you can ignore this email.",
+          '',
+          `Make It Sell Support (${supportEmail})`,
+        ].filter(Boolean).join('\n')
 
     return await this.sendEmail({
       to: email,
       subject: hasCode ? 'Your Make It Sell password reset code' : 'Reset your password - Make It Sell',
-      html: emailHtml
+      html: minimalHtml,
+      text: minimalText,
+      replyTo: supportEmail,
     })
   }
 
