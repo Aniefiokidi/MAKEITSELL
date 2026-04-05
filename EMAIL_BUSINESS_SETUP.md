@@ -3,7 +3,7 @@
 ## ✅ Your Email Setup Status
 - **Domain**: makeitsell.org  
 - **Business Email**: noreply@makeitsell.org
-- **Password**: MIS2025$
+- **Password**: [REDACTED - set in environment variables]
 - **System**: READY - Email notifications are fully integrated!
 
 ---
@@ -16,7 +16,7 @@ SMTP_HOST=smtp.privateemail.com
 SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER=noreply@makeitsell.org
-SMTP_PASS=MIS2025$
+SMTP_PASS=your-smtp-password
 SMTP_FROM_EMAIL=noreply@makeitsell.org
 SMTP_FROM_NAME=Make It Sell
 ```
@@ -27,7 +27,7 @@ SMTP_HOST=mail.makeitsell.org
 SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER=noreply@makeitsell.org
-SMTP_PASS=MIS2025$
+SMTP_PASS=your-smtp-password
 SMTP_FROM_EMAIL=noreply@makeitsell.org
 SMTP_FROM_NAME=Make It Sell
 ```
@@ -38,7 +38,7 @@ SMTP_HOST=smtp.privateemail.com
 SMTP_PORT=465
 SMTP_SECURE=true
 SMTP_USER=noreply@makeitsell.org
-SMTP_PASS=MIS2025$
+SMTP_PASS=your-smtp-password
 SMTP_FROM_EMAIL=noreply@makeitsell.org
 SMTP_FROM_NAME=Make It Sell
 ```
