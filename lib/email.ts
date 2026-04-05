@@ -249,6 +249,51 @@ class EmailService {
     await new Promise(resolve => setTimeout(resolve, ms))
   }
 
+  private async sendViaResend(emailData: EmailData): Promise<boolean> {
+    try {
+      const apiKey = String(process.env.RESEND_API_KEY || '').trim()
+      if (!apiKey) return false
+
+      const fromAddress =
+        process.env.EMAIL_FROM ||
+        `"${process.env.SMTP_FROM_NAME || 'Make It Sell'}" <${process.env.SMTP_FROM_EMAIL || process.env.EMAIL_USER}>`
+
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: fromAddress,
+          to: [emailData.to],
+          subject: emailData.subject,
+          html: emailData.html,
+          text: emailData.text || this.htmlToText(emailData.html),
+          reply_to: emailData.replyTo || process.env.EMAIL_REPLY_TO || process.env.SUPPORT_EMAIL,
+          headers: emailData.headers || {},
+        }),
+      })
+
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok || !payload?.id) {
+        this.lastDeliveryError = String(payload?.message || payload?.error || `Resend HTTP ${response.status}`)
+        console.error('[emailService.sendViaResend] Failed:', payload)
+        return false
+      }
+
+      console.log('[emailService.sendViaResend] Email sent successfully via Resend:', {
+        to: emailData.to,
+        id: payload.id,
+      })
+      return true
+    } catch (error: any) {
+      this.lastDeliveryError = String(error?.message || 'Resend send failed')
+      console.error('[emailService.sendViaResend] Error:', error)
+      return false
+    }
+  }
+
   private isRetryableEmailError(error: any): boolean {
     const responseCode = Number(error?.responseCode)
     const code = String(error?.code || '').toUpperCase()
@@ -279,6 +324,17 @@ class EmailService {
 
   async sendEmail(emailData: EmailData): Promise<boolean> {
     this.lastDeliveryError = null
+    const provider = String(process.env.EMAIL_DELIVERY_PROVIDER || '').trim().toLowerCase()
+
+    if (provider === 'resend' || (!!process.env.RESEND_API_KEY && provider !== 'smtp-only')) {
+      const resendOk = await this.sendViaResend(emailData)
+      if (resendOk) return true
+
+      if (provider === 'resend') {
+        console.warn('[emailService.sendEmail] Resend failed; falling back to SMTP path')
+      }
+    }
+
     console.log('[emailService.sendEmail] Attempting to send email to:', emailData.to)
     console.log('[emailService.sendEmail] Subject:', emailData.subject)
     console.log('[emailService.sendEmail] From address:', this.getFromAddress())
