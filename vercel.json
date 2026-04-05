@@ -1,8 +1,0 @@
-{
-  "crons": [
-    {
-      "path": "/api/admin/email-verification-retry",
-      "schedule": "*/5 * * * *"
-    }
-  ]
-}
