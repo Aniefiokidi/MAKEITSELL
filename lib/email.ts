@@ -107,7 +107,7 @@ class EmailService {
 
       const from =
         envFromFile.EMAIL_FROM ||
-        `"${envFromFile.SMTP_FROM_NAME || 'Make It Sell'}" <${envFromFile.SMTP_FROM_EMAIL || user}>`
+        `"${envFromFile.SMTP_FROM_NAME || 'Make It Sell Support'}" <${envFromFile.SUPPORT_EMAIL || envFromFile.SMTP_FROM_EMAIL || user}>`
 
       const configs = [
         { port: configuredPort, secure: configuredSecure },
@@ -213,7 +213,14 @@ class EmailService {
       return process.env.EMAIL_FROM
     }
 
-    return `"${process.env.SMTP_FROM_NAME || 'Make It Sell'}" <${process.env.SMTP_FROM_EMAIL || process.env.EMAIL_USER}>`
+    const fallbackEmail =
+      process.env.SUPPORT_EMAIL ||
+      process.env.SMTP_FROM_EMAIL ||
+      process.env.EMAIL_USER ||
+      process.env.SMTP_USER ||
+      'support@makeitsell.org'
+
+    return `"${process.env.SMTP_FROM_NAME || 'Make It Sell Support'}" <${fallbackEmail}>`
   }
 
   private getAppBaseUrl(): string {
@@ -254,9 +261,7 @@ class EmailService {
       const apiKey = String(process.env.RESEND_API_KEY || '').trim()
       if (!apiKey) return false
 
-      const fromAddress =
-        process.env.EMAIL_FROM ||
-        `"${process.env.SMTP_FROM_NAME || 'Make It Sell'}" <${process.env.SMTP_FROM_EMAIL || process.env.EMAIL_USER}>`
+      const fromAddress = this.getFromAddress()
 
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -960,103 +965,67 @@ class EmailService {
       host: process.env.EMAIL_HOST || process.env.SMTP_HOST,
       port: process.env.EMAIL_PORT || process.env.SMTP_PORT,
       user: process.env.EMAIL_USER || process.env.SMTP_USER,
-      from: process.env.EMAIL_FROM || `"${process.env.SMTP_FROM_NAME || 'Make It Sell'}" <${process.env.SMTP_FROM_EMAIL || process.env.EMAIL_USER}>`
+      from: this.getFromAddress()
     })
     
     const displayCode = (verificationCode || '').replace(/\D/g, '').slice(0, 6)
     const hasCode = displayCode.length === 6
 
-    const emailHtml = `
-      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
-        <!-- Header -->
-        <div style="text-align: center; margin-bottom: 30px; padding: 20px; background: linear-gradient(135deg, oklch(0.35 0.15 15) 0%, oklch(0.45 0.18 20) 100%); border-radius: 10px;">
-          <div style="display: inline-block; background: #ffffff; border-radius: 10px; padding: 10px 16px; margin-bottom: 12px;">
-            <img src="https://makeitsell.org/images/logo%20(2).png" alt="Make It Sell Logo" style="height: 48px; width: auto; display: block;" />
-          </div>
-          <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700;">Verify Your Email</h1>
-          <p style="color: white; margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Complete your account setup</p>
+    const safeName = this.escapeHtml(name || 'there')
+    const supportEmail = process.env.SUPPORT_EMAIL || 'support@makeitsell.org'
+    const minimalHtml = hasCode
+      ? `
+        <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #111; line-height: 1.5;">
+          <p>Hi ${safeName},</p>
+          <p>Your Make It Sell verification code is:</p>
+          <p style="font-size: 30px; letter-spacing: 8px; font-weight: 700; margin: 16px 0;">${displayCode}</p>
+          <p>This code will expire in 10 minutes.</p>
+          <p>If you didn\'t request this, you can ignore this email.</p>
+          <p>Make It Sell Support<br/><a href="mailto:${supportEmail}">${supportEmail}</a></p>
         </div>
-
-        <!-- Welcome Message -->
-        <div style="text-align: center; margin-bottom: 30px;">
-          <h2 style="color: oklch(0.295 0.014 258.338); margin: 0 0 10px 0; font-size: 24px;">Welcome to Make It Sell, ${name}!</h2>
-          <p style="color: oklch(0.631 0 0); margin: 0; font-size: 16px; line-height: 1.5;">
-            Thanks for joining our marketplace! Use the one-time code below to verify your email address.
+      `
+      : `
+        <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #111; line-height: 1.5;">
+          <p>Hi ${safeName},</p>
+          <p>Please verify your email address for your Make It Sell account.</p>
+          <p style="margin: 16px 0;">
+            <a href="${verificationUrl || '#'}">Verify email address</a>
           </p>
+          <p>If you didn\'t request this, you can ignore this email.</p>
+          <p>Make It Sell Support<br/><a href="mailto:${supportEmail}">${supportEmail}</a></p>
         </div>
+      `
 
-        <!-- Verification Instructions -->
-        <div style="background-color: oklch(0.976 0 0); padding: 25px; border-radius: 10px; margin-bottom: 25px; border: 1px solid oklch(0.898 0 0);">
-          <h3 style="color: oklch(0.295 0.014 258.338); margin: 0 0 15px 0; font-size: 18px;">One-Time Password (OTP)</h3>
-          <p style="color: oklch(0.631 0 0); margin: 0 0 20px 0; line-height: 1.6;">
-            Enter this 6-digit code in the verification screen to activate your account.
-            This code expires in 10 minutes.
-          </p>
-          
-          <div style="text-align: center; margin: 25px 0;">
-            ${hasCode ? `
-              <div style="display: inline-block; letter-spacing: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 36px; font-weight: 800; color: #111827; background: #ffffff; border: 1px dashed #d1d5db; border-radius: 10px; padding: 16px 26px;">
-                ${displayCode}
-              </div>
-              <div style="margin-top: 12px; color: #6b7280; font-size: 13px;">Enter this code where prompted</div>
-            ` : `
-              <a href="${verificationUrl || '#'}" 
-                 style="display: inline-block; background: linear-gradient(135deg, oklch(0.35 0.15 15) 0%, oklch(0.45 0.18 20) 100%); color: white; text-decoration: none; padding: 15px 30px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px oklch(0.35 0.15 15 / 0.3);">
-                Verify My Email
-              </a>
-            `}
-          </div>
-        </div>
-
-        <!-- Benefits -->
-        <div style="background-color: oklch(0.35 0.15 15 / 0.05); padding: 20px; border-radius: 10px; border-left: 4px solid oklch(0.35 0.15 15); margin-bottom: 25px;">
-          <h3 style="color: oklch(0.295 0.014 258.338); margin: 0 0 15px 0; font-size: 16px;">🎉 Once verified, you can:</h3>
-          <ul style="color: oklch(0.295 0.014 258.338); margin: 0; padding-left: 20px; line-height: 1.6;">
-            <li>Browse and purchase thousands of products</li>
-            <li>Create your own store and start selling</li>
-            <li>Access exclusive deals and promotions</li>
-            <li>Get personalized recommendations</li>
-            <li>Track your orders and manage your account</li>
-          </ul>
-        </div>
-
-        ${hasCode ? '' : `
-          <div style="background-color: oklch(0.35 0.15 15 / 0.08); padding: 15px; border-radius: 8px; border-left: 4px solid oklch(0.35 0.15 15); margin-bottom: 25px;">
-            <p style="color: oklch(0.295 0.014 258.338); margin: 0 0 10px 0; font-weight: 600; font-size: 14px;">
-              Can't click the button?
-            </p>
-            <p style="color: oklch(0.295 0.014 258.338); margin: 0; font-size: 14px; line-height: 1.5;">
-              Copy and paste this link into your browser:<br>
-              <span style="word-break: break-all; font-family: monospace; background: oklch(0.898 0 0); padding: 2px 4px; border-radius: 3px;">
-                ${verificationUrl || ''}
-              </span>
-            </p>
-          </div>
-        `}
-
-        <!-- Support -->
-        <div style="text-align: center; color: oklch(0.631 0 0); font-size: 14px; padding-top: 20px; border-top: 1px solid oklch(0.898 0 0);">
-          <p style="margin: 0 0 10px 0;">
-            Having trouble? We're here to help!
-          </p>
-          <p style="margin: 0;">
-            Contact us at <a href="mailto:noreply@makeitsell.org" style="color: oklch(0.35 0.15 15); text-decoration: none; font-weight: 600;">noreply@makeitsell.org</a>
-          </p>
-        </div>
-
-        <!-- Footer -->
-        <div style="text-align: center; color: oklch(0.631 0 0); font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid oklch(0.898 0 0);">
-          <p style="margin: 0;">
-            This email was sent to ${email}. If you didn't create an account, you can safely ignore this email.
-          </p>
-        </div>
-      </div>
-    `
+    const minimalText = hasCode
+      ? [
+          `Hi ${name || 'there'},`,
+          '',
+          'Your Make It Sell verification code is:',
+          displayCode,
+          '',
+          'This code will expire in 10 minutes.',
+          '',
+          "If you didn't request this, you can ignore this email.",
+          '',
+          `Make It Sell Support (${supportEmail})`,
+        ].join('\n')
+      : [
+          `Hi ${name || 'there'},`,
+          '',
+          'Please verify your email address for your Make It Sell account.',
+          verificationUrl ? `Verification link: ${verificationUrl}` : '',
+          '',
+          "If you didn't request this, you can ignore this email.",
+          '',
+          `Make It Sell Support (${supportEmail})`,
+        ].filter(Boolean).join('\n')
 
     return await this.sendEmail({
       to: email,
-      subject: hasCode ? 'Your Make It Sell verification code' : 'Verify your email address - Make It Sell',
-      html: emailHtml
+      subject: hasCode ? 'Verify your email - Make It Sell' : 'Verify your email address - Make It Sell',
+      html: minimalHtml,
+      text: minimalText,
+      replyTo: supportEmail,
     })
   }
 
