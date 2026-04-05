@@ -23,6 +23,28 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute"
 import { trackFunnelEvent } from "@/lib/funnel-tracker"
 import { NIGERIA_STATE_CITY_OPTIONS, NIGERIA_STATES } from "@/lib/nigeria-locations"
 
+const COUNTRY_CODES = [
+  { code: "+234", label: "Nigeria (+234)" },
+  { code: "+233", label: "Ghana (+233)" },
+  { code: "+254", label: "Kenya (+254)" },
+  { code: "+27", label: "South Africa (+27)" },
+  { code: "+1", label: "US/Canada (+1)" },
+  { code: "+44", label: "United Kingdom (+44)" },
+  { code: "+91", label: "India (+91)" },
+]
+
+function formatPhoneWithCountryCode(countryCode: string, phoneInput: string): string {
+  const raw = String(phoneInput || "").trim()
+  if (!raw) return ""
+  if (raw.startsWith("+")) return raw
+
+  const digits = raw.replace(/\D/g, "")
+  if (!digits) return ""
+
+  const localDigits = digits.startsWith("0") ? digits.slice(1) : digits
+  return `${countryCode}${localDigits}`
+}
+
 export default function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCart()
   const { user, userProfile, refreshProfile } = useAuth()
@@ -38,6 +60,7 @@ export default function CheckoutPage() {
     firstName: "",
     lastName: "",
     email: user?.email || "",
+    phoneCountryCode: "+234",
     phone: "",
     address: "",
     city: "",
@@ -181,6 +204,11 @@ export default function CheckoutPage() {
       console.log("Cart items:", items)
       console.log("User:", user?.uid)
 
+      const fullPhoneNumber = formatPhoneWithCountryCode(shippingInfo.phoneCountryCode, shippingInfo.phone)
+      if (!fullPhoneNumber) {
+        throw new Error("Please provide a valid phone number")
+      }
+
       // Prepare order data for payment initialization
       const orderData = {
         customerId: user?.uid!,
@@ -198,7 +226,7 @@ export default function CheckoutPage() {
           firstName: shippingInfo.firstName,
           lastName: shippingInfo.lastName,
           email: shippingInfo.email,
-          phone: shippingInfo.phone,
+          phone: fullPhoneNumber,
           address: shippingInfo.address,
           city: shippingInfo.city,
           state: shippingInfo.state,
@@ -370,14 +398,30 @@ export default function CheckoutPage() {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="phone">Phone *</Label>
-                          <Input
-                            id="phone"
-                            type="tel"
-                            value={shippingInfo.phone}
-                            onChange={(e) => handleInputChange("phone", e.target.value)}
-                            required
-                            disabled={loading}
-                          />
+                          <div className="grid grid-cols-[170px_1fr] gap-2">
+                            <Select
+                              value={shippingInfo.phoneCountryCode}
+                              onValueChange={(value) => handleInputChange("phoneCountryCode", value)}
+                              disabled={loading}
+                            >
+                              <SelectTrigger id="phoneCountryCode">
+                                <SelectValue placeholder="Code" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {COUNTRY_CODES.map((item) => (
+                                  <SelectItem key={item.code} value={item.code}>{item.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              id="phone"
+                              type="tel"
+                              value={shippingInfo.phone}
+                              onChange={(e) => handleInputChange("phone", e.target.value)}
+                              required
+                              disabled={loading}
+                            />
+                          </div>
                         </div>
                       </div>
 
