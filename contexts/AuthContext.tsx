@@ -244,7 +244,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     role: "customer" | "vendor" = "customer",
     phone?: string,
     vendorType?: "goods" | "services" | "both",
-    verificationChannel: "email" | "sms" = "email",
+    verificationChannel: "email" | "sms" = "sms",
   ): Promise<{ user: User; userProfile: UserProfile }> => {
     try {
       setLoading(true)

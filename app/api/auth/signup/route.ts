@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     if (error?.message === 'VERIFICATION_SMS_PHONE_REQUIRED') {
       return NextResponse.json({
         success: false,
-        error: 'A valid Nigerian phone number is required for SMS verification.',
+        error: 'A valid phone number with country code is required for SMS verification.',
         code: 'VERIFICATION_SMS_PHONE_REQUIRED'
       }, { status: 400 })
     }

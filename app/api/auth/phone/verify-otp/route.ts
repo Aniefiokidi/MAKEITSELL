@@ -3,29 +3,9 @@ import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { enforceRateLimit } from '@/lib/rate-limit'
+import { normalizeNigerianPhone } from '@/lib/sms'
 
 const ATTEMPT_RESET_HOURS = 4
-
-function normalizeNigerianPhone(input: string): string | null {
-  const raw = String(input || '').trim()
-  if (!raw) return null
-
-  const digits = raw.replace(/\D/g, '')
-
-  if (digits.startsWith('0') && digits.length === 11) {
-    return `+234${digits.slice(1)}`
-  }
-
-  if (digits.startsWith('234') && digits.length === 13) {
-    return `+${digits}`
-  }
-
-  if (raw.startsWith('+234') && digits.length === 13) {
-    return `+${digits}`
-  }
-
-  return null
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,7 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (body?.phoneNumber && !normalizedPhone) {
-      return NextResponse.json({ success: false, error: 'Enter a valid Nigerian phone number.' }, { status: 400 })
+      return NextResponse.json({ success: false, error: 'Enter a valid phone number with country code.' }, { status: 400 })
     }
 
     const user = await User.findById(sessionUser.id)

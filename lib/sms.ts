@@ -8,7 +8,26 @@ export function normalizeNigerianPhone(input: string): string | null {
   const raw = String(input || '').trim()
   if (!raw) return null
 
+  if (raw.startsWith('+')) {
+    const plusNormalizedDigits = raw.replace(/\D/g, '')
+    if (plusNormalizedDigits.length >= 8 && plusNormalizedDigits.length <= 15) {
+      return `+${plusNormalizedDigits}`
+    }
+    return null
+  }
+
   const digits = raw.replace(/\D/g, '')
+
+  if (digits.startsWith('00') && digits.length > 8) {
+    const internationalDigits = digits.slice(2)
+    if (internationalDigits.length >= 8 && internationalDigits.length <= 15) {
+      return `+${internationalDigits}`
+    }
+  }
+
+  if (digits.length === 10 && /^[7-9]\d{9}$/.test(digits)) {
+    return `+234${digits}`
+  }
 
   if (digits.startsWith('0') && digits.length === 11) {
     return `+234${digits.slice(1)}`

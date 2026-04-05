@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     const normalizedPhone = normalizeNigerianPhone(phoneInput)
 
     if (!normalizedPhone) {
-      return NextResponse.json({ success: false, error: 'Enter a valid Nigerian phone number.' }, { status: 400 })
+      return NextResponse.json({ success: false, error: 'Enter a valid phone number with country code.' }, { status: 400 })
     }
 
     const now = new Date()

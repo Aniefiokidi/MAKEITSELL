@@ -13,7 +13,7 @@ export async function signUp({ email, password, name, role, vendorInfo, phone, v
   
   const passwordHash = hashPassword(password);
   const sessionToken = crypto.randomBytes(32).toString('hex');
-  const selectedVerificationChannel = verificationChannel === 'sms' ? 'sms' : 'email'
+  const selectedVerificationChannel = verificationChannel === 'email' ? 'email' : 'sms'
   const normalizedPhone = phone ? normalizeNigerianPhone(phone) : null
   
   // Generate a 6-digit verification OTP code valid for 10 minutes.

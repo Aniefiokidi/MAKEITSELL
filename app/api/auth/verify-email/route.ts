@@ -4,6 +4,14 @@ import { User } from '@/lib/models/User'
 import { emailService } from '@/lib/email'
 import { normalizeNigerianPhone, sendOtpSms } from '@/lib/sms'
 
+function normalizeChannel(rawChannel: unknown): 'email' | 'sms' {
+  const value = String(rawChannel || '').trim().toLowerCase()
+  if (value === 'email') return 'email'
+  if (value === 'phone') return 'sms'
+  if (value === 'sms') return 'sms'
+  return 'sms'
+}
+
 function generateVerificationCode(): string {
   return String(Math.floor(100000 + Math.random() * 900000))
 }
@@ -115,7 +123,7 @@ export async function PUT(request: NextRequest) {
 
     const normalizedEmail = String(email).trim().toLowerCase()
     const normalizedCode = String(code).trim()
-    const normalizedChannel = String(channel || 'email').trim().toLowerCase()
+    const normalizedChannel = normalizeChannel(channel)
 
     if (!/^\d{6}$/.test(normalizedCode)) {
       return NextResponse.json({
@@ -126,7 +134,7 @@ export async function PUT(request: NextRequest) {
 
     await connectToDatabase()
 
-    const user = normalizedChannel === 'phone'
+    const user = normalizedChannel === 'sms'
       ? await User.findOne({
           email: normalizedEmail,
           otp_code: normalizedCode,
@@ -145,10 +153,10 @@ export async function PUT(request: NextRequest) {
       }, { status: 400 })
     }
 
-    if (normalizedChannel === 'phone') {
+    if (normalizedChannel === 'sms') {
       const normalizedPhone = phoneNumber ? normalizeNigerianPhone(phoneNumber) : null
       if (phoneNumber && !normalizedPhone) {
-        return NextResponse.json({ success: false, error: 'Enter a valid Nigerian phone number' }, { status: 400 })
+        return NextResponse.json({ success: false, error: 'Enter a valid phone number with country code.' }, { status: 400 })
       }
 
       ;(user as any).phone_verified = true
@@ -200,12 +208,12 @@ export async function POST(request: NextRequest) {
 
     const verificationCode = generateVerificationCode()
     const tokenExpiry = new Date(Date.now() + 10 * 60 * 1000)
-    const normalizedChannel = String(channel || 'email').trim().toLowerCase()
+    const normalizedChannel = normalizeChannel(channel)
 
-    if (normalizedChannel === 'phone') {
+    if (normalizedChannel === 'sms') {
       const normalizedPhone = normalizeNigerianPhone(phoneNumber || (user as any).phone_number || (user as any).phone || '')
       if (!normalizedPhone) {
-        return NextResponse.json({ success: false, error: 'A valid Nigerian phone number is required for SMS OTP.' }, { status: 400 })
+        return NextResponse.json({ success: false, error: 'A valid phone number with country code is required for SMS OTP.' }, { status: 400 })
       }
 
       ;(user as any).phone_number = normalizedPhone

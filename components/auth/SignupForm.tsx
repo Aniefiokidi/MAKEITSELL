@@ -18,6 +18,28 @@ import { Eye, EyeOff, Loader2 } from "lucide-react"
 import LocationPicker from "@/components/LocationPicker"
 import { NIGERIA_STATE_CITY_OPTIONS, NIGERIA_STATES } from "@/lib/nigeria-locations"
 
+const COUNTRY_CODES = [
+  { code: "+234", label: "Nigeria (+234)" },
+  { code: "+233", label: "Ghana (+233)" },
+  { code: "+254", label: "Kenya (+254)" },
+  { code: "+27", label: "South Africa (+27)" },
+  { code: "+1", label: "US/Canada (+1)" },
+  { code: "+44", label: "United Kingdom (+44)" },
+  { code: "+91", label: "India (+91)" },
+]
+
+function formatPhoneWithCountryCode(countryCode: string, phoneInput: string): string {
+  const raw = String(phoneInput || '').trim()
+  if (!raw) return ''
+  if (raw.startsWith('+')) return raw
+
+  const digits = raw.replace(/\D/g, '')
+  if (!digits) return ''
+
+  const localDigits = digits.startsWith('0') ? digits.slice(1) : digits
+  return `${countryCode}${localDigits}`
+}
+
 export default function SignupForm() {
   const searchParams = useSearchParams()
   const isVendorSignup = searchParams.get("type") === "vendor"
@@ -28,6 +50,7 @@ export default function SignupForm() {
   const [formData, setFormData] = useState<{
     email: string
     customerPhone: string
+    customerCountryCode: string
     verificationMethod: "email" | "sms"
     password: string
     confirmPassword: string
@@ -41,10 +64,12 @@ export default function SignupForm() {
     storeState: string
     storeCity: string
     storePhone: string
+    storeCountryCode: string
   }>({
     email: "",
     customerPhone: "",
-    verificationMethod: "email",
+    customerCountryCode: "+234",
+    verificationMethod: "sms",
     password: "",
     confirmPassword: "",
     displayName: "",
@@ -58,6 +83,7 @@ export default function SignupForm() {
     storeState: "",
     storeCity: "",
     storePhone: "",
+    storeCountryCode: "+234",
   })
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -112,7 +138,9 @@ export default function SignupForm() {
       return
     }
 
-    const verificationPhone = (formData.customerPhone || formData.storePhone || "").trim()
+    const customerPhoneWithCode = formatPhoneWithCountryCode(formData.customerCountryCode, formData.customerPhone)
+    const storePhoneWithCode = formatPhoneWithCountryCode(formData.storeCountryCode, formData.storePhone)
+    const verificationPhone = (customerPhoneWithCode || storePhoneWithCode || "").trim()
     if (formData.verificationMethod === "sms" && !verificationPhone) {
       setError("Phone number is required for SMS verification")
       setLoading(false)
@@ -214,7 +242,7 @@ export default function SignupForm() {
               location: normalizedAddress,
               city: resolvedCity,
               state: resolvedState,
-              storePhone: formData.storePhone,
+              storePhone: storePhoneWithCode || formData.storePhone,
               email: formData.email,
               deliveryTime: "1-3 days",
               deliveryFee: 0,
@@ -259,7 +287,11 @@ export default function SignupForm() {
       console.error("=== SIGNUP FORM ERROR ===", error)
       const errorMessage = String(error?.message || "")
       if (errorMessage.includes('VERIFICATION_EMAIL_SEND_FAILED') || errorMessage.includes('VERIFICATION_SMS_SEND_FAILED')) {
-        const verificationPhone = (formData.customerPhone || formData.storePhone || "").trim()
+        const verificationPhone = (
+          formatPhoneWithCountryCode(formData.customerCountryCode, formData.customerPhone) ||
+          formatPhoneWithCountryCode(formData.storeCountryCode, formData.storePhone) ||
+          ""
+        ).trim()
         router.push(`/verify-email?email=${encodeURIComponent(formData.email)}&delivery=failed&channel=${formData.verificationMethod}&phone=${encodeURIComponent(verificationPhone)}`)
         return
       }
@@ -317,34 +349,33 @@ export default function SignupForm() {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="verificationMethod">Verification Method</Label>
-            <Select
-              value={formData.verificationMethod}
-              onValueChange={(value: "email" | "sms") => handleInputChange("verificationMethod", value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select OTP method" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="email">Email OTP</SelectItem>
-                <SelectItem value="sms">SMS OTP</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
           {(formData.role === "customer" || formData.role === "admin") && (
             <div className="space-y-2">
               <Label htmlFor="customerPhone">Phone Number</Label>
-              <Input
-                id="customerPhone"
-                type="tel"
-                placeholder="Enter your phone number"
-                value={formData.customerPhone}
-                onChange={(e) => handleInputChange("customerPhone", e.target.value)}
-                required={formData.role === "customer" || formData.role === "admin"}
-                disabled={loading}
-              />
+              <div className="grid grid-cols-[160px_1fr] gap-2">
+                <Select
+                  value={formData.customerCountryCode}
+                  onValueChange={(value) => handleInputChange("customerCountryCode", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Code" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COUNTRY_CODES.map((item) => (
+                      <SelectItem key={item.code} value={item.code}>{item.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  id="customerPhone"
+                  type="tel"
+                  placeholder="Phone number"
+                  value={formData.customerPhone}
+                  onChange={(e) => handleInputChange("customerPhone", e.target.value)}
+                  required={formData.role === "customer" || formData.role === "admin"}
+                  disabled={loading}
+                />
+              </div>
             </div>
           )}
 
@@ -533,15 +564,30 @@ export default function SignupForm() {
                 {/* Store Phone */}
                 <div className="space-y-2 mt-3">
                   <Label htmlFor="storePhone">Store Phone *</Label>
-                  <Input
-                    id="storePhone"
-                    type="tel"
-                    placeholder="Enter store contact number"
-                    value={formData.storePhone}
-                    onChange={(e) => handleInputChange("storePhone", e.target.value)}
-                    required={formData.role === "vendor"}
-                    disabled={loading}
-                  />
+                  <div className="grid grid-cols-[160px_1fr] gap-2">
+                    <Select
+                      value={formData.storeCountryCode}
+                      onValueChange={(value) => handleInputChange("storeCountryCode", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Code" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {COUNTRY_CODES.map((item) => (
+                          <SelectItem key={item.code} value={item.code}>{item.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      id="storePhone"
+                      type="tel"
+                      placeholder="Store contact number"
+                      value={formData.storePhone}
+                      onChange={(e) => handleInputChange("storePhone", e.target.value)}
+                      required={formData.role === "vendor"}
+                      disabled={loading}
+                    />
+                  </div>
                 </div>
               </div>
             </>
