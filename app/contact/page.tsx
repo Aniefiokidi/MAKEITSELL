@@ -197,7 +197,7 @@ export default function ContactPage() {
                       </div>
                       <div>
                         <h3 className="font-semibold">Email</h3>
-                        <p className="text-muted-foreground text-sm">noreply@makeitsell.org</p>
+                        <p className="text-muted-foreground text-sm">support@makeitsell.ng</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">

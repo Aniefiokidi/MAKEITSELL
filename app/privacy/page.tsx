@@ -297,7 +297,7 @@ export default function PrivacyPage() {
                 please contact us:
               </p>
               <div className="space-y-1.5 sm:space-y-2 text-[9px] xs:text-[10px] sm:text-xs md:text-sm">
-                <p><strong>Email:</strong> <span className="truncate">noreply@makeitsell.org</span></p>
+                <p><strong>Email:</strong> <span className="truncate">support@makeitsell.ng</span></p>
                 <p><strong>Address:</strong> <span className="break-words">123 Allen Avenue, Privacy Department, Lagos, Nigeria</span></p>
                 <p><strong>Phone:</strong> <span className="truncate">+234 812 9380 869</span></p>
               </div>

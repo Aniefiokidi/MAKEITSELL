@@ -58,18 +58,18 @@ function getVerificationBaseUrl(request: NextRequest): string {
   const explicit = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL
   if (explicit) return explicit.replace(/\/$/, '')
 
-  const host = request.headers.get('host') || 'www.makeitsell.org'
+  const host = request.headers.get('host') || 'www.makeitsell.ng'
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https'
   return `${protocol}://${host}`
 }
 
 export async function GET(request: NextRequest) {
-    // Redirect any Vercel domain to www.makeitsell.org
+    // Redirect any Vercel domain to www.makeitsell.ng
     const host = request.headers.get('host') || '';
     if (host.endsWith('.vercel.app')) {
       const { searchParams } = new URL(request.url);
       const token = searchParams.get('token');
-      const redirectUrl = `https://www.makeitsell.org/verify-email?token=${token || ''}`;
+      const redirectUrl = `https://www.makeitsell.ng/verify-email?token=${token || ''}`;
       return NextResponse.redirect(redirectUrl, 308);
     }
   try {

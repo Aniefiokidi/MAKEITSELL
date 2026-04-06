@@ -380,8 +380,8 @@ export default function VerifyEmailPage() {
         <div className="text-center text-sm text-gray-500">
           <p>
             Need help? Contact us at{" "}
-            <a href="mailto:noreply@makeitsell.org" className="text-accent hover:underline">
-              noreply@makeitsell.org
+            <a href="mailto:support@makeitsell.ng" className="text-accent hover:underline">
+              support@makeitsell.ng
             </a>
           </p>
         </div>

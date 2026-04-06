@@ -29,7 +29,7 @@ async function fetchNominatimFallback(input: string) {
   const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
     headers: {
       Accept: 'application/json',
-      'User-Agent': 'MakeItSell/1.0 (support@makeitsell.org)',
+      'User-Agent': 'MakeItSell/1.0 (support@makeitsell.ng)',
     },
     cache: 'no-store',
   })

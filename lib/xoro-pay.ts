@@ -325,7 +325,7 @@ class XoroPayService {
   }
 
   private getNotificationUrl() {
-    const appUrl = String(process.env.NEXT_PUBLIC_APP_URL || '').trim() || 'https://www.makeitsell.org'
+    const appUrl = String(process.env.NEXT_PUBLIC_APP_URL || '').trim() || 'https://www.makeitsell.ng'
     return `${appUrl}/api/payments/webhook`
   }
 
@@ -374,7 +374,7 @@ class XoroPayService {
     const amountMajor = Math.round(Number(params.amount))
     const amountMinor = Math.round(Number(params.amount) * 100)
     const currency = 'NGN'
-    const callbackUrl = params.callbackUrl || `${String(process.env.NEXT_PUBLIC_APP_URL || '').trim() || 'https://www.makeitsell.org'}/api/payments/verify`
+    const callbackUrl = params.callbackUrl || `${String(process.env.NEXT_PUBLIC_APP_URL || '').trim() || 'https://www.makeitsell.ng'}/api/payments/verify`
     const metadata = asObject(params.metadata)
 
     const processorCandidates = Array.from(

@@ -20,11 +20,11 @@ export const metadata: Metadata = {
     shortcut: "/images/logo2.png",
     apple: "/images/logo2.png",
   },
-  metadataBase: new URL('https://www.makeitsell.org'),
+  metadataBase: new URL('https://www.makeitsell.ng'),
   openGraph: {
     title: "Make It Sell",
     description: "AI-powered marketplace connecting buyers with quality products and professional services",
-    url: "https://www.makeitsell.org",
+    url: "https://www.makeitsell.ng",
     siteName: "Make It Sell",
     type: "website",
     images: [

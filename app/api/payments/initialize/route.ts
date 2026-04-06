@@ -249,7 +249,7 @@ export async function POST(request: NextRequest) {
       })
       
       const paymentReference = `${orderId}-${Date.now()}`
-      const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.org'}/api/payments/verify`
+      const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.ng'}/api/payments/verify`
 
       const paymentResult = await xoroPayService.initializePayment({
         email: shippingInfo.email,

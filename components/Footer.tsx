@@ -76,7 +76,7 @@ export default function Footer() {
             <ul className="space-y-3 text-[clamp(0.84rem,3.5vw,0.95rem)]">
               <li className="flex justify-center sm:justify-start items-center space-x-3">
                 <Mail className="h-4 w-4 text-accent" />
-                <span className="text-accent">noreply@makeitsell.org</span>
+                <span className="text-accent">support@makeitsell.ng</span>
               </li>
               <li className="flex justify-center sm:justify-start items-center space-x-3">
                 <Phone className="h-4 w-4 text-accent" />

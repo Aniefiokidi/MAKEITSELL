@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       )
     )
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.org'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.ng'
     const successRedirect = new URL('/stores', appUrl)
     const errorRedirect = new URL('/stores', appUrl)
 
@@ -128,7 +128,7 @@ export async function GET(request: NextRequest) {
     successRedirect.searchParams.set('wallet', 'success')
     return NextResponse.redirect(successRedirect.toString())
   } catch (error) {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.org'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.ng'
     const errorRedirect = new URL('/stores', appUrl)
     errorRedirect.searchParams.set('wallet', 'failed')
     errorRedirect.searchParams.set('reason', 'server_error')

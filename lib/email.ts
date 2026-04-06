@@ -181,7 +181,7 @@ class EmailService {
           user: process.env.MAILTRAP_USER,
           pass: process.env.MAILTRAP_PASS,
         },
-        from: process.env.MAILTRAP_FROM || 'MakeItSell <noreply@makeitsell.org>',
+        from: process.env.MAILTRAP_FROM || 'MakeItSell <support@makeitsell.ng>',
         tls: { rejectUnauthorized: false },
         connectionTimeout: 60000,
         greetingTimeout: 30000,
@@ -216,8 +216,8 @@ class EmailService {
 
     const configuredFrom = String(process.env.EMAIL_FROM || '').trim()
     if (configuredFrom) {
-      if (configuredFrom.toLowerCase().includes('noreply@makeitsell.org')) {
-        return `"${process.env.SMTP_FROM_NAME || 'Make It Sell Support'}" <support@makeitsell.org>`
+      if (configuredFrom.toLowerCase().includes('noreply@')) {
+        return `"${process.env.SMTP_FROM_NAME || 'Make It Sell Support'}" <support@makeitsell.ng>`
       }
       return configuredFrom
     }
@@ -226,13 +226,13 @@ class EmailService {
       process.env.SMTP_FROM_EMAIL ||
       process.env.EMAIL_USER ||
       process.env.SMTP_USER ||
-      'support@makeitsell.org'
+      'support@makeitsell.ng'
 
     return `"${process.env.SMTP_FROM_NAME || 'Make It Sell Support'}" <${fallbackEmail}>`
   }
 
   private getAppBaseUrl(): string {
-    return (process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.org').replace(/\/$/, '')
+    return (process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.ng').replace(/\/$/, '')
   }
 
   private htmlToText(html: string): string {
@@ -269,7 +269,16 @@ class EmailService {
       const apiKey = String(process.env.RESEND_API_KEY || '').trim()
       if (!apiKey) return false
 
-      const fromAddress = this.getFromAddress()
+      const fromAddress = String(process.env.RESEND_FROM || this.getFromAddress()).trim()
+
+      const payloadBase = {
+        to: [emailData.to],
+        subject: emailData.subject,
+        html: emailData.html,
+        text: emailData.text || this.htmlToText(emailData.html),
+        reply_to: emailData.replyTo || process.env.EMAIL_REPLY_TO || process.env.SUPPORT_EMAIL,
+        headers: emailData.headers || {},
+      }
 
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -279,12 +288,7 @@ class EmailService {
         },
         body: JSON.stringify({
           from: fromAddress,
-          to: [emailData.to],
-          subject: emailData.subject,
-          html: emailData.html,
-          text: emailData.text || this.htmlToText(emailData.html),
-          reply_to: emailData.replyTo || process.env.EMAIL_REPLY_TO || process.env.SUPPORT_EMAIL,
-          headers: emailData.headers || {},
+          ...payloadBase,
         }),
       })
 
@@ -489,7 +493,7 @@ class EmailService {
                   <h2 style="margin: 0 0 10px 0; color: #333; font-size: 18px;">Make It Sell</h2>
                   <div style="color: #666; font-size: 14px; line-height: 1.5;">
                     Lagos, Nigeria<br>
-                    noreply@makeitsell.org
+                    support@makeitsell.ng
                   </div>
                 </div>
               </td>
@@ -646,7 +650,7 @@ class EmailService {
           <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">If you have any questions about your order, please don't hesitate to contact us.</p>
           
           <div style="margin: 20px 0;">
-            <a href="mailto:noreply@makeitsell.org" 
+            <a href="mailto:support@makeitsell.ng" 
                style="background: #667eea; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 600; margin-right: 10px;">
               Contact Support
             </a>
@@ -805,7 +809,7 @@ class EmailService {
         
         <div style="text-align: center; color: #666; font-size: 14px;">
           <p style="margin: 0 0 10px 0;">Thank you for choosing Make It Sell!</p>
-          <p style="margin: 0;">Questions? Contact us at <a href="mailto:noreply@makeitsell.org" style="color: #667eea;">noreply@makeitsell.org</a></p>
+          <p style="margin: 0;">Questions? Contact us at <a href="mailto:support@makeitsell.ng" style="color: #667eea;">support@makeitsell.ng</a></p>
         </div>
       </div>
     `
@@ -832,7 +836,7 @@ class EmailService {
     const hasCode = displayCode.length === 6
 
     const safeName = this.escapeHtml(name || 'there')
-    const supportEmail = process.env.SUPPORT_EMAIL || 'support@makeitsell.org'
+    const supportEmail = process.env.SUPPORT_EMAIL || 'support@makeitsell.ng'
 
     const minimalHtml = hasCode
       ? `
@@ -911,7 +915,7 @@ class EmailService {
     const hasCode = displayCode.length === 6
 
     const safeName = this.escapeHtml(name || 'there')
-    const supportEmail = process.env.SUPPORT_EMAIL || 'support@makeitsell.org'
+    const supportEmail = process.env.SUPPORT_EMAIL || 'support@makeitsell.ng'
     const minimalHtml = hasCode
       ? `
         <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #111; line-height: 1.5;">
@@ -982,7 +986,7 @@ class EmailService {
     const posterToken = '{{poster}}'
     const signatureToken = '{{signature}}'
     const appBase = this.getAppBaseUrl()
-    const logoUrl = 'https://makeitsell.org/images/logo%20(2).png'
+    const logoUrl = 'https://www.makeitsell.ng/images/logo%20(2).png'
     const instagramUrl = 'https://www.instagram.com/makeitsell.ng/?__pwa=1'
     const twitterUrl = 'https://x.com/makeitsellorg'
     const instagramIconUrl = 'https://img.icons8.com/ios-filled/50/5b2f21/instagram-new.png'
@@ -1126,7 +1130,7 @@ class EmailService {
               <div style="color: #555; line-height: 1.4;">${senderMetaHtml}</div>
             </div>
           ` : ''}
-          <p style="margin-bottom: 0; color: #1f2937 !important;"><a href="mailto:${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}" style="color: ${brandAccent} !important; font-weight: 600; text-decoration: none;">${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}</a></p>
+          <p style="margin-bottom: 0; color: #1f2937 !important;"><a href="mailto:${process.env.SUPPORT_EMAIL || 'support@makeitsell.ng'}" style="color: ${brandAccent} !important; font-weight: 600; text-decoration: none;">${process.env.SUPPORT_EMAIL || 'support@makeitsell.ng'}</a></p>
           <div style="margin: 14px 0 2px 0; text-align: left;">
             <a href="${instagramUrl}" target="_blank" rel="noopener noreferrer" aria-label="Instagram" style="display: inline-block; text-decoration: none !important; margin-right: 10px; vertical-align: middle;">
               <img src="${instagramIconUrl}" alt="Instagram" width="20" height="20" style="display: block; width: 20px; height: 20px; border: 0;" />
@@ -1171,7 +1175,7 @@ class EmailService {
         `${overrides?.senderCompany || 'Make It Sell'}`,
         `${overrides?.signatureImageUrl ? `Signature image: ${overrides.signatureImageUrl}` : ''}`,
       ] : []),
-      `Support: ${process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'}`,
+      `Support: ${process.env.SUPPORT_EMAIL || 'support@makeitsell.ng'}`,
       `Instagram: ${instagramUrl}`,
       `X: ${twitterUrl}`,
       'Facebook: coming soon',
@@ -1190,7 +1194,7 @@ class EmailService {
     overrides?: RegistrationIssueTemplateOverrides
   }): Promise<boolean> {
     const appBase = this.getAppBaseUrl()
-    const supportEmail = process.env.SUPPORT_EMAIL || 'noreply@makeitsell.org'
+    const supportEmail = process.env.SUPPORT_EMAIL || 'support@makeitsell.ng'
     const safeName = this.escapeHtml(name || 'there')
     const subject = (overrides?.subject || 'Important update from Make It Sell').trim()
     const defaultBody = [

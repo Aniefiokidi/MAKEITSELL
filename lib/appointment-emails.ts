@@ -153,7 +153,7 @@ export const AppointmentEmailService = {
             Need help or want to reschedule? Contact us!
           </p>
           <p style="margin: 0;">
-            📧 <a href="mailto:noreply@makeitsell.org" style="color: #f97316; text-decoration: none; font-weight: 600;">noreply@makeitsell.org</a>
+            📧 <a href="mailto:support@makeitsell.ng" style="color: #f97316; text-decoration: none; font-weight: 600;">support@makeitsell.ng</a>
           </p>
         </div>
 
@@ -286,7 +286,7 @@ export const AppointmentEmailService = {
             Questions about this booking? Need help with your account?
           </p>
           <p style="margin: 0;">
-            📧 <a href="mailto:noreply@makeitsell.org" style="color: #f97316; text-decoration: none; font-weight: 600;">noreply@makeitsell.org</a>
+            📧 <a href="mailto:support@makeitsell.ng" style="color: #f97316; text-decoration: none; font-weight: 600;">support@makeitsell.ng</a>
           </p>
         </div>
 
