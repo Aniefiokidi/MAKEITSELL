@@ -269,7 +269,11 @@ class EmailService {
       const apiKey = String(process.env.RESEND_API_KEY || '').trim()
       if (!apiKey) return false
 
-      const fromAddress = String(process.env.RESEND_FROM || this.getFromAddress()).trim()
+      const fromAddress = String(
+        process.env.RESEND_FROM ||
+        process.env.RESEND_DEFAULT_FROM ||
+        'Make It Sell <verify@makeitsell.ng>'
+      ).trim()
 
       const payloadBase = {
         to: [emailData.to],
