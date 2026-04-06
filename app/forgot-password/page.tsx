@@ -59,13 +59,8 @@ export default function ForgotPasswordPage() {
       if (data.success) {
         setMessage({
           type: "success",
-          text: data.code
-            ? `Password reset code sent to ${email}. Check your inbox and enter the OTP below.`
-            : "If an account exists, a password reset code has been sent.",
+          text: "If an account exists, a password reset code has been sent.",
         })
-        if (data.code) {
-          setResetCode(String(data.code).replace(/\D/g, '').slice(0, 6))
-        }
         setStep("reset")
       } else {
         setMessage({ type: "error", text: data.error || "Failed to send reset code" })
@@ -166,12 +161,6 @@ export default function ForgotPasswordPage() {
                 )}
                 <AlertDescription className={message.type === "success" ? "text-green-800" : "text-red-800"}>
                   <p>{message.text}</p>
-                  {message.type === "success" && resetCode && process.env.NODE_ENV === "development" && (
-                    <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
-                      <p className="font-medium mb-1">🛠️ Development Mode</p>
-                      <p>Code auto-filled below for testing.</p>
-                    </div>
-                  )}
                 </AlertDescription>
               </Alert>
             )}
