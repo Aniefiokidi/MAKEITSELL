@@ -186,7 +186,7 @@ function TrendingProducts() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
           {[1, 2, 3, 4, 5].map(i => (
-            <div key={`service-${i}`} className="animate-pulse bg-white/60 rounded-2xl h-[160px]" />
+            <div key={`service-${i}`} className="animate-pulse bg-white/60 rounded-2xl h-40" />
           ))}
         </div>
       </div>
@@ -250,7 +250,7 @@ function TrendingProducts() {
             <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-2.5 md:p-3 backdrop-blur-xl bg-accent/10 border-t border-white/30 rounded-t-2xl sm:rounded-t-3xl z-30 space-y-1 gap-1 sm:gap-2">
               <Badge
                 variant="outline"
-                className="inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow bg-accent text-white hover:opacity-90 transition min-h-[20px] sm:min-h-[24px] items-center justify-center text-center leading-tight"
+                className="inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow bg-accent text-white hover:opacity-90 transition min-h-5 sm:min-h-6 items-center justify-center text-center leading-tight"
                 style={{
                   whiteSpace: 'normal',
                   wordBreak: 'break-word',
@@ -263,8 +263,8 @@ function TrendingProducts() {
                 </span>
               </Badge>
               <div className="flex items-center justify-between gap-1 sm:gap-2">
-                <Badge variant="outline" className="text-[9px] sm:text-[10px] md:text-xs backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 text-white bg-accent">
-                  {product.storeName || product.vendorName || 'Store'}
+                <Badge variant="outline" className="text-[8px] sm:text-[10px] md:text-xs backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 text-white bg-accent max-w-[58%] min-w-0 whitespace-nowrap overflow-hidden text-ellipsis">
+                  <span className="block max-w-full whitespace-nowrap overflow-hidden text-ellipsis">{product.storeName || product.vendorName || 'Store'}</span>
                 </Badge>
                 <Badge
                   variant="outline"
@@ -334,10 +334,10 @@ function TrendingProducts() {
                 return (
                 <Card
                   key={serviceId || serviceName}
-                  className="h-full p-0 gap-0 hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02] transition-all duration-300 group overflow-hidden border-none rounded-[2.25rem] relative"
+                  className="h-full p-0 gap-0 hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02] transition-all duration-300 group overflow-hidden border-none rounded-3xl relative"
                   style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}
                 >
-                  <div className="aspect-[9/16] relative overflow-hidden rounded-[2.25rem]">
+                  <div className="aspect-9/16 relative overflow-hidden rounded-3xl">
                     {service.images && service.images.length > 0 ? (
                       <img
                         src={service.images[0]}
@@ -353,7 +353,7 @@ function TrendingProducts() {
                       </div>
                     )}
 
-                    <div className="absolute inset-0 bg-linear-to-b rounded-[2.25rem] from-black/20 via-transparent via-50% to-black/90" />
+                    <div className="absolute inset-0 bg-linear-to-b rounded-3xl from-black/20 via-transparent via-50% to-black/90" />
 
                     <div className="absolute top-3 sm:top-4 left-1/2 -translate-x-1/2 z-20">
                       <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-white/20 backdrop-blur-md border-3 sm:border-4 border-white overflow-hidden shadow-2xl ring-3 sm:ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110">
@@ -363,7 +363,7 @@ function TrendingProducts() {
                       </div>
                     </div>
 
-                    <div className="absolute bottom-0 left-0 right-0 z-10 h-[108px] sm:h-[140px] backdrop-blur-md bg-black/20 rounded-[2.25rem] border-t border-white/10 p-2 sm:p-4 flex flex-col justify-between">
+                    <div className="absolute bottom-0 left-0 right-0 z-10 h-[108px] sm:h-[140px] backdrop-blur-md bg-black/20 rounded-b-3xl border-t border-white/10 p-2 sm:p-4 flex flex-col justify-between">
                       <div className="flex items-start justify-between gap-2 sm:gap-3">
                         <div className="flex-1 min-w-0">
                           <h3 className="text-xs sm:text-lg md:text-xl font-bold tracking-tight mb-0.5 sm:mb-1 text-white drop-shadow-lg leading-tight line-clamp-2">
@@ -376,7 +376,7 @@ function TrendingProducts() {
                             </div>
                           )}
 
-                          <Badge variant="outline" className="w-fit text-[7px] sm:text-[10px] font-semibold py-0.5 px-1.5 sm:px-2 h-4 sm:h-5 tracking-wide border-2 border-white/40 bg-white/10 text-white backdrop-blur-sm">
+                          <Badge variant="outline" className="inline-flex max-w-full text-[clamp(6px,1.9vw,9px)] sm:text-[10px] font-semibold py-0.5 px-1 sm:px-1.5 h-4 sm:h-5 tracking-wide border-2 border-white/40 bg-white/10 text-white backdrop-blur-sm whitespace-nowrap">
                             {service.category || 'Service'}
                           </Badge>
                         </div>

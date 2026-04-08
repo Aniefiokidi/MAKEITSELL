@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
             firstProductImage: { $arrayElemAt: ['$productMeta.firstProductImage', 0] },
           },
         },
-        { $sort: { productCount: -1, storeName: 1 } },
+        { $sort: { isOpen: -1, productCount: -1, storeName: 1 } },
         { $skip: skip },
         { $limit: limitCount },
       ])
@@ -211,9 +211,39 @@ export async function GET(request: NextRequest) {
                 default: 1,
               },
             },
+            openSort: {
+              $cond: [
+                { $eq: [{ $ifNull: ['$isOpen', true] }, true] },
+                1,
+                0,
+              ],
+            },
+            isPinnedJlc: {
+              $cond: [
+                {
+                  $and: [
+                    {
+                      $eq: [
+                        {
+                          $toLower: {
+                            $trim: {
+                              input: { $ifNull: ['$storeName', ''] },
+                            },
+                          },
+                        },
+                        'jlc',
+                      ],
+                    },
+                    { $eq: [{ $ifNull: ['$isOpen', true] }, true] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
           },
         },
-        { $sort: { setupTier: -1, hasLogoImage: -1, hasStoreCardImage: -1, productCount: -1, createdAt: -1, storeName: 1 } },
+        { $sort: { openSort: -1, isPinnedJlc: -1, setupTier: -1, hasLogoImage: -1, hasStoreCardImage: -1, productCount: -1, createdAt: -1, storeName: 1 } },
         { $skip: skip },
         { $limit: limitCount },
       ])
@@ -255,8 +285,8 @@ export async function GET(request: NextRequest) {
 
     const findSort: Record<string, 1 | -1> =
       sortBy === 'newest'
-        ? { createdAt: -1 }
-        : { storeName: 1, createdAt: -1 }
+        ? { isOpen: -1, createdAt: -1 }
+        : { isOpen: -1, storeName: 1, createdAt: -1 }
 
     let storesPage = await Store.find(query)
       .sort(findSort)

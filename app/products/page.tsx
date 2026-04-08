@@ -430,8 +430,8 @@ export default function AllProductsPage() {
           </Badge>
           
           <div className="flex items-center justify-between gap-1 sm:gap-2">
-            <Badge variant="outline" className={`${(product.category || '').length > 12 ? 'text-[8px] sm:text-[9px] md:text-[10px]' : 'text-[9px] sm:text-[10px] md:text-xs'} backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 text-white bg-accent max-w-[58%] min-w-0 whitespace-nowrap overflow-hidden text-ellipsis`}>
-              {product.category}
+            <Badge variant="outline" className={`${(product.category || '').length > 12 ? 'text-[7px] sm:text-[9px] md:text-[10px]' : 'text-[8px] sm:text-[10px] md:text-xs'} backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 text-white bg-accent max-w-[58%] min-w-0 whitespace-nowrap overflow-hidden text-ellipsis`}>
+              <span className="block max-w-full whitespace-nowrap overflow-hidden text-ellipsis">{product.category}</span>
             </Badge>
             
             <Badge

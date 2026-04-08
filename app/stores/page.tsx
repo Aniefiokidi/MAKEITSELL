@@ -128,8 +128,19 @@ export default function ShopPage() {
         const rawStores = data.data || []
         const shouldPersonalize = sortBy === "for-you" && selectedCategory === "all"
         const rankedStores = shouldPersonalize ? personalizeStores(rawStores) : rawStores
+        const pinnedStores = [...rankedStores]
 
-        setStores(rankedStores)
+        const pinnedIndex = pinnedStores.findIndex((store) => {
+          const name = String(store?.name || store?.storeName || "").trim().toLowerCase()
+          return name === "jlc" && store?.isOpen !== false
+        })
+
+        if (pinnedIndex > 0) {
+          const [pinnedStore] = pinnedStores.splice(pinnedIndex, 1)
+          pinnedStores.unshift(pinnedStore)
+        }
+
+        setStores(pinnedStores)
         setLocationOptions(Array.isArray(data.locationOptions) ? data.locationOptions : [])
         setTotalPages(Math.max(1, Number(data?.pagination?.totalPages || 1)))
         setTotalStores(Math.max(0, Number(data?.pagination?.total || 0)))
@@ -297,6 +308,7 @@ export default function ShopPage() {
       const firstProductImage = store.featuredProduct?.image || store.productImages?.[0]
       const backgroundImageCandidate = store.profileImage || store.bannerImage || store.backgroundImage || firstProductImage
       const logoImageCandidate = store.storeImage || store.logoImage || store.profileImage || firstProductImage
+      const isClosed = store.isOpen === false
 
       const storeBrandingPdfUrl = [
         store.storeImage,
@@ -307,9 +319,9 @@ export default function ShopPage() {
       ].find((value) => isPdfAsset(value))
 
       return (
-    <Card className="h-full hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02] transition-all duration-300 group overflow-hidden border-none rounded-[2.5rem] relative" style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}>
+    <Card className={`h-full transition-all duration-300 group overflow-hidden border-none rounded-3xl relative ${isClosed ? "grayscale opacity-75" : "hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02]"}`} style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}>
       {/* Full Image Background */}
-      <div className="aspect-9/16 relative overflow-hidden rounded-[2.5rem]">
+      <div className="aspect-9/16 relative overflow-hidden rounded-3xl">
         {backgroundImageCandidate ? (
           <Image
             src={resolveStoreImageSrc(backgroundImageCandidate, firstProductImage)}
@@ -325,6 +337,15 @@ export default function ShopPage() {
         
         {/* Dark overlay gradient at bottom for text readability */}
         <div className="absolute inset-0 bg-linear-to-b from-black/20 via-transparent via-50% to-black/90" />
+        {isClosed && (
+          <div className="absolute inset-0 bg-slate-900/35 z-5" />
+        )}
+
+        {isClosed && (
+          <div className="absolute top-4 right-4 z-30">
+            <Badge className="bg-slate-800/90 text-white border border-white/20 uppercase tracking-wide text-[10px]">Closed Store</Badge>
+          </div>
+        )}
         
         {/* Logo in Center Top */}
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
@@ -346,7 +367,7 @@ export default function ShopPage() {
         </div>
 
         {/* Content Overlay at Bottom - Full Width */}
-        <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-b-[2.5rem] border-t border-white/10 p-3 sm:p-4">
+        <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-b-3xl border-t border-white/10 p-3 sm:p-4">
           <div className="flex items-start justify-between w-full gap-1 mb-1">
             <div className="flex-1 min-w-0">
               <h3 className="text-xs sm:text-base md:text-lg font-bold tracking-tight mb-0.5 text-white drop-shadow-lg truncate">
@@ -358,9 +379,12 @@ export default function ShopPage() {
               </div>
               
               {store.category && (
-                <Badge variant="outline" className="w-fit text-[7px] sm:text-[10px] font-semibold py-0.5 px-1.5 sm:px-2 h-4 sm:h-5 tracking-wide border-2 border-white/40 bg-white/10 text-white backdrop-blur-sm">
+                <Badge variant="outline" className="inline-flex max-w-full text-[clamp(6px,1.9vw,9px)] sm:text-[10px] font-semibold py-0.5 px-1 sm:px-1.5 h-4 sm:h-5 tracking-wide border-2 border-white/40 bg-white/10 text-white backdrop-blur-sm whitespace-nowrap">
                   {categories.find(c => c.id === store.category)?.name || store.category}
                 </Badge>
+              )}
+              {isClosed && (
+                <p className="mt-1 text-[8px] sm:text-[10px] uppercase font-bold tracking-wider text-white/90">Temporarily closed</p>
               )}
             </div>
 
@@ -506,7 +530,7 @@ export default function ShopPage() {
             </div>
 
             {/* Controls Row */}
-            <div className="flex items-center gap-2 sm:gap-3 w-full sm:flex-1">
+            <div className="flex items-center gap-1 sm:gap-3 w-full sm:flex-1">
               {/* Mobile Search Icon */}
               <Button
                 variant="outline"

@@ -5,6 +5,7 @@ import AdminLayout from "@/components/admin/AdminLayout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 const getCompactPagination = (currentPage: number, totalPages: number): Array<number | string> => {
@@ -26,6 +27,7 @@ const getCompactPagination = (currentPage: number, totalPages: number): Array<nu
 export default function AdminVendorsPage() {
   const [vendors, setVendors] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [storeActionVendorId, setStoreActionVendorId] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [currentNoStorePage, setCurrentNoStorePage] = useState(1)
@@ -47,6 +49,42 @@ export default function AdminVendorsPage() {
     }
     fetchVendors()
   }, [])
+
+  const handleStoreOpenToggle = async (vendor: any, checked: boolean) => {
+    const storeId = String(vendor.storeId || "")
+    const vendorId = String(vendor.id || vendor._id || "")
+    if (!storeId || !vendorId) return
+
+    setStoreActionVendorId(vendorId)
+    try {
+      const response = await fetch(`/api/database/stores/${storeId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isOpen: checked }),
+      })
+
+      const result = await response.json()
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Failed to update store status")
+      }
+
+      setVendors((prev) =>
+        prev.map((item) => {
+          const itemId = String(item.id || item._id || "")
+          if (itemId !== vendorId) return item
+          return {
+            ...item,
+            isOpen: checked,
+          }
+        })
+      )
+    } catch (error) {
+      console.error("Failed to toggle store open status:", error)
+      window.alert("Failed to update store open status.")
+    } finally {
+      setStoreActionVendorId(null)
+    }
+  }
 
   const filtered = vendors.filter(v =>
     v.storeName?.toLowerCase().includes(search.toLowerCase()) ||
@@ -249,6 +287,21 @@ export default function AdminVendorsPage() {
                               {vendor.createdAt ? new Date(vendor.createdAt).toLocaleDateString() : "N/A"}
                             </span>
                           </div>
+                          {vendor.hasStore ? (
+                            <div className="flex justify-between items-center gap-2 pt-1">
+                              <span className="font-medium">Store Open:</span>
+                              <div className="flex items-center gap-2">
+                                <Badge variant={vendor.isOpen ? "secondary" : "outline"} className="text-xs">
+                                  {vendor.isOpen ? "Open" : "Closed"}
+                                </Badge>
+                                <Switch
+                                  checked={vendor.isOpen !== false}
+                                  disabled={storeActionVendorId === String(vendor.id || vendor._id || "")}
+                                  onCheckedChange={(checked) => handleStoreOpenToggle(vendor, checked)}
+                                />
+                              </div>
+                            </div>
+                          ) : null}
                         </div>
                       </CardContent>
                     </Card>
@@ -265,6 +318,7 @@ export default function AdminVendorsPage() {
                         <TableHead className="text-xs">Email</TableHead>
                         <TableHead className="text-xs">Type</TableHead>
                         <TableHead className="text-xs">Status</TableHead>
+                        <TableHead className="text-xs">Store Open</TableHead>
                         <TableHead className="text-xs">Joined</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -281,6 +335,22 @@ export default function AdminVendorsPage() {
                             <Badge variant={vendor.status === "active" ? "secondary" : "outline"} className="text-xs">
                               {vendor.status || "pending"}
                             </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {vendor.hasStore ? (
+                              <div className="flex items-center gap-2">
+                                <Badge variant={vendor.isOpen ? "secondary" : "outline"} className="text-xs">
+                                  {vendor.isOpen ? "Open" : "Closed"}
+                                </Badge>
+                                <Switch
+                                  checked={vendor.isOpen !== false}
+                                  disabled={storeActionVendorId === String(vendor.id || vendor._id || "")}
+                                  onCheckedChange={(checked) => handleStoreOpenToggle(vendor, checked)}
+                                />
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">N/A</span>
+                            )}
                           </TableCell>
                           <TableCell className="text-xs">
                             {vendor.createdAt ? new Date(vendor.createdAt).toLocaleDateString() : "N/A"}

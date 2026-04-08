@@ -22,7 +22,9 @@ export async function GET(req: NextRequest) {
       const vendorIdStr = store.vendorId.toString()
       
       const storeData = {
+        storeId: store._id?.toString() || '',
         storeName: store.storeName,
+        isOpen: store.isOpen !== false,
         accountStatus: store.accountStatus || 'active', 
         vendorAccess: 'free'
       }
@@ -46,7 +48,9 @@ export async function GET(req: NextRequest) {
         email: vendor.email,
         name: vendor.name || vendor.displayName || 'N/A',
         vendorType: vendor.vendorInfo?.type || 'both',
+        storeId: store?.storeId || '',
         storeName: store?.storeName || vendor.vendorInfo?.storeName || 'N/A',
+        isOpen: store?.isOpen !== false,
         status: store?.accountStatus || vendor.vendorInfo?.status || 'pending',
         vendorAccess: 'free',
         createdAt: vendor.createdAt,

@@ -684,11 +684,11 @@ export default function ServicesPage() {
               return (
                 <Card 
                   key={service.id} 
-                  className="h-full hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02] transition-all duration-300 group overflow-hidden border-none rounded-[2.5rem] relative" 
+                  className="h-full hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02] transition-all duration-300 group overflow-hidden border-none rounded-3xl relative" 
                   style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}
                 >
                   {/* Full Image Background */}
-                  <div className="aspect-9/16 relative overflow-hidden rounded-[2.5rem]">
+                  <div className="aspect-9/16 relative overflow-hidden rounded-3xl">
                     {service.images && service.images.length > 0 ? (
                       <Image
                         src={service.images[0]}
@@ -735,7 +735,7 @@ export default function ServicesPage() {
                     </div>
 
                     {/* Content Overlay at Bottom */}
-                    <div className="absolute bottom-0 left-0 right-0 z-10 h-[108px] sm:h-[140px] backdrop-blur-md bg-black/20 rounded-b-[2.5rem] border-t border-white/10 p-2 sm:p-4 flex flex-col justify-between">
+                    <div className="absolute bottom-0 left-0 right-0 z-10 h-[108px] sm:h-[140px] backdrop-blur-md bg-black/20 rounded-b-3xl border-t border-white/10 p-2 sm:p-4 flex flex-col justify-between">
                       <div className="flex items-start justify-between gap-2 sm:gap-3">
                         <div className="flex-1 min-w-0 min-h-14 sm:min-h-[74px]">
                           <h3 className={`${isLongTitle ? 'text-[10px] sm:text-sm md:text-base' : 'text-xs sm:text-lg md:text-xl'} line-clamp-2 font-bold tracking-tight mb-0.5 sm:mb-1 text-white drop-shadow-lg leading-tight`}>
@@ -748,7 +748,7 @@ export default function ServicesPage() {
                             </div>
                           )}
                           
-                          <Badge variant="outline" className="w-fit text-[7px] sm:text-[10px] font-semibold py-0.5 px-1.5 sm:px-2 h-4 sm:h-5 tracking-wide border-2 border-white/40 bg-white/10 text-white backdrop-blur-sm">
+                          <Badge variant="outline" className="inline-flex max-w-full text-[clamp(6px,1.9vw,9px)] sm:text-[10px] font-semibold py-0.5 px-1 sm:px-1.5 h-4 sm:h-5 tracking-wide border-2 border-white/40 bg-white/10 text-white backdrop-blur-sm whitespace-nowrap">
                             {SERVICE_CATEGORIES.find(c => c.value === service.category)?.label || service.category}
                           </Badge>
                         </div>
