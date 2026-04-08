@@ -319,9 +319,9 @@ export default function ShopPage() {
       ].find((value) => isPdfAsset(value))
 
       return (
-    <Card className={`h-full transition-all duration-300 group overflow-hidden border-none rounded-3xl relative ${isClosed ? "grayscale opacity-75" : "hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02]"}`} style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}>
+    <Card className={`h-full transition-all duration-300 group overflow-hidden border-none rounded-2xl relative ${isClosed ? "grayscale opacity-75" : "hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02]"}`} style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}>
       {/* Full Image Background */}
-      <div className="aspect-9/16 relative overflow-hidden rounded-3xl">
+      <div className="aspect-9/16 relative overflow-hidden rounded-2xl">
         {backgroundImageCandidate ? (
           <Image
             src={resolveStoreImageSrc(backgroundImageCandidate, firstProductImage)}
@@ -367,7 +367,7 @@ export default function ShopPage() {
         </div>
 
         {/* Content Overlay at Bottom - Full Width */}
-        <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-b-3xl border-t border-white/10 p-3 sm:p-4">
+        <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-b-2xl border-t border-white/10 p-3 sm:p-4">
           <div className="flex items-start justify-between w-full gap-1 mb-1">
             <div className="flex-1 min-w-0">
               <h3 className="text-xs sm:text-base md:text-lg font-bold tracking-tight mb-0.5 text-white drop-shadow-lg truncate">
