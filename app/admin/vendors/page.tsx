@@ -27,7 +27,7 @@ const getCompactPagination = (currentPage: number, totalPages: number): Array<nu
 export default function AdminVendorsPage() {
   const [vendors, setVendors] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [storeActionVendorId, setStoreActionVendorId] = useState<string | null>(null)
+  const [storeActionStoreId, setStoreActionStoreId] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [currentNoStorePage, setCurrentNoStorePage] = useState(1)
@@ -51,11 +51,83 @@ export default function AdminVendorsPage() {
   }, [])
 
   const handleStoreOpenToggle = async (vendor: any, checked: boolean) => {
-    const storeId = String(vendor.storeId || "")
     const vendorId = String(vendor.id || vendor._id || "")
-    if (!storeId || !vendorId) return
+    let storeId = String(vendor.storeId || "")
+    if (!storeId && vendorId) {
+      try {
+        const lookupRes = await fetch(`/api/database/stores?vendorId=${encodeURIComponent(vendorId)}&limit=1`, {
+          cache: "no-store",
+        })
+        const lookupJson = await lookupRes.json()
+        const firstStore = Array.isArray(lookupJson?.data) ? lookupJson.data[0] : null
+        const resolvedStoreId = String(firstStore?._id || firstStore?.id || "")
+        if (resolvedStoreId) {
+          storeId = resolvedStoreId
+          setVendors((prev) =>
+            prev.map((item) => {
+              const itemVendorId = String(item.id || item._id || "")
+              if (itemVendorId !== vendorId) return item
+              return {
+                ...item,
+                storeId: resolvedStoreId,
+              }
+            })
+          )
+        }
+      } catch (lookupError) {
+        console.error("Failed to resolve missing store ID:", lookupError)
+      }
+    }
 
-    setStoreActionVendorId(vendorId)
+    if (!storeId && vendor?.storeName && vendor.storeName !== "N/A") {
+      try {
+        const byNameRes = await fetch(`/api/database/stores?search=${encodeURIComponent(String(vendor.storeName))}&limit=10`, {
+          cache: "no-store",
+        })
+        const byNameJson = await byNameRes.json()
+        const candidates = Array.isArray(byNameJson?.data) ? byNameJson.data : []
+        const exactMatch = candidates.find((item: any) =>
+          String(item?.storeName || item?.name || '').trim().toLowerCase() === String(vendor.storeName).trim().toLowerCase()
+        )
+        const resolvedStoreId = String(exactMatch?._id || exactMatch?.id || '')
+        if (resolvedStoreId) {
+          storeId = resolvedStoreId
+          setVendors((prev) =>
+            prev.map((item) => {
+              const itemVendorId = String(item.id || item._id || "")
+              if (itemVendorId !== vendorId) return item
+              return {
+                ...item,
+                storeId: resolvedStoreId,
+              }
+            })
+          )
+        }
+      } catch (lookupByNameError) {
+        console.error("Failed to resolve missing store ID by store name:", lookupByNameError)
+      }
+    }
+
+    if (!storeId) {
+      window.alert("Store ID missing for this vendor. Refresh and try again.")
+      return
+    }
+
+    const previousIsOpen = vendor.isOpen !== false
+
+    // Optimistic UI so toggle and text respond instantly on click.
+    setVendors((prev) =>
+      prev.map((item) => {
+        const itemStoreId = String(item.storeId || "")
+        if (itemStoreId !== storeId) return item
+        return {
+          ...item,
+          isOpen: checked,
+        }
+      })
+    )
+
+    setStoreActionStoreId(storeId)
     try {
       const response = await fetch(`/api/database/stores/${storeId}`, {
         method: "PATCH",
@@ -67,22 +139,21 @@ export default function AdminVendorsPage() {
       if (!response.ok || !result?.success) {
         throw new Error(result?.error || "Failed to update store status")
       }
-
+    } catch (error) {
+      console.error("Failed to toggle store open status:", error)
       setVendors((prev) =>
         prev.map((item) => {
-          const itemId = String(item.id || item._id || "")
-          if (itemId !== vendorId) return item
+          const itemStoreId = String(item.storeId || "")
+          if (itemStoreId !== storeId) return item
           return {
             ...item,
-            isOpen: checked,
+            isOpen: previousIsOpen,
           }
         })
       )
-    } catch (error) {
-      console.error("Failed to toggle store open status:", error)
       window.alert("Failed to update store open status.")
     } finally {
-      setStoreActionVendorId(null)
+      setStoreActionStoreId(null)
     }
   }
 
@@ -291,12 +362,13 @@ export default function AdminVendorsPage() {
                             <div className="flex justify-between items-center gap-2 pt-1">
                               <span className="font-medium">Store Open:</span>
                               <div className="flex items-center gap-2">
-                                <Badge variant={vendor.isOpen ? "secondary" : "outline"} className="text-xs">
+                                <Badge className={`text-xs border ${vendor.isOpen ? "bg-green-100 text-green-800 border-green-300" : "bg-red-100 text-red-800 border-red-300"}`}>
                                   {vendor.isOpen ? "Open" : "Closed"}
                                 </Badge>
                                 <Switch
                                   checked={vendor.isOpen !== false}
-                                  disabled={storeActionVendorId === String(vendor.id || vendor._id || "")}
+                                  className="data-[state=checked]:bg-green-500! data-[state=unchecked]:bg-red-500!"
+                                  disabled={storeActionStoreId === String(vendor.storeId || "")}
                                   onCheckedChange={(checked) => handleStoreOpenToggle(vendor, checked)}
                                 />
                               </div>
@@ -339,12 +411,13 @@ export default function AdminVendorsPage() {
                           <TableCell>
                             {vendor.hasStore ? (
                               <div className="flex items-center gap-2">
-                                <Badge variant={vendor.isOpen ? "secondary" : "outline"} className="text-xs">
+                                <Badge className={`text-xs border ${vendor.isOpen ? "bg-green-100 text-green-800 border-green-300" : "bg-red-100 text-red-800 border-red-300"}`}>
                                   {vendor.isOpen ? "Open" : "Closed"}
                                 </Badge>
                                 <Switch
                                   checked={vendor.isOpen !== false}
-                                  disabled={storeActionVendorId === String(vendor.id || vendor._id || "")}
+                                  className="data-[state=checked]:bg-green-500! data-[state=unchecked]:bg-red-500!"
+                                  disabled={storeActionStoreId === String(vendor.storeId || "")}
                                   onCheckedChange={(checked) => handleStoreOpenToggle(vendor, checked)}
                                 />
                               </div>

@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { initPersonalizationSync, personalizeStores, trackSearch, trackStoreView } from "@/lib/personalization"
+import { buildPublicStorePath } from "@/lib/public-links"
 
 const categories = [
   { id: "all", name: "All Categories" },
@@ -234,8 +235,7 @@ export default function ShopPage() {
     setTransitionDirection("left")
     setIsTransitioning(true)
     setTimeout(() => {
-      const storeId = store?._id || store?.id
-      router.push(`/store/${storeId}`)
+      router.push(buildPublicStorePath(store))
     }, 220)
   }
 
@@ -389,7 +389,7 @@ export default function ShopPage() {
             </div>
 
             {/* Arrow Button */}
-            <Link href={`/store/${store._id || store.id}`} onClick={(e) => {
+            <Link href={buildPublicStorePath(store)} onClick={(e) => {
               e.preventDefault()
               handleStoreClick(store)
             }}>

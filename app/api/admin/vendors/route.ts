@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
       const vendorIdStr = store.vendorId.toString()
       
       const storeData = {
-        storeId: store._id?.toString() || '',
+        storeId: store._id?.toString() || store.id?.toString() || '',
         storeName: store.storeName,
         isOpen: store.isOpen !== false,
         accountStatus: store.accountStatus || 'active', 

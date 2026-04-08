@@ -31,6 +31,7 @@ import Footer from "@/components/Footer"
 import { Shield, Users, Truck, Sparkles, ArrowRight, Smartphone, ShoppingBag, Sparkles as Beauty, HomeIcon, Settings, CarFront, UserCheck, Coffee, Verified, Clock, Banknote, Camera, Briefcase, Wrench, Palette, Dumbbell, GraduationCap, Scissors, Laptop } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle2 } from "lucide-react"
+import { buildPublicServicePath } from "@/lib/public-links"
 
 function TrendingProducts() {
   const [products, setProducts] = useState<any[]>([])
@@ -384,7 +385,7 @@ function TrendingProducts() {
                         <div
                           onClick={() => {
                             if (!serviceId) return
-                            window.dispatchEvent(new CustomEvent('slideOutNavigate', { detail: { target: `/service/${serviceId}` } }))
+                            window.dispatchEvent(new CustomEvent('slideOutNavigate', { detail: { target: buildPublicServicePath(service) } }))
                           }}
                           className="shrink-0 w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-xl hover:scale-110 hover:bg-accent hover:text-white transition-all cursor-pointer group/arrow"
                         >

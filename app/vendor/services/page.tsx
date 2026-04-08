@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { Plus, Edit, Trash2, Eye, Search } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
+import { buildPublicServicePath } from "@/lib/public-links"
 
 // Define Service interface
 interface Service {
@@ -283,7 +284,7 @@ export default function VendorServicesPage() {
 
                   {/* Actions */}
                   <div className="flex gap-2 pt-2">
-                    <Link href={`/service/${service.id}`} className="flex-1">
+                    <Link href={buildPublicServicePath(service)} className="flex-1">
                       <Button variant="outline" size="sm" className="w-full">
                         <Eye className="h-4 w-4 mr-1" />
                         View

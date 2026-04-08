@@ -207,6 +207,7 @@ const ServiceSchema = new mongoose.Schema({
   providerName: { type: String, required: true },
   providerImage: { type: String },
   title: { type: String, required: true },
+  publicSlug: { type: String, unique: true, sparse: true, index: true },
   description: { type: String, required: true },
   category: { type: String, required: true },
   subcategory: { type: String },
@@ -295,6 +296,76 @@ const ServiceSchema = new mongoose.Schema({
 
 const ServiceModel = (mongoose.models.Service as any) || mongoose.model('Service', ServiceSchema);
 
+const slugifyPublic = (value: string): string => {
+  return String(value || '')
+    .toLowerCase()
+    .trim()
+    .replace(/['’]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+const randomSlugSuffix = () => Math.random().toString(36).slice(2, 7)
+
+const escapeRegex = (value: string): string => {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+const generateUniquePublicSlug = async (
+  model: any,
+  baseLabel: string,
+  excludeId?: string
+): Promise<string> => {
+  const baseSlug = slugifyPublic(baseLabel) || 'item'
+  let candidate = baseSlug
+  let attempts = 0
+
+  while (attempts < 20) {
+    const query: any = { publicSlug: candidate }
+    if (excludeId && mongoose.Types.ObjectId.isValid(excludeId)) {
+      query._id = { $ne: new mongoose.Types.ObjectId(excludeId) }
+    }
+
+    const exists = await model.exists(query)
+    if (!exists) return candidate
+
+    attempts += 1
+    candidate = `${baseSlug}-${randomSlugSuffix()}`
+  }
+
+  return `${baseSlug}-${Date.now().toString(36)}`
+}
+
+const ensureStorePublicSlug = async (store: any): Promise<string> => {
+  const existing = String(store?.publicSlug || '').trim()
+  if (existing) return existing
+
+  const storeId = String(store?._id || store?.id || '')
+  const sourceName = String(store?.storeName || 'store')
+  const publicSlug = await generateUniquePublicSlug(StoreModel, sourceName, storeId)
+
+  if (storeId && mongoose.Types.ObjectId.isValid(storeId)) {
+    await StoreModel.updateOne({ _id: new mongoose.Types.ObjectId(storeId) }, { $set: { publicSlug } })
+  }
+
+  return publicSlug
+}
+
+const ensureServicePublicSlug = async (service: any): Promise<string> => {
+  const existing = String(service?.publicSlug || '').trim()
+  if (existing) return existing
+
+  const serviceId = String(service?._id || service?.id || '')
+  const sourceName = String(service?.title || service?.name || 'service')
+  const publicSlug = await generateUniquePublicSlug(ServiceModel, sourceName, serviceId)
+
+  if (serviceId && mongoose.Types.ObjectId.isValid(serviceId)) {
+    await ServiceModel.updateOne({ _id: new mongoose.Types.ObjectId(serviceId) }, { $set: { publicSlug } })
+  }
+
+  return publicSlug
+}
+
 const buildFallbackPackage = (service: any) => {
   const fallbackPrice = Number(service?.price || 0);
   const fallbackDuration = Number(service?.duration || 60);
@@ -366,11 +437,46 @@ const normalizeServicePricing = (service: any) => {
 export const getStoreById = async (id: string) => {
   await connectToDatabase();
   try {
-    // Check if id is a valid MongoDB ObjectId format
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return null;
+    let store: any = null;
+
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      store = await StoreModel.findById(id).lean();
     }
-    return await StoreModel.findById(id).lean();
+
+    if (!store) {
+      store = await StoreModel.findOne({ publicSlug: id }).lean();
+    }
+
+    if (!store && id) {
+      const slugInput = String(id).trim().toLowerCase()
+      const slugWithSpaces = slugInput.replace(/-/g, ' ')
+      const slugTight = slugInput.replace(/-/g, '')
+      const slugParts = slugInput.split('-').filter(Boolean)
+      const partsPattern = slugParts.length
+        ? `^\\s*${slugParts.map((part) => escapeRegex(part)).join('\\W*')}\\s*$`
+        : ''
+
+      store = await StoreModel.findOne({
+        $or: [
+          { storeName: new RegExp(`^${escapeRegex(slugInput)}$`, 'i') },
+          { storeName: new RegExp(`^${escapeRegex(slugWithSpaces)}$`, 'i') },
+          { storeName: new RegExp(`^${escapeRegex(slugTight)}$`, 'i') },
+          ...(partsPattern ? [{ storeName: new RegExp(partsPattern, 'i') }] : []),
+        ],
+      }).lean()
+    }
+
+    if (!store) return null;
+
+    if (!store.publicSlug) {
+      const ensuredSlug = await ensureStorePublicSlug(store);
+      return {
+        ...store,
+        publicSlug: ensuredSlug,
+      };
+    }
+
+    return store;
   } catch (error) {
     console.error('getStoreById error:', error);
     return null;
@@ -462,6 +568,7 @@ export const createService = async (serviceData: any): Promise<any> => {
 
   const normalizedInput = {
     ...serviceData,
+    publicSlug: serviceData?.publicSlug,
     packageOptions,
     addOnOptions: Array.isArray(serviceData?.addOnOptions) ? serviceData.addOnOptions : [],
     requiresQuote: Boolean(serviceData?.requiresQuote),
@@ -476,6 +583,13 @@ export const createService = async (serviceData: any): Promise<any> => {
     }
   }
 
+  if (!normalizedInput.publicSlug) {
+    normalizedInput.publicSlug = await generateUniquePublicSlug(
+      ServiceModel,
+      String(normalizedInput.title || normalizedInput.name || 'service')
+    );
+  }
+
   const service: any = await ServiceModel.create(normalizedInput as any);
   if (!service) return null;
   const { _id, ...rest } = service.toObject ? service.toObject() : (service as any);
@@ -487,13 +601,44 @@ export const createService = async (serviceData: any): Promise<any> => {
 export const getServiceById = async (id: string) => {
   await connectToDatabase();
   try {
-    // Validate that id looks like a MongoDB ObjectId
-    const service = await ServiceModel.findById(id).lean();
+    let service: any = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      service = await ServiceModel.findById(id).lean();
+    }
+
+    if (!service) {
+      service = await ServiceModel.findOne({ publicSlug: id }).lean();
+    }
+
+    if (!service && id) {
+      const slugInput = String(id).trim().toLowerCase()
+      const slugWithSpaces = slugInput.replace(/-/g, ' ')
+      const slugTight = slugInput.replace(/-/g, '')
+
+      service = await ServiceModel.findOne({
+        $or: [
+          { title: new RegExp(`^${escapeRegex(slugInput)}$`, 'i') },
+          { title: new RegExp(`^${escapeRegex(slugWithSpaces)}$`, 'i') },
+          { title: new RegExp(`^${escapeRegex(slugTight)}$`, 'i') },
+        ],
+      }).lean()
+    }
+
     if (!service) {
       console.log(`[getServiceById] Service not found for id: ${id}`);
       return null;
     }
-    const { _id, ...rest } = service as any;
+
+    let serviceWithSlug = service;
+    if (!service.publicSlug) {
+      const ensuredSlug = await ensureServicePublicSlug(service);
+      serviceWithSlug = {
+        ...service,
+        publicSlug: ensuredSlug,
+      };
+    }
+
+    const { _id, ...rest } = serviceWithSlug as any;
     const result = normalizeServicePricing({ ...rest, id: _id.toString() });
     console.log(`[getServiceById] Found service:`, result);
     return result;
@@ -519,7 +664,19 @@ export const deleteService = async (id: string) => {
 // --- Store Creation (Real) ---
 export const createStore = async (storeData: any): Promise<string> => {
   await connectToDatabase();
-  const store: any = await StoreModel.create(storeData as any);
+  const preparedStoreData = {
+    ...storeData,
+    publicSlug: storeData?.publicSlug,
+  } as any;
+
+  if (!preparedStoreData.publicSlug) {
+    preparedStoreData.publicSlug = await generateUniquePublicSlug(
+      StoreModel,
+      String(preparedStoreData.storeName || preparedStoreData.name || 'store')
+    );
+  }
+
+  const store: any = await StoreModel.create(preparedStoreData as any);
   return store?._id?.toString?.() || '';
 };
 // --- Store Operations ---
@@ -536,7 +693,14 @@ export const getStores = async (filters: any) => {
     dbQuery = dbQuery.limit(Number(filters.limitCount));
   }
   const stores = await dbQuery.lean();
-  return stores;
+  return await Promise.all(stores.map(async (store: any) => {
+    if (store?.publicSlug) return store;
+    const publicSlug = await ensureStorePublicSlug(store);
+    return {
+      ...store,
+      publicSlug,
+    };
+  }));
 };
 // --- Vendor Dashboard Operations ---
 export const getOrdersByVendor = async (vendorId: string) => {
@@ -638,7 +802,16 @@ export const getServices = async (filters: ServiceFilters): Promise<Service[]> =
   if (filters?.limitCount) q = q.limit(Number(filters.limitCount));
 
   const services = await q.lean();
-  return services.map((s: any) => {
+  const servicesWithPublicSlugs = await Promise.all(services.map(async (service: any) => {
+    if (service?.publicSlug) return service;
+    const publicSlug = await ensureServicePublicSlug(service);
+    return {
+      ...service,
+      publicSlug,
+    };
+  }));
+
+  return servicesWithPublicSlugs.map((s: any) => {
     const { _id, ...rest } = s;
     return normalizeServicePricing({ ...rest, id: _id.toString() }) as Service;
   });

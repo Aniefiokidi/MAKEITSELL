@@ -5,6 +5,47 @@ import connectToDatabase from '@/lib/mongodb'
 import { Store } from '@/lib/models/Store'
 import { Product } from '@/lib/models/Product'
 
+const slugifyPublic = (value: string): string => {
+  return String(value || '')
+    .toLowerCase()
+    .trim()
+    .replace(/['’]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+const randomSlugSuffix = () => Math.random().toString(36).slice(2, 7)
+
+const generateUniqueStoreSlug = async (name: string, excludeId?: any): Promise<string> => {
+  const baseSlug = slugifyPublic(name) || 'store'
+  let candidate = baseSlug
+  let attempts = 0
+
+  while (attempts < 20) {
+    const query: any = { publicSlug: candidate }
+    if (excludeId) query._id = { $ne: excludeId }
+    const exists = await Store.exists(query)
+    if (!exists) return candidate
+
+    attempts += 1
+    candidate = `${baseSlug}-${randomSlugSuffix()}`
+  }
+
+  return `${baseSlug}-${Date.now().toString(36)}`
+}
+
+const ensureStoreSlug = async (store: any): Promise<string> => {
+  const existingSlug = String(store?.publicSlug || '').trim()
+  if (existingSlug) return existingSlug
+
+  const generatedSlug = await generateUniqueStoreSlug(String(store?.storeName || 'store'), store?._id)
+  if (store?._id) {
+    await Store.updateOne({ _id: store._id }, { $set: { publicSlug: generatedSlug } })
+  }
+
+  return generatedSlug
+}
+
 export async function GET(request: NextRequest) {
   try {
     await connectToDatabase()
@@ -75,8 +116,9 @@ export async function GET(request: NextRequest) {
         { $limit: limitCount },
       ])
 
-      const mappedStores = productSortedStores.map((store: any) => ({
+      const mappedStores = await Promise.all(productSortedStores.map(async (store: any) => ({
         ...store,
+        publicSlug: await ensureStoreSlug(store),
         id: store._id?.toString() || store.id,
         name: store.storeName,
         description: store.storeDescription,
@@ -93,7 +135,7 @@ export async function GET(request: NextRequest) {
         accountVerified: !!store.accountVerified,
         walletBalance: typeof store.walletBalance === 'number' ? store.walletBalance : 0,
         linkedWalletUserId: store.linkedWalletUserId || store.vendorId,
-      }))
+      })))
 
       const locationOptions = await Store.distinct('address', query)
 
@@ -248,8 +290,9 @@ export async function GET(request: NextRequest) {
         { $limit: limitCount },
       ])
 
-      const mappedStores = forYouStores.map((store: any) => ({
+      const mappedStores = await Promise.all(forYouStores.map(async (store: any) => ({
         ...store,
+        publicSlug: await ensureStoreSlug(store),
         id: store._id?.toString() || store.id,
         name: store.storeName,
         description: store.storeDescription,
@@ -266,7 +309,7 @@ export async function GET(request: NextRequest) {
         accountVerified: !!store.accountVerified,
         walletBalance: typeof store.walletBalance === 'number' ? store.walletBalance : 0,
         linkedWalletUserId: store.linkedWalletUserId || store.vendorId,
-      }))
+      })))
 
       const locationOptions = await Store.distinct('address', query)
 
@@ -327,13 +370,14 @@ export async function GET(request: NextRequest) {
       firstImageByVendor.set(String(item._id), String(item.firstProductImage))
     }
 
-    let mappedStores = storesPage.map((store: any) => {
+    let mappedStores = await Promise.all(storesPage.map(async (store: any) => {
       const vendorKey = String(store.vendorId || '')
       const firstProductImage = firstImageByVendor.get(vendorKey) || null
       const productCount = productCountByVendor.get(vendorKey) || 0
 
       return {
         ...store,
+        publicSlug: await ensureStoreSlug(store),
         id: store._id?.toString() || store.id,
         name: store.storeName,
         description: store.storeDescription,
@@ -352,7 +396,7 @@ export async function GET(request: NextRequest) {
         walletBalance: typeof store.walletBalance === 'number' ? store.walletBalance : 0,
         linkedWalletUserId: store.linkedWalletUserId || store.vendorId,
       }
-    })
+    }))
 
     const locationOptions = await Store.distinct('address', query)
 

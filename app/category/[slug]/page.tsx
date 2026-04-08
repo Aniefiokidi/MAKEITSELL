@@ -18,6 +18,7 @@ import { ProductQuickView } from "@/components/ui/product-quick-view"
 import Link from "next/link"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
+import { buildPublicServicePath, buildPublicStorePath } from "@/lib/public-links"
 // import { getProducts } from "@/lib/firestore"
 
 // Use real products from Firestore
@@ -1102,7 +1103,7 @@ export default function CategoryPage() {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
               {categoryServices.slice(0, 9).map((service) => (
-                <Link key={service.id || service._id} href={`/service/${service.id || service._id}`}>
+                <Link key={service.id || service._id} href={buildPublicServicePath(service)}>
                   <Card className="h-full hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02] transition-all duration-300 group overflow-hidden border-none rounded-[2.5rem] relative" style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}>
                     <div className="aspect-9/16 relative overflow-hidden rounded-[2.5rem]">
                       {Array.isArray(service.images) && service.images.length > 0 ? (
@@ -1185,7 +1186,7 @@ export default function CategoryPage() {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
               {categoryStores.slice(0, 9).map((store) => (
-                <Link key={store.id || store._id} href={`/store/${store.id || store._id}`}>
+                <Link key={store.id || store._id} href={buildPublicStorePath(store)}>
                   <Card className="h-full hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02] transition-all duration-300 group overflow-hidden border-none rounded-[2.5rem] relative" style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}>
                     <div className="aspect-9/16 relative overflow-hidden rounded-[2.5rem]">
                       {store.profileImage || store.bannerImage || store.storeImage ? (

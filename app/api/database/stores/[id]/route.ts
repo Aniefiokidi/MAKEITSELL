@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getStoreById, getStoreByVendorId, getUserById, updateStore, deleteStore } from '@/lib/mongodb-operations'
 import { requireRoles } from '@/lib/server-route-auth'
+import connectToDatabase from '@/lib/mongodb'
+import { Store } from '@/lib/models/Store'
+
+const escapeRegex = (value: string): string => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 export async function GET(
   request: NextRequest,
@@ -62,7 +66,7 @@ export async function GET(
       return NextResponse.json({ success: true, data: virtualStore })
     }
 
-    // Regular store lookup - try by vendorId first, then by _id
+    // Regular store lookup - try by vendorId first, then by _id/public slug
     console.log('Looking for store with vendorId:', id)
     let store = await getStoreByVendorId(id)
     console.log('Store by vendorId result:', store ? store.storeName : 'not found')
@@ -70,6 +74,26 @@ export async function GET(
       console.log('Trying store by _id:', id)
       store = await getStoreById(id)
       console.log('Store by _id result:', store ? store.storeName : 'not found')
+    }
+
+    // Additional safety fallback for clean slug URLs.
+    if (!store && id) {
+      await connectToDatabase()
+
+      const slugInput = String(id).trim().toLowerCase()
+      const slugWithSpaces = slugInput.replace(/-/g, ' ')
+      const slugTight = slugInput.replace(/-/g, '')
+
+      store = await Store.findOne({
+        $or: [
+          { publicSlug: slugInput },
+          { storeName: new RegExp(`^${escapeRegex(slugInput)}$`, 'i') },
+          { storeName: new RegExp(`^${escapeRegex(slugWithSpaces)}$`, 'i') },
+          { storeName: new RegExp(`^${escapeRegex(slugTight)}$`, 'i') },
+        ],
+      }).lean()
+
+      console.log('Store fallback by slug/name result:', store ? (store as any).storeName : 'not found')
     }
     console.log('Store lookup result:', store ? 'found' : 'not found', 'for ID:', id)
 

@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getServices, Service } from "@/lib/database-client"
 import { initPersonalizationSync, personalizeServices, trackSearch, trackServiceView } from "@/lib/personalization"
+import { buildPublicServicePath } from "@/lib/public-links"
 import { Search, Clock, Banknote, Verified, RefreshCw, Camera, Briefcase, Wrench, Palette, Dumbbell, GraduationCap, Scissors, Sparkles, Laptop, Settings, Store, ArrowRight, Car, Megaphone, Shield, HeartPulse, Truck, Home, CarTaxiFront, Music2, Coffee, Users } from "lucide-react"
 import Image from "next/image"
 
@@ -758,7 +759,7 @@ export default function ServicesPage() {
                           onClick={() => {
                             trackServiceView(service)
                             saveScrollPosition()
-                            window.dispatchEvent(new CustomEvent('slideOutNavigate', { detail: { target: `/service/${service.id}` } }));
+                            window.dispatchEvent(new CustomEvent('slideOutNavigate', { detail: { target: buildPublicServicePath(service) } }));
                           }}
                           className="shrink-0 w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-xl hover:scale-110 hover:bg-accent hover:text-white transition-all cursor-pointer group/arrow"
                         >

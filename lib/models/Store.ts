@@ -9,6 +9,7 @@ const StoreSchema = new Schema({
   logo: { type: String },
   bannerImages: [{ type: String }],
   storeBanner: { type: String },
+  publicSlug: { type: String, unique: true, sparse: true, index: true },
   address: { type: String },
   vendorId: { type: String, required: true },
   subscriptionStatus: { type: String },

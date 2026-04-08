@@ -17,6 +17,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { ArrowLeft, MapPin, Clock, DollarSign, Calendar, MessageCircle, CheckCircle, X, ChevronLeft, ChevronRight, Star } from "lucide-react"
 import BookingModal from "@/components/services/BookingModal"
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
+import { buildPublicServicePath, extractEntityIdFromParam } from "@/lib/public-links"
 
 export default function ServiceDetailPage() {
     // Slide-out state for page transition
@@ -30,6 +31,8 @@ export default function ServiceDetailPage() {
       }, 600);
     };
   const params = useParams()
+  const rawServiceParam = String(params.id || "")
+  const serviceId = extractEntityIdFromParam(rawServiceParam)
   const searchParams = useSearchParams()
   const router = useRouter()
   const { user, userProfile } = useAuth()
@@ -50,10 +53,14 @@ export default function ServiceDetailPage() {
     const fetchService = async () => {
       try {
         setLoading(true)
-        const res = await fetch(`/api/database/services/${params.id}`)
+        const res = await fetch(`/api/database/services/${serviceId}`)
         if (!res.ok) throw new Error("Failed to fetch service")
         const json = await res.json()
         setService(json.data)
+
+        if (json?.data?.publicSlug && rawServiceParam !== json.data.publicSlug) {
+          router.replace(buildPublicServicePath(json.data), { scroll: false })
+        }
 
         const packages = (json.data?.packageOptions || []).filter((pkg: any) => pkg?.active !== false)
         const requestedPackageId = searchParams.get("package") || ""
@@ -78,8 +85,8 @@ export default function ServiceDetailPage() {
         setLoading(false)
       }
     }
-    if (params.id) fetchService()
-  }, [params.id, searchParams])
+    if (serviceId) fetchService()
+  }, [serviceId, searchParams])
 
   const handleMessageProvider = () => {
     if (!user || !userProfile) {

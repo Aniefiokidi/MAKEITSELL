@@ -20,6 +20,7 @@ import { useNotification } from "@/contexts/NotificationContext"
 import { ProductQuickView } from "@/components/ui/product-quick-view"
 import { trackFunnelEvent } from "@/lib/funnel-tracker"
 import { trackStoreView } from "@/lib/personalization"
+import { buildPublicStorePath, extractEntityIdFromParam } from "@/lib/public-links"
 
 interface Product {
   id: string
@@ -77,7 +78,8 @@ interface Store {
 export default function StorePage() {
   const params = useParams()
   const router = useRouter()
-  const storeId = params.id as string
+  const rawStoreParam = String(params.id || "")
+  const storeId = extractEntityIdFromParam(rawStoreParam)
   const [mounted, setMounted] = useState(false)
   const [store, setStore] = useState<Store | null>(null)
   const [products, setProducts] = useState<Product[]>([])
@@ -99,6 +101,14 @@ export default function StorePage() {
   const [imageBrightness, setImageBrightness] = useState<{ [key: string]: 'light' | 'dark' }>({})
   const [storeVisitTracked, setStoreVisitTracked] = useState(false)
   const PRODUCTS_PER_PAGE = 12
+  const slugify = (value?: string) => {
+    return String(value || "")
+      .toLowerCase()
+      .trim()
+      .replace(/['’]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+  }
   const isPdfAsset = (value?: string) => {
     if (!value) return false
     return /\.pdf(\?|#|$)/i.test(value)
@@ -248,14 +258,49 @@ export default function StorePage() {
     setLoading(true)
     try {
       // Fetch store data using API
-      const storeResponse = await fetch(`/api/database/stores/${storeId}`)
+      const storeResponse = await fetch(`/api/database/stores/${storeId}?t=${Date.now()}`, { cache: "no-store" })
       const storeResult = await storeResponse.json()
       
-      if (storeResult.success) {
-        setStore(storeResult.data)
+      let resolvedStore = storeResult?.success ? (storeResult?.data || null) : null
+
+      if (!resolvedStore && storeId) {
+        try {
+          const normalizedParam = slugify(storeId)
+          const firstToken = normalizedParam.split('-').find(Boolean) || normalizedParam
+          const fallbackStores: any[] = []
+
+          const fallbackResponse = await fetch(`/api/database/stores?search=${encodeURIComponent(storeId)}&limit=20`, { cache: "no-store" })
+          const fallbackResult = await fallbackResponse.json()
+          if (Array.isArray(fallbackResult?.data)) {
+            fallbackStores.push(...fallbackResult.data)
+          }
+
+          if (fallbackStores.length === 0 && firstToken && firstToken !== storeId) {
+            const tokenResponse = await fetch(`/api/database/stores?search=${encodeURIComponent(firstToken)}&limit=20`, { cache: "no-store" })
+            const tokenResult = await tokenResponse.json()
+            if (Array.isArray(tokenResult?.data)) {
+              fallbackStores.push(...tokenResult.data)
+            }
+          }
+
+          resolvedStore =
+            fallbackStores.find((item: any) => String(item?.publicSlug || "").trim().toLowerCase() === normalizedParam) ||
+            fallbackStores.find((item: any) => slugify(item?.storeName || item?.name) === normalizedParam) ||
+            null
+        } catch (fallbackError) {
+          console.error("Fallback store lookup failed:", fallbackError)
+        }
+      }
+
+      if (resolvedStore) {
+        setStore(resolvedStore)
+
+        if (resolvedStore?.publicSlug && rawStoreParam !== resolvedStore.publicSlug) {
+          router.replace(buildPublicStorePath(resolvedStore), { scroll: false })
+        }
         
         // Fetch products for this store using the vendor ID from the store data
-        const productsResponse = await fetch(`/api/database/products?vendorId=${storeResult.data.vendorId}`)
+        const productsResponse = await fetch(`/api/database/products?vendorId=${resolvedStore.vendorId}`)
         const productsResult = await productsResponse.json()
         
         if (productsResult.success && productsResult.data) {
@@ -268,7 +313,7 @@ export default function StorePage() {
 
         // Check if user is following this store
         if (user) {
-          checkFollowStatus(storeId, user.uid)
+          checkFollowStatus(String(resolvedStore.id || resolvedStore._id || storeId), user.uid)
         }
       } else {
         console.error("Failed to fetch store:", storeResult.error)

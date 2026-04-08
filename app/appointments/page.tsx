@@ -14,6 +14,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { useToast } from "@/hooks/use-toast"
 import { Calendar as CalendarIcon, Clock, MapPin, User, MessageSquare, CheckCircle, AlertCircle, XCircle } from "lucide-react"
 import { format } from "date-fns"
+import { buildPublicServicePath } from "@/lib/public-links"
 
 interface Appointment {
   id: string
@@ -79,6 +80,27 @@ export default function AppointmentsPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const resolveServicePath = async (appointment: Appointment): Promise<string | null> => {
+    try {
+      const response = await fetch(`/api/database/services/${encodeURIComponent(appointment.serviceId)}`, {
+        cache: "no-store",
+      })
+      const payload = await response.json()
+      if (response.ok && payload?.success && payload?.data) {
+        return buildPublicServicePath(payload.data)
+      }
+    } catch (error) {
+      console.error("Failed to resolve service slug path:", error)
+    }
+
+    toast({
+      title: "Unable to open service",
+      description: "Could not resolve the public service link. Please try again.",
+      variant: "destructive",
+    })
+    return null
   }
 
   const filteredAppointments = appointments.filter((apt) => {
@@ -559,7 +581,12 @@ export default function AppointmentsPage() {
                       variant="outline"
                       size="sm"
                       className="gap-2"
-                      onClick={() => router.push(`/service/${appointment.serviceId}`)}
+                      onClick={async () => {
+                        const resolvedPath = await resolveServicePath(appointment)
+                        if (resolvedPath) {
+                          router.push(resolvedPath)
+                        }
+                      }}
                     >
                       <MapPin className="h-4 w-4" />
                       View Service
@@ -599,13 +626,16 @@ export default function AppointmentsPage() {
                       <Button
                         size="sm"
                         variant="secondary"
-                        onClick={() => {
+                        onClick={async () => {
                           const addOns = (appointment as any).selectedAddOns || []
                           const addOnIds = Array.isArray(addOns) ? addOns.map((item: any) => item.id).filter(Boolean) : []
                           const query = new URLSearchParams()
                           if ((appointment as any).selectedPackageId) query.set("package", String((appointment as any).selectedPackageId))
                           if (addOnIds.length > 0) query.set("addons", addOnIds.join(","))
-                          router.push(`/service/${appointment.serviceId}?${query.toString()}`)
+                          const basePath = await resolveServicePath(appointment)
+                          if (basePath) {
+                            router.push(`${basePath}?${query.toString()}`)
+                          }
                         }}
                       >
                         Rebook
