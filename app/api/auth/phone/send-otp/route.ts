@@ -4,6 +4,7 @@ import { User } from '@/lib/models/User'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { normalizeNigerianPhone, sendOtpSms } from '@/lib/sms'
+import { emailService } from '@/lib/email'
 
 const RESEND_COOLDOWN_SECONDS = 60
 const OTP_EXPIRY_MINUTES = 5
@@ -83,18 +84,39 @@ export async function POST(request: NextRequest) {
 
     const otpCode = generateOtpCode()
     const smsResult = await sendOtpSms(normalizedPhone, otpCode)
+    let deliveredVia: 'sms' | 'email' = 'sms'
 
     if (!smsResult.ok) {
       const rawMessage = String(smsResult.errorMessage || '')
-      const friendlyMessage = rawMessage.toLowerCase().includes('applicationsenderid not found')
-        ? 'Termii sender name is not approved. Update TERMII_SENDER to a valid registered sender ID in your Termii dashboard.'
-        : rawMessage || 'Failed to send OTP SMS.'
-
       console.error('[phone/send-otp] Termii error:', smsResult.payload || rawMessage)
-      return NextResponse.json(
-        { success: false, error: friendlyMessage },
-        { status: 502 }
-      )
+
+      const email = String((user as any)?.email || '').trim().toLowerCase()
+      if (!email) {
+        const friendlyMessage = rawMessage.toLowerCase().includes('applicationsenderid not found')
+          ? 'Termii sender name is not approved. Update TERMII_SENDER to a valid registered sender ID in your Termii dashboard.'
+          : rawMessage || 'Failed to send OTP SMS.'
+
+        return NextResponse.json(
+          { success: false, error: friendlyMessage },
+          { status: 502 }
+        )
+      }
+
+      const emailSent = await emailService.sendEmailVerification({
+        email,
+        name: (user as any)?.name || (user as any)?.displayName || 'User',
+        verificationCode: otpCode,
+      })
+
+      if (!emailSent) {
+        const fallbackError = emailService.getLastDeliveryError() || rawMessage || 'Failed to deliver OTP.'
+        return NextResponse.json(
+          { success: false, error: fallbackError },
+          { status: 502 }
+        )
+      }
+
+      deliveredVia = 'email'
     }
 
     ;(user as any).phone_number = normalizedPhone
@@ -111,7 +133,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'OTP sent successfully.',
+      channel: deliveredVia,
+      message: deliveredVia === 'sms'
+        ? 'OTP sent successfully.'
+        : 'SMS delivery failed; OTP was sent to your email instead.',
       expiresInSeconds: OTP_EXPIRY_MINUTES * 60,
       resendInSeconds: RESEND_COOLDOWN_SECONDS,
     })
