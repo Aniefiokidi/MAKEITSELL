@@ -12,6 +12,14 @@ function normalizeChannel(rawChannel: unknown): 'email' | 'sms' {
   return 'sms'
 }
 
+  function normalizeEmail(input: unknown): string {
+    return String(input || '').trim().toLowerCase()
+  }
+
+  function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }
+
 function generateVerificationCode(): string {
   return String(Math.floor(100000 + Math.random() * 900000))
 }
@@ -113,15 +121,15 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const { email, code, channel, phoneNumber } = await request.json()
+    const normalizedEmail = normalizeEmail(email)
 
-    if (!email || !code) {
+    if (!normalizedEmail || !code) {
       return NextResponse.json({
         success: false,
         error: 'Email and verification code are required'
       }, { status: 400 })
     }
 
-    const normalizedEmail = String(email).trim().toLowerCase()
     const normalizedCode = String(code).trim()
     const normalizedChannel = normalizeChannel(channel)
 
@@ -136,12 +144,12 @@ export async function PUT(request: NextRequest) {
 
     const user = normalizedChannel === 'sms'
       ? await User.findOne({
-          email: normalizedEmail,
+          email: { $regex: `^${escapeRegExp(normalizedEmail)}$`, $options: 'i' },
           otp_code: normalizedCode,
           otp_expiry: { $gt: new Date() }
         })
       : await User.findOne({
-          email: normalizedEmail,
+          email: { $regex: `^${escapeRegExp(normalizedEmail)}$`, $options: 'i' },
           emailVerificationToken: normalizedCode,
           emailVerificationTokenExpiry: { $gt: new Date() }
         })
@@ -180,8 +188,9 @@ export async function PUT(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { email, channel, phoneNumber } = await request.json()
+    const normalizedEmail = normalizeEmail(email)
 
-    if (!email) {
+    if (!normalizedEmail) {
       return NextResponse.json({
         success: false,
         error: 'Email is required'
@@ -190,7 +199,7 @@ export async function POST(request: NextRequest) {
 
     await connectToDatabase()
 
-    const user = await User.findOne({ email })
+    const user = await User.findOne({ email: { $regex: `^${escapeRegExp(normalizedEmail)}$`, $options: 'i' } })
 
     if (!user) {
       return NextResponse.json({

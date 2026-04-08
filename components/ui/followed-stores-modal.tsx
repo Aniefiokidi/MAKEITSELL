@@ -5,10 +5,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { X, Heart } from "lucide-react"
 import Link from "next/link"
+import { buildPublicStorePath } from "@/lib/public-links"
 
 interface FollowedStore {
   _id: string
   storeId: string
+  publicSlug?: string
   storeName: string
   storeImage: string
   storeDescription: string
@@ -111,7 +113,7 @@ export function FollowedStoresModal({ open, onClose, userId }: FollowedStoresMod
                 className="flex items-center gap-4 p-4 border rounded-lg hover:bg-accent/5 transition-all group"
               >
                 {/* Store Logo */}
-                <Avatar className="h-16 w-16 flex-shrink-0 border-2 border-accent/20 group-hover:border-accent/40 transition-colors">
+                <Avatar className="h-16 w-16 shrink-0 border-2 border-accent/20 group-hover:border-accent/40 transition-colors">
                   <AvatarImage src={store.storeImage} alt={store.storeName} />
                   <AvatarFallback className="bg-accent/10 text-accent font-bold">
                     {store.storeName.charAt(0)}
@@ -120,7 +122,7 @@ export function FollowedStoresModal({ open, onClose, userId }: FollowedStoresMod
 
                 {/* Store Info */}
                 <div className="flex-1 min-w-0">
-                  <Link href={`/store/${store.storeId}`}>
+                  <Link href={buildPublicStorePath(store)}>
                     <h3 className="font-semibold text-base line-clamp-1 hover:text-accent transition-colors cursor-pointer">
                       {store.storeName}
                     </h3>
@@ -134,8 +136,8 @@ export function FollowedStoresModal({ open, onClose, userId }: FollowedStoresMod
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex gap-2 flex-shrink-0">
-                  <Link href={`/store/${store.storeId}`}>
+                <div className="flex gap-2 shrink-0">
+                  <Link href={buildPublicStorePath(store)}>
                     <Button
                       size="sm"
                       variant="outline"

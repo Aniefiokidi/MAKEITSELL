@@ -17,6 +17,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ user: null, success: false }, { status: 401 });
     }
 
+    const resolvedPhone =
+      (user as any).phone ||
+      (user as any).phone_number ||
+      (user as any).phoneNumber ||
+      (user as any).vendorInfo?.phone ||
+      (user as any).vendorInfo?.phone_number ||
+      ''
+
+    const resolvedPhoneNumber =
+      (user as any).phone_number ||
+      (user as any).phone ||
+      (user as any).phoneNumber ||
+      (user as any).vendorInfo?.phone_number ||
+      (user as any).vendorInfo?.phone ||
+      ''
+
+    const resolvedPhoneVerified = Boolean((user as any).phone_verified || (user as any).phoneVerified)
+
     return NextResponse.json({
       user,
       userProfile: {
@@ -25,9 +43,9 @@ export async function GET(request: NextRequest) {
         displayName: user.name,
         role: user.role,
         mustChangePassword: !!(user as any).mustChangePassword,
-        phone: (user as any).phone,
-        phoneNumber: (user as any).phone_number,
-        phoneVerified: !!(user as any).phone_verified,
+        phone: resolvedPhone,
+        phoneNumber: resolvedPhoneNumber,
+        phoneVerified: resolvedPhoneVerified,
         address: (user as any).address,
         city: (user as any).city,
         state: (user as any).state,

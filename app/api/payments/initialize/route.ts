@@ -11,6 +11,12 @@ import crypto from 'crypto'
 import { calculatePaystackCheckoutAmounts } from '@/lib/paystack-charges'
 import { estimateShippingFee } from '@/lib/aco-logistics-rates'
 
+const OBJECT_ID_REGEX = /^[a-fA-F0-9]{24}$/
+
+function isValidObjectIdString(value: string): boolean {
+  return OBJECT_ID_REGEX.test(String(value || '').trim())
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -90,8 +96,9 @@ export async function POST(request: NextRequest) {
     }, 0)
     const vat = Math.round(subtotal * 0.07)
 
-    const vendorIdList = Array.from(vendorOrders.keys()).map((id) => String(id || '')).filter(Boolean)
-    const storeIdList = Array.from(vendorOrders.values()).map((v: any) => String(v?.storeId || '')).filter(Boolean)
+    const vendorEntries = Array.from(vendorOrders.values()) as any[]
+    const vendorIdList = Array.from(new Set(vendorEntries.map((v) => String(v?.vendorId || '').trim()).filter(Boolean)))
+    const storeIdList = Array.from(new Set(vendorEntries.map((v) => String(v?.storeId || '').trim()).filter(isValidObjectIdString)))
 
     const storeQueryOr: any[] = []
     if (storeIdList.length > 0) storeQueryOr.push({ _id: { $in: storeIdList } })
@@ -127,6 +134,9 @@ export async function POST(request: NextRequest) {
       const shippingFee = estimateShippingFee({
         pickupAddress,
         dropoffAddress,
+        pickupCity: String(store?.city || ''),
+        pickupState: String(store?.state || ''),
+        dropoffCity: String(shippingInfo?.city || ''),
         dropoffState: String(shippingInfo?.state || ''),
       })
 

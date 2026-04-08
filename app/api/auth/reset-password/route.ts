@@ -5,6 +5,14 @@ import { User } from '@/lib/models/User'
 import { hashPassword } from '@/lib/password'
 import { enforceRateLimit } from '@/lib/rate-limit'
 
+function normalizeEmail(input: unknown): string {
+  return String(input || '').trim().toLowerCase()
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 export async function POST(request: NextRequest) {
   try {
     const rateLimitResponse = enforceRateLimit(request, {
@@ -17,9 +25,10 @@ export async function POST(request: NextRequest) {
     await connectToDatabase()
 
     const { email, resetCode, resetToken, newPassword } = await request.json()
+    const normalizedEmail = normalizeEmail(email)
     const codeInput = String(resetCode ?? resetToken ?? '').trim()
 
-    if (!email || !codeInput || !newPassword) {
+    if (!normalizedEmail || !codeInput || !newPassword) {
       return NextResponse.json(
         { success: false, error: 'Email, reset code and new password required' },
         { status: 400 }
@@ -27,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Find user
-    const user = await User.findOne({ email })
+    const user = await User.findOne({ email: { $regex: `^${escapeRegExp(normalizedEmail)}$`, $options: 'i' } })
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'User not found' },
@@ -63,7 +72,7 @@ export async function POST(request: NextRequest) {
     user.sessionToken = crypto.randomBytes(32).toString('hex')
     await user.save()
 
-    console.log(`[auth/reset-password] Reset password for user: ${email}`)
+    console.log(`[auth/reset-password] Reset password for user: ${normalizedEmail}`)
 
     return NextResponse.json(
       {

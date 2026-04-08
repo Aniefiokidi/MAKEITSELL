@@ -35,7 +35,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
     }
 
-    const phoneInput = body?.phoneNumber || (user as any)?.phone_number || (user as any)?.phone
+    const phoneInput =
+      body?.phoneNumber ||
+      (user as any)?.phone_number ||
+      (user as any)?.phone ||
+      (user as any)?.phoneNumber ||
+      (user as any)?.vendorInfo?.phone ||
+      (user as any)?.vendorInfo?.phone_number
     const normalizedPhone = normalizeNigerianPhone(phoneInput)
 
     if (!normalizedPhone) {

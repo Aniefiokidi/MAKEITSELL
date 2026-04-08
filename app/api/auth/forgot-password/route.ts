@@ -11,6 +11,21 @@ function generateResetCode(): string {
   return String(Math.floor(100000 + Math.random() * 900000))
 }
 
+function normalizeEmail(input: unknown): string {
+  return String(input || '').trim().toLowerCase()
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+async function findUserByEmail(emailInput: unknown) {
+  const normalizedEmail = normalizeEmail(emailInput)
+  if (!normalizedEmail) return null
+
+  return await User.findOne({ email: { $regex: `^${escapeRegExp(normalizedEmail)}$`, $options: 'i' } })
+}
+
 export async function POST(request: NextRequest) {
   try {
     const rateLimitResponse = enforceRateLimit(request, {
@@ -24,11 +39,12 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const { email, resetCode, resetToken, newPassword } = body
+    const normalizedEmail = normalizeEmail(email)
     const codeInput = String(resetCode ?? resetToken ?? '').trim()
 
     // Case 1: Request password reset code
-    if (email && !codeInput) {
-      const user = await User.findOne({ email })
+    if (normalizedEmail && !codeInput) {
+      const user = await findUserByEmail(normalizedEmail)
       if (!user) {
         // Don't reveal if email exists or not
         return NextResponse.json(
@@ -40,7 +56,7 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      console.log(`[forgot-password] Generating password reset OTP for: ${email}`)
+      console.log(`[forgot-password] Generating password reset OTP for: ${normalizedEmail}`)
 
       const token = generateResetCode()
       const tokenExpiry = new Date(Date.now() + 10 * 60 * 1000)
@@ -67,9 +83,9 @@ export async function POST(request: NextRequest) {
           })
           
           if (emailSent) {
-            console.log(`[forgot-password] Password reset email sent successfully to: ${email}`)
+            console.log(`[forgot-password] Password reset email sent successfully to: ${normalizedEmail}`)
           } else {
-            console.error(`[forgot-password] Failed to send password reset email to: ${email}`)
+            console.error(`[forgot-password] Failed to send password reset email to: ${normalizedEmail}`)
           }
         } else {
           console.error(`[forgot-password] sendPasswordResetEmail method not found on emailService`)
@@ -93,10 +109,10 @@ export async function POST(request: NextRequest) {
               smsSent = true
               console.log(`[forgot-password] Password reset code sent via SMS to: ${normalizedPhone}`)
             } else {
-              console.error(`[forgot-password] SMS fallback failed for ${email}:`, sms.errorMessage)
+              console.error(`[forgot-password] SMS fallback failed for ${normalizedEmail}:`, sms.errorMessage)
             }
           } catch (smsError) {
-            console.error(`[forgot-password] SMS fallback error for ${email}:`, smsError)
+            console.error(`[forgot-password] SMS fallback error for ${normalizedEmail}:`, smsError)
           }
         }
 
@@ -125,19 +141,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Case 2: Reset password with OTP code
-    if (email && codeInput && newPassword) {
-      console.log(`[forgot-password] Reset attempt for email: ${email}`)
+    if (normalizedEmail && codeInput && newPassword) {
+      console.log(`[forgot-password] Reset attempt for email: ${normalizedEmail}`)
       
-      const user = await User.findOne({ email })
+      const user = await findUserByEmail(normalizedEmail)
       if (!user) {
-        console.log(`[forgot-password] User not found: ${email}`)
+        console.log(`[forgot-password] User not found: ${normalizedEmail}`)
         return NextResponse.json(
           { success: false, error: 'User not found' },
           { status: 404 }
         )
       }
 
-      console.log(`[forgot-password] User found: ${email}`)
+      console.log(`[forgot-password] User found: ${normalizedEmail}`)
 
       // Verify reset code exists
       if (!user.resetToken || !user.resetTokenExpiry) {
@@ -172,7 +188,7 @@ export async function POST(request: NextRequest) {
       user.sessionToken = crypto.randomBytes(32).toString('hex')
       await user.save()
 
-      console.log(`[forgot-password] Password reset for user: ${email}`)
+      console.log(`[forgot-password] Password reset for user: ${normalizedEmail}`)
 
       return NextResponse.json(
         {

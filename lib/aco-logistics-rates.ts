@@ -77,12 +77,64 @@ function normalize(input: string): string {
   return input.toLowerCase().replace(/[^a-z0-9]/g, "")
 }
 
+const lagosRouteAliases: Record<string, RouteName> = {
+  etiosa: "Route 11",
+  lekki: "Route 11",
+  lekki1: "Route 11",
+  lekiphase1: "Route 11",
+  jakande: "Route 11",
+  chevron: "Route 11",
+  agungi: "Route 11",
+  ikoyi: "Route 10",
+  victoriabisland: "Route 10",
+  victoriaisland: "Route 10",
+  lagosisland: "Route 10",
+  island: "Route 10",
+  ajah: "Route 12",
+  vgc: "Route 12",
+  ikota: "Route 12",
+  abrahamadesanya: "Route 12",
+  ikorodu: "Route 13",
+  alimosho: "Route 8",
+  agege: "Route 6",
+  ikeja: "Route 1",
+  oshodi: "Route 3",
+  mushin: "Route 3",
+  surulere: "Route 2",
+  yaba: "Route 2",
+  maryland: "Route 1",
+  ketu: "Route 7",
+  gbagada: "Route 7",
+  festac: "Route 4",
+  apapa: "Route 5",
+}
+
+function inferRouteFromAliases(value: string): RouteName | null {
+  const normalizedValue = normalize(value)
+  if (!normalizedValue) return null
+
+  if (lagosRouteAliases[normalizedValue]) {
+    return lagosRouteAliases[normalizedValue]
+  }
+
+  for (const [alias, route] of Object.entries(lagosRouteAliases)) {
+    if (normalizedValue.includes(alias)) {
+      return route
+    }
+  }
+
+  return null
+}
+
 export function getPrice(fromRoute: RouteName, toRoute: RouteName): number | null {
   return acoLogisticsRates.pricingMatrix[fromRoute]?.[toRoute] ?? null
 }
 
 export function findRoute(area: string): RouteName | null {
   const needle = normalize(area)
+  const aliasRoute = inferRouteFromAliases(needle)
+  if (aliasRoute) return aliasRoute
+
   for (const [route, areas] of Object.entries(acoLogisticsRates.routes) as Array<[RouteName, string[]]>) {
     if (areas.some((a) => normalize(a) === needle)) return route
   }
@@ -91,6 +143,9 @@ export function findRoute(area: string): RouteName | null {
 
 export function findRouteForAddress(address: string): RouteName | null {
   const haystack = normalize(address)
+  const aliasRoute = inferRouteFromAliases(haystack)
+  if (aliasRoute) return aliasRoute
+
   for (const [route, areas] of Object.entries(acoLogisticsRates.routes) as Array<[RouteName, string[]]>) {
     if (areas.some((a) => haystack.includes(normalize(a)))) return route
   }
@@ -112,16 +167,29 @@ export function isLagosAddress(value: string): boolean {
 export function estimateShippingFee(params: {
   pickupAddress: string
   dropoffAddress: string
+  pickupCity?: string
+  pickupState?: string
+  dropoffCity?: string
   dropoffState?: string
 }): number | null {
   const pickupAddress = String(params.pickupAddress || "")
   const dropoffAddress = String(params.dropoffAddress || "")
+  const pickupCity = String(params.pickupCity || "")
+  const pickupState = String(params.pickupState || "")
+  const dropoffCity = String(params.dropoffCity || "")
   const dropoffState = String(params.dropoffState || "")
-  const pickupRoute = findRouteForAddress(pickupAddress)
-  const dropoffRoute = findRouteForAddress(dropoffAddress)
 
-  const pickupIsLagos = isLagosAddress(pickupAddress) || Boolean(pickupRoute)
-  const dropoffIsLagos = isLagosAddress(dropoffAddress) || normalize(dropoffState) === "lagos" || Boolean(dropoffRoute)
+  const pickupHint = [pickupCity, pickupState].filter(Boolean).join(", ")
+  const dropoffHint = [dropoffCity, dropoffState].filter(Boolean).join(", ")
+
+  const pickupRoute = findRouteForAddress([pickupAddress, pickupHint].filter(Boolean).join(", "))
+  const dropoffRoute = findRouteForAddress([dropoffAddress, dropoffHint].filter(Boolean).join(", "))
+
+  const pickupIsLagos = isLagosAddress([pickupAddress, pickupCity, pickupState].filter(Boolean).join(", ")) || Boolean(pickupRoute)
+  const dropoffIsLagos =
+    isLagosAddress([dropoffAddress, dropoffCity, dropoffState].filter(Boolean).join(", ")) ||
+    normalize(dropoffState) === "lagos" ||
+    Boolean(dropoffRoute)
 
   // Stores outside Lagos remain TBD.
   if (!pickupIsLagos) {

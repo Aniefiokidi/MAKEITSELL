@@ -42,6 +42,9 @@ export async function POST(request: NextRequest) {
       const matrixCost = estimateShippingFee({
         pickupAddress: pickupAddressText,
         dropoffAddress,
+        pickupCity: String(store?.city || ''),
+        pickupState: String(store?.state || ''),
+        dropoffCity: String(customerAddress?.city || ''),
         dropoffState: String(customerAddress?.state || ''),
       })
 

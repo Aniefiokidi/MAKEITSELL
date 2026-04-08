@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2, MapPin, Phone, Package, RefreshCw } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import LogisticsLayout from "@/components/logistics/LogisticsLayout"
@@ -42,14 +41,13 @@ type LogisticsOrder = {
 
 const LOGISTICS_EMAIL = "A&CO@makeitselll.org"
 
-export default function LogisticsPage() {
+export default function LogisticsReferencePage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [orders, setOrders] = useState<LogisticsOrder[]>([])
-  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null)
 
   const prioritizedOrders = useMemo(() => {
     const sorted = [...orders]
@@ -73,7 +71,7 @@ export default function LogisticsPage() {
     setError("")
 
     try {
-      const response = await fetch("/api/logistics/orders?view=active", {
+      const response = await fetch("/api/logistics/orders?view=received", {
         method: "GET",
         credentials: "include",
       })
@@ -91,45 +89,15 @@ export default function LogisticsPage() {
           return
         }
 
-        throw new Error(result?.error || "Failed to load logistics orders")
+        throw new Error(result?.error || "Failed to load reference orders")
       }
 
       setOrders(Array.isArray(result.orders) ? result.orders : [])
     } catch (err: any) {
       setOrders([])
-      setError(err?.message || "Failed to load logistics orders")
+      setError(err?.message || "Failed to load reference orders")
     } finally {
       setLoading(false)
-    }
-  }
-
-  const updateOrderStatus = async (order: LogisticsOrder, value: string) => {
-    const normalized = value === "en_route" ? "out_for_delivery" : value
-    const rowKey = order.rowId || `${order.orderId}:${order.vendorId || order.storeId || ''}`
-    setUpdatingOrderId(rowKey)
-    setError("")
-    try {
-      const response = await fetch(`/api/logistics/orders/${encodeURIComponent(order.orderId)}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: normalized,
-          vendorId: order.vendorId,
-          storeId: order.storeId,
-        }),
-      })
-
-      const result = await response.json().catch(() => ({}))
-      if (!response.ok || !result?.success) {
-        throw new Error(result?.error || "Failed to update order status")
-      }
-
-      await fetchOrders()
-    } catch (err: any) {
-      setError(err?.message || "Failed to update order status")
-    } finally {
-      setUpdatingOrderId(null)
     }
   }
 
@@ -163,14 +131,14 @@ export default function LogisticsPage() {
       <div className="container mx-auto px-0 py-0 space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Lagos Logistics Dashboard</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">Received Packages Reference</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Access restricted to {LOGISTICS_EMAIL}. Showing only active (uncompleted) Lagos deliveries.
+              Historical archive for orders marked as received.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/logistics/reference">
-              <Button variant="secondary">Received Reference</Button>
+            <Link href="/logistics">
+              <Button variant="secondary">Back to Active</Button>
             </Link>
             <Button variant="outline" onClick={fetchOrders} disabled={loading}>
               {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
@@ -188,20 +156,20 @@ export default function LogisticsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card>
             <CardContent className="pt-6">
-              <p className="text-xs text-muted-foreground">Completed Lagos Entries</p>
+              <p className="text-xs text-muted-foreground">Received Entries</p>
               <p className="text-2xl font-bold">{prioritizedOrders.length}</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
-              <p className="text-xs text-muted-foreground">Total Order Value</p>
+              <p className="text-xs text-muted-foreground">Archived Order Value</p>
               <p className="text-2xl font-bold">₦{totalValue.toLocaleString("en-NG")}</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
               <p className="text-xs text-muted-foreground">Filter Rule</p>
-              <p className="text-2xl font-bold">pickup lagos + active</p>
+              <p className="text-2xl font-bold">status = received</p>
             </CardContent>
           </Card>
         </div>
@@ -220,26 +188,6 @@ export default function LogisticsPage() {
                     <Badge variant="outline">payment: {order.paymentStatus}</Badge>
                     <Badge>₦{Number(order.totalAmount || 0).toLocaleString("en-NG")}</Badge>
                     <Badge variant="secondary">shipping: {order.shippingFee == null ? "TBD" : `₦${Number(order.shippingFee).toLocaleString("en-NG")}`}</Badge>
-                    <div className="w-44">
-                      <Select
-                        value={order.orderStatus === "out_for_delivery" ? "en_route" : order.orderStatus}
-                        onValueChange={(value) => updateOrderStatus(order, value)}
-                        disabled={updatingOrderId === (order.rowId || `${order.orderId}:${order.vendorId || order.storeId || ''}`)}
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue placeholder="Update status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">pending</SelectItem>
-                          <SelectItem value="confirmed">confirmed</SelectItem>
-                          <SelectItem value="shipped">shipped</SelectItem>
-                          <SelectItem value="en_route">en route</SelectItem>
-                          <SelectItem value="delivered">delivered</SelectItem>
-                          <SelectItem value="received">received</SelectItem>
-                          <SelectItem value="cancelled">cancelled</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
                   </div>
                 </div>
 
@@ -289,10 +237,10 @@ export default function LogisticsPage() {
           {prioritizedOrders.length === 0 && !loading && (
             <Card>
               <CardHeader>
-                <CardTitle>No Active Lagos Orders</CardTitle>
+                <CardTitle>No Received Orders Yet</CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                No active Lagos orders were found.
+                Orders marked as received will appear here for reference.
               </CardContent>
             </Card>
           )}

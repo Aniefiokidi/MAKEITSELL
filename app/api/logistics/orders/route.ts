@@ -13,21 +13,15 @@ function textContainsLagos(value: unknown): boolean {
   return String(value).toLowerCase().includes('lagos')
 }
 
-function orderMatchesLagos(order: any): boolean {
-  // Requirement: scan typed fields for the word "lagos".
-  const searchableBlob = [
-    order?.shippingInfo,
-    order?.shippingAddress,
-    order?.items,
-    order?.vendors,
-    order,
-  ]
-
-  return searchableBlob.some((part) => textContainsLagos(JSON.stringify(part || {})))
+function pickupLooksLagos(store: any): boolean {
+  return textContainsLagos(store?.city) || textContainsLagos(store?.state) || textContainsLagos(store?.address)
 }
 
 export async function GET(request: NextRequest) {
   try {
+    const view = String(request.nextUrl.searchParams.get('view') || 'active').toLowerCase()
+    const resolvedView = view === 'received' ? 'received' : 'active'
+
     const sessionUser = await getSessionUserFromRequest(request)
     if (!sessionUser) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
@@ -43,15 +37,15 @@ export async function GET(request: NextRequest) {
       .sort({ createdAt: -1 })
       .lean()
 
-    const lagosOrders = (ordersRaw || []).filter(orderMatchesLagos)
+    const candidateOrders = ordersRaw || []
 
-    const customerIds = Array.from(new Set(lagosOrders.map((order: any) => String(order.customerId || '')).filter(Boolean)))
+    const customerIds = Array.from(new Set(candidateOrders.map((order: any) => String(order.customerId || '')).filter(Boolean)))
 
     const vendorIds = new Set<string>()
     const storeIds = new Set<string>()
     const storeNameHints = new Set<string>()
 
-    for (const order of lagosOrders) {
+    for (const order of candidateOrders) {
       const vendors = Array.isArray(order?.vendors) ? order.vendors : []
       for (const vendor of vendors) {
         if (vendor?.vendorId) vendorIds.add(String(vendor.vendorId))
@@ -109,7 +103,7 @@ export async function GET(request: NextRequest) {
 
     const logisticsRows: any[] = []
 
-    for (const order of lagosOrders) {
+    for (const order of candidateOrders) {
       const customer = customerById.get(String(order.customerId || ''))
       const customerName = customer?.name || customer?.displayName || `${order?.shippingInfo?.firstName || ''} ${order?.shippingInfo?.lastName || ''}`.trim() || 'Unknown customer'
 
@@ -141,12 +135,19 @@ export async function GET(request: NextRequest) {
           storeByName.get(normalizedVendorName)
 
         const pickupLocation = store?.address || 'Pickup address not provided'
+        if (!pickupLooksLagos(store)) {
+          continue
+        }
+
         const pickupPhone = store?.phone || 'No pickup phone'
         const storeName = store?.storeName || vendorEntry?.vendorName || 'Unknown store'
         const storeOwnerName = vendor?.name || vendor?.displayName || 'Unknown owner'
         const shippingFee = estimateShippingFee({
           pickupAddress: pickupLocation,
           dropoffAddress: dropoffLocation,
+          pickupCity: String(store?.city || ''),
+          pickupState: String(store?.state || ''),
+          dropoffCity: String(order?.shippingInfo?.city || ''),
           dropoffState: String(order?.shippingInfo?.state || ''),
         })
 
@@ -180,11 +181,22 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const filteredRows = logisticsRows.filter((row) => {
+      const status = String(row?.orderStatus || '').trim().toLowerCase()
+      if (resolvedView === 'received') {
+        return status === 'received'
+      }
+
+      // Landing dashboard should only show actionable, not completed-reference entries.
+      return status !== 'received' && status !== 'cancelled'
+    })
+
     return NextResponse.json({
       success: true,
-      count: logisticsRows.length,
+      count: filteredRows.length,
       keyword: 'lagos',
-      orders: logisticsRows,
+      view: resolvedView,
+      orders: filteredRows,
     })
   } catch (error) {
     console.error('Error fetching logistics orders:', error)

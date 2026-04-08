@@ -48,10 +48,12 @@ async function sendTermiiSms({
   to,
   sms,
   sender,
+  channel = 'generic',
 }: {
   to: string
   sms: string
   sender: string
+  channel?: string
 }): Promise<SmsSendResult> {
   try {
     const apiKey = String(process.env.TERMII_API_KEY || '').trim()
@@ -69,7 +71,7 @@ async function sendTermiiSms({
         from: sender,
         sms,
         type: 'plain',
-        channel: 'generic',
+        channel,
         api_key: apiKey,
       }),
     })
@@ -94,25 +96,42 @@ async function sendTermiiSms({
 export async function sendOtpSms(phoneNumber: string, otpCode: string): Promise<SmsSendResult> {
   const sender = String(process.env.TERMII_SENDER || 'MakeItSell').trim()
   const fallbackSender = String(process.env.TERMII_SENDER_FALLBACK || 'N-Alert').trim()
+  const normalizedPhone = String(phoneNumber || '').trim()
 
-  const primaryResult = await sendTermiiSms({
-    to: phoneNumber,
-    sender,
-    sms: `Your Make It Sell OTP is ${otpCode}`,
-  })
+  const recipientCandidates = Array.from(
+    new Set(
+      [
+        normalizedPhone,
+        normalizedPhone.startsWith('+') ? normalizedPhone.slice(1) : normalizedPhone,
+      ].filter(Boolean)
+    )
+  )
 
-  if (primaryResult.ok) return primaryResult
+  const senderCandidates = Array.from(
+    new Set([sender, fallbackSender].filter(Boolean))
+  )
 
-  const senderNotConfigured = String(primaryResult.errorMessage || '').toLowerCase().includes('applicationsenderid not found')
-  if (senderNotConfigured && fallbackSender && fallbackSender !== sender) {
-    return await sendTermiiSms({
-      to: phoneNumber,
-      sender: fallbackSender,
-      sms: `Your Make It Sell OTP is ${otpCode}`,
-    })
+  const channelCandidates = ['generic', 'dnd']
+
+  let lastFailure: SmsSendResult = { ok: false, errorMessage: 'Failed to send OTP SMS.' }
+
+  for (const to of recipientCandidates) {
+    for (const senderId of senderCandidates) {
+      for (const channel of channelCandidates) {
+        const result = await sendTermiiSms({
+          to,
+          sender: senderId,
+          channel,
+          sms: `Your Make It Sell OTP is ${otpCode}`,
+        })
+
+        if (result.ok) return result
+        lastFailure = result
+      }
+    }
   }
 
-  return primaryResult
+  return lastFailure
 }
 
 export async function sendOrderConfirmationSms({

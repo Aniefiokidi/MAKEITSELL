@@ -9,6 +9,12 @@ import { hashPassword } from '@/lib/password'
 
 const LOGISTICS_USERNAME = process.env.LOGISTICS_USERNAME || ''
 const LOGISTICS_PASSWORD = process.env.LOGISTICS_PASSWORD || ''
+const LOGISTICS_USERNAME_FALLBACK = 'a&co@makeitselll.org'
+
+const getCanonicalLogisticsEmail = () => {
+  const raw = String(LOGISTICS_USERNAME || LOGISTICS_USERNAME_FALLBACK).trim().toLowerCase()
+  return raw || LOGISTICS_USERNAME_FALLBACK
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,16 +28,22 @@ export async function POST(request: NextRequest) {
     const { email, password } = await request.json()
 
     // Ensure requested logistics credentials can log in from the normal login page.
-    if (LOGISTICS_USERNAME && LOGISTICS_PASSWORD && email === LOGISTICS_USERNAME && password === LOGISTICS_PASSWORD) {
+    const canonicalLogisticsEmail = getCanonicalLogisticsEmail()
+    const normalizedEmail = String(email || '').trim().toLowerCase()
+
+    if (LOGISTICS_PASSWORD && normalizedEmail === canonicalLogisticsEmail && password === LOGISTICS_PASSWORD) {
       await connectToDatabase()
 
       const sessionToken = crypto.randomBytes(32).toString('hex')
       const passwordHash = hashPassword(LOGISTICS_PASSWORD)
 
-      let logisticsUser = await User.findOne({ email: LOGISTICS_USERNAME })
+      let logisticsUser = await User.findOne({ email: canonicalLogisticsEmail })
+      if (!logisticsUser) {
+        logisticsUser = await User.findOne({ email: { $regex: `^${canonicalLogisticsEmail}$`, $options: 'i' } })
+      }
       if (!logisticsUser) {
         logisticsUser = await User.create({
-          email: LOGISTICS_USERNAME,
+          email: canonicalLogisticsEmail,
           passwordHash,
           name: 'A&CO Logistics',
           role: 'csa',
@@ -69,7 +81,7 @@ export async function POST(request: NextRequest) {
           success: true,
           user: {
             id: String(logisticsUser._id),
-            email: LOGISTICS_USERNAME,
+            email: canonicalLogisticsEmail,
             name: logisticsUser.name || 'A&CO Logistics',
             role: logisticsUser.role || 'csa',
             walletBalance: typeof logisticsUser.walletBalance === 'number' ? logisticsUser.walletBalance : 0,

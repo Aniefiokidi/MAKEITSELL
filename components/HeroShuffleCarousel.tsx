@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type SyntheticEvent } from "react"
 import Link from "next/link"
 import { ArrowUpRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { buildPublicServicePath, buildPublicStorePath } from "@/lib/public-links"
 
 type SlideKind = "store" | "product" | "service"
 
@@ -206,7 +207,7 @@ export default function HeroShuffleCarousel() {
               title: String(service?.title || service?.name || "Featured Service"),
               subtitle: String(service?.category || service?.providerName || "Top Service"),
               image,
-              href: `/service/${id}`,
+              href: buildPublicServicePath(service),
             }
           })
           .filter(Boolean) as CarouselSlide[]
@@ -241,7 +242,7 @@ export default function HeroShuffleCarousel() {
               title: String(store?.name || store?.storeName || "Featured Store"),
               subtitle: String(store?.city || store?.state || "Top Store"),
               image,
-              href: `/store/${id}`,
+              href: buildPublicStorePath(store),
             }
           })
           .filter(Boolean) as CarouselSlide[]

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectToDatabase from '@/lib/mongodb'
 import { Order } from '@/lib/models/Order'
+import { Store } from '@/lib/models/Store'
 import { updateOrder } from '@/lib/mongodb-operations'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 
@@ -11,16 +12,8 @@ function textContainsLagos(value: unknown): boolean {
   return String(value).toLowerCase().includes('lagos')
 }
 
-function orderMatchesLagos(order: any): boolean {
-  const searchableBlob = [
-    order?.shippingInfo,
-    order?.shippingAddress,
-    order?.items,
-    order?.vendors,
-    order,
-  ]
-
-  return searchableBlob.some((part) => textContainsLagos(JSON.stringify(part || {})))
+function pickupLooksLagos(store: any): boolean {
+  return textContainsLagos(store?.city) || textContainsLagos(store?.state) || textContainsLagos(store?.address)
 }
 
 export async function PATCH(request: NextRequest, context: { params: Promise<{ orderId: string }> }) {
@@ -61,7 +54,26 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ o
       return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 })
     }
 
-    if (!orderMatchesLagos(existingOrder)) {
+    const vendorEntries = Array.isArray((existingOrder as any)?.vendors) ? (existingOrder as any).vendors : []
+
+    const targetEntry = vendorEntries.find((entry: any) => {
+      if (vendorId && String(entry?.vendorId || '') !== vendorId) return false
+      if (storeId && String(entry?.storeId || '') !== storeId) return false
+      return true
+    }) || vendorEntries[0]
+
+    const targetStoreId = String(targetEntry?.storeId || storeId || '').trim()
+    const targetVendorId = String(targetEntry?.vendorId || vendorId || '').trim()
+
+    let targetStore: any = null
+    if (targetStoreId) {
+      targetStore = await Store.findById(targetStoreId).lean()
+    }
+    if (!targetStore && targetVendorId) {
+      targetStore = await Store.findOne({ vendorId: targetVendorId }).lean()
+    }
+
+    if (!pickupLooksLagos(targetStore)) {
       return NextResponse.json({ success: false, error: 'Only Lagos orders can be managed here' }, { status: 400 })
     }
 
@@ -83,11 +95,11 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ o
 
       if (vendorId) {
         query['vendors.vendorId'] = vendorId
-        arrayFilter.vendorId = vendorId
+        arrayFilter['entry.vendorId'] = vendorId
       }
       if (storeId) {
         query['vendors.storeId'] = storeId
-        arrayFilter.storeId = storeId
+        arrayFilter['entry.storeId'] = storeId
       }
 
       const vendorTimestampUpdates = Object.fromEntries(

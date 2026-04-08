@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Truck, ClipboardList } from "lucide-react"
+import { Truck, ClipboardList, Archive } from "lucide-react"
 
 export default function LogisticsSidebar() {
   const pathname = usePathname()
@@ -24,7 +24,18 @@ export default function LogisticsSidebar() {
           }`}
         >
           <ClipboardList className="h-4 w-4" />
-          Lagos Orders
+          Active Orders
+        </Link>
+        <Link
+          href="/logistics/reference"
+          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+            pathname === "/logistics/reference"
+              ? "bg-accent text-accent-foreground"
+              : "hover:bg-accent/10"
+          }`}
+        >
+          <Archive className="h-4 w-4" />
+          Received Reference
         </Link>
         <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground">
           <Truck className="h-4 w-4" />
