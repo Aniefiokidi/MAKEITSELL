@@ -52,6 +52,23 @@ class EmailService {
   private transporter: nodemailer.Transporter
   private lastDeliveryError: string | null = null
 
+  private getEnv(...keys: string[]): string {
+    for (const key of keys) {
+      const raw = process.env[key]
+      if (raw === undefined || raw === null) continue
+      const trimmed = String(raw).trim()
+      if (!trimmed) continue
+      if (
+        (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+        (trimmed.startsWith("'") && trimmed.endsWith("'"))
+      ) {
+        return trimmed.slice(1, -1).trim()
+      }
+      return trimmed
+    }
+    return ''
+  }
+
   getLastDeliveryError(): string | null {
     return this.lastDeliveryError
   }
@@ -166,22 +183,27 @@ class EmailService {
   constructor() {
     // Prefer Mailtrap in local development only when fully configured.
     let smtpConfig: any;
+    const mailtrapHost = this.getEnv('MAILTRAP_HOST')
+    const mailtrapPort = this.getEnv('MAILTRAP_PORT')
+    const mailtrapUser = this.getEnv('MAILTRAP_USER')
+    const mailtrapPass = this.getEnv('MAILTRAP_PASS')
+
     const hasMailtrapConfig = !!(
-      process.env.MAILTRAP_HOST &&
-      process.env.MAILTRAP_PORT &&
-      process.env.MAILTRAP_USER &&
-      process.env.MAILTRAP_PASS
+      mailtrapHost &&
+      mailtrapPort &&
+      mailtrapUser &&
+      mailtrapPass
     )
 
     if (process.env.NODE_ENV === 'development' && hasMailtrapConfig) {
       smtpConfig = {
-        host: process.env.MAILTRAP_HOST,
-        port: parseInt(process.env.MAILTRAP_PORT || '2525'),
+        host: mailtrapHost,
+        port: parseInt(mailtrapPort || '2525'),
         auth: {
-          user: process.env.MAILTRAP_USER,
-          pass: process.env.MAILTRAP_PASS,
+          user: mailtrapUser,
+          pass: mailtrapPass,
         },
-        from: process.env.MAILTRAP_FROM || 'MakeItSell <support@makeitsell.ng>',
+        from: this.getEnv('MAILTRAP_FROM') || 'MakeItSell <support@makeitsell.ng>',
         tls: { rejectUnauthorized: false },
         connectionTimeout: 60000,
         greetingTimeout: 30000,
@@ -191,13 +213,20 @@ class EmailService {
       if (process.env.NODE_ENV === 'development' && !hasMailtrapConfig) {
         console.warn('[emailService] MAILTRAP_* vars not fully configured. Falling back to EMAIL_*/SMTP_* settings in development.')
       }
+
+      const smtpHost = this.getEnv('EMAIL_HOST', 'SMTP_HOST') || 'smtp.gmail.com'
+      const smtpPortRaw = this.getEnv('EMAIL_PORT', 'SMTP_PORT') || '587'
+      const smtpPort = parseInt(smtpPortRaw || '587')
+      const smtpSecureRaw = this.getEnv('SMTP_SECURE')
+      const smtpSecure = smtpSecureRaw.toLowerCase() === 'true' || smtpPort === 465
+
       smtpConfig = {
-        host: process.env.EMAIL_HOST || process.env.SMTP_HOST || 'smtp.gmail.com',
-        port: parseInt(process.env.EMAIL_PORT || process.env.SMTP_PORT || '587'),
-        secure: process.env.EMAIL_PORT === '465' || process.env.SMTP_SECURE === 'true',
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpSecure,
         auth: {
-          user: process.env.EMAIL_USER || process.env.SMTP_USER,
-          pass: process.env.EMAIL_PASS || process.env.SMTP_PASS,
+          user: this.getEnv('EMAIL_USER', 'SMTP_USER'),
+          pass: this.getEnv('EMAIL_PASS', 'SMTP_PASS'),
         },
         tls: { rejectUnauthorized: false },
         connectionTimeout: 60000,
@@ -209,12 +238,12 @@ class EmailService {
   }
 
   private getFromAddress(): string {
-    const supportEmail = String(process.env.SUPPORT_EMAIL || '').trim()
+    const supportEmail = this.getEnv('SUPPORT_EMAIL')
     if (supportEmail) {
-      return `"${process.env.SMTP_FROM_NAME || 'Make It Sell Support'}" <${supportEmail}>`
+      return `"${this.getEnv('SMTP_FROM_NAME') || 'Make It Sell Support'}" <${supportEmail}>`
     }
 
-    const configuredFrom = String(process.env.EMAIL_FROM || '').trim()
+    const configuredFrom = this.getEnv('EMAIL_FROM')
     if (configuredFrom) {
       if (configuredFrom.toLowerCase().includes('noreply@')) {
         return `"${process.env.SMTP_FROM_NAME || 'Make It Sell Support'}" <support@makeitsell.ng>`
@@ -223,12 +252,11 @@ class EmailService {
     }
 
     const fallbackEmail =
-      process.env.SMTP_FROM_EMAIL ||
-      process.env.EMAIL_USER ||
-      process.env.SMTP_USER ||
+      this.getEnv('SMTP_FROM_EMAIL') ||
+      this.getEnv('EMAIL_USER', 'SMTP_USER') ||
       'support@makeitsell.ng'
 
-    return `"${process.env.SMTP_FROM_NAME || 'Make It Sell Support'}" <${fallbackEmail}>`
+    return `"${this.getEnv('SMTP_FROM_NAME') || 'Make It Sell Support'}" <${fallbackEmail}>`
   }
 
   private getAppBaseUrl(): string {
@@ -266,12 +294,12 @@ class EmailService {
 
   private async sendViaResend(emailData: EmailData): Promise<boolean> {
     try {
-      const apiKey = String(process.env.RESEND_API_KEY || '').trim()
+      const apiKey = this.getEnv('RESEND_API_KEY')
       if (!apiKey) return false
 
       const fromAddress = String(
-        process.env.RESEND_FROM ||
-        process.env.RESEND_DEFAULT_FROM ||
+        this.getEnv('RESEND_FROM') ||
+        this.getEnv('RESEND_DEFAULT_FROM') ||
         'Make It Sell <verify@makeitsell.ng>'
       ).trim()
 
@@ -280,7 +308,7 @@ class EmailService {
         subject: emailData.subject,
         html: emailData.html,
         text: emailData.text || this.htmlToText(emailData.html),
-        reply_to: emailData.replyTo || process.env.EMAIL_REPLY_TO || process.env.SUPPORT_EMAIL,
+        reply_to: emailData.replyTo || this.getEnv('EMAIL_REPLY_TO', 'SUPPORT_EMAIL'),
         headers: emailData.headers || {},
       }
 
@@ -345,9 +373,9 @@ class EmailService {
 
   async sendEmail(emailData: EmailData): Promise<boolean> {
     this.lastDeliveryError = null
-    const provider = String(process.env.EMAIL_DELIVERY_PROVIDER || '').trim().toLowerCase()
+    const provider = this.getEnv('EMAIL_DELIVERY_PROVIDER').toLowerCase()
 
-    if (provider === 'resend' || (!!process.env.RESEND_API_KEY && provider !== 'smtp-only')) {
+    if (provider === 'resend' || (!!this.getEnv('RESEND_API_KEY') && provider !== 'smtp-only')) {
       const resendOk = await this.sendViaResend(emailData)
       if (resendOk) return true
 
