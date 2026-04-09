@@ -254,9 +254,16 @@ export async function POST(request: NextRequest) {
     })
 
     if (!sent) {
+      const deliveryError = emailService.getLastDeliveryError() || 'Unknown delivery provider error'
+      console.error('[verify-email] Email delivery failed:', {
+        email: user.email,
+        deliveryError,
+      })
+
       return NextResponse.json({
         success: false,
-        error: 'Could not send verification email right now. Please try again in a minute.'
+        error: 'Could not send verification email right now. Please try again in a minute.',
+        details: deliveryError,
       }, { status: 502 })
     }
 

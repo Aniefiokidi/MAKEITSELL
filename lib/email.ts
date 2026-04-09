@@ -303,13 +303,24 @@ class EmailService {
         'Make It Sell <verify@makeitsell.ng>'
       ).trim()
 
-      const payloadBase = {
+      const toAddress = String(emailData.to || '').trim()
+      if (!toAddress) {
+        this.lastDeliveryError = 'Resend recipient email is empty'
+        return false
+      }
+
+      const replyTo = String(emailData.replyTo || this.getEnv('EMAIL_REPLY_TO', 'SUPPORT_EMAIL') || '').trim()
+
+      const payloadBase: Record<string, any> = {
         to: [emailData.to],
         subject: emailData.subject,
         html: emailData.html,
         text: emailData.text || this.htmlToText(emailData.html),
-        reply_to: emailData.replyTo || this.getEnv('EMAIL_REPLY_TO', 'SUPPORT_EMAIL'),
         headers: emailData.headers || {},
+      }
+
+      if (replyTo) {
+        payloadBase.reply_to = replyTo
       }
 
       const response = await fetch('https://api.resend.com/emails', {
@@ -326,7 +337,19 @@ class EmailService {
 
       const payload = await response.json().catch(() => ({}))
       if (!response.ok || !payload?.id) {
-        this.lastDeliveryError = String(payload?.message || payload?.error || `Resend HTTP ${response.status}`)
+        const errors = Array.isArray(payload?.errors)
+          ? payload.errors
+              .map((entry: any) => String(entry?.message || entry?.name || '').trim())
+              .filter(Boolean)
+              .join('; ')
+          : ''
+        this.lastDeliveryError = String(
+          payload?.message ||
+          payload?.error ||
+          errors ||
+          payload?.name ||
+          `Resend HTTP ${response.status}`
+        )
         console.error('[emailService.sendViaResend] Failed:', payload)
         return false
       }
