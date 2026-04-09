@@ -97,6 +97,7 @@ export async function sendOtpSms(phoneNumber: string, otpCode: string): Promise<
   const sender = String(process.env.TERMII_SENDER || 'MakeItSell').trim()
   const fallbackSender = String(process.env.TERMII_SENDER_FALLBACK || 'N-Alert').trim()
   const normalizedPhone = String(phoneNumber || '').trim()
+  const preferredOtpChannel = String(process.env.TERMII_OTP_CHANNEL || 'dnd').trim().toLowerCase()
 
   const recipientCandidates = Array.from(
     new Set(
@@ -111,7 +112,15 @@ export async function sendOtpSms(phoneNumber: string, otpCode: string): Promise<
     new Set([sender, fallbackSender].filter(Boolean))
   )
 
-  const channelCandidates = ['generic', 'dnd']
+  const channelCandidates = Array.from(
+    new Set(
+      [
+        preferredOtpChannel || 'dnd',
+        'dnd',
+        'generic',
+      ].filter((value) => value === 'dnd' || value === 'generic')
+    )
+  )
 
   let lastFailure: SmsSendResult = { ok: false, errorMessage: 'Failed to send OTP SMS.' }
 
