@@ -64,7 +64,14 @@ export default function UserMenu() {
           </div>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-48 sm:w-52 lg:w-56" align="end" forceMount>
+      <DropdownMenuContent
+        className="w-48 sm:w-52 lg:w-56"
+        align="end"
+        side="bottom"
+        sideOffset={10}
+        style={{ zIndex: 2200 }}
+        forceMount
+      >
         <DropdownMenuLabel className="font-normal p-2 sm:p-3">
           <div className="flex flex-col space-y-1">
             <p className="text-xs sm:text-sm font-medium leading-none truncate">{userProfile.displayName}</p>

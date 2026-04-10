@@ -6,6 +6,7 @@ import { updateOrder, getOrderById, getUserById, getStores, creditVendorWalletsF
 import connectToDatabase from '@/lib/mongodb'
 import mongoose from 'mongoose'
 import { normalizeNigerianPhone, sendOrderConfirmationSms } from '@/lib/sms'
+import { getCanonicalAppBaseUrl } from '@/lib/app-url'
 
 type NormalizedVerification = {
   success: boolean
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     if (!reference) {
       console.log('ERROR: Missing reference')
-      const errorUrl = new URL('/checkout', process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.ng')
+      const errorUrl = new URL('/checkout', getCanonicalAppBaseUrl())
       errorUrl.searchParams.set('error', 'missing_reference')
       console.log('Redirecting to:', errorUrl.toString())
       return NextResponse.redirect(errorUrl.toString())
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest) {
     const verificationResult = await verifyWithAnyProvider(reference)
 
     if (!verificationResult.success) {
-      const errorUrl = new URL('/checkout', process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.ng')
+      const errorUrl = new URL('/checkout', getCanonicalAppBaseUrl())
       errorUrl.searchParams.set('error', 'payment_failed')
       return NextResponse.redirect(errorUrl.toString())
     }
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
     const orderId = String(verificationResult.orderId || '')
 
     if (!orderId) {
-      const errorUrl = new URL('/checkout', process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.ng')
+      const errorUrl = new URL('/checkout', getCanonicalAppBaseUrl())
       errorUrl.searchParams.set('error', 'missing_order_reference')
       return NextResponse.redirect(errorUrl.toString())
     }
@@ -222,17 +223,17 @@ export async function GET(request: NextRequest) {
     }
 
     // Redirect to order confirmation page with absolute URL
-    const redirectUrl = new URL('/order-confirmation', process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.ng')
+    const redirectUrl = new URL('/order-confirmation', getCanonicalAppBaseUrl())
     redirectUrl.searchParams.set('orderId', orderId)
     console.log('=== PAYMENT VERIFICATION SUCCESS ===')
     console.log('Order ID:', orderId)
     console.log('Redirect URL:', redirectUrl.toString())
-    console.log('NEXT_PUBLIC_APP_URL:', process.env.NEXT_PUBLIC_APP_URL)
+    console.log('Canonical app base URL:', getCanonicalAppBaseUrl())
     return NextResponse.redirect(redirectUrl.toString())
 
   } catch (error) {
     console.error('Payment verification error:', error)
-    const errorUrl = new URL('/checkout', process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.ng')
+    const errorUrl = new URL('/checkout', getCanonicalAppBaseUrl())
     errorUrl.searchParams.set('error', 'verification_failed')
     return NextResponse.redirect(errorUrl.toString())
   }

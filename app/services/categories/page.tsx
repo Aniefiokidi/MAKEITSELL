@@ -23,6 +23,7 @@ import {
   Music2,
   Coffee,
   Users,
+  Hotel,
   Settings,
   ArrowRight,
 } from "lucide-react"
@@ -38,6 +39,7 @@ const SERVICE_CATEGORIES = [
   { value: "cleaning", label: "Cleaning Services", description: "Home and office cleaning", icon: Sparkles },
   { value: "tech", label: "Tech Support", description: "Device setup and troubleshooting", icon: Laptop },
   { value: "rentals", label: "Rentals", description: "Short and long term rentals", icon: Car },
+  { value: "hospitality", label: "Hotels & Apartments", description: "Book rooms, short-let apartments and stays", icon: Hotel },
   { value: "marketing", label: "Marketing", description: "Promotion and campaign services", icon: Megaphone },
   { value: "legal", label: "Legal Services", description: "Legal advice and support", icon: Shield },
   { value: "healthcare", label: "Healthcare & Wellness", description: "Health and care solutions", icon: HeartPulse },

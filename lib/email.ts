@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer'
 import fs from 'fs'
 import path from 'path'
+import { getCanonicalAppBaseUrl } from './app-url'
 
 interface EmailData {
   to: string
@@ -260,7 +261,7 @@ class EmailService {
   }
 
   private getAppBaseUrl(): string {
-    return (process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.ng').replace(/\/$/, '')
+    return getCanonicalAppBaseUrl()
   }
 
   private htmlToText(html: string): string {

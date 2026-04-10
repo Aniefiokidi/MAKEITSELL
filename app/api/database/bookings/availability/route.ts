@@ -14,19 +14,76 @@ function asDateOnly(value: Date): string {
   return `${year}-${month}-${day}`
 }
 
+function rangesOverlap(startA: Date, endA: Date, startB: Date, endB: Date): boolean {
+  return startA < endB && endA > startB
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const providerId = searchParams.get("providerId") || ""
     const serviceId = searchParams.get("serviceId") || ""
     const dateParam = searchParams.get("date") || ""
+    const checkInParam = searchParams.get("checkInDate") || ""
+    const checkOutParam = searchParams.get("checkOutDate") || ""
+    const roomTypeId = searchParams.get("roomTypeId") || ""
     const excludeBookingId = searchParams.get("excludeBookingId") || ""
 
-    if (!providerId || !dateParam) {
+    const hasStayQuery = Boolean(checkInParam && checkOutParam && serviceId && roomTypeId)
+
+    if (!providerId || (!dateParam && !hasStayQuery)) {
       return NextResponse.json(
-        { success: false, error: "providerId and date are required" },
+        { success: false, error: "providerId and either date or stay parameters are required" },
         { status: 400 }
       )
+    }
+
+    const bookings = await getBookingsByProvider(providerId)
+
+    if (hasStayQuery) {
+      const checkInDate = new Date(checkInParam)
+      const checkOutDate = new Date(checkOutParam)
+      if (Number.isNaN(checkInDate.getTime()) || Number.isNaN(checkOutDate.getTime()) || checkOutDate <= checkInDate) {
+        return NextResponse.json(
+          { success: false, error: "Invalid stay date range" },
+          { status: 400 }
+        )
+      }
+
+      const service = await getServiceById(serviceId)
+      const roomTypes = Array.isArray((service as any)?.hospitalityDetails?.roomTypes)
+        ? (service as any).hospitalityDetails.roomTypes
+        : []
+      const roomType = roomTypes.find((item: any) => String(item?.id || "") === roomTypeId)
+      const totalRooms = Math.max(0, Number(roomType?.roomCount || 0))
+
+      const bookedRooms = bookings
+        .filter((item: any) => {
+          if (!item || item.status === "cancelled") return false
+          if (excludeBookingId && String(item?.id || "") === excludeBookingId) return false
+          const stay = item?.stayDetails
+          if (!stay?.checkInDate || !stay?.checkOutDate) return false
+          if (String(stay?.roomTypeId || "") !== roomTypeId) return false
+          const existingCheckIn = new Date(stay.checkInDate)
+          const existingCheckOut = new Date(stay.checkOutDate)
+          if (Number.isNaN(existingCheckIn.getTime()) || Number.isNaN(existingCheckOut.getTime())) return false
+          return rangesOverlap(checkInDate, checkOutDate, existingCheckIn, existingCheckOut)
+        })
+        .reduce((sum: number, item: any) => sum + Math.max(0, Number(item?.stayDetails?.rooms || 1)), 0)
+
+      const remainingRooms = Math.max(0, totalRooms - bookedRooms)
+
+      return NextResponse.json({
+        success: true,
+        data: [],
+        stayAvailability: {
+          roomTypeId,
+          totalRooms,
+          bookedRooms,
+          remainingRooms,
+          isBookedOut: remainingRooms <= 0,
+        },
+      })
     }
 
     const targetDate = new Date(dateParam)
@@ -37,7 +94,6 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const bookings = await getBookingsByProvider(providerId)
     const dateKey = asDateOnly(targetDate)
 
     const blockedWindows = bookings

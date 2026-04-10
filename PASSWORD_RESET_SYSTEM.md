@@ -85,7 +85,7 @@ async sendPasswordResetEmail({
 ```bash
 # Email Service (already configured)
 EMAIL_HOST=smtp.privateemail.com
-EMAIL_USER=noreply@makeitsell.org
+EMAIL_USER=noreply@makeitsell.ng
 EMAIL_PASS=your-email-password
 
 # App URL for reset links

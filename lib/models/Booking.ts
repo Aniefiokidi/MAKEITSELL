@@ -45,6 +45,18 @@ export interface IBooking extends Document {
   customerLocation?: string;
   tripDistanceMiles?: number;
   serviceAddress?: string;
+  stayDetails?: {
+    checkInDate: Date;
+    checkOutDate: Date;
+    nights: number;
+    roomTypeId?: string;
+    roomTypeName?: string;
+    rooms: number;
+    adults?: number;
+    children?: number;
+    guests?: number;
+    pricePerNight?: number;
+  };
   rescheduleCount?: number;
   rescheduledFromBookingId?: string;
   rescheduledToBookingId?: string;
@@ -106,6 +118,21 @@ const BookingSchema = new Schema<IBooking>({
   customerLocation: { type: String },
   tripDistanceMiles: { type: Number },
   serviceAddress: { type: String },
+  stayDetails: {
+    type: {
+      checkInDate: { type: Date },
+      checkOutDate: { type: Date },
+      nights: { type: Number },
+      roomTypeId: { type: String },
+      roomTypeName: { type: String },
+      rooms: { type: Number },
+      adults: { type: Number },
+      children: { type: Number },
+      guests: { type: Number },
+      pricePerNight: { type: Number },
+    },
+    default: null,
+  },
   rescheduleCount: { type: Number, default: 0 },
   rescheduledFromBookingId: { type: String },
   rescheduledToBookingId: { type: String },

@@ -64,7 +64,7 @@ console.log('');
 console.log('NameCheap Business Email Alternative Settings:');
 console.log('SMTP_HOST=smtp.privateemail.com (for NameCheap Business Email)');
 console.log('or');
-console.log('SMTP_HOST=mail.makeitsell.org (if using cPanel)');
+console.log('SMTP_HOST=mail.makeitsell.ng (if using cPanel)');
 console.log('');
 
 testEmailWithBusinessEmail();

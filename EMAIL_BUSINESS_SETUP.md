@@ -1,8 +1,8 @@
 # 📧 Make It Sell Email Setup - Business Email Integration
 
 ## ✅ Your Email Setup Status
-- **Domain**: makeitsell.org  
-- **Business Email**: noreply@makeitsell.org
+- **Domain**: makeitsell.ng  
+- **Business Email**: noreply@makeitsell.ng
 - **Password**: [REDACTED - set in environment variables]
 - **System**: READY - Email notifications are fully integrated!
 
@@ -15,20 +15,20 @@
 SMTP_HOST=smtp.privateemail.com
 SMTP_PORT=587
 SMTP_SECURE=false
-SMTP_USER=noreply@makeitsell.org
+SMTP_USER=noreply@makeitsell.ng
 SMTP_PASS=your-smtp-password
-SMTP_FROM_EMAIL=noreply@makeitsell.org
+SMTP_FROM_EMAIL=noreply@makeitsell.ng
 SMTP_FROM_NAME=Make It Sell
 ```
 
 ### Option 2: NameCheap Alternative SMTP
 ```
-SMTP_HOST=mail.makeitsell.org
+SMTP_HOST=mail.makeitsell.ng
 SMTP_PORT=587
 SMTP_SECURE=false
-SMTP_USER=noreply@makeitsell.org
+SMTP_USER=noreply@makeitsell.ng
 SMTP_PASS=your-smtp-password
-SMTP_FROM_EMAIL=noreply@makeitsell.org
+SMTP_FROM_EMAIL=noreply@makeitsell.ng
 SMTP_FROM_NAME=Make It Sell
 ```
 
@@ -37,9 +37,9 @@ SMTP_FROM_NAME=Make It Sell
 SMTP_HOST=smtp.privateemail.com
 SMTP_PORT=465
 SMTP_SECURE=true
-SMTP_USER=noreply@makeitsell.org
+SMTP_USER=noreply@makeitsell.ng
 SMTP_PASS=your-smtp-password
-SMTP_FROM_EMAIL=noreply@makeitsell.org
+SMTP_FROM_EMAIL=noreply@makeitsell.ng
 SMTP_FROM_NAME=Make It Sell
 ```
 
@@ -110,7 +110,7 @@ This will send test emails to verify your configuration.
 
 ### Common NameCheap SMTP Servers:
 - `smtp.privateemail.com` (most common)
-- `mail.makeitsell.org` (domain-based)
+- `mail.makeitsell.ng` (domain-based)
 - `smtp.namecheap.com` (legacy)
 
 ---

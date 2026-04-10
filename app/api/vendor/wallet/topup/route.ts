@@ -8,6 +8,7 @@ import { calculateTopupAmounts } from '@/lib/topup-fee'
 import crypto from 'crypto'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { enforceSameOrigin } from '@/lib/request-security'
+import { getCanonicalAppBaseUrl } from '@/lib/app-url'
 
 export async function POST(request: NextRequest) {
   try {
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     const reference = `vendor_wallet_topup_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`
     const requestOrigin = request.nextUrl?.origin || ''
-    const appBaseUrl = requestOrigin || process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.ng'
+    const appBaseUrl = getCanonicalAppBaseUrl(requestOrigin)
     const callbackUrl = `${appBaseUrl}/api/vendor/wallet/topup/callback`
 
     const paymentResult = await xoroPayService.initializePayment({

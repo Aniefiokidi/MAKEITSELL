@@ -5,11 +5,11 @@
 ### 1. Login to NameCheap Account
 1. Go to namecheap.com and login
 2. Navigate to "Domain List"
-3. Click "Manage" next to makeitsell.org
+3. Click "Manage" next to makeitsell.ng
 
 ### 2. Check Email Setup
 1. Look for "Email" tab or "Email Forwarding" section
-2. Verify that `noreply@makeitsell.org` exists
+2. Verify that `noreply@makeitsell.ng` exists
 3. Note the status (Active/Inactive/Setup Required)
 
 ### 3. Find SMTP Settings
@@ -20,13 +20,13 @@ In NameCheap dashboard, look for:
 
 Common NameCheap SMTP servers:
 - `smtp.privateemail.com` (Private Email service)
-- `mail.makeitsell.org` (Domain-based)
+- `mail.makeitsell.ng` (Domain-based)
 - `smtp.namecheap.com` (Legacy)
 
 ### 4. Contact NameCheap Support
 If settings are unclear, contact NameCheap support:
 - Live chat available 24/7
-- Ask specifically for "SMTP settings for noreply@makeitsell.org"
+- Ask specifically for "SMTP settings for noreply@makeitsell.ng"
 - Request exact server, port, and security settings
 
 ## Quick Network Test
@@ -36,11 +36,11 @@ Open Command Prompt and run these to test connectivity:
 ```cmd
 # Test if SMTP servers are reachable
 telnet smtp.privateemail.com 587
-telnet mail.makeitsell.org 587
+telnet mail.makeitsell.ng 587
 
 # If telnet isn't available, use PowerShell:
 Test-NetConnection -ComputerName smtp.privateemail.com -Port 587
-Test-NetConnection -ComputerName mail.makeitsell.org -Port 587
+Test-NetConnection -ComputerName mail.makeitsell.ng -Port 587
 ```
 
 If these fail, your network/firewall is blocking SMTP.
@@ -59,7 +59,7 @@ If these fail, your network/firewall is blocking SMTP.
 
 ### 3. Gmail (Quick Solution)
 - Use your existing Gmail
-- Set "From" to noreply@makeitsell.org  
+- Set "From" to noreply@makeitsell.ng  
 - Emails will show as "sent via Gmail" but work immediately
 
 ## Current Status

@@ -4,6 +4,7 @@ import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { User } from '@/lib/models/User'
 import { connectToDatabase } from '@/lib/mongodb'
 import mongoose from 'mongoose'
+import { getCanonicalAppBaseUrl } from '@/lib/app-url'
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
       )
     )
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.ng'
+    const appUrl = getCanonicalAppBaseUrl()
     const successRedirect = new URL('/stores', appUrl)
     const errorRedirect = new URL('/stores', appUrl)
 
@@ -128,7 +129,7 @@ export async function GET(request: NextRequest) {
     successRedirect.searchParams.set('wallet', 'success')
     return NextResponse.redirect(successRedirect.toString())
   } catch (error) {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.ng'
+    const appUrl = getCanonicalAppBaseUrl()
     const errorRedirect = new URL('/stores', appUrl)
     errorRedirect.searchParams.set('wallet', 'failed')
     errorRedirect.searchParams.set('reason', 'server_error')

@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import { getCanonicalAppBaseUrl } from '@/lib/app-url'
 
 interface XoroPaymentInitParams {
   email: string
@@ -325,7 +326,7 @@ class XoroPayService {
   }
 
   private getNotificationUrl() {
-    const appUrl = String(process.env.NEXT_PUBLIC_APP_URL || '').trim() || 'https://www.makeitsell.ng'
+    const appUrl = getCanonicalAppBaseUrl()
     return `${appUrl}/api/payments/webhook`
   }
 
@@ -374,7 +375,7 @@ class XoroPayService {
     const amountMajor = Math.round(Number(params.amount))
     const amountMinor = Math.round(Number(params.amount) * 100)
     const currency = 'NGN'
-    const callbackUrl = params.callbackUrl || `${String(process.env.NEXT_PUBLIC_APP_URL || '').trim() || 'https://www.makeitsell.ng'}/api/payments/verify`
+    const callbackUrl = params.callbackUrl || `${getCanonicalAppBaseUrl()}/api/payments/verify`
     const metadata = asObject(params.metadata)
 
     const processorCandidates = Array.from(

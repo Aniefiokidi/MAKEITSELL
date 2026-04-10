@@ -109,7 +109,7 @@ The verification email includes:
 ```bash
 # Email service (already configured)
 EMAIL_HOST=smtp.privateemail.com
-EMAIL_USER=noreply@makeitsell.org
+EMAIL_USER=noreply@makeitsell.ng
 EMAIL_PASS=your-password
 
 # App URL for verification links

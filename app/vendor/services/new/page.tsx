@@ -28,6 +28,7 @@ const SERVICE_CATEGORIES = [
   "cleaning",
   "tech",
   "rentals",
+  "hospitality",
   "marketing",
   "legal",
   "healthcare",
@@ -51,6 +52,14 @@ const RENTAL_SUBCATEGORIES = [
   "generator-power",
   "baby-kids-gear",
   "outdoor-camping",
+]
+
+const HOSPITALITY_SUBCATEGORIES = [
+  "hotel",
+  "apartment",
+  "short-let-apartment",
+  "resort",
+  "guest-house",
 ]
 
 const NIGERIA_STATES = [
@@ -124,6 +133,21 @@ type LocationPricingRule = {
   active: boolean
 }
 
+type RoomTypeOption = {
+  id: string
+  name: string
+  description: string
+  pricePerNight: string
+  roomCount: string
+  maxGuests: string
+  maxAdults: string
+  maxChildren: string
+  bedType: string
+  amenities: string
+  isDefault: boolean
+  active: boolean
+}
+
 const makeOptionId = () => `opt-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
 const MAX_PACKAGE_IMAGES = 5
 
@@ -187,6 +211,11 @@ export default function NewServicePage() {
   const [distanceRatePerMile, setDistanceRatePerMile] = useState("0")
   const [generatingDescription, setGeneratingDescription] = useState(false)
   const [packageImageAssignments, setPackageImageAssignments] = useState<Record<string, number[]>>({})
+  const [totalRooms, setTotalRooms] = useState("")
+  const [roomTypes, setRoomTypes] = useState<RoomTypeOption[]>([])
+  const [roomImageAssignments, setRoomImageAssignments] = useState<Record<string, number[]>>({})
+
+  const isHospitalityCategory = formData.category === "hospitality"
 
   const addLocationPricingRule = () => {
     setLocationPricingRules((prev) => [
@@ -301,6 +330,59 @@ export default function NewServicePage() {
     ])
   }
 
+  const addRoomType = () => {
+    const nextId = makeOptionId()
+    setRoomTypes((prev) => [
+      ...prev,
+      {
+        id: nextId,
+        name: "",
+        description: "",
+        pricePerNight: "",
+        roomCount: "",
+        maxGuests: "2",
+        maxAdults: "2",
+        maxChildren: "0",
+        bedType: "",
+        amenities: "",
+        isDefault: prev.length === 0,
+        active: true,
+      },
+    ])
+    setRoomImageAssignments((prev) => ({ ...prev, [nextId]: [] }))
+  }
+
+  const removeRoomType = (id: string) => {
+    setRoomImageAssignments((prev) => {
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
+
+    setRoomTypes((prev) => {
+      const next = prev.filter((room) => room.id !== id)
+      if (!next.some((room) => room.isDefault) && next.length > 0) {
+        next[0] = { ...next[0], isDefault: true }
+      }
+      return next
+    })
+  }
+
+  const setDefaultRoomType = (id: string) => {
+    setRoomTypes((prev) => prev.map((room) => ({ ...room, isDefault: room.id === id })))
+  }
+
+  const toggleRoomImage = (roomTypeId: string, imageIndex: number) => {
+    setRoomImageAssignments((prev) => {
+      const current = prev[roomTypeId] || []
+      const exists = current.includes(imageIndex)
+      return {
+        ...prev,
+        [roomTypeId]: exists ? current.filter((idx) => idx !== imageIndex) : [...current, imageIndex],
+      }
+    })
+  }
+
   const removeAddOnOption = (id: string) => {
     setAddOnOptions((prev) => prev.filter((item) => item.id !== id))
   }
@@ -334,6 +416,15 @@ export default function NewServicePage() {
       const next: Record<string, number[]> = {}
       for (const [packageId, imageIndexes] of Object.entries(prev)) {
         next[packageId] = imageIndexes
+          .filter((imgIndex) => imgIndex !== index)
+          .map((imgIndex) => (imgIndex > index ? imgIndex - 1 : imgIndex))
+      }
+      return next
+    })
+    setRoomImageAssignments((prev) => {
+      const next: Record<string, number[]> = {}
+      for (const [roomTypeId, imageIndexes] of Object.entries(prev)) {
+        next[roomTypeId] = imageIndexes
           .filter((imgIndex) => imgIndex !== index)
           .map((imgIndex) => (imgIndex > index ? imgIndex - 1 : imgIndex))
       }
@@ -485,6 +576,50 @@ export default function NewServicePage() {
           }
         })
 
+      const normalizedRoomTypes = roomTypes
+        .filter((room) => room.name.trim() && room.pricePerNight !== "")
+        .map((room) => {
+          const assignedIndexes = roomImageAssignments[room.id] || []
+          const assignedImages = assignedIndexes
+            .map((imgIndex) => imageUrls[imgIndex])
+            .filter((imgUrl): imgUrl is string => Boolean(imgUrl))
+
+          const amenities = room.amenities
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean)
+
+          return {
+            id: room.id,
+            name: room.name.trim(),
+            description: room.description.trim(),
+            pricePerNight: Number.parseFloat(room.pricePerNight),
+            roomCount: Number.parseInt(room.roomCount || "0", 10) || 0,
+            maxGuests: Number.parseInt(room.maxGuests || "1", 10) || 1,
+            maxAdults: Number.parseInt(room.maxAdults || "1", 10) || 1,
+            maxChildren: Number.parseInt(room.maxChildren || "0", 10) || 0,
+            bedType: room.bedType.trim(),
+            amenities,
+            images: assignedImages,
+            isDefault: room.isDefault,
+            active: room.active,
+          }
+        })
+
+      const effectivePackages = isHospitalityCategory
+        ? normalizedRoomTypes.map((room) => ({
+            id: room.id,
+            name: room.name,
+            description: room.description,
+            price: room.pricePerNight,
+            duration: 1440,
+            pricingType: "fixed" as const,
+            isDefault: room.isDefault,
+            active: room.active,
+            images: room.images,
+          }))
+        : normalizedPackages
+
       const normalizedAddOns = addOnOptions
         .filter((addOn) => addOn.name.trim() && addOn.amount !== "")
         .map((addOn) => ({
@@ -497,15 +632,19 @@ export default function NewServicePage() {
           active: addOn.active,
         }))
 
-      if (normalizedPackages.length === 0 && !formData.price) {
+      if (isHospitalityCategory && normalizedRoomTypes.length === 0) {
+        throw new Error("Add at least one room type with price for hotel/apartment services")
+      }
+
+      if (effectivePackages.length === 0 && !formData.price) {
         throw new Error("Add at least one package price or provide a base price")
       }
 
-      const minPackagePrice = normalizedPackages.length > 0
-        ? Math.min(...normalizedPackages.map((pkg) => pkg.price))
+      const minPackagePrice = effectivePackages.length > 0
+        ? Math.min(...effectivePackages.map((pkg) => pkg.price))
         : undefined
 
-      const defaultPackage = normalizedPackages.find((pkg) => pkg.isDefault) || normalizedPackages[0]
+      const defaultPackage = effectivePackages.find((pkg) => pkg.isDefault) || effectivePackages[0]
 
       const serviceData: any = {
         providerId: user.uid,
@@ -526,7 +665,7 @@ export default function NewServicePage() {
         featured: false,
         status: "active" as const,
         tags: formData.tags.split(",").map((t) => t.trim()).filter(Boolean),
-        packageOptions: normalizedPackages,
+        packageOptions: effectivePackages,
         addOnOptions: normalizedAddOns,
         requiresQuote,
         quoteNotesTemplate: quoteNotesTemplate.trim(),
@@ -545,6 +684,17 @@ export default function NewServicePage() {
             active: rule.active,
           })),
         distanceRatePerMile: Number.parseFloat(distanceRatePerMile) || 0,
+      }
+
+      if (isHospitalityCategory) {
+        serviceData.hospitalityDetails = {
+          propertyType: formData.subcategory || "hotel",
+          totalRooms: Number.parseInt(totalRooms || "0", 10) || normalizedRoomTypes.reduce((sum, room) => sum + room.roomCount, 0),
+          checkInTime: "14:00",
+          checkOutTime: "12:00",
+          maxAdvanceBookingDays: 365,
+          roomTypes: normalizedRoomTypes,
+        }
       }
 
       // Only add duration if it's provided
@@ -656,7 +806,8 @@ export default function NewServicePage() {
                       setFormData({
                         ...formData,
                         category: value,
-                        subcategory: value === "rentals" ? formData.subcategory : "",
+                        subcategory: value === "rentals" || value === "hospitality" ? formData.subcategory : "",
+                        locationType: value === "hospitality" ? "store" : formData.locationType,
                       })
                     }
                     required
@@ -679,15 +830,21 @@ export default function NewServicePage() {
                   <Select
                     value={formData.subcategory}
                     onValueChange={(value) => setFormData({ ...formData, subcategory: value })}
-                    disabled={formData.category !== "rentals"}
+                    disabled={formData.category !== "rentals" && formData.category !== "hospitality"}
                   >
                     <SelectTrigger>
                       <SelectValue
-                        placeholder={formData.category === "rentals" ? "Select rental type" : "Available for rentals only"}
+                        placeholder={
+                          formData.category === "rentals"
+                            ? "Select rental type"
+                            : formData.category === "hospitality"
+                              ? "Select property type"
+                              : "Available for rentals/hospitality"
+                        }
                       />
                     </SelectTrigger>
                     <SelectContent>
-                      {RENTAL_SUBCATEGORIES.map((subcategory) => (
+                      {(formData.category === "hospitality" ? HOSPITALITY_SUBCATEGORIES : RENTAL_SUBCATEGORIES).map((subcategory) => (
                         <SelectItem key={subcategory} value={subcategory} className="capitalize">
                           {subcategory.replace(/-/g, " ")}
                         </SelectItem>
@@ -937,6 +1094,193 @@ export default function NewServicePage() {
                   </div>
                 )}
               </div>
+
+              {isHospitalityCategory && (
+                <div className="rounded-lg border p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <Label className="text-base">Rooms & Stay Configuration</Label>
+                      <p className="text-xs text-muted-foreground">Create room types, nightly pricing, occupancy and images.</p>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={addRoomType}>
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Room Type
+                    </Button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Total Rooms In Property</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder="e.g. 18"
+                      value={totalRooms}
+                      onChange={(e) => setTotalRooms(e.target.value)}
+                    />
+                  </div>
+
+                  {roomTypes.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No room type yet. Add at least one to publish this category.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {roomTypes.map((room, index) => {
+                        const assignedIndexes = roomImageAssignments[room.id] || []
+                        return (
+                          <div key={room.id} className="rounded-md border p-3 space-y-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-sm font-medium">Room Type {index + 1}</p>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant={room.isDefault ? "default" : "outline"}
+                                  onClick={() => setDefaultRoomType(room.id)}
+                                >
+                                  {room.isDefault ? "Default" : "Set Default"}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => removeRoomType(room.id)}
+                                >
+                                  Remove
+                                </Button>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div className="space-y-2">
+                                <Label>Room Type Name *</Label>
+                                <Input
+                                  placeholder="Deluxe Studio, Executive Suite"
+                                  value={room.name}
+                                  onChange={(e) =>
+                                    setRoomTypes((prev) => prev.map((item) => (item.id === room.id ? { ...item, name: e.target.value } : item)))
+                                  }
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Price Per Night (₦) *</Label>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  value={room.pricePerNight}
+                                  onChange={(e) =>
+                                    setRoomTypes((prev) => prev.map((item) => (item.id === room.id ? { ...item, pricePerNight: e.target.value } : item)))
+                                  }
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                              <div className="space-y-2">
+                                <Label>Rooms</Label>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  value={room.roomCount}
+                                  onChange={(e) =>
+                                    setRoomTypes((prev) => prev.map((item) => (item.id === room.id ? { ...item, roomCount: e.target.value } : item)))
+                                  }
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Max Guests</Label>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  value={room.maxGuests}
+                                  onChange={(e) =>
+                                    setRoomTypes((prev) => prev.map((item) => (item.id === room.id ? { ...item, maxGuests: e.target.value } : item)))
+                                  }
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Max Adults</Label>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  value={room.maxAdults}
+                                  onChange={(e) =>
+                                    setRoomTypes((prev) => prev.map((item) => (item.id === room.id ? { ...item, maxAdults: e.target.value } : item)))
+                                  }
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Max Children</Label>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  value={room.maxChildren}
+                                  onChange={(e) =>
+                                    setRoomTypes((prev) => prev.map((item) => (item.id === room.id ? { ...item, maxChildren: e.target.value } : item)))
+                                  }
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Bed Type</Label>
+                                <Input
+                                  placeholder="King, Queen, Twin"
+                                  value={room.bedType}
+                                  onChange={(e) =>
+                                    setRoomTypes((prev) => prev.map((item) => (item.id === room.id ? { ...item, bedType: e.target.value } : item)))
+                                  }
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Room Description</Label>
+                              <Textarea
+                                rows={2}
+                                value={room.description}
+                                onChange={(e) =>
+                                  setRoomTypes((prev) => prev.map((item) => (item.id === room.id ? { ...item, description: e.target.value } : item)))
+                                }
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Amenities (comma separated)</Label>
+                              <Input
+                                placeholder="Wi-Fi, Smart TV, Balcony, Breakfast"
+                                value={room.amenities}
+                                onChange={(e) =>
+                                  setRoomTypes((prev) => prev.map((item) => (item.id === room.id ? { ...item, amenities: e.target.value } : item)))
+                                }
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Assign Room Images</Label>
+                              {images.length === 0 ? (
+                                <p className="text-xs text-muted-foreground">Upload service images first, then assign them to this room type.</p>
+                              ) : (
+                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                                  {images.map((img, imageIndex) => {
+                                    const checked = assignedIndexes.includes(imageIndex)
+                                    return (
+                                      <button
+                                        type="button"
+                                        key={`${room.id}-${imageIndex}`}
+                                        className={`relative rounded-md overflow-hidden border-2 ${checked ? "border-accent" : "border-transparent"}`}
+                                        onClick={() => toggleRoomImage(room.id, imageIndex)}
+                                      >
+                                        <img src={img} alt={`Room ${room.name || index + 1} image ${imageIndex + 1}`} className="h-16 w-full object-cover" />
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="rounded-lg border p-4 space-y-3">
                 <div className="flex items-center justify-between gap-3">

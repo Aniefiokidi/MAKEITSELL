@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import { getCanonicalAppBaseUrl } from '@/lib/app-url'
 
 interface PaymentData {
   email: string
@@ -151,9 +152,10 @@ class PaystackService {
         const url = 'https://api.paystack.co/transaction/initialize'
       
         const isSignupSubscription = paymentData.items.some(item => item.productId === 'vendor-subscription-signup')
+        const appBaseUrl = getCanonicalAppBaseUrl()
         const callbackUrl = isSignupSubscription 
-          ? `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/vendor-subscription-signup/callback`
-          : `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/vendor-subscription/callback`
+          ? `${appBaseUrl}/api/payments/vendor-subscription-signup/callback`
+          : `${appBaseUrl}/api/payments/vendor-subscription/callback`
       
         const payload = {
           email: paymentData.email,
@@ -302,13 +304,14 @@ class PaystackService {
       const isSubscription = paymentData.items.some(item => item.productId === 'vendor-subscription')
       const isSignupSubscription = paymentData.items.some(item => item.productId === 'vendor-subscription-signup')
       
-      let callbackUrl = paymentData.callbackUrl || `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/verify`
+      const appBaseUrl = getCanonicalAppBaseUrl()
+      let callbackUrl = paymentData.callbackUrl || `${appBaseUrl}/api/payments/verify`
       
       if (!paymentData.callbackUrl) {
         if (isSignupSubscription) {
-          callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/vendor-subscription-signup/callback`
+          callbackUrl = `${appBaseUrl}/api/payments/vendor-subscription-signup/callback`
         } else if (isSubscription) {
-          callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/vendor-subscription/callback`
+          callbackUrl = `${appBaseUrl}/api/payments/vendor-subscription/callback`
         }
       }
       

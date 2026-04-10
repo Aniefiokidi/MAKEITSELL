@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -44,12 +44,23 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
   
   const [selectedDate, setSelectedDate] = useState<Date>()
   const [selectedTime, setSelectedTime] = useState("")
+  const [checkInDate, setCheckInDate] = useState("")
+  const [checkOutDate, setCheckOutDate] = useState("")
+  const [roomsCount, setRoomsCount] = useState("1")
+  const [adultsCount, setAdultsCount] = useState("2")
+  const [childrenCount, setChildrenCount] = useState("0")
   const [phone, setPhone] = useState("")
   const [notes, setNotes] = useState("")
   const [loading, setLoading] = useState(false)
   const [customerLocation, setCustomerLocation] = useState("")
   const [tripDistanceMiles, setTripDistanceMiles] = useState("")
   const [blockedSlots, setBlockedSlots] = useState<string[]>([])
+  const [stayAvailability, setStayAvailability] = useState<{
+    totalRooms: number
+    bookedRooms: number
+    remainingRooms: number
+    isBookedOut: boolean
+  } | null>(null)
 
   const basePackagePrice = Number(selectedPackage?.price ?? service.price ?? 0)
   const addOnTotal = selectedAddOns.reduce((sum, addOn) => {
@@ -77,8 +88,22 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
   const isHomeService = locationType === "home-service"
   const hasHourlyPricing = (selectedPackage?.pricingType || service.pricingType) === "hourly"
   const hasSessionPricing = (selectedPackage?.pricingType || service.pricingType) === "per-session"
+  const isHospitalityService = service.category === "hospitality" || Array.isArray((service as any)?.hospitalityDetails?.roomTypes)
+  const parsedRoomsCount = Number.parseInt(roomsCount || "1", 10)
+  const parsedAdultsCount = Number.parseInt(adultsCount || "0", 10)
+  const parsedChildrenCount = Number.parseInt(childrenCount || "0", 10)
+  const safeRoomsCount = Number.isFinite(parsedRoomsCount) && parsedRoomsCount > 0 ? parsedRoomsCount : 1
+  const checkInDateValue = checkInDate ? new Date(checkInDate) : null
+  const checkOutDateValue = checkOutDate ? new Date(checkOutDate) : null
+  const nightlyNights = checkInDateValue && checkOutDateValue
+    ? Math.max(1, Math.ceil((checkOutDateValue.getTime() - checkInDateValue.getTime()) / (1000 * 60 * 60 * 24)))
+    : 1
+  const hospitalityTotal = Math.max(0, Math.round((basePackagePrice + addOnTotal) * nightlyNights * safeRoomsCount))
+  const computedTotal = isHospitalityService ? hospitalityTotal : estimatedTotal
 
-  // Generate available time slots based on service availability
+  const blockedSlotSet = new Set(blockedSlots)
+
+  // Generate provider schedule slots for the selected date.
   const getAvailableTimeSlots = () => {
     if (!selectedDate) return []
     
@@ -106,8 +131,28 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
       }
     }
     
-    if (blockedSlots.length === 0) return slots
-    return slots.filter((slot) => !blockedSlots.includes(slot))
+    return slots
+  }
+
+  const fetchStayAvailability = async (checkIn: string, checkOut: string) => {
+    if (!service?.providerId || !service?.id || !selectedPackage?.id || !checkIn || !checkOut) {
+      setStayAvailability(null)
+      return
+    }
+
+    try {
+      const response = await fetch(
+        `/api/database/bookings/availability?providerId=${service.providerId}&serviceId=${service.id}&roomTypeId=${selectedPackage.id}&checkInDate=${checkIn}&checkOutDate=${checkOut}`
+      )
+      const payload = await response.json()
+      if (!payload?.success || !payload?.stayAvailability) {
+        setStayAvailability(null)
+        return
+      }
+      setStayAvailability(payload.stayAvailability)
+    } catch {
+      setStayAvailability(null)
+    }
   }
 
   const fetchBlockedSlots = async (date: Date) => {
@@ -136,20 +181,80 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
         }
       }
 
-      setBlockedSlots(Array.from(blocked))
+      const blockedList = Array.from(blocked)
+      setBlockedSlots(blockedList)
+      if (selectedTime && blocked.has(selectedTime)) {
+        setSelectedTime("")
+      }
     } catch {
       setBlockedSlots([])
     }
   }
 
   const handleBooking = async () => {
-    if (!user || !userProfile || !selectedDate || !selectedTime) {
+    if (!user || !userProfile) {
       toast({
         title: "Incomplete Information",
         description: "Please fill in all required fields",
         variant: "destructive",
       })
       return
+    }
+
+    if (!isHospitalityService && (!selectedDate || !selectedTime)) {
+      toast({
+        title: "Incomplete Information",
+        description: "Please select booking date and time",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (isHospitalityService) {
+      if (!checkInDate || !checkOutDate) {
+        toast({
+          title: "Stay Dates Required",
+          description: "Select check-in and check-out dates to continue.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (!checkInDateValue || !checkOutDateValue || checkOutDateValue <= checkInDateValue) {
+        toast({
+          title: "Invalid Stay Dates",
+          description: "Check-out date must be after check-in date.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (!Number.isFinite(parsedAdultsCount) || parsedAdultsCount < 1) {
+        toast({
+          title: "Guest Details Required",
+          description: "Add at least one adult guest.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (stayAvailability?.isBookedOut) {
+        toast({
+          title: "Room Fully Booked",
+          description: "Selected room type is fully booked for those dates.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (stayAvailability && safeRoomsCount > stayAvailability.remainingRooms) {
+        toast({
+          title: "Insufficient Rooms",
+          description: `Only ${stayAvailability.remainingRooms} room(s) available for selected dates.`,
+          variant: "destructive",
+        })
+        return
+      }
     }
 
     if (isRentalLikeService && distanceRatePerMile > 0) {
@@ -167,21 +272,27 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
       setLoading(true)
 
       // Calculate end time based on service duration
-      const [hour, minute] = selectedTime.split(":").map(Number)
+      const [hour, minute] = (isHospitalityService ? "14:00" : selectedTime).split(":").map(Number)
       const parsedDuration = Number(selectedPackage?.duration ?? service.duration)
-      const duration = Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : 60
-      const endMinutes = minute + duration
-      const endHour = hour + Math.floor(endMinutes / 60)
-      const endMinute = endMinutes % 60
-      const endTime = `${String(endHour).padStart(2, "0")}:${String(endMinute).padStart(2, "0")}`
+      const duration = isHospitalityService
+        ? nightlyNights * 24 * 60
+        : (Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : 60)
+      const endTime = isHospitalityService
+        ? ((service as any)?.hospitalityDetails?.checkOutTime || "12:00")
+        : (() => {
+            const endMinutes = minute + duration
+            const endHour = hour + Math.floor(endMinutes / 60)
+            const endMinute = endMinutes % 60
+            return `${String(endHour).padStart(2, "0")}:${String(endMinute).padStart(2, "0")}`
+          })()
 
       const bookingData = {
         serviceId: service.id!,
         selectedPackageId: selectedPackage?.id,
         selectedPackageName: selectedPackage?.name,
         selectedAddOns,
-        estimatedPrice: estimatedTotal,
-        finalPrice: service.requiresQuote ? null : estimatedTotal,
+        estimatedPrice: computedTotal,
+        finalPrice: service.requiresQuote ? null : computedTotal,
         pricingStatus: service.requiresQuote ? "estimated" : "accepted",
         requiresQuote: Boolean(service.requiresQuote),
         customerLocation,
@@ -196,15 +307,29 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
         providerId: service.providerId,
         providerName: service.providerName,
         serviceTitle: service.title,
-        bookingDate: selectedDate, // MongoDB expects a Date object, not Firestore Timestamp
-        startTime: selectedTime,
+        bookingDate: isHospitalityService && checkInDateValue ? checkInDateValue : selectedDate,
+        startTime: isHospitalityService ? ((service as any)?.hospitalityDetails?.checkInTime || "14:00") : selectedTime,
         endTime: endTime,
         duration: duration,
-        totalPrice: estimatedTotal,
+        totalPrice: computedTotal,
         status: "pending" as const,
         locationType,
         location: service.location,
         notes: notes,
+        stayDetails: isHospitalityService && checkInDateValue && checkOutDateValue
+          ? {
+              checkInDate: checkInDateValue,
+              checkOutDate: checkOutDateValue,
+              nights: nightlyNights,
+              roomTypeId: selectedPackage?.id,
+              roomTypeName: selectedPackage?.name,
+              rooms: safeRoomsCount,
+              adults: parsedAdultsCount,
+              children: Number.isFinite(parsedChildrenCount) ? parsedChildrenCount : 0,
+              guests: parsedAdultsCount + (Number.isFinite(parsedChildrenCount) ? parsedChildrenCount : 0),
+              pricePerNight: basePackagePrice,
+            }
+          : undefined,
       }
 
       await createBooking(bookingData)
@@ -240,6 +365,13 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
           variant: "destructive",
         })
       }
+
+      if (!isHospitalityService && selectedDate) {
+        void fetchBlockedSlots(selectedDate)
+      }
+      if (isHospitalityService && checkInDate && checkOutDate) {
+        void fetchStayAvailability(checkInDate, checkOutDate)
+      }
     } finally {
       setLoading(false)
     }
@@ -263,6 +395,16 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
   }
 
   const availableTimeSlots = selectedDate ? getAvailableTimeSlots() : []
+  const openTimeSlots = availableTimeSlots.filter((slot) => !blockedSlotSet.has(slot))
+
+  useEffect(() => {
+    if (isHospitalityService && checkInDate && checkOutDate) {
+      void fetchStayAvailability(checkInDate, checkOutDate)
+    } else {
+      setStayAvailability(null)
+    }
+    // selectedPackage id affects room type inventory.
+  }, [isHospitalityService, checkInDate, checkOutDate, selectedPackage?.id])
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -270,7 +412,7 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
         <DialogHeader>
           <DialogTitle>Book Appointment</DialogTitle>
           <DialogDescription>
-            Schedule your appointment for {service.title}
+            {isHospitalityService ? `Reserve your stay at ${service.title}` : `Schedule your appointment for ${service.title}`}
           </DialogDescription>
         </DialogHeader>
 
@@ -281,9 +423,9 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
             <div className="text-sm space-y-1 text-muted-foreground">
               <p>Provider: {service.providerName}</p>
               <p>Package: {selectedPackage?.name || "Standard"}</p>
-              <p>Duration: {selectedPackage?.duration || service.duration || "Variable"} minutes</p>
+              <p>Duration: {isHospitalityService ? `${nightlyNights} night(s)` : `${selectedPackage?.duration || service.duration || "Variable"} minutes`}</p>
               <p>
-                {service.requiresQuote ? "Estimated Total" : "Total"}: ₦{estimatedTotal.toLocaleString('en-NG')}
+                {service.requiresQuote ? "Estimated Total" : "Total"}: ₦{computedTotal.toLocaleString('en-NG')}
               </p>
               <p className="capitalize">Location: {service.locationType.replace("-", " ")}</p>
             </div>
@@ -328,20 +470,20 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
             </div>
           )}
 
-          {/* Date Selection */}
-          <div className="space-y-2">
-            <Label>Select Date</Label>
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={handleDateSelect}
-              disabled={(date) => date < new Date() || !isDateAvailable(date)}
-              className="rounded-md border"
-            />
-          </div>
+          {!isHospitalityService && (
+            <div className="space-y-2">
+              <Label>Select Date</Label>
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={handleDateSelect}
+                disabled={(date) => date < new Date() || !isDateAvailable(date)}
+                className="rounded-md border"
+              />
+            </div>
+          )}
 
-          {/* Time Selection */}
-          {selectedDate && (
+          {!isHospitalityService && selectedDate && (
             <div className="space-y-2">
               <Label>Select Time</Label>
               <Select value={selectedTime} onValueChange={setSelectedTime}>
@@ -350,8 +492,8 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
                 </SelectTrigger>
                 <SelectContent className="z-1400">
                   {availableTimeSlots.map((slot) => (
-                    <SelectItem key={slot} value={slot}>
-                      {slot}
+                    <SelectItem key={slot} value={slot} disabled={blockedSlotSet.has(slot)}>
+                      {slot}{blockedSlotSet.has(slot) ? " (Booked)" : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -360,6 +502,78 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
                 <p className="text-xs text-muted-foreground">
                   No available time slots for the selected date. Please pick another date.
                 </p>
+              )}
+              {availableTimeSlots.length > 0 && openTimeSlots.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  All slots are currently booked for this date.
+                </p>
+              )}
+            </div>
+          )}
+
+          {isHospitalityService && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="checkInDate">Check-in Date</Label>
+                <Input
+                  id="checkInDate"
+                  type="date"
+                  value={checkInDate}
+                  min={format(new Date(), "yyyy-MM-dd")}
+                  onChange={(e) => setCheckInDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="checkOutDate">Check-out Date</Label>
+                <Input
+                  id="checkOutDate"
+                  type="date"
+                  value={checkOutDate}
+                  min={checkInDate || format(new Date(), "yyyy-MM-dd")}
+                  onChange={(e) => setCheckOutDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="roomsCount">Number of Rooms</Label>
+                <Input
+                  id="roomsCount"
+                  type="number"
+                  min="1"
+                  value={roomsCount}
+                  onChange={(e) => setRoomsCount(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="adultsCount">Adults</Label>
+                <Input
+                  id="adultsCount"
+                  type="number"
+                  min="1"
+                  value={adultsCount}
+                  onChange={(e) => setAdultsCount(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="childrenCount">Children</Label>
+                <Input
+                  id="childrenCount"
+                  type="number"
+                  min="0"
+                  value={childrenCount}
+                  onChange={(e) => setChildrenCount(e.target.value)}
+                />
+              </div>
+
+              {checkInDate && checkOutDate && stayAvailability && (
+                <div className="md:col-span-2 rounded-md border border-accent/30 bg-accent/5 p-3 text-sm">
+                  <p className="font-medium">Room Availability</p>
+                  <p className="text-muted-foreground">
+                    {stayAvailability.remainingRooms} of {stayAvailability.totalRooms} room(s) available for selected dates.
+                  </p>
+                  {stayAvailability.isBookedOut && (
+                    <p className="text-red-600 text-xs mt-1">This room type is fully booked for the selected stay dates.</p>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -422,16 +636,29 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
           </div>
 
           {/* Summary */}
-          {selectedDate && selectedTime && (
+          {((!isHospitalityService && selectedDate && selectedTime) || (isHospitalityService && checkInDate && checkOutDate)) && (
             <div className="bg-accent/10 p-4 rounded-lg">
               <h4 className="font-semibold mb-2">Booking Summary</h4>
               <div className="text-sm space-y-1">
-                <p>Date: {format(selectedDate, "MMMM d, yyyy")}</p>
-                <p>Time: {selectedTime}</p>
+                {!isHospitalityService && (
+                  <>
+                    <p>Date: {selectedDate ? format(selectedDate, "MMMM d, yyyy") : "-"}</p>
+                    <p>Time: {selectedTime}</p>
+                  </>
+                )}
+                {isHospitalityService && (
+                  <>
+                    <p>Check-in: {checkInDateValue ? format(checkInDateValue, "MMMM d, yyyy") : "-"}</p>
+                    <p>Check-out: {checkOutDateValue ? format(checkOutDateValue, "MMMM d, yyyy") : "-"}</p>
+                    <p>Nights: {nightlyNights}</p>
+                    <p>Rooms: {safeRoomsCount}</p>
+                    <p>Guests: {parsedAdultsCount} adult(s), {Number.isFinite(parsedChildrenCount) ? parsedChildrenCount : 0} child(ren)</p>
+                  </>
+                )}
                 <p>Package: {selectedPackage?.name || "Standard"}</p>
-                <p>Duration: {selectedPackage?.duration || service.duration || "Variable"} minutes</p>
+                <p>Duration: {isHospitalityService ? `${nightlyNights} night(s)` : `${selectedPackage?.duration || service.duration || "Variable"} minutes`}</p>
                 <p className="font-semibold text-accent">
-                  {service.requiresQuote ? "Estimated Total" : "Total"}: ₦{estimatedTotal.toLocaleString('en-NG')}
+                  {service.requiresQuote ? "Estimated Total" : "Total"}: ₦{computedTotal.toLocaleString('en-NG')}
                 </p>
                 <p>Booking fee (charged now): ₦{BOOKING_FEE_NAIRA.toLocaleString('en-NG')}</p>
                 {tripDistanceFee > 0 && (
@@ -465,7 +692,15 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
             <Button
               onClick={handleBooking}
               className="flex-1"
-              disabled={!selectedDate || !selectedTime || !phone || loading || ((isHomeService || isStoreService) && !customerLocation.trim())}
+              disabled={
+                loading
+                || !phone
+                || ((isHomeService || isStoreService) && !customerLocation.trim())
+                || (!isHospitalityService && (!selectedDate || !selectedTime))
+                || (isHospitalityService && (!checkInDate || !checkOutDate))
+                || (isHospitalityService && Boolean(stayAvailability?.isBookedOut))
+                || (isHospitalityService && Boolean(stayAvailability) && safeRoomsCount > Number(stayAvailability?.remainingRooms || 0))
+              }
             >
               {loading ? "Booking..." : "Confirm Booking"}
             </Button>

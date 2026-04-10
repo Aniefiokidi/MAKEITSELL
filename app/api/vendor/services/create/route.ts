@@ -9,6 +9,14 @@ function isFiniteNonNegativeNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0
 }
 
+const allowedHospitalityPropertyTypes = new Set([
+  'hotel',
+  'apartment',
+  'short-let-apartment',
+  'resort',
+  'guest-house',
+])
+
 function validateServicePayload(serviceData: any): { valid: boolean; message?: string } {
   if (!serviceData || typeof serviceData !== 'object') {
     return { valid: false, message: 'Invalid service payload' }
@@ -203,6 +211,52 @@ function validateServicePayload(serviceData: any): { valid: boolean; message?: s
       const value = serviceData.serviceSettings[field]
       if (value !== undefined && !Number.isFinite(Number(value))) {
         return { valid: false, message: `serviceSettings.${field} must be a number` }
+      }
+    }
+  }
+
+  if (serviceData.hospitalityDetails !== undefined && serviceData.hospitalityDetails !== null) {
+    const details = serviceData.hospitalityDetails
+    if (!details || typeof details !== 'object') {
+      return { valid: false, message: 'hospitalityDetails must be an object' }
+    }
+
+    if (!allowedHospitalityPropertyTypes.has(details.propertyType)) {
+      return { valid: false, message: 'Invalid hospitalityDetails.propertyType' }
+    }
+
+    if (!Number.isFinite(Number(details.totalRooms)) || Number(details.totalRooms) < 0) {
+      return { valid: false, message: 'hospitalityDetails.totalRooms must be a non-negative number' }
+    }
+
+    if (!Array.isArray(details.roomTypes) || details.roomTypes.length === 0) {
+      return { valid: false, message: 'hospitalityDetails.roomTypes must contain at least one room type' }
+    }
+
+    for (const room of details.roomTypes) {
+      if (!room || typeof room !== 'object') {
+        return { valid: false, message: 'Invalid room type in hospitalityDetails.roomTypes' }
+      }
+      if (!room.id || typeof room.id !== 'string') {
+        return { valid: false, message: 'Each room type must include an id' }
+      }
+      if (!room.name || typeof room.name !== 'string') {
+        return { valid: false, message: 'Each room type must include a name' }
+      }
+      if (!isFiniteNonNegativeNumber(Number(room.pricePerNight))) {
+        return { valid: false, message: 'Each room type must include a valid pricePerNight' }
+      }
+      if (!Number.isFinite(Number(room.roomCount)) || Number(room.roomCount) < 0) {
+        return { valid: false, message: 'Each room type must include a non-negative roomCount' }
+      }
+      if (!Number.isFinite(Number(room.maxGuests)) || Number(room.maxGuests) < 1) {
+        return { valid: false, message: 'Each room type must include maxGuests of at least 1' }
+      }
+      if (!Array.isArray(room.images) || room.images.some((img: any) => typeof img !== 'string' || !img.trim())) {
+        return { valid: false, message: 'Each room type must include valid image URLs' }
+      }
+      if (room.images.length > 10) {
+        return { valid: false, message: 'Each room type can contain up to 10 images' }
       }
     }
   }

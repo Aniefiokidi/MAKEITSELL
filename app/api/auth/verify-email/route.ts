@@ -3,6 +3,7 @@ import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 import { emailService } from '@/lib/email'
 import { normalizeNigerianPhone, sendOtpSms } from '@/lib/sms'
+import { getCanonicalAppBaseUrl } from '@/lib/app-url'
 
 function normalizeChannel(rawChannel: unknown): 'email' | 'sms' {
   const value = String(rawChannel || '').trim().toLowerCase()
@@ -64,11 +65,11 @@ async function finalizeVerifiedUser(user: any) {
 
 function getVerificationBaseUrl(request: NextRequest): string {
   const explicit = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL
-  if (explicit) return explicit.replace(/\/$/, '')
+  if (explicit) return getCanonicalAppBaseUrl(explicit)
 
   const host = request.headers.get('host') || 'www.makeitsell.ng'
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https'
-  return `${protocol}://${host}`
+  return getCanonicalAppBaseUrl(`${protocol}://${host}`)
 }
 
 export async function GET(request: NextRequest) {

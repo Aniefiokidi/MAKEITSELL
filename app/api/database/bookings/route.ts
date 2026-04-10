@@ -46,6 +46,10 @@ export async function POST(request: NextRequest) {
   let bookingFeeCustomerId = ''
 
   try {
+    const rangesOverlap = (startA: Date, endA: Date, startB: Date, endB: Date) => {
+      return startA < endB && endA > startB
+    }
+
     const toLocalDateKey = (value: Date) => {
       const year = value.getFullYear()
       const month = String(value.getMonth() + 1).padStart(2, '0')
@@ -106,6 +110,88 @@ export async function POST(request: NextRequest) {
       bookingFeeStatus: 'pending',
       quoteExpiresAt: requiresQuote ? new Date(Date.now() + quoteSlaHours * 60 * 60 * 1000) : null,
     }
+
+    const stayDetails = bookingData?.stayDetails && typeof bookingData.stayDetails === 'object'
+      ? bookingData.stayDetails
+      : null
+    const hasStayBooking = Boolean(stayDetails?.checkInDate && stayDetails?.checkOutDate)
+
+    if (hasStayBooking) {
+      const checkInDate = new Date(stayDetails.checkInDate)
+      const checkOutDate = new Date(stayDetails.checkOutDate)
+      const nights = Math.max(1, Number(stayDetails.nights || 1))
+      const requestedRooms = Math.max(1, Number(stayDetails.rooms || 1))
+
+      if (Number.isNaN(checkInDate.getTime()) || Number.isNaN(checkOutDate.getTime()) || checkOutDate <= checkInDate) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid check-in/check-out date range' },
+          { status: 400 }
+        )
+      }
+
+      const roomTypeId = String(stayDetails.roomTypeId || bookingData?.selectedPackageId || '')
+      if (!roomTypeId) {
+        return NextResponse.json(
+          { success: false, error: 'Missing room type for stay booking' },
+          { status: 400 }
+        )
+      }
+
+      const roomTypes = Array.isArray((service as any)?.hospitalityDetails?.roomTypes)
+        ? (service as any).hospitalityDetails.roomTypes
+        : []
+      const roomType = roomTypes.find((item: any) => String(item?.id || '') === roomTypeId)
+      const totalRoomsInType = Math.max(0, Number(roomType?.roomCount || 0))
+      if (totalRoomsInType <= 0) {
+        return NextResponse.json(
+          { success: false, error: 'Selected room type is currently unavailable' },
+          { status: 409 }
+        )
+      }
+
+      const existingBookings = await getBookingsByProvider(String(bookingData?.providerId || ''))
+      const alreadyBookedRooms = existingBookings
+        .filter((item: any) => {
+          if (!item || item.status === 'cancelled') return false
+          const stay = item?.stayDetails
+          if (!stay?.checkInDate || !stay?.checkOutDate) return false
+          if (String(stay?.roomTypeId || '') !== roomTypeId) return false
+          const existingCheckIn = new Date(stay.checkInDate)
+          const existingCheckOut = new Date(stay.checkOutDate)
+          if (Number.isNaN(existingCheckIn.getTime()) || Number.isNaN(existingCheckOut.getTime())) return false
+          return rangesOverlap(checkInDate, checkOutDate, existingCheckIn, existingCheckOut)
+        })
+        .reduce((sum: number, item: any) => sum + Math.max(0, Number(item?.stayDetails?.rooms || 1)), 0)
+
+      const remainingRooms = Math.max(0, totalRoomsInType - alreadyBookedRooms)
+      if (requestedRooms > remainingRooms) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: remainingRooms > 0
+              ? `Only ${remainingRooms} room(s) available for selected dates.`
+              : 'Selected room type is fully booked for these dates.',
+          },
+          { status: 409 }
+        )
+      }
+
+      normalizedBookingData.stayDetails = {
+        ...stayDetails,
+        roomTypeId,
+        roomTypeName: stayDetails.roomTypeName || roomType?.name || bookingData?.selectedPackageName || 'Room',
+        rooms: requestedRooms,
+        checkInDate,
+        checkOutDate,
+        nights,
+      }
+      normalizedBookingData.bookingDate = checkInDate
+      normalizedBookingData.startTime = typeof bookingData?.startTime === 'string' ? bookingData.startTime : '14:00'
+      normalizedBookingData.endTime = typeof bookingData?.endTime === 'string' ? bookingData.endTime : '12:00'
+      normalizedBookingData.duration = Number.isFinite(Number(bookingData?.duration))
+        ? Number(bookingData.duration)
+        : nights * 24 * 60
+    }
     
     // 1. Check for double-booking prevention
     const { providerId, bookingDate, startTime, endTime } = normalizedBookingData
@@ -117,52 +203,54 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Get existing bookings for this provider on the same date
-    const existingBookings = await getBookingsByProvider(providerId)
-    
-    // Convert booking date to string for comparison (YYYY-MM-DD format)
-    const requestedDate = toLocalDateKey(new Date(bookingDate))
-    
-    // Check for time conflicts
-    const conflictingBooking = existingBookings.find(booking => {
-      if (!booking.bookingDate) return false
-      
-      const existingDate = toLocalDateKey(new Date(booking.bookingDate))
-      
-      // Only check bookings on the same date that aren't cancelled
-      if (existingDate !== requestedDate || booking.status === 'cancelled') {
-        return false
+    if (!hasStayBooking) {
+      // Get existing bookings for this provider on the same date
+      const existingBookings = await getBookingsByProvider(providerId)
+
+      // Convert booking date to string for comparison (YYYY-MM-DD format)
+      const requestedDate = toLocalDateKey(new Date(bookingDate))
+
+      // Check for time conflicts
+      const conflictingBooking = existingBookings.find(booking => {
+        if (!booking.bookingDate) return false
+
+        const existingDate = toLocalDateKey(new Date(booking.bookingDate))
+
+        // Only check bookings on the same date that aren't cancelled
+        if (existingDate !== requestedDate || booking.status === 'cancelled') {
+          return false
+        }
+
+        // Convert time strings to minutes for comparison
+        const parseTime = (timeStr: string) => {
+          const [hours, minutes] = timeStr.split(':').map(Number)
+          return hours * 60 + minutes
+        }
+
+        const requestStart = parseTime(startTime)
+        const requestEnd = parseTime(endTime)
+        const existingStart = parseTime(booking.startTime)
+        const existingEnd = parseTime(booking.endTime)
+
+        // Check for overlap: new booking starts before existing ends AND new booking ends after existing starts
+        return requestStart < existingEnd && requestEnd > existingStart
+      })
+
+      if (conflictingBooking) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'This time slot is already booked. Please choose a different time.',
+            conflictingBooking: {
+              date: conflictingBooking.bookingDate,
+              startTime: conflictingBooking.startTime,
+              endTime: conflictingBooking.endTime,
+              serviceTitle: conflictingBooking.serviceTitle
+            }
+          },
+          { status: 409 } // Conflict status
+        )
       }
-      
-      // Convert time strings to minutes for comparison
-      const parseTime = (timeStr: string) => {
-        const [hours, minutes] = timeStr.split(':').map(Number)
-        return hours * 60 + minutes
-      }
-      
-      const requestStart = parseTime(startTime)
-      const requestEnd = parseTime(endTime)
-      const existingStart = parseTime(booking.startTime)
-      const existingEnd = parseTime(booking.endTime)
-      
-      // Check for overlap: new booking starts before existing ends AND new booking ends after existing starts
-      return requestStart < existingEnd && requestEnd > existingStart
-    })
-    
-    if (conflictingBooking) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'This time slot is already booked. Please choose a different time.',
-          conflictingBooking: {
-            date: conflictingBooking.bookingDate,
-            startTime: conflictingBooking.startTime,
-            endTime: conflictingBooking.endTime,
-            serviceTitle: conflictingBooking.serviceTitle
-          }
-        },
-        { status: 409 } // Conflict status
-      )
     }
 
     // 1b. External calendar conflict check (Google/Outlook ICS feed).
@@ -171,7 +259,7 @@ export async function POST(request: NextRequest) {
       : ''
     const isCalendarSyncEnabled = Boolean((service as any)?.calendarSyncEnabled) && Boolean(icsUrl)
 
-    if (isCalendarSyncEnabled) {
+    if (isCalendarSyncEnabled && !hasStayBooking) {
       const [startHour, startMinute] = String(startTime).split(':').map(Number)
       const [endHour, endMinute] = String(endTime).split(':').map(Number)
       const bookingDateObj = new Date(bookingDate)

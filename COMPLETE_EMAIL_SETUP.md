@@ -38,7 +38,7 @@ SMTP_FROM_NAME=Make It Sell
 ### Step 1: Verify Your Email Account
 1. Log into NameCheap
 2. Go to Domain List → Manage → Email
-3. Ensure `noreply@makeitsell.org` is created and active
+3. Ensure `noreply@makeitsell.ng` is created and active
 
 ### Step 2: Find Your SMTP Settings
 NameCheap provides different SMTP servers depending on your setup:
@@ -52,7 +52,7 @@ SMTP_SECURE=false
 
 **Option B: Domain-based SMTP**
 ```env
-SMTP_HOST=mail.makeitsell.org
+SMTP_HOST=mail.makeitsell.ng
 SMTP_PORT=587
 SMTP_SECURE=false
 ```
@@ -101,7 +101,7 @@ In your NameCheap account:
 Open Command Prompt and run:
 ```cmd
 nslookup smtp.privateemail.com
-nslookup mail.makeitsell.org
+nslookup mail.makeitsell.ng
 ```
 
 ---

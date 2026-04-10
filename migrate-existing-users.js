@@ -101,7 +101,7 @@ async function migrateExistingUsers() {
         await user.save();
 
         // Send verification email
-        const verificationUrl = `https://www.makeitsell.org/verify-email?token=${emailVerificationToken}`;
+        const verificationUrl = `https://www.makeitsell.ng/verify-email?token=${emailVerificationToken}`;
         
         const emailSent = await emailService.sendEmailVerification({
           email: user.email,
@@ -193,7 +193,7 @@ async function migrateSpecificUsers(emailFilter) {
         
         await user.save();
 
-        const verificationUrl = `https://www.makeitsell.org/verify-email?token=${emailVerificationToken}`;
+        const verificationUrl = `https://www.makeitsell.ng/verify-email?token=${emailVerificationToken}`;
         
         const emailSent = await emailService.sendEmailVerification({
           email: user.email,

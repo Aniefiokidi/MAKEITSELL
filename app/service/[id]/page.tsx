@@ -48,6 +48,22 @@ export default function ServiceDetailPage() {
   const [modalImageIndex, setModalImageIndex] = useState(0)
   const [selectedPackageId, setSelectedPackageId] = useState<string>("")
   const [selectedAddOnIds, setSelectedAddOnIds] = useState<string[]>([])
+  const [previewCheckInDate, setPreviewCheckInDate] = useState("")
+  const [previewCheckOutDate, setPreviewCheckOutDate] = useState("")
+  const [previewStayAvailability, setPreviewStayAvailability] = useState<{
+    totalRooms: number
+    bookedRooms: number
+    remainingRooms: number
+    isBookedOut: boolean
+  } | null>(null)
+  const [loadingPreviewAvailability, setLoadingPreviewAvailability] = useState(false)
+
+  const toDateInputValue = (date: Date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, "0")
+    const day = String(date.getDate()).padStart(2, "0")
+    return `${year}-${month}-${day}`
+  }
 
   useEffect(() => {
     const fetchService = async () => {
@@ -155,9 +171,16 @@ export default function ServiceDetailPage() {
   }
 
   const activePackages = (service?.packageOptions || []).filter((pkg: any) => pkg?.active !== false)
+  const hospitalityRoomTypes = Array.isArray((service as any)?.hospitalityDetails?.roomTypes)
+    ? (service as any).hospitalityDetails.roomTypes.filter((room: any) => room?.active !== false)
+    : []
+  const isHospitalityService = service?.category === "hospitality" || hospitalityRoomTypes.length > 0
   const selectedPackage = activePackages.find((pkg: any) => pkg.id === selectedPackageId)
     || activePackages.find((pkg: any) => pkg.isDefault)
     || activePackages[0]
+  const selectedRoomType = hospitalityRoomTypes.find((room: any) => room.id === selectedPackage?.id)
+    || hospitalityRoomTypes.find((room: any) => room.isDefault)
+    || hospitalityRoomTypes[0]
 
   const activeAddOns = (service?.addOnOptions || []).filter((addOn: any) => addOn?.active !== false)
   const selectedAddOns = activeAddOns.filter((addOn: any) => selectedAddOnIds.includes(addOn.id))
@@ -171,6 +194,51 @@ export default function ServiceDetailPage() {
         setSelectedImage(0)
       }
     }, [displayedImages.length, selectedImage])
+
+  useEffect(() => {
+    if (!isHospitalityService) {
+      setPreviewStayAvailability(null)
+      return
+    }
+
+    if (!previewCheckInDate || !previewCheckOutDate) {
+      const today = new Date()
+      const tomorrow = new Date(today)
+      tomorrow.setDate(today.getDate() + 1)
+      const dayAfter = new Date(today)
+      dayAfter.setDate(today.getDate() + 2)
+      setPreviewCheckInDate(toDateInputValue(tomorrow))
+      setPreviewCheckOutDate(toDateInputValue(dayAfter))
+    }
+  }, [isHospitalityService, previewCheckInDate, previewCheckOutDate])
+
+  useEffect(() => {
+    const fetchPreviewAvailability = async () => {
+      if (!isHospitalityService || !service?.id || !service?.providerId || !selectedPackage?.id || !previewCheckInDate || !previewCheckOutDate) {
+        setPreviewStayAvailability(null)
+        return
+      }
+
+      setLoadingPreviewAvailability(true)
+      try {
+        const response = await fetch(
+          `/api/database/bookings/availability?providerId=${service.providerId}&serviceId=${service.id}&roomTypeId=${selectedPackage.id}&checkInDate=${previewCheckInDate}&checkOutDate=${previewCheckOutDate}`
+        )
+        const payload = await response.json()
+        if (!response.ok || !payload?.success || !payload?.stayAvailability) {
+          setPreviewStayAvailability(null)
+          return
+        }
+        setPreviewStayAvailability(payload.stayAvailability)
+      } catch {
+        setPreviewStayAvailability(null)
+      } finally {
+        setLoadingPreviewAvailability(false)
+      }
+    }
+
+    void fetchPreviewAvailability()
+  }, [isHospitalityService, service?.id, service?.providerId, selectedPackage?.id, previewCheckInDate, previewCheckOutDate])
 
   const estimatedTotal = (() => {
     if (!service) return 0
@@ -196,6 +264,10 @@ export default function ServiceDetailPage() {
     const activePkg = selectedPackage || activePackages[0]
     if (service.requiresQuote) {
       return `From ₦${Number(activePkg?.price ?? service.price ?? 0).toLocaleString('en-NG')}`
+    }
+    if (isHospitalityService) {
+      const nightlyPrice = Number(selectedRoomType?.pricePerNight ?? activePkg?.price ?? service.price ?? 0)
+      return `₦${nightlyPrice.toLocaleString('en-NG')}/night`
     }
     const displayPrice = Number(activePkg?.price ?? service.price ?? 0)
     return `₦${displayPrice.toLocaleString('en-NG')}${priceTypeMap[(activePkg?.pricingType || service.pricingType) as keyof typeof priceTypeMap] || ''}`
@@ -347,6 +419,43 @@ export default function ServiceDetailPage() {
           </div>
         )}
 
+        {isHospitalityService && hospitalityRoomTypes.length > 0 && (
+          <div className="mb-8 space-y-3">
+            <h3 className="text-lg font-semibold">Room Types</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {hospitalityRoomTypes.map((room: any) => {
+                const selected = selectedPackageId === room.id || (!selectedPackageId && room.isDefault)
+                return (
+                  <button
+                    key={room.id}
+                    type="button"
+                    className={`rounded-lg border p-4 text-left transition-colors ${selected ? 'border-accent bg-accent/5' : 'hover:border-accent/60'}`}
+                    onClick={() => setSelectedPackageId(room.id)}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-semibold">{room.name}</p>
+                      <p className="text-accent font-semibold">₦{Number(room.pricePerNight || room.price || 0).toLocaleString('en-NG')}/night</p>
+                    </div>
+                    {room.description && <p className="text-sm text-muted-foreground mt-2">{room.description}</p>}
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      <p>{Number(room.roomCount || 0)} room(s) available in this type</p>
+                      <p>Up to {Number(room.maxGuests || 1)} guests</p>
+                      {room.bedType && <p>Bed type: {room.bedType}</p>}
+                    </div>
+                    {Array.isArray(room.amenities) && room.amenities.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {room.amenities.slice(0, 6).map((amenity: string) => (
+                          <Badge key={`${room.id}-${amenity}`} variant="secondary" className="text-xs">{amenity}</Badge>
+                        ))}
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Full Image Modal */}
         <Dialog open={showImageModal} onOpenChange={setShowImageModal}>
           <DialogContent className="max-w-5xl w-full p-0 bg-black/95">
@@ -463,6 +572,18 @@ export default function ServiceDetailPage() {
                     </div>
                   </div>
                 )}
+
+                {isHospitalityService && (
+                  <div>
+                    <h3 className="text-xl font-semibold mb-2">Stay Details</h3>
+                    <div className="space-y-2 text-sm text-muted-foreground">
+                      <p className="capitalize">Property Type: {(service as any)?.hospitalityDetails?.propertyType?.replace(/-/g, " ") || "hotel"}</p>
+                      <p>Total Rooms: {Number((service as any)?.hospitalityDetails?.totalRooms || 0) || "Not specified"}</p>
+                      <p>Check-in: {(service as any)?.hospitalityDetails?.checkInTime || "14:00"}</p>
+                      <p>Check-out: {(service as any)?.hospitalityDetails?.checkOutTime || "12:00"}</p>
+                    </div>
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="availability" className="mt-6">
@@ -512,7 +633,7 @@ export default function ServiceDetailPage() {
               <CardContent className="space-y-4">
                 {activePackages.length > 0 && (
                   <div className="space-y-2">
-                    <p className="text-sm font-semibold">Select Package</p>
+                    <p className="text-sm font-semibold">{isHospitalityService ? "Select Room Type" : "Select Package"}</p>
                     <div className="space-y-2">
                       {activePackages.map((pkg: any) => (
                         <button
@@ -523,7 +644,7 @@ export default function ServiceDetailPage() {
                         >
                           <div className="flex items-center justify-between gap-2">
                             <span className="font-medium">{pkg.name}</span>
-                            <span className="text-sm text-accent">₦{Number(pkg.price || 0).toLocaleString('en-NG')}</span>
+                            <span className="text-sm text-accent">₦{Number(pkg.price || 0).toLocaleString('en-NG')}{isHospitalityService ? '/night' : ''}</span>
                           </div>
                           {pkg.description && <p className="text-xs text-muted-foreground mt-1">{pkg.description}</p>}
                         </button>
@@ -564,9 +685,20 @@ export default function ServiceDetailPage() {
                 )}
 
                 <div className="space-y-3 text-sm">
+                  {isHospitalityService && selectedRoomType && (
+                    <div className="p-3 rounded-md bg-accent/5 border border-accent/20 space-y-1">
+                      <p className="font-medium">{selectedRoomType.name}</p>
+                      <p className="text-xs text-muted-foreground">Up to {Number(selectedRoomType.maxGuests || 1)} guests</p>
+                      {selectedRoomType.bedType && <p className="text-xs text-muted-foreground">Bed: {selectedRoomType.bedType}</p>}
+                      {Array.isArray(selectedRoomType.amenities) && selectedRoomType.amenities.length > 0 && (
+                        <p className="text-xs text-muted-foreground">Amenities: {selectedRoomType.amenities.join(', ')}</p>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span>{service.duration || "Variable"} minutes</span>
+                    <span>{isHospitalityService ? "Nightly stay booking" : `${service.duration || "Variable"} minutes`}</span>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -579,6 +711,51 @@ export default function ServiceDetailPage() {
                     <span>Available: {getAvailabilityDays().join(", ")}</span>
                   </div>
                 </div>
+
+                {isHospitalityService && (
+                  <div className="rounded-md border p-3 space-y-3">
+                    <p className="text-sm font-semibold">Check Room Availability</p>
+                    <div className="grid grid-cols-1 gap-2">
+                      <label className="text-xs text-muted-foreground">
+                        Check-in
+                        <input
+                          type="date"
+                          value={previewCheckInDate}
+                          min={toDateInputValue(new Date())}
+                          onChange={(e) => setPreviewCheckInDate(e.target.value)}
+                          className="mt-1 w-full rounded-md border px-2 py-1 text-sm bg-background"
+                        />
+                      </label>
+                      <label className="text-xs text-muted-foreground">
+                        Check-out
+                        <input
+                          type="date"
+                          value={previewCheckOutDate}
+                          min={previewCheckInDate || toDateInputValue(new Date())}
+                          onChange={(e) => setPreviewCheckOutDate(e.target.value)}
+                          className="mt-1 w-full rounded-md border px-2 py-1 text-sm bg-background"
+                        />
+                      </label>
+                    </div>
+
+                    <div className="rounded-md bg-accent/5 border border-accent/20 p-2">
+                      {loadingPreviewAvailability ? (
+                        <p className="text-xs text-muted-foreground">Checking room availability...</p>
+                      ) : previewStayAvailability ? (
+                        <>
+                          <p className="text-sm font-medium">
+                            {previewStayAvailability.remainingRooms} of {previewStayAvailability.totalRooms} rooms available
+                          </p>
+                          <p className={`text-xs ${previewStayAvailability.isBookedOut ? "text-red-600" : "text-green-700"}`}>
+                            {previewStayAvailability.isBookedOut ? "Booked out for selected dates" : "Rooms available for selected dates"}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">Select valid dates to preview availability.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="p-3 rounded-md bg-accent/10 text-sm">
                   <p className="font-medium text-accent">
@@ -602,7 +779,7 @@ export default function ServiceDetailPage() {
                     }}
                   >
                     <Calendar className="h-4 w-4 mr-2" />
-                    Book Appointment
+                    {isHospitalityService ? "Book Stay" : "Book Appointment"}
                   </Button>
 
                   <Button 

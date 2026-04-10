@@ -10,6 +10,7 @@ import { Store } from '@/lib/models/Store'
 import crypto from 'crypto'
 import { calculatePaystackCheckoutAmounts } from '@/lib/paystack-charges'
 import { estimateShippingFee } from '@/lib/aco-logistics-rates'
+import { getCanonicalAppBaseUrl } from '@/lib/app-url'
 
 const OBJECT_ID_REGEX = /^[a-fA-F0-9]{24}$/
 
@@ -259,7 +260,7 @@ export async function POST(request: NextRequest) {
       })
       
       const paymentReference = `${orderId}-${Date.now()}`
-      const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.ng'}/api/payments/verify`
+      const callbackUrl = `${getCanonicalAppBaseUrl()}/api/payments/verify`
 
       const paymentResult = await xoroPayService.initializePayment({
         email: shippingInfo.email,

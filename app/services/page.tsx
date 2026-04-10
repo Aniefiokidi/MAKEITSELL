@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { getServices, Service } from "@/lib/database-client"
 import { initPersonalizationSync, personalizeServices, trackSearch, trackServiceView } from "@/lib/personalization"
 import { buildPublicServicePath } from "@/lib/public-links"
-import { Search, Clock, Banknote, Verified, RefreshCw, Camera, Briefcase, Wrench, Palette, Dumbbell, GraduationCap, Scissors, Sparkles, Laptop, Settings, Store, ArrowRight, Car, Megaphone, Shield, HeartPulse, Truck, Home, CarTaxiFront, Music2, Coffee, Users } from "lucide-react"
+import { Search, Clock, Banknote, Verified, RefreshCw, Camera, Briefcase, Wrench, Palette, Dumbbell, GraduationCap, Scissors, Sparkles, Laptop, Settings, Store, ArrowRight, Car, Megaphone, Shield, HeartPulse, Truck, Home, CarTaxiFront, Music2, Coffee, Users, Hotel } from "lucide-react"
 import Image from "next/image"
 
 // Function to get icon component based on category
@@ -39,6 +39,8 @@ const getCategoryIcon = (category: string) => {
       return <Laptop className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
     case "rentals":
       return <Car className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+    case "hospitality":
+      return <Hotel className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
     case "marketing":
       return <Megaphone className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
     case "legal":
@@ -94,6 +96,7 @@ const SERVICE_CATEGORIES = [
   { value: "cleaning", label: "Cleaning Services" },
   { value: "tech", label: "Tech Support" },
   { value: "rentals", label: "Rentals" },
+  { value: "hospitality", label: "Hotels & Apartments" },
   { value: "marketing", label: "Marketing" },
   { value: "legal", label: "Legal Services" },
   { value: "healthcare", label: "Healthcare & Wellness" },

@@ -283,6 +283,36 @@ const ServiceSchema = new mongoose.Schema({
     },
     default: null,
   },
+  hospitalityDetails: {
+    type: {
+      propertyType: { type: String, enum: ['hotel', 'apartment', 'short-let-apartment', 'resort', 'guest-house'], default: 'hotel' },
+      totalRooms: { type: Number, default: 0 },
+      checkInTime: { type: String, default: '14:00' },
+      checkOutTime: { type: String, default: '12:00' },
+      maxAdvanceBookingDays: { type: Number, default: 365 },
+      roomTypes: {
+        type: [
+          {
+            id: { type: String, required: true },
+            name: { type: String, required: true },
+            description: { type: String, default: '' },
+            pricePerNight: { type: Number, required: true },
+            roomCount: { type: Number, default: 1 },
+            maxGuests: { type: Number, default: 1 },
+            maxAdults: { type: Number, default: 1 },
+            maxChildren: { type: Number, default: 0 },
+            bedType: { type: String, default: '' },
+            amenities: { type: [String], default: [] },
+            images: { type: [String], default: [] },
+            isDefault: { type: Boolean, default: false },
+            active: { type: Boolean, default: true },
+          },
+        ],
+        default: [],
+      },
+    },
+    default: null,
+  },
   location: { type: String, required: true },
   state: { type: String, default: '' },
   city: { type: String, default: '' },
@@ -412,6 +442,19 @@ const normalizeServicePricing = (service: any) => {
     ? service.images
     : (primaryPackageImages.length > 0 ? primaryPackageImages : (service?.providerImage ? [service.providerImage] : []));
 
+  const normalizedHospitalityDetails = service?.hospitalityDetails && typeof service.hospitalityDetails === 'object'
+    ? {
+        ...service.hospitalityDetails,
+        roomTypes: Array.isArray(service.hospitalityDetails.roomTypes)
+          ? service.hospitalityDetails.roomTypes.map((room: any) => ({
+              ...room,
+              amenities: Array.isArray(room?.amenities) ? room.amenities : [],
+              images: Array.isArray(room?.images) ? room.images : [],
+            }))
+          : [],
+      }
+    : null;
+
   return {
     ...service,
     images: normalizedImages,
@@ -426,6 +469,7 @@ const normalizeServicePricing = (service: any) => {
     distanceRatePerMile: Number.isFinite(Number(service?.distanceRatePerMile)) ? Number(service.distanceRatePerMile) : 0,
     rentalOptions: service?.rentalOptions && typeof service.rentalOptions === 'object' ? service.rentalOptions : null,
     serviceSettings: service?.serviceSettings && typeof service.serviceSettings === 'object' ? service.serviceSettings : null,
+    hospitalityDetails: normalizedHospitalityDetails,
     defaultPackageId: defaultPackage?.id || normalizedPackages[0]?.id || 'default',
     price: normalizedPrice,
     pricingType: defaultPackage?.pricingType || service?.pricingType || 'fixed',
@@ -562,9 +606,25 @@ export const getProductById = async (id: string) => {
 
 export const createService = async (serviceData: any): Promise<any> => {
   await connectToDatabase();
+  const hospitalityRoomTypes = Array.isArray(serviceData?.hospitalityDetails?.roomTypes)
+    ? serviceData.hospitalityDetails.roomTypes.filter((room: any) => room && room.name && Number(room.pricePerNight) >= 0)
+    : [];
+
+  const derivedHospitalityPackages = hospitalityRoomTypes.map((room: any) => ({
+    id: room.id,
+    name: room.name,
+    description: room.description || '',
+    price: Number(room.pricePerNight || 0),
+    duration: 1440,
+    pricingType: 'fixed',
+    isDefault: Boolean(room.isDefault),
+    active: room.active !== false,
+    images: Array.isArray(room.images) ? room.images : [],
+  }));
+
   const packageOptions = Array.isArray(serviceData?.packageOptions)
     ? serviceData.packageOptions.filter((pkg: any) => pkg && pkg.name && Number(pkg.price) >= 0)
-    : [];
+    : (derivedHospitalityPackages.length > 0 ? derivedHospitalityPackages : []);
 
   const normalizedInput = {
     ...serviceData,
@@ -768,6 +828,28 @@ export interface Service {
     active?: boolean;
   }>;
   distanceRatePerMile?: number;
+  hospitalityDetails?: {
+    propertyType?: 'hotel' | 'apartment' | 'short-let-apartment' | 'resort' | 'guest-house';
+    totalRooms?: number;
+    checkInTime?: string;
+    checkOutTime?: string;
+    maxAdvanceBookingDays?: number;
+    roomTypes?: Array<{
+      id: string;
+      name: string;
+      description?: string;
+      pricePerNight: number;
+      roomCount?: number;
+      maxGuests?: number;
+      maxAdults?: number;
+      maxChildren?: number;
+      bedType?: string;
+      amenities?: string[];
+      images?: string[];
+      isDefault?: boolean;
+      active?: boolean;
+    }>;
+  } | null;
   rating: number;
   reviews: number;
 }

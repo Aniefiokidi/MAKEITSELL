@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getCanonicalAppBaseUrl } from '@/lib/app-url'
 export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin
+  const appUrl = getCanonicalAppBaseUrl(new URL(request.url).origin)
   return NextResponse.redirect(`${appUrl}/signup?message=vendor_signup_is_free`)
 }
 

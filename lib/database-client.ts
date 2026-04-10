@@ -217,6 +217,28 @@ export interface Service {
     active?: boolean
   }>
   distanceRatePerMile?: number
+  hospitalityDetails?: {
+    propertyType?: "hotel" | "apartment" | "short-let-apartment" | "resort" | "guest-house"
+    totalRooms?: number
+    checkInTime?: string
+    checkOutTime?: string
+    maxAdvanceBookingDays?: number
+    roomTypes?: Array<{
+      id: string
+      name: string
+      description?: string
+      pricePerNight: number
+      roomCount?: number
+      maxGuests?: number
+      maxAdults?: number
+      maxChildren?: number
+      bedType?: string
+      amenities?: string[]
+      images?: string[]
+      isDefault?: boolean
+      active?: boolean
+    }>
+  } | null
   defaultPackageId?: string
   images: string[]
   location: string
