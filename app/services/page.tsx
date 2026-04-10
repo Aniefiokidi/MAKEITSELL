@@ -226,6 +226,7 @@ export default function ServicesPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
+  const [serviceGroup, setServiceGroup] = useState<"all" | "stays" | "other-services">("all")
   const [selectedState, setSelectedState] = useState("all")
   const [selectedCity, setSelectedCity] = useState("all")
   const [showMobileSearch, setShowMobileSearch] = useState(false)
@@ -295,7 +296,7 @@ export default function ServicesPage() {
 
   useEffect(() => {
     filterServices()
-  }, [searchQuery, selectedCategory, selectedState, selectedCity, services])
+  }, [searchQuery, selectedCategory, serviceGroup, selectedState, selectedCity, services])
 
   const availableStates = Array.from(
     new Set(
@@ -387,6 +388,16 @@ export default function ServicesPage() {
 
   const filterServices = () => {
     let filtered = services
+
+    if (serviceGroup === "stays") {
+      filtered = filtered.filter(
+        (service) => normalizeServiceCategory(service.category) === "hospitality"
+      )
+    } else if (serviceGroup === "other-services") {
+      filtered = filtered.filter(
+        (service) => normalizeServiceCategory(service.category) !== "hospitality"
+      )
+    }
 
     if (searchQuery) {
       filtered = filtered.filter(
@@ -487,6 +498,36 @@ export default function ServicesPage() {
       <main className="flex-1 container mx-auto px-2 sm:px-4 pt-5 sm:pt-7 pb-3 sm:pb-4">
         {/* Unified Header Bar - Mobile Optimized */}
         <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
+          <div className="flex items-center gap-1 rounded-full border border-accent/25 bg-white/90 p-1 w-fit shadow-sm">
+            <button
+              type="button"
+              onClick={() => setServiceGroup("all")}
+              className={`px-3 py-1.5 text-xs sm:text-sm rounded-full font-semibold transition-colors ${
+                serviceGroup === "all" ? "bg-accent text-white" : "text-accent hover:bg-accent/10"
+              }`}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setServiceGroup("stays")}
+              className={`px-3 py-1.5 text-xs sm:text-sm rounded-full font-semibold transition-colors ${
+                serviceGroup === "stays" ? "bg-accent text-white" : "text-accent hover:bg-accent/10"
+              }`}
+            >
+              Hotels & APs
+            </button>
+            <button
+              type="button"
+              onClick={() => setServiceGroup("other-services")}
+              className={`px-3 py-1.5 text-xs sm:text-sm rounded-full font-semibold transition-colors ${
+                serviceGroup === "other-services" ? "bg-accent text-white" : "text-accent hover:bg-accent/10"
+              }`}
+            >
+              Other Services
+            </button>
+          </div>
+
           <div className="w-full lg:w-auto xl:hidden">
             <Link
               href="/stores"
@@ -669,6 +710,7 @@ export default function ServicesPage() {
                 <Button onClick={() => {
                   setSearchQuery("")
                   setSelectedCategory("all")
+                  setServiceGroup("all")
                   setSelectedState("all")
                   setSelectedCity("all")
                 }} size="lg" className="bg-linear-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-black text-xl px-8 py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all uppercase tracking-wider">
