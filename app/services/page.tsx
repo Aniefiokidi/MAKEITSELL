@@ -226,7 +226,7 @@ export default function ServicesPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
-  const [serviceGroup, setServiceGroup] = useState<"all" | "stays" | "other-services">("all")
+  const [serviceGroup, setServiceGroup] = useState<"stays" | "other-services">("other-services")
   const [selectedState, setSelectedState] = useState("all")
   const [selectedCity, setSelectedCity] = useState("all")
   const [showMobileSearch, setShowMobileSearch] = useState(false)
@@ -501,15 +501,6 @@ export default function ServicesPage() {
           <div className="flex items-center gap-1 rounded-full border border-accent/25 bg-white/90 p-1 w-fit shadow-sm">
             <button
               type="button"
-              onClick={() => setServiceGroup("all")}
-              className={`px-3 py-1.5 text-xs sm:text-sm rounded-full font-semibold transition-colors ${
-                serviceGroup === "all" ? "bg-accent text-white" : "text-accent hover:bg-accent/10"
-              }`}
-            >
-              All
-            </button>
-            <button
-              type="button"
               onClick={() => setServiceGroup("stays")}
               className={`px-3 py-1.5 text-xs sm:text-sm rounded-full font-semibold transition-colors ${
                 serviceGroup === "stays" ? "bg-accent text-white" : "text-accent hover:bg-accent/10"
@@ -710,7 +701,7 @@ export default function ServicesPage() {
                 <Button onClick={() => {
                   setSearchQuery("")
                   setSelectedCategory("all")
-                  setServiceGroup("all")
+                  setServiceGroup("other-services")
                   setSelectedState("all")
                   setSelectedCity("all")
                 }} size="lg" className="bg-linear-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-black text-xl px-8 py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all uppercase tracking-wider">
