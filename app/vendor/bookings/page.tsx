@@ -6,10 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAuth } from "@/contexts/AuthContext"
 import { useToast } from "@/hooks/use-toast"
-import { Calendar, Clock, MapPin, Phone, CheckCircle2, XCircle, Clock3 } from "lucide-react"
-import { format } from "date-fns"
+import { Calendar, Clock, MapPin, Phone, CheckCircle2, XCircle, Clock3, Download, List, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react"
+import { addDays, addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, parseISO, startOfMonth, startOfWeek, subMonths } from "date-fns"
 
 interface Booking {
   id: string
@@ -45,6 +46,11 @@ export default function VendorBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("pending")
+  const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar")
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [currentMonth, setCurrentMonth] = useState<Date>(startOfMonth(new Date()))
+  const [exportFormat, setExportFormat] = useState<"csv" | "json" | "ics">("csv")
+  const [exportScope, setExportScope] = useState<"all" | "month" | "day">("month")
   const [quoteValues, setQuoteValues] = useState<Record<string, string>>({})
   const [quoteSlaHours, setQuoteSlaHours] = useState<Record<string, string>>({})
 
@@ -153,6 +159,150 @@ export default function VendorBookingsPage() {
   const confirmedBookings = bookings.filter((b) => b.status === "confirmed")
   const completedBookings = bookings.filter((b) => b.status === "completed")
   const cancelledBookings = bookings.filter((b) => b.status === "cancelled")
+
+  const bookingDateKey = (value: string | Date) => format(new Date(value), "yyyy-MM-dd")
+
+  const bookingsByDate = bookings.reduce<Record<string, Booking[]>>((acc, booking) => {
+    const key = bookingDateKey(booking.bookingDate)
+    if (!acc[key]) acc[key] = []
+    acc[key].push(booking)
+    return acc
+  }, {})
+
+  const selectedDateKey = format(selectedDate, "yyyy-MM-dd")
+  const selectedDayBookings = (bookingsByDate[selectedDateKey] || []).sort((a, b) => {
+    const aStart = String(a.startTime || "")
+    const bStart = String(b.startTime || "")
+    return aStart.localeCompare(bStart)
+  })
+
+  const monthGridDays = eachDayOfInterval({
+    start: startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 1 }),
+    end: endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 1 }),
+  })
+
+  const mobileDateStrip = eachDayOfInterval({
+    start: startOfWeek(new Date(), { weekStartsOn: 1 }),
+    end: addDays(startOfWeek(new Date(), { weekStartsOn: 1 }), 13),
+  })
+
+  const toIcsDate = (dateValue: string | Date, timeValue: string) => {
+    const date = new Date(dateValue)
+    const [hh, mm] = String(timeValue || "00:00").split(":").map(Number)
+    date.setHours(Number.isFinite(hh) ? hh : 0, Number.isFinite(mm) ? mm : 0, 0, 0)
+    const yyyy = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, "0")
+    const day = String(date.getDate()).padStart(2, "0")
+    const hours = String(date.getHours()).padStart(2, "0")
+    const mins = String(date.getMinutes()).padStart(2, "0")
+    const secs = String(date.getSeconds()).padStart(2, "0")
+    return `${yyyy}${month}${day}T${hours}${mins}${secs}`
+  }
+
+  const downloadFile = (filename: string, mime: string, content: string) => {
+    const blob = new Blob([content], { type: mime })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const getExportBookings = () => {
+    if (exportScope === "day") {
+      return selectedDayBookings
+    }
+
+    if (exportScope === "month") {
+      return bookings.filter((booking) => isSameMonth(new Date(booking.bookingDate), currentMonth))
+    }
+
+    return bookings
+  }
+
+  const exportBookings = () => {
+    const rows = getExportBookings()
+    if (rows.length === 0) {
+      toast({ title: "No data", description: "There are no bookings in the selected export scope.", variant: "destructive" })
+      return
+    }
+
+    const suffix = exportScope === "day"
+      ? format(selectedDate, "yyyy-MM-dd")
+      : exportScope === "month"
+      ? format(currentMonth, "yyyy-MM")
+      : "all"
+
+    if (exportFormat === "json") {
+      downloadFile(
+        `vendor-bookings-${suffix}.json`,
+        "application/json;charset=utf-8",
+        JSON.stringify(rows, null, 2)
+      )
+      return
+    }
+
+    if (exportFormat === "csv") {
+      const header = [
+        "bookingId",
+        "service",
+        "customerName",
+        "customerEmail",
+        "customerPhone",
+        "date",
+        "startTime",
+        "endTime",
+        "status",
+        "amount",
+        "location",
+      ]
+      const lines = rows.map((row) => [
+        row.id,
+        row.serviceName || row.serviceTitle || "",
+        row.customerName || "",
+        row.customerEmail || "",
+        row.customerPhone || "",
+        format(new Date(row.bookingDate), "yyyy-MM-dd"),
+        row.startTime || "",
+        row.endTime || "",
+        row.status,
+        String(Number(row.finalPrice ?? row.totalPrice ?? row.estimatedPrice ?? 0)),
+        row.location || "",
+      ])
+      const csv = [header, ...lines]
+        .map((line) => line.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(","))
+        .join("\n")
+      downloadFile(`vendor-bookings-${suffix}.csv`, "text/csv;charset=utf-8", csv)
+      return
+    }
+
+    const lines = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//MakeItSell//VendorBookings//EN",
+      ...rows.flatMap((row) => {
+        const summary = (row.serviceName || row.serviceTitle || "Service Booking").replace(/[,;\\]/g, "")
+        const customer = (row.customerName || "Customer").replace(/[,;\\]/g, "")
+        const location = (row.location || "").replace(/[,;\\]/g, "")
+        const description = `Customer: ${customer} | Status: ${row.status} | Phone: ${row.customerPhone || "N/A"}`.replace(/[,;\\]/g, "")
+        return [
+          "BEGIN:VEVENT",
+          `UID:${row.id}@makeitsell.ng`,
+          `DTSTAMP:${format(new Date(), "yyyyMMdd'T'HHmmss")}`,
+          `DTSTART:${toIcsDate(row.bookingDate, row.startTime)}`,
+          `DTEND:${toIcsDate(row.bookingDate, row.endTime)}`,
+          `SUMMARY:${summary}`,
+          `DESCRIPTION:${description}`,
+          `LOCATION:${location}`,
+          "END:VEVENT",
+        ]
+      }),
+      "END:VCALENDAR",
+    ].join("\n")
+
+    downloadFile(`vendor-bookings-${suffix}.ics`, "text/calendar;charset=utf-8", lines)
+  }
 
   const getPricingStatusColor = (status?: string) => {
     switch (status) {
@@ -317,7 +467,57 @@ export default function VendorBookingsPage() {
       <div className="space-y-4 lg:space-y-6">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold">Service Bookings</h1>
-          <p className="text-sm lg:text-base text-muted-foreground mt-2">Manage and approve customer service appointments</p>
+          <p className="text-sm lg:text-base text-muted-foreground mt-2">Manage bookings in calendar or list format, then export in your preferred file type.</p>
+        </div>
+
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="inline-flex rounded-xl border bg-card p-1 w-full md:w-auto">
+            <Button
+              type="button"
+              variant={viewMode === "calendar" ? "default" : "ghost"}
+              className="flex-1 md:flex-none"
+              onClick={() => setViewMode("calendar")}
+            >
+              <CalendarDays className="h-4 w-4 mr-2" />
+              Calendar View
+            </Button>
+            <Button
+              type="button"
+              variant={viewMode === "list" ? "default" : "ghost"}
+              className="flex-1 md:flex-none"
+              onClick={() => setViewMode("list")}
+            >
+              <List className="h-4 w-4 mr-2" />
+              List View
+            </Button>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Select value={exportScope} onValueChange={(value: "all" | "month" | "day") => setExportScope(value)}>
+              <SelectTrigger className="w-full sm:w-[150px]">
+                <SelectValue placeholder="Scope" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="day">Selected Day</SelectItem>
+                <SelectItem value="month">Visible Month</SelectItem>
+                <SelectItem value="all">All Bookings</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={exportFormat} onValueChange={(value: "csv" | "json" | "ics") => setExportFormat(value)}>
+              <SelectTrigger className="w-full sm:w-[130px]">
+                <SelectValue placeholder="Format" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="csv">CSV</SelectItem>
+                <SelectItem value="json">JSON</SelectItem>
+                <SelectItem value="ics">ICS</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button type="button" variant="outline" onClick={exportBookings}>
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
@@ -370,6 +570,115 @@ export default function VendorBookingsPage() {
           </Card>
         </div>
 
+        {viewMode === "calendar" ? (
+          <div className="space-y-4">
+            <Card className="md:hidden border-0 shadow-none bg-transparent">
+              <CardContent className="p-0">
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  {mobileDateStrip.map((day) => {
+                    const key = format(day, "yyyy-MM-dd")
+                    const dayBookings = bookingsByDate[key] || []
+                    const selected = isSameDay(day, selectedDate)
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => {
+                          setSelectedDate(day)
+                          setCurrentMonth(startOfMonth(day))
+                        }}
+                        className={`min-w-[74px] rounded-2xl border px-3 py-2 text-left transition ${selected ? "bg-primary text-primary-foreground border-primary" : "bg-card"}`}
+                      >
+                        <p className="text-[10px] uppercase tracking-wide opacity-80">{format(day, "EEE")}</p>
+                        <p className="text-lg font-semibold leading-none mt-1">{format(day, "d")}</p>
+                        <p className="text-[10px] mt-1">{dayBookings.length > 0 ? `${dayBookings.length} booked` : "Free"}</p>
+                      </button>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="hidden md:block">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle>{format(currentMonth, "MMMM yyyy")}</CardTitle>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="icon" onClick={() => setCurrentMonth((prev) => subMonths(prev, 1))}>
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={() => setCurrentMonth((prev) => addMonths(prev, 1))}>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-7 gap-2 text-xs uppercase tracking-wide text-muted-foreground mb-2">
+                  <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+                </div>
+                <div className="grid grid-cols-7 gap-2">
+                  {monthGridDays.map((day) => {
+                    const key = format(day, "yyyy-MM-dd")
+                    const dayBookings = bookingsByDate[key] || []
+                    const isCurrent = isSameMonth(day, currentMonth)
+                    const isSelected = isSameDay(day, selectedDate)
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setSelectedDate(day)}
+                        className={`min-h-[108px] rounded-xl border p-2 text-left transition ${isSelected ? "border-primary ring-2 ring-primary/30" : "hover:border-primary/40"} ${isCurrent ? "bg-card" : "bg-muted/30 text-muted-foreground"}`}
+                      >
+                        <p className="text-sm font-semibold">{format(day, "d")}</p>
+                        <div className="mt-1 space-y-1">
+                          {dayBookings.slice(0, 2).map((booking) => (
+                            <p key={booking.id} className="text-[11px] truncate rounded bg-primary/10 px-1.5 py-0.5">
+                              {booking.customerName || "Customer"}
+                            </p>
+                          ))}
+                          {dayBookings.length > 2 && (
+                            <p className="text-[11px] text-muted-foreground">+{dayBookings.length - 2} more</p>
+                          )}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>{format(selectedDate, "EEEE, MMMM d, yyyy")}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {selectedDayBookings.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No bookings on this day.</p>
+                ) : (
+                  selectedDayBookings.map((booking) => (
+                    <div key={booking.id} className="rounded-xl border p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-semibold text-sm">{booking.customerName || "Customer"}</p>
+                          <p className="text-xs text-muted-foreground">{booking.serviceName || booking.serviceTitle || "Service"}</p>
+                        </div>
+                        <Badge variant={booking.status === "confirmed" ? "default" : booking.status === "completed" ? "secondary" : booking.status === "cancelled" ? "destructive" : "outline"}>
+                          {booking.status}
+                        </Badge>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span>{booking.startTime} - {booking.endTime}</span>
+                        <span>{booking.location || "N/A"}</span>
+                        <span>{booking.customerPhone || "No phone"}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto">
             <TabsTrigger value="pending" className="text-xs lg:text-sm py-2">Pending ({pendingBookings.length})</TabsTrigger>
@@ -430,6 +739,7 @@ export default function VendorBookingsPage() {
             )}
           </TabsContent>
         </Tabs>
+        )}
       </div>
     </VendorLayout>
   )

@@ -4,6 +4,7 @@ import { xoroPayService } from '@/lib/xoro-pay'
 import { emailService } from '@/lib/email'
 import { updateOrder, getOrderById, creditVendorWalletsForOrder } from '@/lib/mongodb-operations'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
+import { Order } from '@/lib/models/Order'
 import { User } from '@/lib/models/User'
 import { connectToDatabase } from '@/lib/mongodb'
 import mongoose from 'mongoose'
@@ -20,6 +21,63 @@ const pickFirstString = (source: any, keys: string[]) => {
 }
 
 const asObject = (value: any) => (value && typeof value === 'object' ? value : {})
+
+const deriveOrderIdFromReference = (reference: string): string => {
+  const ref = String(reference || '').trim()
+  if (!ref) return ''
+
+  const uuidWithTimestamp = ref.match(/^([0-9a-fA-F-]{36})-\d{10,}$/)
+  if (uuidWithTimestamp) {
+    return uuidWithTimestamp[1]
+  }
+
+  const genericWithTimestamp = ref.match(/^(.*)-\d{10,}$/)
+  if (genericWithTimestamp) {
+    return String(genericWithTimestamp[1] || '').trim()
+  }
+
+  return ''
+}
+
+const resolveOrderIdFromPaymentData = async (data: any): Promise<string> => {
+  const metadata = asObject(data?.metadata)
+  const root = asObject(data)
+  const reference = pickFirstString(root, ['reference', 'payment_reference', 'paymentReference', 'tx_ref', 'trxref'])
+
+  const candidateOrderIds = Array.from(
+    new Set(
+      [
+        pickFirstString(metadata, ['orderId', 'orderID', 'order_id']),
+        pickFirstString(root, ['orderId', 'orderID', 'order_id']),
+        deriveOrderIdFromReference(reference),
+      ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    )
+  )
+
+  for (const candidate of candidateOrderIds) {
+    const order = await getOrderById(candidate)
+    if (order) {
+      return candidate
+    }
+  }
+
+  const referenceCandidates = Array.from(
+    new Set(
+      [
+        reference,
+        pickFirstString(metadata, ['paymentReference', 'payment_reference', 'reference', 'transaction_reference', 'transactionReference']),
+      ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    )
+  )
+
+  if (referenceCandidates.length === 0) {
+    return ''
+  }
+
+  await connectToDatabase()
+  const order = await Order.findOne({ paymentReference: { $in: referenceCandidates } }).select('orderId').lean()
+  return String((order as any)?.orderId || '').trim()
+}
 
 const safeParseJson = (value: any) => {
   if (typeof value !== 'string') return value
@@ -403,7 +461,7 @@ async function handleSuccessfulPayment(data: any) {
       return
     }
 
-    const orderId = data.metadata?.orderId
+    const orderId = await resolveOrderIdFromPaymentData(data)
     
     if (!orderId) {
       console.error('Order ID not found in webhook data')
@@ -499,7 +557,7 @@ async function handleFailedPayment(data: any) {
       return
     }
 
-    const orderId = data.metadata?.orderId
+    const orderId = await resolveOrderIdFromPaymentData(data)
     
     if (!orderId) {
       console.error('Order ID not found in webhook data')
@@ -523,7 +581,7 @@ async function handleFailedPayment(data: any) {
 
 async function handleDispute(data: any) {
   try {
-    const orderId = data.metadata?.orderId
+    const orderId = await resolveOrderIdFromPaymentData(data)
     
     if (!orderId) {
       console.error('Order ID not found in dispute data')

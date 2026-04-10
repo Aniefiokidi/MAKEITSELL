@@ -3,6 +3,7 @@ import { xoroPayService } from '@/lib/xoro-pay'
 import { paystackService } from '@/lib/payment'
 import { emailService } from '@/lib/email'
 import { updateOrder, getOrderById, getUserById, getStores, creditVendorWalletsForOrder } from '@/lib/mongodb-operations'
+import { Order } from '@/lib/models/Order'
 import connectToDatabase from '@/lib/mongodb'
 import mongoose from 'mongoose'
 import { normalizeNigerianPhone, sendOrderConfirmationSms } from '@/lib/sms'
@@ -15,16 +16,102 @@ type NormalizedVerification = {
   message?: string
 }
 
+const asObject = (value: any) => (value && typeof value === 'object' ? value : {})
+
+const pickFirstString = (source: any, keys: string[]) => {
+  for (const key of keys) {
+    const value = source?.[key]
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim()
+    }
+  }
+  return ''
+}
+
+const deriveOrderIdFromReference = (reference: string): string => {
+  const trimmed = String(reference || '').trim()
+  if (!trimmed) return ''
+
+  const uuidWithTimestamp = trimmed.match(/^([0-9a-fA-F-]{36})-\d{10,}$/)
+  if (uuidWithTimestamp) {
+    return uuidWithTimestamp[1]
+  }
+
+  const genericWithTimestamp = trimmed.match(/^(.*)-\d{10,}$/)
+  if (genericWithTimestamp) {
+    return String(genericWithTimestamp[1] || '').trim()
+  }
+
+  return ''
+}
+
+const collectReferenceCandidates = (reference: string, paymentData: any): string[] => {
+  const root = asObject(paymentData)
+  const data = asObject(root.data || root.result)
+  const metadata = asObject(data.metadata || root.metadata)
+
+  return Array.from(
+    new Set(
+      [
+        reference,
+        pickFirstString(root, ['reference', 'payment_reference', 'paymentReference', 'tx_ref', 'trxref', 'transaction_reference', 'transactionReference', 'id']),
+        pickFirstString(data, ['reference', 'payment_reference', 'paymentReference', 'tx_ref', 'trxref', 'transaction_reference', 'transactionReference', 'id']),
+        pickFirstString(metadata, ['paymentReference', 'payment_reference', 'reference', 'transaction_reference', 'transactionReference']),
+      ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    )
+  )
+}
+
+const collectOrderIdCandidates = (reference: string, paymentData: any, explicitOrderId?: string): string[] => {
+  const root = asObject(paymentData)
+  const data = asObject(root.data || root.result)
+  const metadata = asObject(data.metadata || root.metadata)
+
+  const fromReference = deriveOrderIdFromReference(reference)
+
+  return Array.from(
+    new Set(
+      [
+        String(explicitOrderId || '').trim(),
+        pickFirstString(metadata, ['orderId', 'orderID', 'order_id']),
+        pickFirstString(data, ['orderId', 'orderID', 'order_id']),
+        pickFirstString(root, ['orderId', 'orderID', 'order_id']),
+        fromReference,
+      ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    )
+  )
+}
+
+const resolveOrderId = async (reference: string, verificationResult: NormalizedVerification): Promise<string> => {
+  const paymentData = verificationResult.paymentData || {}
+
+  for (const candidateOrderId of collectOrderIdCandidates(reference, paymentData, verificationResult.orderId)) {
+    const order = await getOrderById(candidateOrderId)
+    if (order) {
+      return candidateOrderId
+    }
+  }
+
+  const referenceCandidates = collectReferenceCandidates(reference, paymentData)
+  if (referenceCandidates.length === 0) {
+    return ''
+  }
+
+  await connectToDatabase()
+  const order = await Order.findOne({ paymentReference: { $in: referenceCandidates } }).select('orderId').lean()
+  return String((order as any)?.orderId || '').trim()
+}
+
 const verifyWithAnyProvider = async (reference: string): Promise<NormalizedVerification> => {
   const xoroResult = await xoroPayService.verifyPayment(reference)
   if (xoroResult.success) {
     const metadata = xoroResult.metadata || {}
     const orderId = String(metadata.orderId || '')
     return {
-      success: Boolean(orderId),
+      success: true,
       orderId,
       paymentData: xoroResult.raw || {},
-      message: orderId ? undefined : 'Order ID not found in Xoro payment metadata',
+      message: orderId ? undefined : 'Order ID missing in Xoro payment metadata; using fallback resolution',
     }
   }
 
@@ -33,10 +120,10 @@ const verifyWithAnyProvider = async (reference: string): Promise<NormalizedVerif
     const paymentData = paystackResult.data || {}
     const orderId = String(paymentData?.metadata?.orderId || '')
     return {
-      success: Boolean(orderId),
+      success: true,
       orderId,
       paymentData,
-      message: orderId ? undefined : 'Order ID not found in Paystack payment metadata',
+      message: orderId ? undefined : 'Order ID missing in Paystack payment metadata; using fallback resolution',
     }
   }
 
@@ -70,7 +157,7 @@ export async function GET(request: NextRequest) {
     }
 
     const paymentData = verificationResult.paymentData || {}
-    const orderId = String(verificationResult.orderId || '')
+    const orderId = await resolveOrderId(reference, verificationResult)
 
     if (!orderId) {
       const errorUrl = new URL('/checkout', getCanonicalAppBaseUrl())
@@ -254,7 +341,7 @@ export async function POST(request: NextRequest) {
 
     if (verificationResult.success) {
       const paymentData = verificationResult.paymentData || {}
-      const orderId = String(verificationResult.orderId || '')
+      const orderId = await resolveOrderId(reference, verificationResult)
 
       if (!orderId) {
         return NextResponse.json(

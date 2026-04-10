@@ -15,7 +15,8 @@ import {
   Store,
   BarChart3,
   TrendingUp,
-  Settings
+  Settings,
+  CalendarDays
 } from "lucide-react"
 import AddProductModal from "./AddProductModal"
 
@@ -33,6 +34,7 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
     { name: "Overview", href: "/vendor/dashboard", icon: LayoutDashboard },
     { name: "Products", href: "/vendor/products", icon: Package },
     { name: "Orders", href: "/vendor/orders", icon: Store },
+    { name: "Bookings", href: "/vendor/bookings", icon: CalendarDays },
     { name: "Analytics", href: "/vendor/analytics", icon: BarChart3 },
     { name: "Conversion Funnel", href: "/vendor/conversion-funnel", icon: TrendingUp },
     { name: "Store Settings", href: "/vendor/store-settings", icon: Store },

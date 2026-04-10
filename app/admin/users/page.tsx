@@ -17,6 +17,9 @@ export default function AdminUsersPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [roleFilter, setRoleFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [roleDrafts, setRoleDrafts] = useState<Record<string, "customer" | "vendor" | "admin">>({})
+  const [vendorTypeDrafts, setVendorTypeDrafts] = useState<Record<string, "goods" | "services" | "both">>({})
+  const [savingUserId, setSavingUserId] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -65,6 +68,41 @@ export default function AdminUsersPage() {
 
   const handleStatusChange = (userId: string, newStatus: string) => {
     setUsers((prev) => prev.map((user) => (user.id === userId ? { ...user, status: newStatus } : user)))
+  }
+
+  const updateRoleAndVendorType = async (userId: string) => {
+    const user = users.find((item) => item.id === userId)
+    if (!user) return
+
+    const role = roleDrafts[userId] || user.role || "customer"
+    const vendorType = vendorTypeDrafts[userId] || user.vendorType || "both"
+
+    try {
+      setSavingUserId(userId)
+      const response = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, role, vendorType }),
+      })
+
+      const result = await response.json()
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || "Failed to update user")
+      }
+
+      setUsers((prev) => prev.map((item) => {
+        if (item.id !== userId) return item
+        return {
+          ...item,
+          role,
+          vendorType: role === "vendor" ? vendorType : undefined,
+        }
+      }))
+    } catch (error) {
+      console.error("Failed to update role/vendor type:", error)
+    } finally {
+      setSavingUserId(null)
+    }
   }
 
   return (
@@ -204,7 +242,52 @@ export default function AdminUsersPage() {
                           </div>
                           <div className="flex gap-2 flex-wrap">
                             {getRoleBadge(user.role)}
+                            {user.role === "vendor" && user.vendorType ? <Badge variant="outline">{user.vendorType}</Badge> : null}
                             {getStatusBadge(user.status)}
+                          </div>
+                          <div className="grid grid-cols-1 gap-2 pt-2 border-t">
+                            <div className="grid grid-cols-2 gap-2">
+                              <Select
+                                value={roleDrafts[user.id] || user.role || "customer"}
+                                onValueChange={(value: "customer" | "vendor" | "admin") =>
+                                  setRoleDrafts((prev) => ({ ...prev, [user.id]: value }))
+                                }
+                              >
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue placeholder="Role" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="customer">Customer</SelectItem>
+                                  <SelectItem value="vendor">Vendor</SelectItem>
+                                  <SelectItem value="admin">Admin</SelectItem>
+                                </SelectContent>
+                              </Select>
+
+                              <Select
+                                value={vendorTypeDrafts[user.id] || user.vendorType || "both"}
+                                onValueChange={(value: "goods" | "services" | "both") =>
+                                  setVendorTypeDrafts((prev) => ({ ...prev, [user.id]: value }))
+                                }
+                                disabled={(roleDrafts[user.id] || user.role || "customer") !== "vendor"}
+                              >
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue placeholder="Vendor type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="goods">Goods</SelectItem>
+                                  <SelectItem value="services">Services</SelectItem>
+                                  <SelectItem value="both">Both</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={savingUserId === user.id}
+                              onClick={() => updateRoleAndVendorType(user.id)}
+                            >
+                              {savingUserId === user.id ? "Saving..." : "Save Role"}
+                            </Button>
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t">
                             <div>
@@ -233,10 +316,12 @@ export default function AdminUsersPage() {
                       <TableRow>
                         <TableHead className="text-xs">User</TableHead>
                         <TableHead className="text-xs">Role</TableHead>
+                        <TableHead className="text-xs">Vendor Type</TableHead>
                         <TableHead className="text-xs">Status</TableHead>
                         <TableHead className="text-xs">Join Date</TableHead>
                         <TableHead className="text-xs">Orders</TableHead>
                         <TableHead className="text-xs">Total Spent</TableHead>
+                        <TableHead className="text-xs">Access Control</TableHead>
                         <TableHead className="w-[50px]"></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -250,10 +335,55 @@ export default function AdminUsersPage() {
                             </div>
                           </TableCell>
                           <TableCell>{getRoleBadge(user.role)}</TableCell>
+                          <TableCell className="text-xs">{user.role === "vendor" ? (user.vendorType || "both") : "-"}</TableCell>
                           <TableCell>{getStatusBadge(user.status)}</TableCell>
                           <TableCell className="text-xs">{user.joinDate ? new Date(user.joinDate).toLocaleDateString() : "N/A"}</TableCell>
                           <TableCell className="text-xs">{user.orders || 0}</TableCell>
                           <TableCell className="text-xs font-semibold">₦{(user.totalSpent || 0).toLocaleString()}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Select
+                                value={roleDrafts[user.id] || user.role || "customer"}
+                                onValueChange={(value: "customer" | "vendor" | "admin") =>
+                                  setRoleDrafts((prev) => ({ ...prev, [user.id]: value }))
+                                }
+                              >
+                                <SelectTrigger className="h-8 w-[110px] text-xs">
+                                  <SelectValue placeholder="Role" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="customer">Customer</SelectItem>
+                                  <SelectItem value="vendor">Vendor</SelectItem>
+                                  <SelectItem value="admin">Admin</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Select
+                                value={vendorTypeDrafts[user.id] || user.vendorType || "both"}
+                                onValueChange={(value: "goods" | "services" | "both") =>
+                                  setVendorTypeDrafts((prev) => ({ ...prev, [user.id]: value }))
+                                }
+                                disabled={(roleDrafts[user.id] || user.role || "customer") !== "vendor"}
+                              >
+                                <SelectTrigger className="h-8 w-[110px] text-xs">
+                                  <SelectValue placeholder="Type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="goods">Goods</SelectItem>
+                                  <SelectItem value="services">Services</SelectItem>
+                                  <SelectItem value="both">Both</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 text-xs"
+                                disabled={savingUserId === user.id}
+                                onClick={() => updateRoleAndVendorType(user.id)}
+                              >
+                                {savingUserId === user.id ? "Saving..." : "Save"}
+                              </Button>
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>

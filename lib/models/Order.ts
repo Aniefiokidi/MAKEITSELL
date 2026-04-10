@@ -10,6 +10,9 @@ export interface IOrder extends Document {
   totalAmount: number;
   status: string;
   paymentStatus: string;
+  paymentReference?: string;
+  paymentData?: any;
+  paidAt?: Date;
   vendors: any[];
   storeIds: string[];
   createdAt: Date;
@@ -32,6 +35,9 @@ const OrderSchema = new Schema<IOrder>({
   totalAmount: { type: Number },
   status: { type: String },
   paymentStatus: { type: String },
+  paymentReference: { type: String, index: true },
+  paymentData: { type: Schema.Types.Mixed as any },
+  paidAt: { type: Date },
   vendors: { type: [Schema.Types.Mixed] as any, default: [] },
   storeIds: { type: [String], default: [] },
   createdAt: { type: Date, default: Date.now },

@@ -30,6 +30,18 @@ export async function GET(request: NextRequest) {
     const appUrl = getCanonicalAppBaseUrl()
     const successRedirect = new URL('/stores', appUrl)
     const errorRedirect = new URL('/stores', appUrl)
+    const pendingRedirect = new URL('/stores', appUrl)
+    pendingRedirect.searchParams.set('wallet', 'pending')
+    pendingRedirect.searchParams.set('reason', 'awaiting_confirmation')
+
+    const statusHint = String(
+      searchParams.get('status')
+      || searchParams.get('payment_status')
+      || searchParams.get('paymentStatus')
+      || ''
+    ).toLowerCase()
+    const successHints = new Set(['success', 'successful', 'completed', 'paid', 'true'])
+    const querySuggestsSuccess = successHints.has(statusHint)
 
     if (referencesFromQuery.length === 0) {
       errorRedirect.searchParams.set('wallet', 'failed')
@@ -39,32 +51,24 @@ export async function GET(request: NextRequest) {
 
     let verificationResult: Awaited<ReturnType<typeof xoroPayService.verifyPayment>> | null = null
     for (const reference of referencesFromQuery) {
-      const attempt = await xoroPayService.verifyPayment(reference)
-      if (attempt.success) {
-        verificationResult = attempt
-        break
+      try {
+        const attempt = await xoroPayService.verifyPayment(reference)
+        if (attempt.success) {
+          verificationResult = attempt
+          break
+        }
+        if (!verificationResult) {
+          verificationResult = attempt
+        }
+      } catch {
+        // Continue trying other references.
       }
-      if (!verificationResult) {
-        verificationResult = attempt
-      }
     }
 
-    if (!verificationResult) {
-      errorRedirect.searchParams.set('wallet', 'failed')
-      errorRedirect.searchParams.set('reason', 'verification_failed')
-      return NextResponse.redirect(errorRedirect.toString())
-    }
-
-    if (!verificationResult.success) {
-      errorRedirect.searchParams.set('wallet', 'failed')
-      errorRedirect.searchParams.set('reason', 'verification_failed')
-      return NextResponse.redirect(errorRedirect.toString())
-    }
-
-    const paymentData = verificationResult.raw || {}
-    const metadata = verificationResult.metadata || {}
+    const paymentData = verificationResult?.raw || {}
+    const metadata = verificationResult?.metadata || {}
     const orderIdFromMeta = metadata?.orderId || metadata?.orderID
-    const resolvedReference = verificationResult.reference || referencesFromQuery[0]
+    const resolvedReference = verificationResult?.reference || referencesFromQuery[0]
 
     await connectToDatabase()
 
@@ -89,6 +93,16 @@ export async function GET(request: NextRequest) {
     if (!transaction) {
       errorRedirect.searchParams.set('wallet', 'failed')
       errorRedirect.searchParams.set('reason', 'transaction_not_found')
+      return NextResponse.redirect(errorRedirect.toString())
+    }
+
+    if (!verificationResult?.success) {
+      if (querySuggestsSuccess || transaction.status === 'pending') {
+        return NextResponse.redirect(pendingRedirect.toString())
+      }
+
+      errorRedirect.searchParams.set('wallet', 'failed')
+      errorRedirect.searchParams.set('reason', 'verification_failed')
       return NextResponse.redirect(errorRedirect.toString())
     }
 

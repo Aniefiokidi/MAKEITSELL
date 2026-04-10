@@ -19,6 +19,7 @@ import {
   Gavel,
   Activity,
   Mail,
+  History,
 } from "lucide-react"
 
 const adminNavItems = [
@@ -81,6 +82,11 @@ const adminNavItems = [
     title: "Performance",
     href: "/admin/performance",
     icon: Activity,
+  },
+  {
+    title: "Audit Logs",
+    href: "/admin/audit-logs",
+    icon: History,
   },
   {
     title: "Broadcast Email",

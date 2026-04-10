@@ -286,11 +286,16 @@ export async function POST(request: NextRequest) {
       }
 
       if (paymentResult.success) {
+        const resolvedReference = paymentResult.reference || paymentReference
+        await updateOrder(orderId, {
+          paymentReference: resolvedReference,
+        })
+
         const response = {
           success: true,
           orderId,
           authorization_url: paymentResult.authorizationUrl,
-          reference: paymentResult.reference || paymentReference,
+          reference: resolvedReference,
         }
         console.log('API returning successful response:', response)
         return NextResponse.json(response)
