@@ -44,11 +44,15 @@ export function normalizeNigerianPhone(input: string): string | null {
   return null
 }
 
+function toTermiiFormat(phone: string): string {
+  return String(phone || '').trim().replace(/^\+/, '')
+}
+
 async function sendTermiiSms({
   to,
   sms,
   sender,
-  channel = 'generic',
+  channel = 'dnd',
 }: {
   to: string
   sms: string
@@ -57,7 +61,7 @@ async function sendTermiiSms({
 }): Promise<SmsSendResult> {
   try {
     const apiKey = String(process.env.TERMII_API_KEY || '').trim()
-    const baseUrl = String(process.env.TERMII_BASE_URL || 'https://api.ng.termii.com').replace(/\/$/, '')
+    const baseUrl = String(process.env.TERMII_BASE_URL || 'https://v3.api.termii.com').replace(/\/$/, '')
 
     if (!apiKey) {
       return { ok: false, errorMessage: 'TERMII_API_KEY is not configured on the server.' }
@@ -67,7 +71,7 @@ async function sendTermiiSms({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        to,
+        to: toTermiiFormat(to),
         from: sender,
         sms,
         type: 'plain',
@@ -91,6 +95,48 @@ async function sendTermiiSms({
   } catch (error: any) {
     return { ok: false, errorMessage: error?.message || 'SMS request failed' }
   }
+}
+
+async function sendTransactionalSms({
+  phoneNumber,
+  sms,
+  sender,
+}: {
+  phoneNumber: string
+  sms: string
+  sender?: string
+}): Promise<SmsSendResult> {
+  const primarySender = String(sender || process.env.TERMII_SENDER || 'MakeItSell').trim()
+  const fallbackSender = String(process.env.TERMII_SENDER_FALLBACK || 'N-Alert').trim()
+  const preferredChannel = String(process.env.TERMII_TRANSACTIONAL_CHANNEL || 'dnd').trim().toLowerCase()
+
+  const senderCandidates = Array.from(new Set([primarySender, fallbackSender].filter(Boolean)))
+  const channelCandidates = Array.from(
+    new Set(
+      [preferredChannel || 'dnd', 'dnd', 'generic'].filter(
+        (value) => value === 'dnd' || value === 'generic'
+      )
+    )
+  )
+
+  let lastFailure: SmsSendResult = { ok: false, errorMessage: 'Failed to send transactional SMS.' }
+  const normalizedTo = toTermiiFormat(phoneNumber)
+
+  for (const senderId of senderCandidates) {
+    for (const channel of channelCandidates) {
+      const result = await sendTermiiSms({
+        to: normalizedTo,
+        sender: senderId,
+        sms,
+        channel,
+      })
+
+      if (result.ok) return result
+      lastFailure = result
+    }
+  }
+
+  return lastFailure
 }
 
 export async function sendOtpSms(phoneNumber: string, otpCode: string): Promise<SmsSendResult> {
@@ -147,36 +193,82 @@ export async function sendOrderConfirmationSms({
   phoneNumber,
   orderId,
   amount,
+  productSubtotal,
+  deliveryFee,
+  recipient = 'customer',
+  itemCount,
+  counterpartyName,
+  deliveryCity,
 }: {
   phoneNumber: string
   orderId: string
   amount: number
+  productSubtotal?: number
+  deliveryFee?: number
+  recipient?: 'customer' | 'vendor'
+  itemCount?: number
+  counterpartyName?: string
+  deliveryCity?: string
 }): Promise<SmsSendResult> {
-  const sender = String(process.env.TERMII_SENDER || 'MakeItSell').trim()
-  return await sendTermiiSms({
-    to: phoneNumber,
-    sender,
-    sms: `Order confirmed: ${String(orderId).slice(0, 8).toUpperCase()} amount NGN ${Number(amount || 0).toLocaleString('en-NG')}.`,
+  const shortOrderId = String(orderId).slice(0, 8).toUpperCase()
+  const totalAmount = Number(amount || 0)
+  const itemAmount = Number.isFinite(Number(productSubtotal))
+    ? Number(productSubtotal)
+    : totalAmount
+  const deliveryAmount = Number.isFinite(Number(deliveryFee))
+    ? Number(deliveryFee)
+    : Math.max(0, totalAmount - itemAmount)
+
+  const amountText = `NGN ${totalAmount.toLocaleString('en-NG')}`
+  const productPriceText = `NGN ${itemAmount.toLocaleString('en-NG')}`
+  const deliveryPriceText = deliveryAmount > 0 ? `NGN ${deliveryAmount.toLocaleString('en-NG')}` : 'FREE'
+  const qtyText = Number.isFinite(Number(itemCount)) && Number(itemCount) > 0
+    ? `${Number(itemCount)} item(s), `
+    : ''
+
+  const sms = recipient === 'vendor'
+    ? `New order ${shortOrderId}: ${qtyText}Total ${amountText}, Product ${productPriceText}, Delivery ${deliveryPriceText} from ${String(counterpartyName || 'customer').trim()}. Check dashboard.`
+    : `Order confirmed ${shortOrderId}: ${qtyText}Total ${amountText}, Product ${productPriceText}, Delivery ${deliveryPriceText}${deliveryCity ? `, delivery to ${deliveryCity}` : ''}.`
+
+  return await sendTransactionalSms({
+    phoneNumber,
+    sms,
   })
 }
 
 export async function sendBookingConfirmationSms({
   phoneNumber,
+  bookingId,
   serviceTitle,
   bookingDate,
   startTime,
+  endTime,
+  totalPrice,
+  recipient = 'customer',
+  counterpartyName,
 }: {
   phoneNumber: string
+  bookingId?: string
   serviceTitle: string
   bookingDate: Date
   startTime: string
+  endTime?: string
+  totalPrice?: number
+  recipient?: 'customer' | 'provider'
+  counterpartyName?: string
 }): Promise<SmsSendResult> {
-  const sender = String(process.env.TERMII_SENDER || 'MakeItSell').trim()
   const dateText = new Date(bookingDate).toLocaleDateString('en-NG')
-  return await sendTermiiSms({
-    to: phoneNumber,
-    sender,
-    sms: `Booking confirmed for ${serviceTitle} on ${dateText} at ${startTime}.`,
+  const bookingRef = bookingId ? `#${String(bookingId).slice(0, 8).toUpperCase()}` : ''
+  const timeText = endTime ? `${startTime}-${endTime}` : startTime
+  const amountText = Number.isFinite(Number(totalPrice)) ? `, NGN ${Number(totalPrice || 0).toLocaleString('en-NG')}` : ''
+
+  const sms = recipient === 'provider'
+    ? `New booking ${bookingRef}: ${serviceTitle} on ${dateText} ${timeText}${amountText} for ${String(counterpartyName || 'customer')}.`
+    : `Booking confirmed ${bookingRef}: ${serviceTitle} on ${dateText} ${timeText}${amountText}.`
+
+  return await sendTransactionalSms({
+    phoneNumber,
+    sms,
   })
 }
 
@@ -187,10 +279,8 @@ export async function sendCustomSms({
   phoneNumber: string
   message: string
 }): Promise<SmsSendResult> {
-  const sender = String(process.env.TERMII_SENDER || 'MakeItSell').trim()
-  return await sendTermiiSms({
-    to: phoneNumber,
-    sender,
+  return await sendTransactionalSms({
+    phoneNumber,
     sms: String(message || '').trim(),
   })
 }

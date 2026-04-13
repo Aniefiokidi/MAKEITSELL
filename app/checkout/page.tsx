@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ArrowLeft, CreditCard, Truck, Shield, Loader2 } from "lucide-react"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import Image from "next/image"
 import Link from "next/link"
 import Header from "@/components/Header"
@@ -24,13 +24,13 @@ import { trackFunnelEvent } from "@/lib/funnel-tracker"
 import { NIGERIA_STATE_CITY_OPTIONS, NIGERIA_STATES } from "@/lib/nigeria-locations"
 
 const COUNTRY_CODES = [
-  { code: "+234", label: "Nigeria (+234)" },
-  { code: "+233", label: "Ghana (+233)" },
-  { code: "+254", label: "Kenya (+254)" },
-  { code: "+27", label: "South Africa (+27)" },
-  { code: "+1", label: "US/Canada (+1)" },
-  { code: "+44", label: "United Kingdom (+44)" },
-  { code: "+91", label: "India (+91)" },
+  { code: "+234", label: "NG (+234)" },
+  { code: "+233", label: "GH (+233)" },
+  { code: "+254", label: "KE (+254)" },
+  { code: "+27", label: "ZA (+27)" },
+  { code: "+1", label: "US/CA (+1)" },
+  { code: "+44", label: "UK (+44)" },
+  { code: "+91", label: "IN (+91)" },
 ]
 
 function formatPhoneWithCountryCode(countryCode: string, phoneInput: string): string {
@@ -53,8 +53,11 @@ export default function CheckoutPage() {
   const [shippingLoading, setShippingLoading] = useState(false)
   const [error, setError] = useState("")
   const [shippingEstimate, setShippingEstimate] = useState<{ cost: number; hasTbd?: boolean; source?: string } | null>(null)
-  const [paymentMethod, setPaymentMethod] = useState("xoro_pay")
+  const paymentMethod = "wallet"
   const [checkoutTracked, setCheckoutTracked] = useState(false)
+  const [showWalletTopupPrompt, setShowWalletTopupPrompt] = useState(false)
+  const [quickTopupAmount, setQuickTopupAmount] = useState("")
+  const [quickTopupLoading, setQuickTopupLoading] = useState(false)
 
   const [shippingInfo, setShippingInfo] = useState({
     firstName: "",
@@ -96,6 +99,38 @@ export default function CheckoutPage() {
   const shippingIsTbd = !shippingEstimate || Boolean(shippingEstimate.hasTbd)
   const total = subtotal + vat + resolvedShipping
   const checkoutPayableTotal = total
+  const walletBalance = Number(userProfile?.walletBalance || 0)
+  const walletShortfall = Math.max(0, Math.round((checkoutPayableTotal - walletBalance) * 100) / 100)
+  const walletInsufficient = walletShortfall > 0
+
+  const handleQuickWalletTopup = async () => {
+    const amount = Math.round(Number(quickTopupAmount) * 100) / 100
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError('Enter a valid top-up amount')
+      return
+    }
+
+    try {
+      setQuickTopupLoading(true)
+      setError('')
+      const response = await fetch('/api/wallet/topup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount }),
+      })
+
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok || !result?.success || !result?.authorization_url) {
+        throw new Error(result?.error || 'Unable to initialize wallet top-up')
+      }
+
+      window.location.href = String(result.authorization_url)
+    } catch (err: any) {
+      setError(err?.message || 'Failed to start wallet top-up')
+    } finally {
+      setQuickTopupLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (checkoutTracked || items.length === 0) return
@@ -177,6 +212,12 @@ export default function CheckoutPage() {
     console.log("Shipping info on submit:", shippingInfo)
 
     try {
+      if (walletInsufficient) {
+        setQuickTopupAmount(String(walletShortfall > 0 ? walletShortfall : checkoutPayableTotal))
+        setShowWalletTopupPrompt(true)
+        throw new Error('Insufficient wallet balance. Please top up your wallet to place this order.')
+      }
+
       // Validation with better error messages
       const requiredShippingFields = ["firstName", "lastName", "email", "phone", "address", "city", "state", "zipCode", "deliveryInstructions"]
       const missingFields = []
@@ -398,7 +439,7 @@ export default function CheckoutPage() {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="phone">Phone *</Label>
-                          <div className="grid grid-cols-[170px_1fr] gap-2">
+                          <div className="grid grid-cols-[120px_1fr] gap-2">
                             <Select
                               value={shippingInfo.phoneCountryCode}
                               onValueChange={(value) => handleInputChange("phoneCountryCode", value)}
@@ -534,48 +575,24 @@ export default function CheckoutPage() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="space-y-3">
-                        <div
-                          className={`flex items-start space-x-2 rounded-md border border-accent/35 p-3 transition-colors ${paymentMethod === "xoro_pay" ? "border-accent bg-accent/10" : "bg-background"}`}
-                        >
-                          <RadioGroupItem value="xoro_pay" id="xoro_pay" className="mt-1" />
-                          <div>
-                            <Label htmlFor="xoro_pay" className="font-medium text-foreground">Xoro Pay (Card/Bank)</Label>
-                            <p className="text-xs text-muted-foreground">You will be redirected to Xoro Pay to complete payment</p>
-                          </div>
+                      <div className="rounded-lg border border-accent/35 p-3 bg-accent/10 text-sm">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-medium text-foreground">Wallet payment only</p>
+                          <Shield className="h-4 w-4 text-accent" />
                         </div>
-
-                        <div
-                          className={`flex items-start space-x-2 rounded-md border border-accent/35 p-3 transition-colors ${paymentMethod === "wallet" ? "border-accent bg-accent/10" : "bg-background"}`}
-                        >
-                          <RadioGroupItem value="wallet" id="wallet" className="mt-1" />
-                          <div>
-                            <Label htmlFor="wallet" className="font-medium text-foreground">Wallet Balance</Label>
-                            <p className="text-xs text-muted-foreground">
-                              Available: ₦{formatCurrency(Number(userProfile?.walletBalance || 0))}
-                            </p>
-                          </div>
-                        </div>
-                      </RadioGroup>
-
-                      {paymentMethod === "xoro_pay" && (
-                        <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg">
-                          <Shield className="h-4 w-4 text-green-600" />
-                          <div className="text-center">
-                            <p className="font-medium text-foreground">Secure Payment with Xoro Pay</p>
-                            <p className="text-xs">You will be redirected to complete your payment securely</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {paymentMethod === "wallet" && (
-                        <div className="rounded-lg border p-3 bg-accent/5 text-sm">
-                          <p className="font-medium text-foreground">Pay directly from your wallet</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Your wallet will be debited immediately after order placement.
-                          </p>
-                        </div>
-                      )}
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Available wallet balance: ₦{formatCurrency(walletBalance)}
+                        </p>
+                        {walletInsufficient ? (
+                          <Alert variant="destructive" className="mt-3">
+                            <AlertDescription>
+                              Insufficient wallet balance. You need ₦{formatCurrency(walletShortfall)} more to place this order.
+                            </AlertDescription>
+                          </Alert>
+                        ) : (
+                          <p className="text-xs text-green-700 mt-2">Sufficient balance available for this order.</p>
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
@@ -658,9 +675,7 @@ export default function CheckoutPage() {
                           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                           {loading
                             ? "Processing..."
-                            : paymentMethod === "wallet"
-                            ? `Pay with Wallet - ₦${formatCurrency(total)}`
-                            : `Place Order - ₦${formatCurrency(checkoutPayableTotal)}`}
+                            : `Pay with Wallet - ₦${formatCurrency(total)}`}
                         </Button>
                       </div>
 
@@ -675,6 +690,47 @@ export default function CheckoutPage() {
             </form>
           </div>
         </main>
+
+        <Dialog open={showWalletTopupPrompt} onOpenChange={setShowWalletTopupPrompt}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Top up wallet to place order</DialogTitle>
+              <DialogDescription>
+                Your wallet is short by ₦{formatCurrency(walletShortfall)}. Top up now to continue checkout.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3">
+              <Alert>
+                <AlertDescription>
+                  Add funds to your wallet, then return to checkout to place this order.
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-2">
+                <Label htmlFor="quickTopupAmount">Top-up amount</Label>
+                <Input
+                  id="quickTopupAmount"
+                  type="number"
+                  min="1"
+                  step="0.01"
+                  value={quickTopupAmount}
+                  onChange={(e) => setQuickTopupAmount(e.target.value)}
+                  placeholder="Enter amount"
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowWalletTopupPrompt(false)} disabled={quickTopupLoading}>
+                Close
+              </Button>
+              <Button onClick={handleQuickWalletTopup} disabled={quickTopupLoading}>
+                {quickTopupLoading ? 'Redirecting...' : 'Top up wallet'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </ProtectedRoute>
   )

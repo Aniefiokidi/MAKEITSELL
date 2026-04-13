@@ -120,7 +120,8 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
             <Button asChild variant="outline" size="sm" className="hover:bg-accent hover:scale-105 transition-all hover:shadow-lg">
               <Link href="/vendor/products/new">
                 <Plus className="h-4 w-4 lg:mr-2" />
-                <span className="hidden lg:inline">Add Product</span>
+                <span className="ml-1 sm:hidden">Add</span>
+                <span className="hidden sm:inline">Add Product</span>
               </Link>
             </Button>
             <Button variant="outline" size="sm" className="hidden sm:flex" onClick={() => routes.push('/stores')}>

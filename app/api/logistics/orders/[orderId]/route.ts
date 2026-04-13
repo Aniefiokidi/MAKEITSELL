@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import connectToDatabase from '@/lib/mongodb'
 import { Order } from '@/lib/models/Order'
 import { Store } from '@/lib/models/Store'
-import { updateOrder } from '@/lib/mongodb-operations'
+import { releaseEscrowForOrder, updateOrder } from '@/lib/mongodb-operations'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 
 const LOGISTICS_USERNAME = 'A&CO@makeitselll.org'
@@ -144,6 +144,26 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ o
 
     if (!updatedOrder) {
       return NextResponse.json({ success: false, error: 'Failed to update order' }, { status: 500 })
+    }
+
+    if (requestedStatus === 'received') {
+      const paymentStatus = String((updatedOrder as any)?.paymentStatus || '').toLowerCase()
+      const isDisputed = Boolean((updatedOrder as any)?.disputeRaisedAt)
+        || String((updatedOrder as any)?.disputeStatus || '').toLowerCase() === 'active'
+
+      if (paymentStatus === 'escrow' && !isDisputed) {
+        await releaseEscrowForOrder(orderId, {
+          paymentReference: String((updatedOrder as any)?.paymentReference || ''),
+          provider: String((updatedOrder as any)?.paymentMethod || ''),
+          source: 'logistics_received_confirmation',
+        })
+
+        updatedOrder = await updateOrder(orderId, {
+          paymentStatus: 'released',
+          status: 'completed',
+          confirmedAt: new Date(),
+        })
+      }
     }
 
     return NextResponse.json({ success: true, order: updatedOrder })

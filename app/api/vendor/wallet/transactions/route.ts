@@ -38,6 +38,29 @@ const mapTransferStatusToTxStatus = (status: string) => {
   return 'pending'
 }
 
+const EXPLICIT_PAID_STATUSES = new Set([
+  'success',
+  'successful',
+  'succeeded',
+  'completed',
+  'complete',
+  'paid',
+  'approved',
+])
+
+const EXPLICIT_FAILED_STATUSES = new Set([
+  'failed',
+  'failure',
+  'declined',
+  'cancelled',
+  'canceled',
+  'abandoned',
+  'expired',
+  'reversed',
+])
+
+const TOPUP_PENDING_TIMEOUT_MS = 6 * 60 * 60 * 1000
+
 const pickTransferStatus = (tx: any) => {
   const rawStatus =
     tx?.metadata?.transferData?.status
@@ -80,6 +103,28 @@ export async function GET(request: NextRequest) {
       .lean()
 
     for (const pendingTopup of pendingTopups as any[]) {
+      const createdAtMs = new Date(pendingTopup?.createdAt || 0).getTime()
+      if (Number.isFinite(createdAtMs) && Date.now() - createdAtMs >= TOPUP_PENDING_TIMEOUT_MS) {
+        await WalletTransaction.updateOne(
+          { _id: pendingTopup._id, status: 'pending' },
+          {
+            $set: {
+              status: 'failed',
+              metadata: {
+                ...(pendingTopup.metadata || {}),
+                timeoutFailure: {
+                  source: 'vendor-wallet-transactions-read',
+                  timeoutHours: 6,
+                  at: new Date().toISOString(),
+                },
+              },
+              updatedAt: new Date(),
+            },
+          }
+        )
+        continue
+      }
+
       const candidates = Array.from(
         new Set(
           [
@@ -116,6 +161,34 @@ export async function GET(request: NextRequest) {
       }
 
       if (!verification?.success) {
+        continue
+      }
+
+      const verifyStatus = String(verification.status || '').trim().toLowerCase()
+      const isExplicitPaid = EXPLICIT_PAID_STATUSES.has(verifyStatus)
+      const isExplicitFailed = EXPLICIT_FAILED_STATUSES.has(verifyStatus)
+
+      if (!isExplicitPaid) {
+        if (isExplicitFailed) {
+          await WalletTransaction.updateOne(
+            { _id: pendingTopup._id, status: 'pending' },
+            {
+              $set: {
+                status: 'failed',
+                metadata: {
+                  ...(pendingTopup.metadata || {}),
+                  xoroVerification: {
+                    status: verification.status,
+                    message: verification.message,
+                    source: 'vendor-wallet-transactions-read',
+                    at: new Date().toISOString(),
+                  },
+                },
+                updatedAt: new Date(),
+              },
+            }
+          )
+        }
         continue
       }
 

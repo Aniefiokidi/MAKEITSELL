@@ -58,6 +58,14 @@ export async function POST(request: NextRequest) {
     }
 
     const bookingData = await request.json()
+    const paymentMethod = String(bookingData?.paymentMethod || 'wallet').trim().toLowerCase()
+
+    if (paymentMethod !== 'wallet') {
+      return NextResponse.json(
+        { success: false, error: 'Service bookings support wallet payment only.' },
+        { status: 400 }
+      )
+    }
 
     const service = bookingData?.serviceId ? await getServiceById(String(bookingData.serviceId)) : null
     const numericEstimated = Number(bookingData?.estimatedPrice)
@@ -95,6 +103,7 @@ export async function POST(request: NextRequest) {
 
     const normalizedBookingData = {
       ...bookingData,
+      paymentMethod: 'wallet',
       estimatedPrice: locationAdjustedTotal,
       finalPrice: normalizedFinal,
       totalPrice: requiresQuote ? locationAdjustedTotal : (Number.isFinite(normalizedTotal) ? normalizedTotal : locationAdjustedTotal),
@@ -338,55 +347,68 @@ export async function POST(request: NextRequest) {
     // 3. Create the booking (no conflicts found)
     const booking = await createBooking(normalizedBookingData)
     
-    // 4. Send email notifications
+    // 4. Send notifications
     try {
       // Get provider email
       const provider = await getUserById(providerId)
-      const providerEmail = provider?.email
-      
+      const providerEmail = String(provider?.email || '').trim()
+
+      const emailPayload = {
+        bookingId: booking.id,
+        customerName: normalizedBookingData.customerName,
+        customerEmail: normalizedBookingData.customerEmail,
+        customerPhone: normalizedBookingData.customerPhone,
+        providerName: normalizedBookingData.providerName,
+        providerEmail,
+        serviceTitle: normalizedBookingData.serviceTitle,
+        bookingDate: new Date(normalizedBookingData.bookingDate),
+        startTime: normalizedBookingData.startTime,
+        endTime: normalizedBookingData.endTime,
+        duration: normalizedBookingData.duration || 60,
+        location: normalizedBookingData.location,
+        locationType: normalizedBookingData.locationType || 'in-person',
+        totalPrice: normalizedBookingData.totalPrice,
+        status: normalizedBookingData.status || 'pending',
+        notes: normalizedBookingData.notes,
+      } as const
+
+      if (String(normalizedBookingData.customerEmail || '').trim()) {
+        await AppointmentEmailService.sendCustomerBookingConfirmation(emailPayload as any)
+      }
       if (providerEmail) {
-        await AppointmentEmailService.sendBookingConfirmationEmails({
+        await AppointmentEmailService.sendProviderBookingNotification(emailPayload as any)
+      }
+
+      const customerPhone = normalizeNigerianPhone(normalizedBookingData.customerPhone || '')
+      if (customerPhone) {
+        await sendBookingConfirmationSms({
+          phoneNumber: customerPhone,
           bookingId: booking.id,
-          customerName: normalizedBookingData.customerName,
-          customerEmail: normalizedBookingData.customerEmail,
-          customerPhone: normalizedBookingData.customerPhone,
-          providerName: normalizedBookingData.providerName,
-          providerEmail: providerEmail,
           serviceTitle: normalizedBookingData.serviceTitle,
           bookingDate: new Date(normalizedBookingData.bookingDate),
           startTime: normalizedBookingData.startTime,
           endTime: normalizedBookingData.endTime,
-          duration: normalizedBookingData.duration || 60,
-          location: normalizedBookingData.location,
-          locationType: normalizedBookingData.locationType || 'in-person',
-          totalPrice: normalizedBookingData.totalPrice,
-          status: normalizedBookingData.status || 'pending',
-          notes: normalizedBookingData.notes
+          totalPrice: Number(normalizedBookingData.totalPrice || 0),
+          recipient: 'customer',
         })
-        console.log('✅ Booking confirmation emails sent successfully')
-
-        const customerPhone = normalizeNigerianPhone(normalizedBookingData.customerPhone || '')
-        if (customerPhone) {
-          await sendBookingConfirmationSms({
-            phoneNumber: customerPhone,
-            serviceTitle: normalizedBookingData.serviceTitle,
-            bookingDate: new Date(normalizedBookingData.bookingDate),
-            startTime: normalizedBookingData.startTime,
-          })
-        }
-
-        const providerPhone = normalizeNigerianPhone((provider as any)?.phone_number || (provider as any)?.phone || '')
-        if (providerPhone) {
-          await sendBookingConfirmationSms({
-            phoneNumber: providerPhone,
-            serviceTitle: normalizedBookingData.serviceTitle,
-            bookingDate: new Date(normalizedBookingData.bookingDate),
-            startTime: normalizedBookingData.startTime,
-          })
-        }
-      } else {
-        console.warn('⚠️ Provider email not found, skipping email notifications')
       }
+
+      const providerPhone = normalizeNigerianPhone((provider as any)?.phone_number || (provider as any)?.phone || '')
+      if (providerPhone) {
+        await sendBookingConfirmationSms({
+          phoneNumber: providerPhone,
+          bookingId: booking.id,
+          serviceTitle: normalizedBookingData.serviceTitle,
+          bookingDate: new Date(normalizedBookingData.bookingDate),
+          startTime: normalizedBookingData.startTime,
+          endTime: normalizedBookingData.endTime,
+          totalPrice: Number(normalizedBookingData.totalPrice || 0),
+          recipient: 'provider',
+          counterpartyName: normalizedBookingData.customerName,
+        })
+      }
+
+      console.log('✅ Booking notifications dispatched')
     } catch (emailError) {
       console.error('❌ Email notification failed:', emailError)
       // Don't fail the booking creation if email fails

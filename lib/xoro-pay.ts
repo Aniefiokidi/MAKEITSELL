@@ -148,38 +148,55 @@ const toErrorMessage = (value: any, fallback: string): string => {
 const isSuccessLikeStatus = (status: string) => {
   const normalized = String(status || '').trim().toLowerCase()
   if (!normalized) return false
-  return (
-    normalized === 'success'
-    || normalized === 'successful'
-    || normalized === 'succeeded'
-    || normalized === 'completed'
-    || normalized === 'complete'
-    || normalized === 'paid'
-    || normalized === 'approved'
-    || normalized === 'ok'
-    || normalized === 'true'
-    || normalized.includes('success')
-    || normalized.includes('succeed')
-    || normalized.includes('complete')
-    || normalized.includes('paid')
-    || normalized.includes('approve')
-  )
+  const tokens = normalized.split(/[^a-z0-9]+/).filter(Boolean)
+  if (tokens.length === 0) return false
+  return tokens.some((token) => (
+    token === 'success'
+    || token === 'successful'
+    || token === 'succeeded'
+    || token === 'completed'
+    || token === 'complete'
+    || token === 'paid'
+    || token === 'approved'
+    || token === 'ok'
+    || token === 'true'
+  ))
 }
 
 const isFailureLikeStatus = (status: string) => {
   const normalized = String(status || '').trim().toLowerCase()
   if (!normalized) return false
+  const tokens = normalized.split(/[^a-z0-9]+/).filter(Boolean)
+  if (tokens.length === 0) return false
+  return tokens.some((token) => (
+    token === 'failed'
+    || token === 'fail'
+    || token === 'failure'
+    || token === 'declined'
+    || token === 'decline'
+    || token === 'cancelled'
+    || token === 'canceled'
+    || token === 'cancel'
+    || token === 'reversed'
+    || token === 'reverse'
+    || token === 'abandoned'
+    || token === 'expired'
+    || token === 'insufficient'
+    || token === 'error'
+  ))
+}
+
+const isFailureLikeMessage = (message: string) => {
+  const normalized = String(message || '').trim().toLowerCase()
+  if (!normalized) return false
   return (
-    normalized === 'failed'
-    || normalized === 'failure'
-    || normalized === 'declined'
-    || normalized === 'cancelled'
-    || normalized === 'canceled'
-    || normalized === 'reversed'
-    || normalized.includes('fail')
+    normalized.includes('fail')
     || normalized.includes('declin')
     || normalized.includes('cancel')
-    || normalized.includes('revers')
+    || normalized.includes('insufficient')
+    || normalized.includes('not charged')
+    || normalized.includes('unable')
+    || normalized.includes('error')
   )
 }
 
@@ -539,14 +556,41 @@ class XoroPayService {
     const payload = resolved.payload
     const data = asObject(pick(payload, ['data', 'result'], {}))
 
-    const status = String(
-      pick(data, ['status', 'payment_status', 'paymentStatus'])
-      || pick(payload, ['status', 'payment_status', 'paymentStatus'])
-      || ''
-    ).toLowerCase()
+    const rawStatusCandidates = [
+      pick(data, ['status', 'payment_status', 'paymentStatus']),
+      pick(payload, ['status', 'payment_status', 'paymentStatus']),
+      pick(data, ['transaction_status', 'transactionStatus']),
+      pick(payload, ['transaction_status', 'transactionStatus']),
+    ]
 
-    const succeeded = (resolved.ok || isSuccess(payload)) && (isSuccessLikeStatus(status) || isSuccess(payload))
-    const failed = isFailureLikeStatus(status)
+    const statusCandidates = rawStatusCandidates
+      .map((value) => String(value || '').trim().toLowerCase())
+      .filter(Boolean)
+
+    const status = statusCandidates[0] || ''
+    const statusSucceeded = statusCandidates.some((value) => isSuccessLikeStatus(value))
+    const statusFailed = statusCandidates.some((value) => isFailureLikeStatus(value))
+
+    const message = toErrorMessage(
+      pick(payload, ['message', 'error', 'detail', 'details']),
+      ''
+    )
+    const messageFailed = isFailureLikeMessage(message)
+    const messageSucceeded = isSuccessLikeStatus(message)
+
+    const booleanSuccessHint = (
+      pick<boolean>(payload, ['success'], false) === true
+      || pick<boolean>(data, ['success'], false) === true
+      || pick<boolean>(payload, ['status'], false) === true
+      || pick<boolean>(data, ['status'], false) === true
+    )
+
+    // Do not treat API transport success or bare boolean flags as payment success
+    // unless there is an explicit success-like signal and no failure indicators.
+    const succeeded = !statusFailed
+      && !messageFailed
+      && (statusSucceeded || (booleanSuccessHint && messageSucceeded && resolved.ok))
+    const failed = statusFailed || messageFailed
 
     return {
       success: succeeded && !failed,

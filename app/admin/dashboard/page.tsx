@@ -13,6 +13,14 @@ export default function AdminDashboard() {
   const { user, loading: authLoading } = useAuth()
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [disputedEscrowOrders, setDisputedEscrowOrders] = useState<any[]>([])
+  const [escrowSummary, setEscrowSummary] = useState({
+    waitingReleaseCount: 0,
+    remindersSentTodayCount: 0,
+    releasedTodayCount: 0,
+  })
+  const [claimingOrderId, setClaimingOrderId] = useState('')
+  const [refundingOrderId, setRefundingOrderId] = useState('')
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -26,10 +34,29 @@ export default function AdminDashboard() {
     
     const fetchData = async () => {
       try {
-        const res = await fetch('/api/admin/dashboard')
-        const json = await res.json()
-        if (json.success) {
-          setData(json.data)
+        const [dashboardRes, disputesRes, escrowSummaryRes] = await Promise.all([
+          fetch('/api/admin/dashboard'),
+          fetch('/api/admin/orders/disputes'),
+          fetch('/api/admin/orders/escrow-summary'),
+        ])
+
+        const dashboardJson = await dashboardRes.json()
+        if (dashboardJson.success) {
+          setData(dashboardJson.data)
+        }
+
+        const disputesJson = await disputesRes.json()
+        if (disputesJson.success) {
+          setDisputedEscrowOrders(Array.isArray(disputesJson.orders) ? disputesJson.orders : [])
+        }
+
+        const escrowSummaryJson = await escrowSummaryRes.json()
+        if (escrowSummaryJson.success) {
+          setEscrowSummary({
+            waitingReleaseCount: Number(escrowSummaryJson?.summary?.waitingReleaseCount || 0),
+            remindersSentTodayCount: Number(escrowSummaryJson?.summary?.remindersSentTodayCount || 0),
+            releasedTodayCount: Number(escrowSummaryJson?.summary?.releasedTodayCount || 0),
+          })
         }
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error)
@@ -39,6 +66,61 @@ export default function AdminDashboard() {
     }
     fetchData()
   }, [user])
+
+  const claimDispute = async (orderId: string) => {
+    try {
+      setClaimingOrderId(orderId)
+      const res = await fetch('/api/admin/orders/disputes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId }),
+      })
+      const json = await res.json()
+      if (!json.success) {
+        throw new Error(json.error || 'Failed to claim dispute')
+      }
+
+      setDisputedEscrowOrders((prev) => prev.map((order) => (
+        String(order.orderId) === String(orderId)
+          ? {
+              ...order,
+              disputeClaimedById: String(user?.id || ''),
+              disputeClaimedByEmail: String(user?.email || ''),
+              disputeClaimedByName: String(user?.name || user?.email || ''),
+              disputeClaimedAt: new Date().toISOString(),
+            }
+          : order
+      )))
+    } catch (error) {
+      console.error(error)
+      window.alert(error instanceof Error ? error.message : 'Failed to claim dispute')
+    } finally {
+      setClaimingOrderId('')
+    }
+  }
+
+  const refundDispute = async (orderId: string) => {
+    try {
+      setRefundingOrderId(orderId)
+      const res = await fetch('/api/admin/orders/disputes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'refund', orderId }),
+      })
+      const json = await res.json()
+      if (!json.success) {
+        throw new Error(json.error || 'Failed to refund order')
+      }
+
+      setDisputedEscrowOrders((prev) => prev.filter((order) => String(order?.orderId || '') !== String(orderId)))
+      window.alert('Refund completed and customer wallet credited.')
+    } catch (error) {
+      console.error(error)
+      window.alert(error instanceof Error ? error.message : 'Failed to refund order')
+    } finally {
+      setRefundingOrderId('')
+    }
+  }
 
   if (authLoading || (loading && !data)) {
     return (
@@ -152,9 +234,82 @@ export default function AdminDashboard() {
               <p className="text-xs text-green-600 mt-1">Completed transactions</p>
             </CardContent>
           </Card>
+
+          <Card className="border-blue-200 bg-blue-50 md:col-span-3">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-xs lg:text-sm font-medium text-blue-800">Escrow Operations</CardTitle>
+              <TrendingUp className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="rounded-md border border-blue-200 bg-white p-3">
+                  <p className="text-xs text-blue-700">Waiting Release</p>
+                  <p className="text-xl font-bold text-blue-900">{escrowSummary.waitingReleaseCount}</p>
+                </div>
+                <div className="rounded-md border border-blue-200 bg-white p-3">
+                  <p className="text-xs text-blue-700">Reminders Sent Today</p>
+                  <p className="text-xl font-bold text-blue-900">{escrowSummary.remindersSentTodayCount}</p>
+                </div>
+                <div className="rounded-md border border-blue-200 bg-white p-3">
+                  <p className="text-xs text-blue-700">Released Today</p>
+                  <p className="text-xl font-bold text-blue-900">{escrowSummary.releasedTodayCount}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="grid gap-4 lg:gap-6 grid-cols-1 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm lg:text-base">Disputed Escrow Orders</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(disputedEscrowOrders || []).length === 0 ? (
+                <p className="text-xs text-muted-foreground">No disputed escrow orders.</p>
+              ) : (
+                <div className="space-y-3">
+                  {(disputedEscrowOrders || []).slice(0, 6).map((order: any) => {
+                    const claimedBy = String(order?.disputeClaimedByName || order?.disputeClaimedByEmail || '').trim()
+                    return (
+                      <div key={String(order?.orderId || order?._id)} className="rounded-md border p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-semibold">Order #{String(order?.orderId || '').slice(0, 8)}</p>
+                          <p className="text-xs text-amber-700">Escrow Disputed</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">Amount: ₦{Number(order?.totalAmount || 0).toLocaleString()}</p>
+                        {claimedBy ? (
+                          <>
+                            <p className="text-xs text-muted-foreground mt-1">Claimed by: {claimedBy}</p>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              className="mt-2"
+                              disabled={refundingOrderId === String(order?.orderId || '')}
+                              onClick={() => refundDispute(String(order?.orderId || ''))}
+                            >
+                              {refundingOrderId === String(order?.orderId || '') ? 'Refunding...' : 'Refund Customer'}
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="mt-2"
+                            disabled={claimingOrderId === String(order?.orderId || '')}
+                            onClick={() => claimDispute(String(order?.orderId || ''))}
+                          >
+                            {claimingOrderId === String(order?.orderId || '') ? 'Claiming...' : 'Claim Dispute'}
+                          </Button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="text-sm lg:text-base">Top Vendors by Revenue</CardTitle>
@@ -167,7 +322,7 @@ export default function AdminDashboard() {
                       <p className="font-medium text-sm truncate">{vendor.storeName}</p>
                       <p className="text-xs text-muted-foreground">{vendor.sales} sales</p>
                     </div>
-                    <div className="text-right flex-shrink-0">
+                    <div className="text-right shrink-0">
                       <p className="font-bold text-sm">₦{vendor.revenue.toLocaleString()}</p>
                     </div>
                   </div>
@@ -188,7 +343,7 @@ export default function AdminDashboard() {
                       <p className="font-medium text-sm truncate">{customer.name || "Customer"}</p>
                       <p className="text-xs text-muted-foreground truncate">{customer.email || customer.customerId}</p>
                     </div>
-                    <div className="text-right flex-shrink-0">
+                    <div className="text-right shrink-0">
                       <p className="font-bold text-sm">₦{customer.spend.toLocaleString()}</p>
                     </div>
                   </div>

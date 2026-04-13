@@ -485,11 +485,11 @@ export default function VendorSetupWizardPage() {
                   <p className="text-sm">Current products: <span className="font-semibold">{productsCount}</span></p>
                   <p className="mt-1 text-xs text-muted-foreground">Smart collections work best once you publish at least 3 products across categories.</p>
                 </div>
-                <div className="flex gap-2">
-                  <Button asChild variant="outline">
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button asChild variant="outline" className="w-full sm:w-auto">
                     <Link href="/vendor/products/new">Add Product</Link>
                   </Button>
-                  <Button asChild variant="outline">
+                  <Button asChild variant="outline" className="w-full sm:w-auto">
                     <Link href="/vendor/products">Manage Products</Link>
                   </Button>
                 </div>
@@ -635,9 +635,10 @@ export default function VendorSetupWizardPage() {
             <CardContent className="pt-6">
               <p className="font-semibold">Your store setup is complete.</p>
               <p className="text-sm text-muted-foreground">You can now focus on growth insights, smart collections, and conversions.</p>
-              <div className="mt-3 flex gap-2">
-                <Button asChild><Link href="/vendor/dashboard">Go to Dashboard</Link></Button>
-                <Button asChild variant="outline"><Link href="/vendor/products">Manage Products</Link></Button>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <Button asChild className="w-full sm:w-auto"><Link href="/vendor/products/new">Create Product</Link></Button>
+                <Button asChild variant="outline" className="w-full sm:w-auto"><Link href="/vendor/products">Manage Products</Link></Button>
+                <Button asChild variant="ghost" className="w-full sm:w-auto"><Link href="/vendor/dashboard">Go to Dashboard</Link></Button>
               </div>
             </CardContent>
           </Card>

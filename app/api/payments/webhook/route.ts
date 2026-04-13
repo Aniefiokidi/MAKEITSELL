@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { paystackService } from '@/lib/payment'
 import { xoroPayService } from '@/lib/xoro-pay'
-import { emailService } from '@/lib/email'
-import { updateOrder, getOrderById, creditVendorWalletsForOrder } from '@/lib/mongodb-operations'
+import { updateOrder, getOrderById } from '@/lib/mongodb-operations'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { Order } from '@/lib/models/Order'
 import { User } from '@/lib/models/User'
 import { connectToDatabase } from '@/lib/mongodb'
 import mongoose from 'mongoose'
-import { normalizeNigerianPhone, sendOrderConfirmationSms } from '@/lib/sms'
+import { sendOrderPlacementNotifications } from '@/lib/order-notifications'
 
 const pickFirstString = (source: any, keys: string[]) => {
   for (const key of keys) {
@@ -152,7 +151,6 @@ const isXoroSuccessEvent = (event: string) => {
     'payment.completed',
     'transaction.success',
     'transaction.completed',
-    'checkout.success',
   ].includes(normalized)
 }
 
@@ -173,6 +171,16 @@ const isXoroTransferSuccessEvent = (event: string) => {
 const isXoroTransferFailureEvent = (event: string) => {
   return ['transfer.failed', 'transfer.reversed', 'payout.failed', 'payout.reversed'].includes(event.toLowerCase())
 }
+
+const EXPLICIT_XORO_PAID_STATUSES = new Set([
+  'success',
+  'successful',
+  'succeeded',
+  'completed',
+  'complete',
+  'paid',
+  'approved',
+])
 
 async function handleXoroWebhook(payload: any) {
   const event = pickFirstString(payload, ['event', 'type', 'name', 'action']).toLowerCase()
@@ -414,18 +422,49 @@ async function handleSuccessfulPayment(data: any) {
         }
 
         if (!verificationResult?.success) {
-          console.warn('Wallet top-up verify endpoint did not confirm success; falling back to signed webhook payload', {
+          console.warn('Wallet top-up verify endpoint did not confirm success; skipping wallet credit', {
             references: verificationCandidates,
+            verifyStatus: verificationResult?.status,
+            verifyMessage: verificationResult?.message,
           })
-          verifiedPaymentReference = verifiedPaymentReference || referenceCandidates[0]
-          verifiedPaymentData = {
-            ...(asObject(data) || {}),
-            _verifyFallback: true,
+
+          const failedStatus = String(verificationResult?.status || '').toLowerCase()
+          if (failedStatus && (failedStatus.includes('fail') || failedStatus.includes('declin') || failedStatus.includes('cancel'))) {
+            await WalletTransaction.updateOne(
+              { _id: transaction._id, status: 'pending' },
+              {
+                $set: {
+                  status: 'failed',
+                  metadata: {
+                    ...(transaction.metadata || {}),
+                    xoroPayData: asObject(data),
+                    xoroVerification: {
+                      status: verificationResult?.status,
+                      message: verificationResult?.message,
+                      checkedAt: new Date().toISOString(),
+                    },
+                  },
+                  updatedAt: new Date(),
+                },
+              }
+            )
           }
-        } else {
-          verifiedPaymentReference = verificationResult.reference || verifiedPaymentReference
-          verifiedPaymentData = verificationResult.raw || data
+
+          return
         }
+
+        const verifyStatus = String(verificationResult?.status || '').toLowerCase().trim()
+        if (!EXPLICIT_XORO_PAID_STATUSES.has(verifyStatus)) {
+          console.warn('Wallet top-up verify response is not an explicit paid status; skipping wallet credit', {
+            reference: transaction.reference,
+            verifyStatus: verificationResult?.status,
+            verifyMessage: verificationResult?.message,
+          })
+          return
+        }
+
+        verifiedPaymentReference = verificationResult.reference || verifiedPaymentReference
+        verifiedPaymentData = verificationResult.raw || data
       }
 
       const completeUpdate = await WalletTransaction.updateOne(
@@ -471,49 +510,17 @@ async function handleSuccessfulPayment(data: any) {
     // Update order status
     await updateOrder(orderId, {
       status: 'confirmed',
-      paymentStatus: 'completed',
+      paymentStatus: 'escrow',
       paymentReference: data.reference,
       paymentData: data,
       paidAt: new Date()
     })
 
-    await creditVendorWalletsForOrder(orderId, { paymentReference: data.reference })
-
-    // Get order details for email notifications
+    // Get order details for notifications
     const order = await getOrderById(orderId)
     
     if (order) {
-      // Send confirmation emails to customer and vendors
-      for (const vendor of order.vendors) {
-        await emailService.sendOrderConfirmationEmails({
-          customerEmail: order.shippingInfo.email,
-          vendorEmail: vendor.vendorEmail || 'vendor@example.com',
-          orderId,
-          customerName: `${order.shippingInfo.firstName} ${order.shippingInfo.lastName}`,
-          vendorName: vendor.vendorName,
-          items: vendor.items,
-          total: vendor.total,
-          shippingAddress: order.shippingInfo
-        })
-
-        const vendorPhone = normalizeNigerianPhone(vendor?.vendorPhone || vendor?.phone || vendor?.storePhone || '')
-        if (vendorPhone) {
-          await sendOrderConfirmationSms({
-            phoneNumber: vendorPhone,
-            orderId,
-            amount: Number(vendor?.total || order.totalAmount || 0),
-          })
-        }
-      }
-
-      const customerPhone = normalizeNigerianPhone(order.shippingInfo?.phone || '')
-      if (customerPhone) {
-        await sendOrderConfirmationSms({
-          phoneNumber: customerPhone,
-          orderId,
-          amount: Number(order.totalAmount || 0),
-        })
-      }
+      await sendOrderPlacementNotifications(orderId, order)
     }
 
     console.log(`Payment successful for order: ${orderId}`)
@@ -590,9 +597,10 @@ async function handleDispute(data: any) {
 
     // Update order with dispute information
     await updateOrder(orderId, {
+      paymentStatus: 'disputed',
       disputeStatus: 'active',
       disputeData: data,
-      disputeAt: new Date()
+      disputeRaisedAt: new Date()
     })
 
     // Notify administrators about the dispute

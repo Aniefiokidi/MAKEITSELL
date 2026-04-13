@@ -77,6 +77,24 @@ export default function VendorOrderDetailPage() {
     )
   }
 
+  const vendorOrderEntry = Array.isArray(order.vendors) && user
+    ? order.vendors.find((v: any) => String(v?.vendorId || '') === String(user.uid || ''))
+    : null
+  const productSubtotal = Number.isFinite(Number(vendorOrderEntry?.total))
+    ? Number(vendorOrderEntry.total)
+    : (Array.isArray(order.products)
+      ? order.products.reduce((sum: number, product: any) => {
+          const qty = Number(product?.quantity || 0)
+          const unitPrice = Number(product?.price || 0)
+          return sum + (Number.isFinite(qty) ? qty : 0) * (Number.isFinite(unitPrice) ? unitPrice : 0)
+        }, 0)
+      : 0)
+  const grossTotal = Number.isFinite(Number(order.totalAmount)) ? Number(order.totalAmount) : productSubtotal
+  const deliveryFee = Number.isFinite(Number(order.deliveryFee))
+    ? Number(order.deliveryFee)
+    : Math.max(0, grossTotal - productSubtotal)
+  const total = productSubtotal + deliveryFee
+
   return (
     <VendorLayout>
       <div className="space-y-6">
@@ -123,9 +141,19 @@ export default function VendorOrderDetailPage() {
                 </span>
               </div>
               <Separator />
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Total Amount</span>
-                <span className="font-bold text-lg">₦{order.totalAmount?.toLocaleString() || 0}</span>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Product Subtotal</span>
+                  <span className="font-medium">₦{productSubtotal.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Delivery Fee</span>
+                  <span className="font-medium">{deliveryFee > 0 ? `₦${deliveryFee.toLocaleString()}` : 'FREE'}</span>
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t">
+                  <span className="text-muted-foreground">Total Amount</span>
+                  <span className="font-bold text-lg">₦{total.toLocaleString()}</span>
+                </div>
               </div>
               <Separator />
               <div className="flex items-center justify-between">

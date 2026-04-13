@@ -61,6 +61,13 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
     remainingRooms: number
     isBookedOut: boolean
   } | null>(null)
+  const [showWalletTopupPrompt, setShowWalletTopupPrompt] = useState(false)
+  const [quickTopupAmount, setQuickTopupAmount] = useState("")
+  const [quickTopupLoading, setQuickTopupLoading] = useState(false)
+
+  const walletBalance = Number(userProfile?.walletBalance || 0)
+  const walletShortfall = Math.max(0, Math.round((BOOKING_FEE_NAIRA - walletBalance) * 100) / 100)
+  const walletInsufficient = walletShortfall > 0
 
   const basePackagePrice = Number(selectedPackage?.price ?? service.price ?? 0)
   const addOnTotal = selectedAddOns.reduce((sum, addOn) => {
@@ -191,6 +198,36 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
     }
   }
 
+  const handleQuickWalletTopup = async () => {
+    const parsedAmount = Number(quickTopupAmount)
+    const fallbackAmount = walletShortfall > 0 ? walletShortfall : BOOKING_FEE_NAIRA
+    const amountToTopup = Number.isFinite(parsedAmount) && parsedAmount > 0 ? parsedAmount : fallbackAmount
+
+    try {
+      setQuickTopupLoading(true)
+      const response = await fetch('/api/wallet/topup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: amountToTopup }),
+      })
+      const result = await response.json().catch(() => null)
+
+      if (!response.ok || !result?.success || !result?.authorizationUrl) {
+        throw new Error(result?.error || 'Unable to initialize wallet top-up')
+      }
+
+      window.location.href = result.authorizationUrl
+    } catch (err: any) {
+      toast({
+        title: 'Top-up failed',
+        description: err?.message || 'Failed to start wallet top-up.',
+        variant: 'destructive',
+      })
+    } finally {
+      setQuickTopupLoading(false)
+    }
+  }
+
   const handleBooking = async () => {
     if (!user || !userProfile) {
       toast({
@@ -268,6 +305,17 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
       }
     }
 
+    if (walletInsufficient) {
+      setQuickTopupAmount(String(walletShortfall > 0 ? walletShortfall : BOOKING_FEE_NAIRA))
+      setShowWalletTopupPrompt(true)
+      toast({
+        title: 'Insufficient wallet balance',
+        description: `Top up ₦${walletShortfall.toLocaleString('en-NG')} to pay the booking fee.`,
+        variant: 'destructive',
+      })
+      return
+    }
+
     try {
       setLoading(true)
 
@@ -300,6 +348,7 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
         cancellationPolicyPercent: 30,
         cancellationWindowHours: 24,
         bookingFeeAmount: BOOKING_FEE_NAIRA,
+        paymentMethod: 'wallet',
         customerId: user.uid,
         customerName: userProfile.displayName,
         customerEmail: userProfile.email,
@@ -336,7 +385,7 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
 
       notification.success(
         'Booking Confirmed!',
-        "Your appointment has been booked successfully. The provider will confirm shortly. You'll receive email confirmation.",
+        "Your appointment has been booked successfully. The provider will confirm shortly. You'll receive email and SMS confirmation.",
         4000
       )
 
@@ -660,7 +709,12 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
                 <p className="font-semibold text-accent">
                   {service.requiresQuote ? "Estimated Total" : "Total"}: ₦{computedTotal.toLocaleString('en-NG')}
                 </p>
+                <p>Payment method: Wallet</p>
+                <p>Available wallet balance: ₦{walletBalance.toLocaleString('en-NG')}</p>
                 <p>Booking fee (charged now): ₦{BOOKING_FEE_NAIRA.toLocaleString('en-NG')}</p>
+                {walletInsufficient && (
+                  <p className="text-red-600 text-xs">Insufficient wallet balance. Short by ₦{walletShortfall.toLocaleString('en-NG')}.</p>
+                )}
                 {tripDistanceFee > 0 && (
                   <p className="text-xs text-muted-foreground">
                     Includes trip distance fee: ₦{Math.round(tripDistanceFee).toLocaleString('en-NG')}
@@ -705,6 +759,39 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
               {loading ? "Booking..." : "Confirm Booking"}
             </Button>
           </div>
+
+          <Dialog open={showWalletTopupPrompt} onOpenChange={setShowWalletTopupPrompt}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Top up wallet to book service</DialogTitle>
+                <DialogDescription>
+                  Your wallet is short by ₦{walletShortfall.toLocaleString('en-NG')}. Top up now to pay the booking fee.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3">
+                <Label htmlFor="bookingQuickTopup">Top-up amount</Label>
+                <Input
+                  id="bookingQuickTopup"
+                  type="number"
+                  min="100"
+                  step="100"
+                  value={quickTopupAmount}
+                  onChange={(e) => setQuickTopupAmount(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Add funds to your wallet, then return to complete booking.
+                </p>
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <Button variant="outline" onClick={() => setShowWalletTopupPrompt(false)} disabled={quickTopupLoading}>
+                  Cancel
+                </Button>
+                <Button onClick={handleQuickWalletTopup} disabled={quickTopupLoading}>
+                  {quickTopupLoading ? 'Redirecting...' : 'Top up wallet'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </DialogContent>
     </Dialog>

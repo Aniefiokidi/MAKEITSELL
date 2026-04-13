@@ -291,6 +291,18 @@ export default function CustomerOrdersPage() {
                   || order.vendor?.vendorName
                   || order.storeName
                   || 'Store';
+                const productSubtotal = Number.isFinite(Number(order?.vendor?.total))
+                  ? Number(order.vendor.total)
+                  : (Array.isArray(order.vendors) && order.vendors.length > 0
+                    ? Number(order.vendors.reduce((sum: number, v: any) => sum + Number(v?.total || 0), 0))
+                    : Number(order.product?.price || 0) * Number(order.product?.quantity || 1))
+                const grossTotal = Number.isFinite(Number(order?.totalAmount)) ? Number(order.totalAmount) : productSubtotal
+                const deliveryFee = Number.isFinite(Number(order?.deliveryFee))
+                  ? Number(order.deliveryFee)
+                  : (Array.isArray(order?.vendors) && order.vendors.length > 1
+                    ? 0
+                    : Math.max(0, grossTotal - productSubtotal))
+                const displayTotal = productSubtotal + deliveryFee
                 return (
                   <div key={order._parentOrderId + '-' + (order.storeId || idx) + '-' + (prod?.productId || idx)} className="bg-card text-card-foreground rounded-xl shadow-lg border border-border p-6 flex flex-col">
                     <div className="flex flex-row items-center gap-3 mb-6">
@@ -351,11 +363,21 @@ export default function CustomerOrdersPage() {
                       );
                     })}
                   </div>
-                  <div className="flex justify-between items-center mt-6">
-                    <div>
-                      <div className="font-semibold">Total:</div>
-                      <div className="text-lg font-bold text-accent">₦{formatCurrency(order.totalAmount)}</div>
+                  <div className="mt-6 rounded-md border border-border/60 bg-muted/30 p-3 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Product Subtotal:</span>
+                      <span className="font-semibold">₦{formatCurrency(productSubtotal)}</span>
                     </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-muted-foreground">Delivery Fee:</span>
+                      <span className="font-semibold">{deliveryFee > 0 ? `₦${formatCurrency(deliveryFee)}` : 'FREE'}</span>
+                    </div>
+                    <div className="flex items-center justify-between mt-1 pt-1 border-t border-border/60">
+                      <span className="font-semibold">Total:</span>
+                      <span className="text-lg font-bold text-accent">₦{formatCurrency(displayTotal)}</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-end items-center mt-3">
                     <div>
                       <Badge variant={order.status === "delivered" ? "default" : order.status === "shipped" ? "secondary" : order.status === "cancelled" ? "destructive" : "outline"}>
                         {order.status}

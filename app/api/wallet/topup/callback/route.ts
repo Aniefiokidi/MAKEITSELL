@@ -6,6 +6,26 @@ import { connectToDatabase } from '@/lib/mongodb'
 import mongoose from 'mongoose'
 import { getCanonicalAppBaseUrl } from '@/lib/app-url'
 
+const EXPLICIT_SUCCESS_STATUSES = new Set([
+  'success',
+  'successful',
+  'succeeded',
+  'completed',
+  'complete',
+  'paid',
+  'approved',
+])
+
+const EXPLICIT_FAILURE_HINTS = new Set([
+  'failed',
+  'failure',
+  'declined',
+  'cancelled',
+  'canceled',
+  'abandoned',
+  'expired',
+])
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -27,7 +47,7 @@ export async function GET(request: NextRequest) {
       )
     )
 
-    const appUrl = getCanonicalAppBaseUrl()
+    const appUrl = getCanonicalAppBaseUrl(new URL(request.url).origin)
     const successRedirect = new URL('/stores', appUrl)
     const errorRedirect = new URL('/stores', appUrl)
     const pendingRedirect = new URL('/stores', appUrl)
@@ -41,7 +61,9 @@ export async function GET(request: NextRequest) {
       || ''
     ).toLowerCase()
     const successHints = new Set(['success', 'successful', 'completed', 'paid', 'true'])
+    const failureHints = new Set(['failed', 'failure', 'declined', 'cancelled', 'canceled', 'abandoned', 'expired'])
     const querySuggestsSuccess = successHints.has(statusHint)
+    const querySuggestsFailure = failureHints.has(statusHint)
 
     if (referencesFromQuery.length === 0) {
       errorRedirect.searchParams.set('wallet', 'failed')
@@ -96,6 +118,29 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(errorRedirect.toString())
     }
 
+    if (querySuggestsFailure) {
+      await WalletTransaction.updateOne(
+        { _id: transaction._id, status: 'pending' },
+        {
+          $set: {
+            status: 'failed',
+            metadata: {
+              ...(transaction.metadata || {}),
+              callbackData: {
+                statusHint,
+                reason: 'provider_callback_failure_hint',
+              },
+            },
+            updatedAt: new Date(),
+          },
+        }
+      )
+
+      errorRedirect.searchParams.set('wallet', 'failed')
+      errorRedirect.searchParams.set('reason', 'cancelled')
+      return NextResponse.redirect(errorRedirect.toString())
+    }
+
     if (!verificationResult?.success) {
       if (querySuggestsSuccess || transaction.status === 'pending') {
         return NextResponse.redirect(pendingRedirect.toString())
@@ -109,6 +154,37 @@ export async function GET(request: NextRequest) {
     if (transaction.status === 'completed') {
       successRedirect.searchParams.set('wallet', 'success')
       return NextResponse.redirect(successRedirect.toString())
+    }
+
+    const verifyStatus = String(verificationResult?.status || '').toLowerCase().trim()
+    const verifyExplicitSuccess = EXPLICIT_SUCCESS_STATUSES.has(verifyStatus)
+    const verifyExplicitFailure = EXPLICIT_FAILURE_HINTS.has(verifyStatus)
+
+    if (!verifyExplicitSuccess) {
+      if (verifyExplicitFailure) {
+        await WalletTransaction.updateOne(
+          { _id: transaction._id, status: 'pending' },
+          {
+            $set: {
+              status: 'failed',
+              metadata: {
+                ...(transaction.metadata || {}),
+                xoroVerification: {
+                  status: verificationResult?.status,
+                  message: verificationResult?.message,
+                  at: new Date().toISOString(),
+                },
+              },
+              updatedAt: new Date(),
+            },
+          }
+        )
+        errorRedirect.searchParams.set('wallet', 'failed')
+        errorRedirect.searchParams.set('reason', 'verification_failed')
+        return NextResponse.redirect(errorRedirect.toString())
+      }
+
+      return NextResponse.redirect(pendingRedirect.toString())
     }
 
     const completeUpdate = await WalletTransaction.updateOne(
@@ -143,7 +219,7 @@ export async function GET(request: NextRequest) {
     successRedirect.searchParams.set('wallet', 'success')
     return NextResponse.redirect(successRedirect.toString())
   } catch (error) {
-    const appUrl = getCanonicalAppBaseUrl()
+    const appUrl = getCanonicalAppBaseUrl(new URL(request.url).origin)
     const errorRedirect = new URL('/stores', appUrl)
     errorRedirect.searchParams.set('wallet', 'failed')
     errorRedirect.searchParams.set('reason', 'server_error')

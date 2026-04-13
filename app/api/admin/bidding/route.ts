@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import connectToDatabase from '@/lib/mongodb'
 import { requireAdminAccess, getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { BidListing } from '@/lib/models/BidListing'
+import { settleExpiredBiddingListings } from '@/lib/bidding-settlement'
 
 export async function GET(request: NextRequest) {
   const unauthorized = await requireAdminAccess(request)
@@ -9,6 +10,7 @@ export async function GET(request: NextRequest) {
 
   try {
     await connectToDatabase()
+    await settleExpiredBiddingListings()
     const listings = await BidListing.find({}).sort({ createdAt: -1 }).lean()
     return NextResponse.json({ success: true, listings })
   } catch (error: any) {

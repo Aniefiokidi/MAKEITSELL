@@ -13,7 +13,7 @@ import OrderDetailsSlider from "@/components/vendor/OrderDetailsSlider"
 import { useNotification } from "@/contexts/NotificationContext"
 
 export default function VendorOrdersPage() {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const { success } = useNotification()
   const router = useRouter()
   const [orders, setOrders] = useState<any[]>([])
@@ -41,8 +41,18 @@ export default function VendorOrdersPage() {
   };
 
   useEffect(() => {
-    fetchOrders();
-  }, [user])
+    if (authLoading) {
+      return
+    }
+
+    if (!user) {
+      setLoading(false)
+      router.replace(`/login?redirect=${encodeURIComponent('/vendor/orders')}`)
+      return
+    }
+
+    fetchOrders()
+  }, [authLoading, user])
 
   const handleStatusUpdated = async () => {
     success('Order status updated')
@@ -158,6 +168,23 @@ export default function VendorOrdersPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {filteredOrders.map((order) => (
+                (() => {
+                  const productSubtotal = Number.isFinite(Number(order?.vendor?.total))
+                    ? Number(order.vendor.total)
+                    : (Array.isArray(order.products)
+                      ? order.products.reduce((sum: number, prod: any) => {
+                          const qty = Number(prod?.quantity || 0)
+                          const unitPrice = Number(prod?.price || 0)
+                          return sum + (Number.isFinite(qty) ? qty : 0) * (Number.isFinite(unitPrice) ? unitPrice : 0)
+                        }, 0)
+                      : 0)
+                  const grossTotal = Number.isFinite(Number(order?.totalAmount)) ? Number(order.totalAmount) : productSubtotal
+                  const deliveryFee = Number.isFinite(Number(order?.deliveryFee))
+                    ? Number(order.deliveryFee)
+                    : Math.max(0, grossTotal - productSubtotal)
+                  const total = productSubtotal + deliveryFee
+
+                  return (
                 <Card key={order.orderId || order.id} className="bg-accent/10 backdrop-blur-md border-white/20 shadow-lg">
                   <CardHeader>
                     <CardTitle>Order #{(order.orderId || order.id || "").toString().substring(0, 8).toUpperCase()}</CardTitle>
@@ -192,17 +219,40 @@ export default function VendorOrdersPage() {
                       ))}
                     </div>
                     <div className="flex items-center gap-2 mt-2">
-                      <span className="font-semibold">Total:</span>
-                      <span className="text-lg font-bold">₦{order.totalAmount?.toLocaleString()}</span>
+                      <div className="w-full rounded-md border border-white/20 bg-white/5 p-2 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Product Subtotal:</span>
+                          <span className="font-semibold">₦{productSubtotal.toLocaleString()}</span>
+                        </div>
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-muted-foreground">Delivery Fee:</span>
+                          <span className="font-semibold">{deliveryFee > 0 ? `₦${deliveryFee.toLocaleString()}` : 'FREE'}</span>
+                        </div>
+                        <div className="flex items-center justify-between mt-1 pt-1 border-t border-white/20">
+                          <span className="font-semibold">Total:</span>
+                          <span className="text-lg font-bold">₦{total.toLocaleString()}</span>
+                        </div>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 mt-2">
                       <Badge variant={order.status === "delivered" ? "default" : order.status === "shipped" ? "secondary" : order.status === "cancelled" ? "destructive" : "outline"}>
                         {order.status}
                       </Badge>
+                      <Badge variant={String(order.paymentStatus || '').toLowerCase() === 'released' ? 'secondary' : 'outline'}>
+                        payment: {order.paymentStatus || 'pending'}
+                      </Badge>
                       {order.status === "delivered" && <CheckCircle className="h-5 w-5 text-green-500" />}
                       {order.status === "shipped" && <Truck className="h-5 w-5 text-blue-500" />}
                       {order.status === "cancelled" && <XCircle className="h-5 w-5 text-red-500" />}
                     </div>
+                    {String(order.paymentStatus || '').toLowerCase() === 'escrow' && (
+                      <p className="text-xs text-amber-700">
+                        Payment secured. Release: {order.escrowReleaseAt ? new Date(order.escrowReleaseAt).toLocaleString() : 'Pending schedule'}
+                      </p>
+                    )}
+                    {String(order.paymentStatus || '').toLowerCase() === 'released' && (
+                      <p className="text-xs text-green-700">Funds released to vendor wallet.</p>
+                    )}
                     <Button 
                       variant="outline" 
                       className="mt-4 w-full hover:bg-accent/10 hover:text-accent transition-all"
@@ -212,6 +262,8 @@ export default function VendorOrdersPage() {
                     </Button>
                   </CardContent>
                 </Card>
+                  )
+                })()
               ))}
             </div>
           )}

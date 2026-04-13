@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectToDatabase from '@/lib/mongodb'
 import { BidListing } from '@/lib/models/BidListing'
+import { settleExpiredBiddingListings } from '@/lib/bidding-settlement'
 
 export async function GET(request: NextRequest) {
   try {
     const status = (request.nextUrl.searchParams.get('status') || 'live').toLowerCase()
 
     await connectToDatabase()
+    await settleExpiredBiddingListings()
 
     const now = new Date()
     const query: Record<string, any> = {}
@@ -22,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     const listings = await BidListing.find(query)
       .sort({ featured: -1, endsAt: 1, createdAt: -1 })
-      .select('-bids.bidderEmail')
+      .select('-bids.bidderEmail -bids.bidderId')
       .lean()
 
     return NextResponse.json({ success: true, listings })

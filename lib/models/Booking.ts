@@ -37,6 +37,7 @@ export interface IBooking extends Document {
   bookingFeeAmount?: number;
   bookingFeeStatus?: "pending" | "charged" | "waived";
   bookingFeeReference?: string;
+  paymentMethod?: "wallet";
   cancellationFeeApplied?: boolean;
   cancellationFeeAmount?: number;
   cancellationFeeStatus?: "none" | "charged" | "pending" | "waived";
@@ -110,6 +111,7 @@ const BookingSchema = new Schema<IBooking>({
   bookingFeeAmount: { type: Number, default: 0 },
   bookingFeeStatus: { type: String, enum: ["pending", "charged", "waived"], default: "waived" },
   bookingFeeReference: { type: String },
+  paymentMethod: { type: String, enum: ["wallet"], default: "wallet" },
   cancellationFeeApplied: { type: Boolean, default: false },
   cancellationFeeAmount: { type: Number, default: 0 },
   cancellationFeeStatus: { type: String, enum: ["none", "charged", "pending", "waived"], default: "none" },

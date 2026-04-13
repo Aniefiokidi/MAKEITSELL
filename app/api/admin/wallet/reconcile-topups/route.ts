@@ -23,6 +23,16 @@ const asStringCandidates = (...values: any[]) => {
   )
 }
 
+const EXPLICIT_PAID_STATUSES = new Set([
+  'success',
+  'successful',
+  'succeeded',
+  'completed',
+  'complete',
+  'paid',
+  'approved',
+])
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}))
@@ -86,7 +96,8 @@ export async function POST(request: NextRequest) {
         for (const candidate of candidates) {
           try {
             const verification = await xoroPayService.verifyPayment(candidate)
-            if (verification.success) {
+            const verifyStatus = String(verification.status || '').trim().toLowerCase()
+            if (verification.success && EXPLICIT_PAID_STATUSES.has(verifyStatus)) {
               shouldComplete = true
               verifiedReference = verification.reference || candidate
               verificationRaw = verification.raw || null

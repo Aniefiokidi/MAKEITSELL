@@ -4,8 +4,10 @@ export type BidListingStatus = 'draft' | 'live' | 'closed'
 
 export interface IBidEntry {
   amount: number
+  bidderId?: string
   bidderName: string
   bidderEmail?: string
+  holdAmount?: number
   createdAt: Date
 }
 
@@ -24,6 +26,15 @@ export interface IBidListing extends Document {
   featured: boolean
   bidCount: number
   createdBy?: string
+  highestBidderId?: string
+  highestBidderName?: string
+  highestBidHoldAmount?: number
+  winnerUserId?: string
+  winnerName?: string
+  winningBidAmount?: number
+  settlementStatus?: 'pending' | 'settled' | 'failed'
+  settledAt?: Date
+  settlementFailureReason?: string
   bids: IBidEntry[]
   createdAt?: Date
   updatedAt?: Date
@@ -32,8 +43,10 @@ export interface IBidListing extends Document {
 const BidEntrySchema = new Schema<IBidEntry>(
   {
     amount: { type: Number, required: true },
+    bidderId: { type: String, trim: true },
     bidderName: { type: String, required: true, trim: true },
     bidderEmail: { type: String, trim: true, lowercase: true },
+    holdAmount: { type: Number, min: 0 },
     createdAt: { type: Date, default: Date.now },
   },
   { _id: false }
@@ -55,6 +68,15 @@ const BidListingSchema = new Schema<IBidListing>(
     featured: { type: Boolean, default: false },
     bidCount: { type: Number, default: 0 },
     createdBy: { type: String },
+    highestBidderId: { type: String, trim: true },
+    highestBidderName: { type: String, trim: true },
+    highestBidHoldAmount: { type: Number, min: 0, default: 0 },
+    winnerUserId: { type: String, trim: true },
+    winnerName: { type: String, trim: true },
+    winningBidAmount: { type: Number, min: 0 },
+    settlementStatus: { type: String, enum: ['pending', 'settled', 'failed'], default: 'pending' },
+    settledAt: { type: Date },
+    settlementFailureReason: { type: String, trim: true },
     bids: { type: [BidEntrySchema], default: [] },
   },
   { timestamps: true }

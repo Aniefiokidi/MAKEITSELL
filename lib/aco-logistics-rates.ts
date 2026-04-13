@@ -153,7 +153,10 @@ export function findRouteForAddress(address: string): RouteName | null {
 }
 
 export function getInterstatePrice(state: string): number | null {
-  const needle = normalize(state)
+  const needleRaw = normalize(state)
+  const needle = (needleRaw === "fct" || needleRaw === "federalcapitalterritory")
+    ? "abuja"
+    : needleRaw
   for (const zone of acoLogisticsRates.interstateRoutes.zones) {
     if (zone.states.some((s) => normalize(s) === needle)) return zone.price
   }

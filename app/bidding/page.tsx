@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Clock3, Gavel, Trophy } from "lucide-react"
+import { useAuth } from "@/contexts/AuthContext"
 
 type Listing = {
   _id: string
@@ -28,12 +29,13 @@ type Listing = {
 const fallbackImage = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1200&q=80"
 
 export default function BiddingPage() {
+  const { user, userProfile } = useAuth()
   const [listings, setListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<"live" | "closed">("live")
   const [placing, setPlacing] = useState<string>("")
   const [feedback, setFeedback] = useState<{ type: "error" | "success"; message: string } | null>(null)
-  const [bidForms, setBidForms] = useState<Record<string, { bidderName: string; bidderEmail: string; amount: string }>>({})
+  const [bidForms, setBidForms] = useState<Record<string, { amount: string }>>({})
 
   const loadListings = async (status: "live" | "closed") => {
     setLoading(true)
@@ -56,20 +58,22 @@ export default function BiddingPage() {
     loadListings(statusFilter)
   }, [statusFilter])
 
-  const onBidInputChange = (id: string, field: "bidderName" | "bidderEmail" | "amount", value: string) => {
+  const onBidInputChange = (id: string, value: string) => {
     setBidForms((prev) => ({
       ...prev,
       [id]: {
-        bidderName: prev[id]?.bidderName || "",
-        bidderEmail: prev[id]?.bidderEmail || "",
-        amount: prev[id]?.amount || "",
-        [field]: value,
+        amount: value,
       },
     }))
   }
 
   const placeBid = async (listing: Listing) => {
-    const form = bidForms[listing._id] || { bidderName: "", bidderEmail: "", amount: "" }
+    if (!user) {
+      setFeedback({ type: "error", message: "Please sign in to place a bid." })
+      return
+    }
+
+    const form = bidForms[listing._id] || { amount: "" }
     setPlacing(listing._id)
     setFeedback(null)
 
@@ -78,8 +82,6 @@ export default function BiddingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          bidderName: form.bidderName,
-          bidderEmail: form.bidderEmail,
           amount: Number(form.amount),
         }),
       })
@@ -93,8 +95,6 @@ export default function BiddingPage() {
       setBidForms((prev) => ({
         ...prev,
         [listing._id]: {
-          bidderName: form.bidderName,
-          bidderEmail: form.bidderEmail,
           amount: "",
         },
       }))
@@ -133,6 +133,13 @@ export default function BiddingPage() {
               BID. WIN. CELEBRATE.
             </h1>
           </div>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Serious bids only: each new highest bid places a wallet security hold equal to 100% of your bid amount. If you are outbid, the hold is released automatically.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Signed in as: <span className="font-medium text-foreground">{userProfile?.displayName || userProfile?.email || "Guest"}</span>
+            {typeof userProfile?.walletBalance === "number" ? ` | Wallet: N${Number(userProfile.walletBalance).toLocaleString()}` : ""}
+          </p>
         </section>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -171,7 +178,7 @@ export default function BiddingPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
             {withCountdown.map((listing) => {
-              const form = bidForms[listing._id] || { bidderName: "", bidderEmail: "", amount: "" }
+              const form = bidForms[listing._id] || { amount: "" }
               const minBid = Number(listing.currentBid || listing.startPrice) + Number(listing.minIncrement || 0)
               const isLive = statusFilter === "live"
 
@@ -217,30 +224,20 @@ export default function BiddingPage() {
                     {isLive ? (
                       <div className="space-y-2 pt-2 border-t">
                         <Input
-                          placeholder="Your name"
-                          value={form.bidderName}
-                          onChange={(e) => onBidInputChange(listing._id, "bidderName", e.target.value)}
-                        />
-                        <Input
-                          type="email"
-                          placeholder="Email (optional)"
-                          value={form.bidderEmail}
-                          onChange={(e) => onBidInputChange(listing._id, "bidderEmail", e.target.value)}
-                        />
-                        <Input
                           type="number"
                           min={minBid}
                           placeholder={`Minimum bid: N${minBid.toLocaleString()}`}
                           value={form.amount}
-                          onChange={(e) => onBidInputChange(listing._id, "amount", e.target.value)}
+                          onChange={(e) => onBidInputChange(listing._id, e.target.value)}
                         />
+                        <p className="text-xs text-muted-foreground">Required wallet hold: N{Math.max(5000, Math.ceil(Number(form.amount || minBid) || minBid)).toLocaleString()}</p>
                         <Button
                           className="w-full bg-accent hover:bg-accent/85 text-white uppercase tracking-wide"
                           onClick={() => placeBid(listing)}
-                          disabled={placing === listing._id}
+                          disabled={placing === listing._id || !user}
                         >
                           <Gavel className="h-4 w-4 mr-2" />
-                          {placing === listing._id ? "Placing Bid..." : "Place Bid"}
+                          {placing === listing._id ? "Placing Bid..." : (user ? "Place Bid" : "Sign in to bid")}
                         </Button>
                       </div>
                     ) : (

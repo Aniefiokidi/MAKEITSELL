@@ -21,9 +21,13 @@ interface OrderEmailData {
   vendorName: string
   items: any[]
   total: number
+  productSubtotal?: number
+  deliveryFee?: number
   shippingAddress: any
   deliveryEstimate?: { min: number; max: number }
   orderDate?: Date
+  sendCustomerCopy?: boolean
+  sendVendorCopy?: boolean
 }
 
 export type RegistrationIssueTemplateOverrides = {
@@ -264,6 +268,41 @@ class EmailService {
     return getCanonicalAppBaseUrl()
   }
 
+  private toAbsoluteUrl(value: string | undefined | null): string {
+    const trimmed = String(value || '').trim()
+    if (!trimmed) return ''
+    if (trimmed.startsWith('//')) {
+      return `https:${trimmed}`
+    }
+    if (/^https?:\/\//i.test(trimmed) || /^data:/i.test(trimmed)) {
+      return trimmed
+    }
+
+    const base = this.getAppBaseUrl()
+    if (trimmed.startsWith('/')) {
+      return `${base}${trimmed}`
+    }
+    return `${base}/${trimmed}`
+  }
+
+  private getOrderItemImageUrl(item: any): string {
+    const rawImage =
+      (Array.isArray(item?.images) && item.images[0]) ||
+      item?.image ||
+      item?.productImage ||
+      item?.thumbnail ||
+      (Array.isArray(item?.product?.images) && item.product.images[0]) ||
+      item?.product?.image ||
+      '/images/placeholder-product.svg'
+
+    return this.toAbsoluteUrl(rawImage)
+  }
+
+  private getVendorOrdersUrl(): string {
+    const base = this.getAppBaseUrl()
+    return `${base}/vendor/orders`
+  }
+
   private htmlToText(html: string): string {
     return html
       .replace(/<style[\s\S]*?<\/style>/gi, ' ')
@@ -495,11 +534,19 @@ class EmailService {
         orderData.orderDate = new Date()
       }
       
-      // Send confirmation email to customer
-      const customerEmailSent = await this.sendCustomerOrderConfirmation(orderData)
-      
-      // Send notification email to vendor
-      const vendorEmailSent = await this.sendVendorOrderNotification(orderData)
+      const shouldSendCustomer = orderData.sendCustomerCopy !== false
+      const shouldSendVendor = orderData.sendVendorCopy !== false
+
+      let customerEmailSent = true
+      let vendorEmailSent = true
+
+      if (shouldSendCustomer) {
+        customerEmailSent = await this.sendCustomerOrderConfirmation(orderData)
+      }
+
+      if (shouldSendVendor) {
+        vendorEmailSent = await this.sendVendorOrderNotification(orderData)
+      }
 
       return customerEmailSent && vendorEmailSent
     } catch (error) {
@@ -511,214 +558,158 @@ class EmailService {
   private async sendCustomerOrderConfirmation(orderData: OrderEmailData): Promise<boolean> {
     const deliveryEstimate = orderData.deliveryEstimate || this.calculateDeliveryEstimate()
     const orderDate = orderData.orderDate || new Date()
+    const accent = '#7f1d1d'
+    const appBase = this.getAppBaseUrl()
+    const logoUrl = `${appBase}/images/logo2.png`
     
-    const itemsList = orderData.items.map(item => `
-      <tr style="border-bottom: 1px solid #ddd;">
+    const itemsList = orderData.items.map(item => {
+      const imageUrl = this.getOrderItemImageUrl(item)
+      return `
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.22);">
         <td style="padding: 12px; text-align: left; width: 80px;">
-          <img src="${item.images?.[0] || '/placeholder-product.jpg'}" alt="${item.title}" 
-               style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid #eee;">
+          <img src="${imageUrl}" alt="${item.title}" 
+               style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.08);">
         </td>
         <td style="padding: 12px; text-align: left;">
-          <div style="font-weight: 600; color: #333; margin-bottom: 4px;">${item.title}</div>
-          <div style="font-size: 12px; color: #666;">SKU: ${item.sku || 'N/A'}</div>
-          <div style="font-size: 12px; color: #666;">Qty: ${item.quantity}</div>
+          <div style="font-weight: 600; color: #ffffff; margin-bottom: 4px;">${item.title}</div>
+          <div style="font-size: 12px; color: rgba(255,255,255,0.86);">SKU: ${item.sku || 'N/A'}</div>
+          <div style="font-size: 12px; color: rgba(255,255,255,0.86);">Qty: ${item.quantity}</div>
         </td>
-        <td style="padding: 12px; text-align: center; color: #666;">₦${item.price.toLocaleString()}</td>
-        <td style="padding: 12px; text-align: right; font-weight: 600; color: #333;">₦${(item.price * item.quantity).toLocaleString()}</td>
+        <td style="padding: 12px; text-align: center; color: rgba(255,255,255,0.9);">₦${item.price.toLocaleString()}</td>
+        <td style="padding: 12px; text-align: right; font-weight: 600; color: #ffffff;">₦${(item.price * item.quantity).toLocaleString()}</td>
       </tr>
-    `).join('')
+    `
+    }).join('')
 
-    const subtotal = orderData.total
-    const deliveryFee: number = 0 // You can calculate this based on location
+    const computedProductSubtotal = orderData.items.reduce((sum, item) => {
+      const qty = Number(item?.quantity || 0)
+      const unitPrice = Number(item?.price || 0)
+      return sum + (Number.isFinite(qty) ? qty : 0) * (Number.isFinite(unitPrice) ? unitPrice : 0)
+    }, 0)
+    const subtotal = Number.isFinite(Number(orderData.productSubtotal))
+      ? Number(orderData.productSubtotal)
+      : computedProductSubtotal
+    const deliveryFee: number = Number.isFinite(Number(orderData.deliveryFee))
+      ? Number(orderData.deliveryFee)
+      : Math.max(0, Number(orderData.total || 0) - subtotal)
     const total = subtotal + deliveryFee
 
     const customerEmailHtml = `
-      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: #f8f9fa;">
-        <!-- Header -->
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px 20px; text-align: center;">
-          <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 300;">INVOICE</h1>
-          <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 16px;">Order Confirmation</p>
-        </div>
-        
-        <!-- Invoice Header -->
-        <div style="background: white; padding: 30px; border-bottom: 1px solid #eee;">
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-              <td style="width: 50%; vertical-align: top;">
-                <div style="margin-bottom: 20px;">
-                  <h2 style="margin: 0 0 10px 0; color: #333; font-size: 18px;">Make It Sell</h2>
-                  <div style="color: #666; font-size: 14px; line-height: 1.5;">
-                    Lagos, Nigeria<br>
-                    support@makeitsell.ng
-                  </div>
-                </div>
-              </td>
-              <td style="width: 50%; vertical-align: top; text-align: right;">
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 4px solid #667eea;">
-                  <div style="font-size: 14px; color: #666; margin-bottom: 5px;">Invoice Number</div>
-                  <div style="font-size: 18px; font-weight: 600; color: #333; margin-bottom: 10px;">#${orderData.orderId.substring(0, 8).toUpperCase()}</div>
-                  <div style="font-size: 14px; color: #666; margin-bottom: 5px;">Order Date</div>
-                  <div style="font-size: 14px; color: #333;">${orderDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-                </div>
-              </td>
-            </tr>
-          </table>
-        </div>
-        
-        <!-- Customer & Vendor Info -->
-        <div style="background: white; padding: 30px; border-bottom: 1px solid #eee;">
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-              <td style="width: 50%; vertical-align: top; padding-right: 20px;">
-                <h3 style="margin: 0 0 15px 0; color: #333; font-size: 16px;">Bill To:</h3>
-                <div style="color: #333; font-size: 14px; line-height: 1.6;">
-                  <div style="font-weight: 600; margin-bottom: 8px;">${orderData.customerName}</div>
-                  <div>${orderData.shippingAddress.address}</div>
-                  <div>${orderData.shippingAddress.city}, ${orderData.shippingAddress.state}</div>
-                  <div>${orderData.shippingAddress.zipCode}</div>
-                  <div>${orderData.shippingAddress.country}</div>
-                  <div style="margin-top: 8px; color: #666;">${orderData.customerEmail}</div>
-                </div>
-              </td>
-              <td style="width: 50%; vertical-align: top; padding-left: 20px;">
-                <h3 style="margin: 0 0 15px 0; color: #333; font-size: 16px;">Sold By:</h3>
-                <div style="color: #333; font-size: 14px; line-height: 1.6;">
-                  <div style="font-weight: 600; margin-bottom: 8px;">${orderData.vendorName}</div>
-                  <div style="color: #666;">Make It Sell Vendor</div>
-                </div>
-              </td>
-            </tr>
-          </table>
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 640px; margin: 0 auto; background: ${accent}; color: #ffffff; border-radius: 14px; overflow: hidden;">
+        <div style="padding: 26px 22px; text-align: center; background: rgba(0,0,0,0.12); border-bottom: 1px solid rgba(255,255,255,0.18);">
+          <div style="display: inline-block; background: #ffffff; border-radius: 12px; padding: 10px 14px; margin: 0 auto 12px auto;">
+            <img src="${logoUrl}" alt="Make It Sell" style="height: 40px; width: auto; display: block;" />
+          </div>
+          <h1 style="color: #ffffff; margin: 0; font-size: 28px; letter-spacing: 0.6px;">INVOICE</h1>
+          <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 15px;">Order Confirmation</p>
         </div>
 
-        <!-- Items Table -->
-        <div style="background: white; padding: 30px;">
-          <h3 style="margin: 0 0 20px 0; color: #333; font-size: 18px;">Order Items</h3>
-          <table style="width: 100%; border-collapse: collapse; border: 1px solid #eee;">
-            <thead>
-              <tr style="background: #f8f9fa;">
-                <th style="padding: 15px 12px; text-align: left; font-size: 13px; font-weight: 600; color: #333; border-bottom: 2px solid #eee;">Product</th>
-                <th style="padding: 15px 12px; text-align: left; font-size: 13px; font-weight: 600; color: #333; border-bottom: 2px solid #eee;">Description</th>
-                <th style="padding: 15px 12px; text-align: center; font-size: 13px; font-weight: 600; color: #333; border-bottom: 2px solid #eee;">Unit Price</th>
-                <th style="padding: 15px 12px; text-align: right; font-size: 13px; font-weight: 600; color: #333; border-bottom: 2px solid #eee;">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itemsList}
-              <tr>
-                <td colspan="4" style="padding: 0;"><div style="border-bottom: 1px solid #eee;"></div></td>
-              </tr>
-              <tr>
-                <td colspan="3" style="padding: 15px 12px; text-align: right; font-size: 14px; color: #666;">Subtotal:</td>
-                <td style="padding: 15px 12px; text-align: right; font-size: 14px; font-weight: 600; color: #333;">₦${subtotal.toLocaleString()}</td>
-              </tr>
-              <tr>
-                <td colspan="3" style="padding: 12px; text-align: right; font-size: 14px; color: #666;">Delivery Fee:</td>
-                <td style="padding: 12px; text-align: right; font-size: 14px; font-weight: 600; color: ${deliveryFee === 0 ? '#28a745' : '#333'};">${deliveryFee === 0 ? 'FREE' : '₦' + deliveryFee.toLocaleString()}</td>
-              </tr>
-              <tr style="border-top: 2px solid #333;">
-                <td colspan="3" style="padding: 15px 12px; text-align: right; font-size: 16px; font-weight: 600; color: #333;">Total Amount:</td>
-                <td style="padding: 15px 12px; text-align: right; font-size: 18px; font-weight: 700; color: #333;">₦${total.toLocaleString()}</td>
-              </tr>
-            </tbody>
+        <div style="padding: 22px;">
+          <table style="width: 100%; border-collapse: separate; border-spacing: 0;">
+            <tr>
+              <td style="width: 50%; vertical-align: top; padding-right: 10px;">
+                <h2 style="margin: 0 0 10px 0; color: #ffffff; font-size: 20px;">Make It Sell</h2>
+                <div style="color: rgba(255,255,255,0.92); font-size: 14px; line-height: 1.5;">
+                  Lagos, Nigeria<br>
+                  support@makeitsell.ng
+                </div>
+              </td>
+              <td style="width: 50%; vertical-align: top; text-align: right; padding-left: 10px;">
+                <div style="background: rgba(255,255,255,0.12); padding: 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2);">
+                  <div style="font-size: 13px; color: rgba(255,255,255,0.85); margin-bottom: 5px;">Invoice Number</div>
+                  <div style="font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 10px;">#${orderData.orderId.substring(0, 8).toUpperCase()}</div>
+                  <div style="font-size: 13px; color: rgba(255,255,255,0.85); margin-bottom: 4px;">Order Date</div>
+                  <div style="font-size: 14px; color: #ffffff;">${orderDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                </div>
+              </td>
+            </tr>
           </table>
-        </div>
-        
-        <!-- Delivery Information -->
-        <div style="background: white; padding: 30px; border-top: 1px solid #eee;">
-          <h3 style="margin: 0 0 20px 0; color: #333; font-size: 18px;">🚚 Delivery Information</h3>
-          <div style="background: linear-gradient(135deg, #667eea15, #764ba215); padding: 20px; border-radius: 8px; border: 1px solid #667eea30;">
+
+          <div style="margin-top: 18px; background: rgba(255,255,255,0.1); border-radius: 10px; border: 1px solid rgba(255,255,255,0.18); padding: 16px;">
             <table style="width: 100%; border-collapse: collapse;">
               <tr>
-                <td style="width: 50%; padding-right: 20px; vertical-align: top;">
-                  <div style="font-size: 14px; color: #666; margin-bottom: 5px;">Estimated Delivery</div>
-                  <div style="font-size: 16px; font-weight: 600; color: #333; margin-bottom: 15px;">
-                    ${deliveryEstimate.min === deliveryEstimate.max 
-                      ? `${deliveryEstimate.min} day${deliveryEstimate.min > 1 ? 's' : ''}` 
-                      : `${deliveryEstimate.min}-${deliveryEstimate.max} days`}
-                  </div>
-                  <div style="font-size: 13px; color: #666;">
-                    Expected between:<br>
-                    <strong>${this.formatDeliveryDate(deliveryEstimate.min)}</strong> - <strong>${this.formatDeliveryDate(deliveryEstimate.max)}</strong>
+                <td style="width: 50%; vertical-align: top; padding-right: 10px;">
+                  <h3 style="margin: 0 0 10px 0; color: #ffffff; font-size: 16px;">Bill To:</h3>
+                  <div style="color: rgba(255,255,255,0.95); font-size: 14px; line-height: 1.6;">
+                    <div style="font-weight: 700; margin-bottom: 6px;">${orderData.customerName}</div>
+                    <div>${orderData.shippingAddress.address}</div>
+                    <div>${orderData.shippingAddress.city}, ${orderData.shippingAddress.state}</div>
+                    <div>${orderData.shippingAddress.zipCode}</div>
+                    <div>${orderData.shippingAddress.country}</div>
+                    <div style="margin-top: 8px; color: rgba(255,255,255,0.88);">${orderData.customerEmail}</div>
                   </div>
                 </td>
-                <td style="width: 50%; padding-left: 20px; vertical-align: top;">
-                  <div style="font-size: 14px; color: #666; margin-bottom: 5px;">Delivery Address</div>
-                  <div style="font-size: 14px; color: #333; line-height: 1.5;">
-                    ${orderData.shippingAddress.firstName} ${orderData.shippingAddress.lastName}<br>
-                    ${orderData.shippingAddress.address}<br>
-                    ${orderData.shippingAddress.city}, ${orderData.shippingAddress.state}<br>
-                    ${orderData.shippingAddress.zipCode}, ${orderData.shippingAddress.country}
-                    ${orderData.shippingAddress.phone ? `<br>📱 ${orderData.shippingAddress.phone}` : ''}
+                <td style="width: 50%; vertical-align: top; padding-left: 10px;">
+                  <h3 style="margin: 0 0 10px 0; color: #ffffff; font-size: 16px;">Sold By:</h3>
+                  <div style="color: rgba(255,255,255,0.95); font-size: 14px; line-height: 1.6;">
+                    <div style="font-weight: 700; margin-bottom: 6px;">${orderData.vendorName}</div>
+                    <div>Make It Sell Vendor</div>
                   </div>
                 </td>
               </tr>
             </table>
           </div>
-        </div>
 
-        <!-- Next Steps -->
-        <div style="background: white; padding: 30px;">
-          <h3 style="margin: 0 0 20px 0; color: #333; font-size: 18px;">What happens next?</h3>
-          <div style="display: flex; flex-direction: column; gap: 15px;">
-            <div style="display: flex; align-items: flex-start;">
-              <div style="width: 30px; height: 30px; background: #28a745; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px; flex-shrink: 0;">
-                <span style="color: white; font-size: 14px; font-weight: bold;">✓</span>
-              </div>
-              <div>
-                <div style="font-weight: 600; color: #333; margin-bottom: 4px;">Order Confirmed</div>
-                <div style="font-size: 14px; color: #666;">Your payment has been processed and your order is confirmed.</div>
-              </div>
-            </div>
-            <div style="display: flex; align-items: flex-start;">
-              <div style="width: 30px; height: 30px; background: #ffc107; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px; flex-shrink: 0;">
-                <span style="color: white; font-size: 14px; font-weight: bold;">2</span>
-              </div>
-              <div>
-                <div style="font-weight: 600; color: #333; margin-bottom: 4px;">Processing</div>
-                <div style="font-size: 14px; color: #666;">The vendor is preparing your items for shipment.</div>
-              </div>
-            </div>
-            <div style="display: flex; align-items: flex-start;">
-              <div style="width: 30px; height: 30px; background: #6c757d; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px; flex-shrink: 0;">
-                <span style="color: white; font-size: 14px; font-weight: bold;">3</span>
-              </div>
-              <div>
-                <div style="font-weight: 600; color: #333; margin-bottom: 4px;">Shipped</div>
-                <div style="font-size: 14px; color: #666;">You'll receive tracking information when your order ships.</div>
-              </div>
-            </div>
-            <div style="display: flex; align-items: flex-start;">
-              <div style="width: 30px; height: 30px; background: #6c757d; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px; flex-shrink: 0;">
-                <span style="color: white; font-size: 14px; font-weight: bold;">4</span>
-              </div>
-              <div>
-                <div style="font-weight: 600; color: #333; margin-bottom: 4px;">Delivered</div>
-                <div style="font-size: 14px; color: #666;">Your order will arrive within the estimated timeframe.</div>
-              </div>
-            </div>
+          <div style="margin-top: 18px; background: rgba(255,255,255,0.08); border-radius: 10px; border: 1px solid rgba(255,255,255,0.18); padding: 16px;">
+            <h3 style="margin: 0 0 14px 0; color: #ffffff; font-size: 20px;">Order Items</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr style="background: rgba(255,255,255,0.15);">
+                  <th style="padding: 12px 10px; text-align: left; font-size: 13px; font-weight: 700; color: #ffffff;">Product</th>
+                  <th style="padding: 12px 10px; text-align: left; font-size: 13px; font-weight: 700; color: #ffffff;">Description</th>
+                  <th style="padding: 12px 10px; text-align: center; font-size: 13px; font-weight: 700; color: #ffffff;">Unit Price</th>
+                  <th style="padding: 12px 10px; text-align: right; font-size: 13px; font-weight: 700; color: #ffffff;">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsList}
+                <tr>
+                  <td colspan="4" style="padding: 0;"><div style="border-bottom: 1px solid rgba(255,255,255,0.25);"></div></td>
+                </tr>
+                <tr>
+                  <td colspan="3" style="padding: 14px 10px; text-align: right; font-size: 14px; color: rgba(255,255,255,0.88);">Subtotal:</td>
+                  <td style="padding: 14px 10px; text-align: right; font-size: 14px; font-weight: 700; color: #ffffff;">₦${subtotal.toLocaleString()}</td>
+                </tr>
+                <tr>
+                  <td colspan="3" style="padding: 10px; text-align: right; font-size: 14px; color: rgba(255,255,255,0.88);">Delivery Fee:</td>
+                  <td style="padding: 10px; text-align: right; font-size: 14px; font-weight: 700; color: #ffffff;">${deliveryFee === 0 ? 'FREE' : '₦' + deliveryFee.toLocaleString()}</td>
+                </tr>
+                <tr style="border-top: 1px solid rgba(255,255,255,0.3);">
+                  <td colspan="3" style="padding: 14px 10px; text-align: right; font-size: 17px; font-weight: 700; color: #ffffff;">Total Amount:</td>
+                  <td style="padding: 14px 10px; text-align: right; font-size: 20px; font-weight: 800; color: #ffffff;">₦${total.toLocaleString()}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-        </div>
-        
-        <!-- Footer -->
-        <div style="background: #f8f9fa; padding: 30px; text-align: center; border-top: 1px solid #eee;">
-          <h3 style="margin: 0 0 15px 0; color: #333; font-size: 16px;">Thank you for shopping with us!</h3>
-          <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">If you have any questions about your order, please don't hesitate to contact us.</p>
-          
-          <div style="margin: 20px 0;">
-            <a href="mailto:support@makeitsell.ng" 
-               style="background: #667eea; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 600; margin-right: 10px;">
+
+          <div style="margin-top: 18px; background: rgba(255,255,255,0.1); border-radius: 10px; border: 1px solid rgba(255,255,255,0.18); padding: 16px;">
+            <h3 style="margin: 0 0 12px 0; color: #ffffff; font-size: 17px;">Delivery Information</h3>
+            <p style="margin: 0 0 8px 0; color: rgba(255,255,255,0.92); font-size: 14px;">
+              Estimated delivery: <strong style="color: #ffffff;">${deliveryEstimate.min === deliveryEstimate.max 
+                ? `${deliveryEstimate.min} day${deliveryEstimate.min > 1 ? 's' : ''}` 
+                : `${deliveryEstimate.min}-${deliveryEstimate.max} days`}</strong>
+            </p>
+            <p style="margin: 0; color: rgba(255,255,255,0.92); font-size: 14px; line-height: 1.5;">
+              ${orderData.shippingAddress.firstName} ${orderData.shippingAddress.lastName}<br>
+              ${orderData.shippingAddress.address}<br>
+              ${orderData.shippingAddress.city}, ${orderData.shippingAddress.state}<br>
+              ${orderData.shippingAddress.zipCode}, ${orderData.shippingAddress.country}
+              ${orderData.shippingAddress.phone ? `<br>Phone: ${orderData.shippingAddress.phone}` : ''}
+            </p>
+          </div>
+
+          <div style="text-align: center; margin-top: 22px;">
+            <a href="mailto:support@makeitsell.ng" style="display: inline-block; background: #ffffff; color: ${accent}; text-decoration: none; padding: 11px 20px; border-radius: 8px; font-size: 14px; font-weight: 700; margin-right: 8px;">
               Contact Support
             </a>
-            <a href="${this.getAppBaseUrl()}/order?orderId=${orderData.orderId}" 
-               style="background: white; color: #667eea; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 600; border: 2px solid #667eea;">
+            <a href="${appBase}/order?orderId=${orderData.orderId}" style="display: inline-block; background: transparent; color: #ffffff; text-decoration: none; padding: 11px 20px; border-radius: 8px; font-size: 14px; font-weight: 700; border: 1px solid rgba(255,255,255,0.7);">
               Track Order
             </a>
           </div>
-          
-          <div style="color: #999; font-size: 12px; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+
+          <div style="margin-top: 18px; text-align: center; color: rgba(255,255,255,0.85); font-size: 12px; border-top: 1px solid rgba(255,255,255,0.24); padding-top: 12px;">
             <p style="margin: 0;">Make It Sell - Lagos, Nigeria</p>
-            <p style="margin: 5px 0 0 0;">This is an automated email. Please do not reply to this email.</p>
+            <p style="margin: 4px 0 0 0;">This is an automated email. Please do not reply to this email.</p>
           </div>
         </div>
       </div>
@@ -735,10 +726,12 @@ class EmailService {
     const deliveryEstimate = orderData.deliveryEstimate || this.calculateDeliveryEstimate()
     const orderDate = orderData.orderDate || new Date()
     
-    const itemsList = orderData.items.map(item => `
+    const itemsList = orderData.items.map(item => {
+      const imageUrl = this.getOrderItemImageUrl(item)
+      return `
       <tr style="border-bottom: 1px solid #eee;">
         <td style="padding: 12px; text-align: left;">
-          <img src="${item.images?.[0] || '/placeholder-product.jpg'}" alt="${item.title}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">
+          <img src="${imageUrl}" alt="${item.title}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid #ececec;">
         </td>
         <td style="padding: 12px; text-align: left;">
           <strong>${item.title}</strong><br>
@@ -747,13 +740,30 @@ class EmailService {
         </td>
         <td style="padding: 12px; text-align: right;">₦${(item.price * item.quantity).toLocaleString()}</td>
       </tr>
-    `).join('')
+    `
+    }).join('')
+
+    const vendorOrdersUrl = this.getVendorOrdersUrl()
+    const logoUrl = `${this.getAppBaseUrl()}/images/logo2.png`
+
+    const computedProductSubtotal = orderData.items.reduce((sum, item) => {
+      const qty = Number(item?.quantity || 0)
+      const unitPrice = Number(item?.price || 0)
+      return sum + (Number.isFinite(qty) ? qty : 0) * (Number.isFinite(unitPrice) ? unitPrice : 0)
+    }, 0)
+    const productSubtotal = Number.isFinite(Number(orderData.productSubtotal))
+      ? Number(orderData.productSubtotal)
+      : computedProductSubtotal
+    const deliveryFee = Number.isFinite(Number(orderData.deliveryFee))
+      ? Number(orderData.deliveryFee)
+      : Math.max(0, Number(orderData.total || 0) - productSubtotal)
 
     const vendorEmailHtml = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <div style="background: #4caf50; padding: 20px; text-align: center;">
-          <h1 style="color: white; margin: 0;">🎉 New Order Received!</h1>
-          <p style="color: rgba(255,255,255,0.9); margin: 5px 0;">You have a new order to process</p>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f7f7f8; border: 1px solid #ececf0; border-radius: 14px; overflow: hidden;">
+        <div style="background: #7f1d1d; padding: 24px 20px; text-align: center;">
+          <img src="${logoUrl}" alt="Make It Sell" style="height: 40px; width: auto; margin: 0 auto 12px auto; display: block;" />
+          <h1 style="color: white; margin: 0; font-size: 26px; line-height: 1.2;">New Order Received</h1>
+          <p style="color: rgba(255,255,255,0.92); margin: 8px 0 0 0;">You have a new order to process</p>
         </div>
         
         <div style="padding: 20px; background: white;">
@@ -784,6 +794,12 @@ class EmailService {
               </tr>
             </tbody>
           </table>
+
+          <div style="background: #f8f9fa; border: 1px solid #ececec; border-radius: 8px; padding: 12px; margin: 14px 0 18px 0;">
+            <p style="margin: 0 0 6px 0; color: #333;"><strong>Order ID:</strong> ${shortOrderId}</p>
+            <p style="margin: 0 0 6px 0; color: #333;"><strong>Product subtotal:</strong> ₦${productSubtotal.toLocaleString()}</p>
+            <p style="margin: 0; color: #333;"><strong>Delivery fee:</strong> ${deliveryFee > 0 ? `₦${deliveryFee.toLocaleString()}` : 'FREE'}</p>
+          </div>
           
           <h3 style="color: #333;">Shipping Address</h3>
           <div style="background: #f8f9fa; padding: 15px; border-radius: 8px;">
@@ -808,10 +824,11 @@ class EmailService {
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${this.getAppBaseUrl()}/vendor/orders" 
-               style="background: #4caf50; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
+            <a href="${vendorOrdersUrl}" 
+               style="background: #7f1d1d; color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600;">
               View Order in Dashboard
             </a>
+            <p style="margin: 10px 0 0 0; color: #666; font-size: 12px;">If you are logged out, this link takes you to login first, then opens your orders page.</p>
           </div>
         </div>
         

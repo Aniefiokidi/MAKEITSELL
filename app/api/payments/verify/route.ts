@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { xoroPayService } from '@/lib/xoro-pay'
 import { paystackService } from '@/lib/payment'
-import { emailService } from '@/lib/email'
-import { updateOrder, getOrderById, getUserById, getStores, creditVendorWalletsForOrder } from '@/lib/mongodb-operations'
+import { updateOrder, getOrderById } from '@/lib/mongodb-operations'
 import { Order } from '@/lib/models/Order'
 import connectToDatabase from '@/lib/mongodb'
 import mongoose from 'mongoose'
-import { normalizeNigerianPhone, sendOrderConfirmationSms } from '@/lib/sms'
 import { getCanonicalAppBaseUrl } from '@/lib/app-url'
+import { sendOrderPlacementNotifications } from '@/lib/order-notifications'
 
 type NormalizedVerification = {
   success: boolean
@@ -137,12 +136,13 @@ export async function GET(request: NextRequest) {
   try {
     console.log('=== PAYMENT VERIFICATION STARTED ===')
     const { searchParams } = new URL(request.url)
+    const appBaseUrl = getCanonicalAppBaseUrl(new URL(request.url).origin)
     const reference = searchParams.get('reference')
     console.log('Payment reference:', reference)
 
     if (!reference) {
       console.log('ERROR: Missing reference')
-      const errorUrl = new URL('/checkout', getCanonicalAppBaseUrl())
+      const errorUrl = new URL('/checkout', appBaseUrl)
       errorUrl.searchParams.set('error', 'missing_reference')
       console.log('Redirecting to:', errorUrl.toString())
       return NextResponse.redirect(errorUrl.toString())
@@ -151,7 +151,7 @@ export async function GET(request: NextRequest) {
     const verificationResult = await verifyWithAnyProvider(reference)
 
     if (!verificationResult.success) {
-      const errorUrl = new URL('/checkout', getCanonicalAppBaseUrl())
+      const errorUrl = new URL('/checkout', appBaseUrl)
       errorUrl.searchParams.set('error', 'payment_failed')
       return NextResponse.redirect(errorUrl.toString())
     }
@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
     const orderId = await resolveOrderId(reference, verificationResult)
 
     if (!orderId) {
-      const errorUrl = new URL('/checkout', getCanonicalAppBaseUrl())
+      const errorUrl = new URL('/checkout', appBaseUrl)
       errorUrl.searchParams.set('error', 'missing_order_reference')
       return NextResponse.redirect(errorUrl.toString())
     }
@@ -171,14 +171,11 @@ export async function GET(request: NextRequest) {
     // Update order status
     await updateOrder(orderId, {
       status: 'confirmed',
-      paymentStatus: 'completed',
+      paymentStatus: 'escrow',
       paymentReference: reference,
       paymentData: paymentData,
       paidAt: new Date()
     })
-
-    // Credit vendor and linked store wallets (idempotent)
-    await creditVendorWalletsForOrder(orderId, { paymentReference: reference })
 
     // Update product stock and sales (supports both top-level items and vendor items)
     if (order && (order.items || order.vendors)) {
@@ -254,73 +251,22 @@ export async function GET(request: NextRequest) {
       }
     }
     if (order) {
-      // Get customer details
-      const customer = await getUserById(order.customerId)
-      
-      // Get vendor details from store
-      let vendorEmail = 'vendor@example.com'
-      let vendorName = 'Vendor'
-      let vendorPhone = ''
-      
-      if (order.vendors && order.vendors.length > 0) {
-        const vendorId = order.vendors[0].vendorId
-        try {
-          const stores = await getStores({ vendorId })
-          if (stores && stores.length > 0) {
-            vendorEmail = stores[0].email || vendorEmail
-            vendorName = stores[0].storeName || vendorName
-             vendorPhone = String(stores[0].storePhone || stores[0].phone || '')
-          }
-        } catch (error) {
-          console.log('Could not fetch vendor store details:', error)
-        }
-      }
-      
-      console.log('Sending order confirmation emails...')
-      
-      // Send confirmation emails
-      await emailService.sendOrderConfirmationEmails({
-        customerEmail: order.shippingInfo.email,
-        vendorEmail,
-        orderId,
-        customerName: `${order.shippingInfo.firstName} ${order.shippingInfo.lastName}`,
-        vendorName,
-        items: order.items,
-        total: order.totalAmount,
-        shippingAddress: order.shippingInfo
-      })
-
-      const customerPhone = normalizeNigerianPhone(order.shippingInfo?.phone || '')
-      if (customerPhone) {
-        await sendOrderConfirmationSms({
-          phoneNumber: customerPhone,
-          orderId,
-          amount: Number(order.totalAmount || 0),
-        })
-      }
-
-       const normalizedVendorPhone = normalizeNigerianPhone(vendorPhone)
-       if (normalizedVendorPhone) {
-         await sendOrderConfirmationSms({
-           phoneNumber: normalizedVendorPhone,
-           orderId,
-           amount: Number(order.totalAmount || 0),
-         })
-       }
+      await sendOrderPlacementNotifications(orderId, order)
     }
 
     // Redirect to order confirmation page with absolute URL
-    const redirectUrl = new URL('/order-confirmation', getCanonicalAppBaseUrl())
+    const redirectUrl = new URL('/order-confirmation', appBaseUrl)
     redirectUrl.searchParams.set('orderId', orderId)
     console.log('=== PAYMENT VERIFICATION SUCCESS ===')
     console.log('Order ID:', orderId)
     console.log('Redirect URL:', redirectUrl.toString())
-    console.log('Canonical app base URL:', getCanonicalAppBaseUrl())
+    console.log('Canonical app base URL:', appBaseUrl)
     return NextResponse.redirect(redirectUrl.toString())
 
   } catch (error) {
     console.error('Payment verification error:', error)
-    const errorUrl = new URL('/checkout', getCanonicalAppBaseUrl())
+    const appBaseUrl = getCanonicalAppBaseUrl(new URL(request.url).origin)
+    const errorUrl = new URL('/checkout', appBaseUrl)
     errorUrl.searchParams.set('error', 'verification_failed')
     return NextResponse.redirect(errorUrl.toString())
   }
@@ -356,14 +302,11 @@ export async function POST(request: NextRequest) {
       // Update order status
       await updateOrder(orderId, {
         status: 'confirmed',
-        paymentStatus: 'completed',
+        paymentStatus: 'escrow',
         paymentReference: reference,
         paymentData: paymentData,
         paidAt: new Date()
       })
-
-      // Credit vendor and linked store wallets (idempotent)
-      await creditVendorWalletsForOrder(orderId, { paymentReference: reference })
 
       // Update product stock and sales (supports both top-level items and vendor items)
       if (order && (order.items || order.vendors)) {
@@ -435,56 +378,7 @@ export async function POST(request: NextRequest) {
         }
       }
       if (order) {
-        // Get vendor details from store
-        let vendorEmail = 'vendor@example.com'
-        let vendorName = 'Vendor'
-        let vendorPhone = ''
-        
-        if (order.vendors && order.vendors.length > 0) {
-          const vendorId = order.vendors[0].vendorId
-          try {
-            const stores = await getStores({ vendorId })
-            if (stores && stores.length > 0) {
-              vendorEmail = stores[0].email || vendorEmail
-              vendorName = stores[0].storeName || vendorName
-               vendorPhone = String(stores[0].storePhone || stores[0].phone || '')
-            }
-          } catch (error) {
-            console.log('Could not fetch vendor store details:', error)
-          }
-        }
-        
-        console.log('Sending order confirmation emails...')
-        
-        // Send confirmation emails
-        await emailService.sendOrderConfirmationEmails({
-          customerEmail: order.shippingInfo.email,
-          vendorEmail,
-          orderId,
-          customerName: `${order.shippingInfo.firstName} ${order.shippingInfo.lastName}`,
-          vendorName,
-          items: order.items,
-          total: order.totalAmount,
-          shippingAddress: order.shippingInfo
-        })
-
-        const customerPhone = normalizeNigerianPhone(order.shippingInfo?.phone || '')
-        if (customerPhone) {
-          await sendOrderConfirmationSms({
-            phoneNumber: customerPhone,
-            orderId,
-            amount: Number(order.totalAmount || 0),
-          })
-        }
-
-         const normalizedVendorPhone = normalizeNigerianPhone(vendorPhone)
-         if (normalizedVendorPhone) {
-           await sendOrderConfirmationSms({
-             phoneNumber: normalizedVendorPhone,
-             orderId,
-             amount: Number(order.totalAmount || 0),
-           })
-         }
+        await sendOrderPlacementNotifications(orderId, order)
       }
 
       return NextResponse.json({

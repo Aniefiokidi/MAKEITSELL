@@ -57,7 +57,7 @@ export const creditVendorWalletsForOrder = async (
     return { success: false, reason: 'order_not_found', creditedVendors: 0, creditedStores: 0, totalCredited: 0 };
   }
 
-  if (order.paymentStatus !== 'completed') {
+  if (!['completed', 'released'].includes(String(order.paymentStatus || '').toLowerCase())) {
     return { success: false, reason: 'order_not_paid', creditedVendors: 0, creditedStores: 0, totalCredited: 0 };
   }
 
@@ -190,6 +190,70 @@ export const creditVendorWalletsForOrder = async (
     totalCredited,
     skippedVendors,
   };
+};
+
+export const releaseEscrowForOrder = async (
+  orderId: string,
+  options?: { paymentReference?: string; provider?: string; source?: string }
+) => {
+  await connectToDatabase();
+
+  const order: any = await OrderModel.findOne({ orderId }).lean();
+  if (!order) {
+    return { success: false, reason: 'order_not_found' };
+  }
+
+  const paymentStatus = String(order.paymentStatus || '').toLowerCase();
+  if (paymentStatus === 'released' || paymentStatus === 'completed') {
+    return { success: true, reason: 'already_released' };
+  }
+
+  if (paymentStatus !== 'escrow') {
+    return { success: false, reason: 'order_not_in_escrow' };
+  }
+
+  if (order.disputeRaisedAt || String(order.disputeStatus || '').toLowerCase() === 'active') {
+    return { success: false, reason: 'order_disputed' };
+  }
+
+  const releaseUpdate = await OrderModel.updateOne(
+    {
+      orderId,
+      paymentStatus: 'escrow',
+      $and: [
+        {
+          $or: [
+            { disputeRaisedAt: { $exists: false } },
+            { disputeRaisedAt: null },
+          ],
+        },
+        {
+          $or: [
+            { disputeStatus: { $exists: false } },
+            { disputeStatus: null },
+            { disputeStatus: { $ne: 'active' } },
+          ],
+        },
+      ],
+    },
+    {
+      $set: {
+        paymentStatus: 'released',
+        releasedAt: new Date(),
+        updatedAt: new Date(),
+      },
+    }
+  );
+
+  if (releaseUpdate.modifiedCount === 0) {
+    return { success: false, reason: 'release_condition_not_met' };
+  }
+
+  return await creditVendorWalletsForOrder(orderId, {
+    paymentReference: options?.paymentReference || order.paymentReference,
+    provider: options?.provider || order.paymentMethod,
+    source: options?.source || 'escrow_release',
+  });
 };
 
 export const getAllUsers = async () => {

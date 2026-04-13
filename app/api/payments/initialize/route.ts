@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { xoroPayService } from '@/lib/xoro-pay'
 import { paystackService } from '@/lib/payment'
-import { createOrder, updateOrder, creditVendorWalletsForOrder } from '@/lib/mongodb-operations'
+import { createOrder, getOrderById, updateOrder } from '@/lib/mongodb-operations'
 import { v4 as uuidv4 } from 'uuid'
 import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
@@ -11,6 +11,7 @@ import crypto from 'crypto'
 import { calculatePaystackCheckoutAmounts } from '@/lib/paystack-charges'
 import { estimateShippingFee } from '@/lib/aco-logistics-rates'
 import { getCanonicalAppBaseUrl } from '@/lib/app-url'
+import { sendOrderPlacementNotifications } from '@/lib/order-notifications'
 
 const OBJECT_ID_REGEX = /^[a-fA-F0-9]{24}$/
 
@@ -143,6 +144,7 @@ export async function POST(request: NextRequest) {
 
       vendor.storeId = vendor.storeId || store?._id?.toString?.() || ''
       vendor.storeAddress = pickupAddress || ''
+      vendor.storeState = String(store?.state || '')
       vendor.shippingFee = shippingFee
       vendor.shippingFeeLabel = shippingFee == null ? 'TBD' : `NGN ${Number(shippingFee).toLocaleString('en-NG')}`
 
@@ -154,6 +156,17 @@ export async function POST(request: NextRequest) {
     }
 
     const computedTotalAmount = subtotal + vat + shipping
+
+    const normalizedDropoffState = String(shippingInfo?.state || '').trim().toLowerCase()
+    const vendorStates = vendorEntries
+      .map((entry: any) => String(entry?.storeState || entry?.state || '').trim().toLowerCase())
+      .filter(Boolean)
+    const deliveryType: 'local' | 'interstate' = (
+      normalizedDropoffState
+      && vendorStates.length > 0
+      && vendorStates.every((state) => state === normalizedDropoffState)
+    ) ? 'local' : 'interstate'
+    const escrowReleaseAt = new Date(Date.now() + (deliveryType === 'local' ? 14 : 72) * 60 * 60 * 1000)
 
     // Create order record in database
     // Collect all unique storeIds from vendorOrders
@@ -179,6 +192,8 @@ export async function POST(request: NextRequest) {
       totalAmount: computedTotalAmount,
       status: 'pending_payment',
       paymentStatus: 'pending',
+      deliveryType,
+      escrowReleaseAt,
       vendors: Array.from(vendorOrders.values()),
       storeIds,
       createdAt: new Date()
@@ -397,7 +412,7 @@ export async function POST(request: NextRequest) {
 
       await updateOrder(orderId, {
         status: 'confirmed',
-        paymentStatus: 'completed',
+        paymentStatus: 'escrow',
         paymentReference: walletPaymentReference,
         paymentData: {
           provider: 'wallet',
@@ -408,11 +423,10 @@ export async function POST(request: NextRequest) {
 
       console.log('[WALLET] Order updated to confirmed')
 
-      const vendorCreditResult = await creditVendorWalletsForOrder(orderId, {
-        paymentReference: walletPaymentReference,
-      })
-
-      console.log('[WALLET] Vendor credit summary:', vendorCreditResult)
+      const paidOrder = await getOrderById(orderId)
+      if (paidOrder) {
+        await sendOrderPlacementNotifications(orderId, paidOrder)
+      }
 
       return NextResponse.json({
         success: true,
