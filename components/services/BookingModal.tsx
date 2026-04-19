@@ -64,6 +64,17 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
   const [showWalletTopupPrompt, setShowWalletTopupPrompt] = useState(false)
   const [quickTopupAmount, setQuickTopupAmount] = useState("")
   const [quickTopupLoading, setQuickTopupLoading] = useState(false)
+  const [eventName, setEventName] = useState("")
+  const [eventDate, setEventDate] = useState("")
+  const [eventGuestCount, setEventGuestCount] = useState("")
+  const [eventVenue, setEventVenue] = useState("")
+  const [pickupAddress, setPickupAddress] = useState("")
+  const [dropoffAddress, setDropoffAddress] = useState("")
+  const [packageDescription, setPackageDescription] = useState("")
+  const [receiverName, setReceiverName] = useState("")
+  const [receiverPhone, setReceiverPhone] = useState("")
+  const [preferredPlatform, setPreferredPlatform] = useState("")
+  const [deliverableFormat, setDeliverableFormat] = useState("")
 
   const walletBalance = Number(userProfile?.walletBalance || 0)
   const walletShortfall = Math.max(0, Math.round((BOOKING_FEE_NAIRA - walletBalance) * 100) / 100)
@@ -96,6 +107,10 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
   const hasHourlyPricing = (selectedPackage?.pricingType || service.pricingType) === "hourly"
   const hasSessionPricing = (selectedPackage?.pricingType || service.pricingType) === "per-session"
   const isHospitalityService = service.category === "hospitality" || Array.isArray((service as any)?.hospitalityDetails?.roomTypes)
+  const normalizedCategory = String(service.category || "").toLowerCase()
+  const isEventService = normalizedCategory === "event-planning"
+  const isLogisticsService = normalizedCategory === "logistics"
+  const isCreativeService = ["photography", "design", "beauty"].includes(normalizedCategory)
   const parsedRoomsCount = Number.parseInt(roomsCount || "1", 10)
   const parsedAdultsCount = Number.parseInt(adultsCount || "0", 10)
   const parsedChildrenCount = Number.parseInt(childrenCount || "0", 10)
@@ -316,6 +331,40 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
       return
     }
 
+    if (isEventService) {
+      const parsedGuestCount = Number(eventGuestCount)
+      if (!eventName.trim() || !eventDate || !eventVenue.trim() || !Number.isFinite(parsedGuestCount) || parsedGuestCount < 1) {
+        toast({
+          title: "Event details required",
+          description: "Add event name, date, venue, and guest count.",
+          variant: "destructive",
+        })
+        return
+      }
+    }
+
+    if (isLogisticsService) {
+      if (!pickupAddress.trim() || !dropoffAddress.trim() || !packageDescription.trim() || !receiverName.trim() || !receiverPhone.trim()) {
+        toast({
+          title: "Delivery details required",
+          description: "Add pickup/drop-off addresses, package details, and receiver contact.",
+          variant: "destructive",
+        })
+        return
+      }
+    }
+
+    if (isCreativeService && isOnlineService) {
+      if (!preferredPlatform.trim() || !deliverableFormat.trim()) {
+        toast({
+          title: "Project details required",
+          description: "Specify preferred platform and deliverable format.",
+          variant: "destructive",
+        })
+        return
+      }
+    }
+
     try {
       setLoading(true)
 
@@ -379,6 +428,31 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
               pricePerNight: basePackagePrice,
             }
           : undefined,
+        requirementDetails: {
+          event: isEventService
+            ? {
+                name: eventName.trim(),
+                date: eventDate,
+                guestCount: Number(eventGuestCount) || 0,
+                venue: eventVenue.trim(),
+              }
+            : undefined,
+          logistics: isLogisticsService
+            ? {
+                pickupAddress: pickupAddress.trim(),
+                dropoffAddress: dropoffAddress.trim(),
+                packageDescription: packageDescription.trim(),
+                receiverName: receiverName.trim(),
+                receiverPhone: receiverPhone.trim(),
+              }
+            : undefined,
+          creative: isCreativeService
+            ? {
+                preferredPlatform: preferredPlatform.trim(),
+                deliverableFormat: deliverableFormat.trim(),
+              }
+            : undefined,
+        },
       }
 
       await createBooking(bookingData)
@@ -454,6 +528,21 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
     }
     // selectedPackage id affects room type inventory.
   }, [isHospitalityService, checkInDate, checkOutDate, selectedPackage?.id])
+
+  useEffect(() => {
+    if (!isOpen) return
+    setEventName("")
+    setEventDate("")
+    setEventGuestCount("")
+    setEventVenue("")
+    setPickupAddress("")
+    setDropoffAddress("")
+    setPackageDescription("")
+    setReceiverName("")
+    setReceiverPhone("")
+    setPreferredPlatform("")
+    setDeliverableFormat("")
+  }, [isOpen])
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -654,6 +743,74 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
             </div>
           )}
 
+          {isEventService && (
+            <div className="space-y-3 rounded-lg border p-4 bg-muted/30">
+              <h4 className="font-semibold">Event Requirements</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="eventName">Event Name</Label>
+                  <Input id="eventName" value={eventName} onChange={(e) => setEventName(e.target.value)} placeholder="Wedding Reception" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="eventDate">Event Date</Label>
+                  <Input id="eventDate" type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="eventGuestCount">Estimated Guests</Label>
+                  <Input id="eventGuestCount" type="number" min="1" value={eventGuestCount} onChange={(e) => setEventGuestCount(e.target.value)} placeholder="150" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="eventVenue">Venue / Area</Label>
+                  <Input id="eventVenue" value={eventVenue} onChange={(e) => setEventVenue(e.target.value)} placeholder="Lekki, Lagos" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isLogisticsService && (
+            <div className="space-y-3 rounded-lg border p-4 bg-muted/30">
+              <h4 className="font-semibold">Delivery Requirements</h4>
+              <div className="space-y-2">
+                <Label htmlFor="pickupAddress">Pickup Address</Label>
+                <Input id="pickupAddress" value={pickupAddress} onChange={(e) => setPickupAddress(e.target.value)} placeholder="23 Broad Street, Lagos" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dropoffAddress">Drop-off Address</Label>
+                <Input id="dropoffAddress" value={dropoffAddress} onChange={(e) => setDropoffAddress(e.target.value)} placeholder="12 Admiralty Way, Lekki" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="receiverName">Receiver Name</Label>
+                  <Input id="receiverName" value={receiverName} onChange={(e) => setReceiverName(e.target.value)} placeholder="John Doe" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="receiverPhone">Receiver Phone</Label>
+                  <Input id="receiverPhone" value={receiverPhone} onChange={(e) => setReceiverPhone(e.target.value)} placeholder="08012345678" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="packageDescription">Package Description</Label>
+                <Textarea id="packageDescription" value={packageDescription} onChange={(e) => setPackageDescription(e.target.value)} rows={2} placeholder="2 medium boxes, fragile" />
+              </div>
+            </div>
+          )}
+
+          {isCreativeService && isOnlineService && (
+            <div className="space-y-3 rounded-lg border p-4 bg-muted/30">
+              <h4 className="font-semibold">Creative Brief</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="preferredPlatform">Preferred Platform</Label>
+                  <Input id="preferredPlatform" value={preferredPlatform} onChange={(e) => setPreferredPlatform(e.target.value)} placeholder="Google Meet / Zoom" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="deliverableFormat">Deliverable Format</Label>
+                  <Input id="deliverableFormat" value={deliverableFormat} onChange={(e) => setDeliverableFormat(e.target.value)} placeholder="PNG, PDF, RAW, MP4" />
+                </div>
+              </div>
+            </div>
+          )}
+
           {distanceRatePerMile > 0 && isRentalLikeService && (
             <div className="space-y-2">
               <Label htmlFor="tripDistanceMiles">Estimated Trip Distance (miles)</Label>
@@ -750,6 +907,9 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
                 loading
                 || !phone
                 || ((isHomeService || isStoreService) && !customerLocation.trim())
+                || (isEventService && (!eventName.trim() || !eventDate || !eventVenue.trim() || Number(eventGuestCount) < 1))
+                || (isLogisticsService && (!pickupAddress.trim() || !dropoffAddress.trim() || !packageDescription.trim() || !receiverName.trim() || !receiverPhone.trim()))
+                || (isCreativeService && isOnlineService && (!preferredPlatform.trim() || !deliverableFormat.trim()))
                 || (!isHospitalityService && (!selectedDate || !selectedTime))
                 || (isHospitalityService && (!checkInDate || !checkOutDate))
                 || (isHospitalityService && Boolean(stayAvailability?.isBookedOut))

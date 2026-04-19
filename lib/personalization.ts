@@ -51,6 +51,11 @@ type ProductLike = {
   storeName?: string
   vendorName?: string
   sales?: number
+  rating?: number
+  reviewCount?: number
+  featured?: boolean
+  stock?: number
+  status?: string
 }
 
 type StoreLike = {
@@ -90,6 +95,10 @@ type ServiceLike = {
   images?: string[]
   productCount?: number
   price?: number
+  rating?: number
+  reviewCount?: number
+  featured?: boolean
+  status?: string
 }
 
 const USER_ACTIVITY_KEY = "mis:user-activity:v1"
@@ -476,6 +485,26 @@ const searchTokensFromActivity = (activity: UserActivity) => {
   return Array.from(new Set(tokens)).slice(0, 40)
 }
 
+const locationWeightsFromActivity = (activity: UserActivity) => {
+  const weights = new Map<string, number>()
+
+  ;(activity.serviceViews || []).slice(0, 30).forEach((item, index) => {
+    const location = normalizeText(item.location)
+    if (!location) return
+    const recencyWeight = Math.max(2, 14 - index)
+    weights.set(location, (weights.get(location) || 0) + recencyWeight)
+  })
+
+  activity.storeViews.slice(0, 30).forEach((item, index) => {
+    const location = normalizeText(item.location)
+    if (!location) return
+    const recencyWeight = Math.max(2, 12 - index)
+    weights.set(location, (weights.get(location) || 0) + recencyWeight)
+  })
+
+  return weights
+}
+
 const recentProductIds = (activity: UserActivity) => new Set(activity.productQuickViews.slice(0, 20).map((x) => x.id))
 
 const recentStoreIds = (activity: UserActivity) => new Set(activity.storeViews.slice(0, 20).map((x) => x.id))
@@ -590,6 +619,11 @@ export const personalizeProducts = <T extends ProductLike>(products: T[]): T[] =
     })
 
     score += Math.min(Number(product.sales || 0), 200) * 0.04
+    score += Math.max(0, Math.min(Number(product.rating || 0), 5)) * 1.5
+    score += Math.min(Number(product.reviewCount || 0), 150) * 0.05
+    if (product.featured) score += 3
+    if (Number(product.stock || 0) > 0) score += 2
+    if (normalizeText(product.status) === "active") score += 1
 
     return { product, score, index }
   })
@@ -660,6 +694,7 @@ export const personalizeServices = <T extends ServiceLike>(services: T[]): T[] =
   const providerWeights = storeNameWeightsFromActivity(activity)
   const searchTokens = searchTokensFromActivity(activity)
   const viewedServiceIds = recentServiceIds(activity)
+  const locationWeights = locationWeightsFromActivity(activity)
 
   const scored = services.map((service, index) => {
     const id = toId(service.id || service._id)
@@ -680,6 +715,7 @@ export const personalizeServices = <T extends ServiceLike>(services: T[]): T[] =
 
     score += (categoryWeights.get(category) || 0) * 1.6
     score += (providerWeights.get(providerName) || 0) * 1.4
+    score += (locationWeights.get(location) || 0) * 1.3
 
     if (id && viewedServiceIds.has(id)) {
       score += 40
@@ -692,6 +728,11 @@ export const personalizeServices = <T extends ServiceLike>(services: T[]): T[] =
     if (Number.isFinite(basePrice) && basePrice > 0) {
       score += Math.max(0, 20 - Math.min(basePrice / 5000, 20))
     }
+
+    score += Math.max(0, Math.min(Number(service.rating || 0), 5)) * 2
+    score += Math.min(Number(service.reviewCount || 0), 200) * 0.06
+    if (service.featured) score += 4
+    if (normalizeText(service.status) === "active") score += 2
 
     return { service, score, completenessTier: serviceCompletenessTier(service), index }
   })

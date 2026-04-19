@@ -51,7 +51,7 @@ export default function SignupForm() {
     email: string
     customerPhone: string
     customerCountryCode: string
-    verificationMethod: "email" | "sms"
+    verificationMethod: "email"
     password: string
     confirmPassword: string
     displayName: string
@@ -69,7 +69,7 @@ export default function SignupForm() {
     email: "",
     customerPhone: "",
     customerCountryCode: "+234",
-    verificationMethod: "sms",
+    verificationMethod: "email",
     password: "",
     confirmPassword: "",
     displayName: "",
@@ -132,21 +132,9 @@ export default function SignupForm() {
       return
     }
 
-    if ((formData.role === "customer" || formData.role === "admin") && !formData.customerPhone.trim()) {
-      setError("Phone number is required")
-      setLoading(false)
-      return
-    }
-
     const customerPhoneWithCode = formatPhoneWithCountryCode(formData.customerCountryCode, formData.customerPhone)
     const storePhoneWithCode = formatPhoneWithCountryCode(formData.storeCountryCode, formData.storePhone)
     const verificationPhone = (customerPhoneWithCode || storePhoneWithCode || "").trim()
-    if (formData.verificationMethod === "sms" && !verificationPhone) {
-      setError("Phone number is required for SMS verification")
-      setLoading(false)
-      return
-    }
-
     // Additional validation for vendors
     if (formData.role === "vendor") {
       if (!formData.vendorType) {
@@ -254,7 +242,7 @@ export default function SignupForm() {
         }
 
         console.log("Step 3: Redirecting to OTP verification...")
-        router.push(`/verify-email?email=${encodeURIComponent(formData.email)}&channel=${formData.verificationMethod}&phone=${encodeURIComponent(verificationPhone)}`)
+        router.push(`/verify-email?email=${encodeURIComponent(formData.email)}&channel=email`)
         return
       }
 
@@ -273,7 +261,7 @@ export default function SignupForm() {
         console.log("Step 1: Customer/admin account created successfully")
         
         console.log("Step 2: Redirecting to OTP verification...")
-        router.push(`/verify-email?email=${encodeURIComponent(formData.email)}&channel=${formData.verificationMethod}&phone=${encodeURIComponent(verificationPhone)}`)
+        router.push(`/verify-email?email=${encodeURIComponent(formData.email)}&channel=email`)
         return
       }
 
@@ -283,13 +271,8 @@ export default function SignupForm() {
     } catch (error: any) {
       console.error("=== SIGNUP FORM ERROR ===", error)
       const errorMessage = String(error?.message || "")
-      if (errorMessage.includes('VERIFICATION_EMAIL_SEND_FAILED') || errorMessage.includes('VERIFICATION_SMS_SEND_FAILED')) {
-        const verificationPhone = (
-          formatPhoneWithCountryCode(formData.customerCountryCode, formData.customerPhone) ||
-          formatPhoneWithCountryCode(formData.storeCountryCode, formData.storePhone) ||
-          ""
-        ).trim()
-        router.push(`/verify-email?email=${encodeURIComponent(formData.email)}&delivery=failed&channel=${formData.verificationMethod}&phone=${encodeURIComponent(verificationPhone)}`)
+      if (errorMessage.includes('VERIFICATION_EMAIL_SEND_FAILED')) {
+        router.push(`/verify-email?email=${encodeURIComponent(formData.email)}&delivery=failed&channel=email`)
         return
       }
 
@@ -348,7 +331,7 @@ export default function SignupForm() {
 
           {(formData.role === "customer" || formData.role === "admin") && (
             <div className="space-y-2">
-              <Label htmlFor="customerPhone">Phone Number</Label>
+              <Label htmlFor="customerPhone">Phone Number (optional)</Label>
               <div className="grid grid-cols-[160px_1fr] gap-2">
                 <Select
                   value={formData.customerCountryCode}
@@ -369,7 +352,6 @@ export default function SignupForm() {
                   placeholder="Phone number"
                   value={formData.customerPhone}
                   onChange={(e) => handleInputChange("customerPhone", e.target.value)}
-                  required={formData.role === "customer" || formData.role === "admin"}
                   disabled={loading}
                 />
               </div>

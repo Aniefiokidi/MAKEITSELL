@@ -40,7 +40,7 @@ export const signUp = async (
   role: "customer" | "vendor" | "admin" = "customer",
   vendorType?: "goods" | "services" | "both",
   phone?: string,
-  verificationChannel: "email" | "sms" = "sms"
+  verificationChannel: "email" = "email"
 ) => {
   try {
     const response = await fetch('/api/auth/signup', {

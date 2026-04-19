@@ -2,6 +2,19 @@ import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserBySessionToken } from '@/lib/auth'
 
+function normalizeBooleanFlag(value: unknown): boolean {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number') return value === 1
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    if (normalized === 'true' || normalized === '1' || normalized === 'yes') return true
+    if (normalized === 'false' || normalized === '0' || normalized === 'no' || normalized === '') return false
+  }
+
+  return false
+}
+
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies();
@@ -33,7 +46,9 @@ export async function GET(request: NextRequest) {
       (user as any).vendorInfo?.phone ||
       ''
 
-    const resolvedPhoneVerified = Boolean((user as any).phone_verified || (user as any).phoneVerified)
+    const resolvedPhoneVerified = normalizeBooleanFlag(
+      (user as any).phone_verified ?? (user as any).phoneVerified
+    )
 
     return NextResponse.json({
       user,

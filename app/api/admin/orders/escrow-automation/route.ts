@@ -5,7 +5,6 @@ import { Order } from '@/lib/models/Order'
 import { releaseEscrowForOrder, updateOrder } from '@/lib/mongodb-operations'
 import { requireCronOrAdminAccess } from '@/lib/server-route-auth'
 import { emailService } from '@/lib/email'
-import { normalizeNigerianPhone, sendCustomSms } from '@/lib/sms'
 import { getCanonicalAppBaseUrl } from '@/lib/app-url'
 
 const FIVE_HOURS_MS = 5 * 60 * 60 * 1000
@@ -62,7 +61,6 @@ const trySendReceiptReminder = async (order: any) => {
   const orderId = String(order?.orderId || '')
   const customerId = String(order?.customerId || '')
   const customerEmail = String(order?.shippingInfo?.email || '').trim()
-  const customerPhone = normalizeNigerianPhone(String(order?.shippingInfo?.phone || '').trim())
   const releaseAt = order?.escrowReleaseAt ? new Date(order.escrowReleaseAt) : null
   const releaseAtText = releaseAt ? releaseAt.toLocaleString('en-NG') : 'scheduled release window'
   const releaseWindow = getReleaseWindowLabel(String(order?.deliveryType || ''))
@@ -74,7 +72,6 @@ const trySendReceiptReminder = async (order: any) => {
   const receiptLink = buildReceiptLink({ orderId, customerId, paymentReference })
 
   let emailSent = false
-  let smsSent = false
 
   if (customerEmail) {
     emailSent = await emailService.sendEmail({
@@ -94,13 +91,7 @@ const trySendReceiptReminder = async (order: any) => {
     })
   }
 
-  if (customerPhone) {
-    const sms = `MakeItSell: Have you received order #${orderId.slice(0, 8).toUpperCase()}? Confirm now: ${receiptLink}. Auto-release in ${releaseWindow} if no dispute.`
-    const smsResult = await sendCustomSms({ phoneNumber: customerPhone, message: sms })
-    smsSent = smsResult.ok
-  }
-
-  return emailSent || smsSent
+  return emailSent
 }
 
 const processEscrowOrders = async () => {

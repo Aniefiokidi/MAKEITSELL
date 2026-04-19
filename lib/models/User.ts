@@ -15,6 +15,8 @@ const UserSchema = new Schema({
   phone_verified: { type: Boolean, default: false },
   otp_code: { type: String },
   otp_expiry: { type: Date },
+  otp_voice_pin_id: { type: String },
+  otp_voice_pin_expiry: { type: Date },
   otp_last_sent_at: { type: Date },
   otp_attempts: { type: Number, default: 0 },
   otp_attempts_reset_at: { type: Date },

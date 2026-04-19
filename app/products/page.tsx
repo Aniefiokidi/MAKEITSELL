@@ -352,7 +352,7 @@ export default function AllProductsPage() {
     }
 
     return (
-      <Card className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100 group">
+      <Card className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100 group card-lift">
         {/* Image Container with Group Hover */}
         <div className="absolute inset-0 overflow-hidden">
           {/* Full Card Image Background with Cycling Animation */}
@@ -477,6 +477,40 @@ export default function AllProductsPage() {
 
         .page-slide-transition {
           animation: slideOutRight 0.6s ease-in-out forwards;
+        }
+        @keyframes stagger-up {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .stagger-grid > * {
+          animation: stagger-up 0.45s ease both;
+        }
+        .stagger-grid > *:nth-child(1) { animation-delay: 0.02s; }
+        .stagger-grid > *:nth-child(2) { animation-delay: 0.05s; }
+        .stagger-grid > *:nth-child(3) { animation-delay: 0.08s; }
+        .stagger-grid > *:nth-child(4) { animation-delay: 0.11s; }
+        .stagger-grid > *:nth-child(5) { animation-delay: 0.14s; }
+        .card-lift {
+          transform: translateY(0);
+          will-change: transform, box-shadow;
+        }
+        .card-lift:hover {
+          transform: translateY(-3px);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .stagger-grid > * {
+            animation: none !important;
+          }
+          .card-lift,
+          .card-lift:hover {
+            transform: none !important;
+          }
         }
       `}</style>
 
@@ -643,9 +677,9 @@ export default function AllProductsPage() {
 
         {/* Products Grid */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 stagger-grid">
             {[...Array(8)].map((_, i) => (
-              <Card key={i} className="border-0 shadow-lg overflow-hidden">
+              <Card key={i} className="border border-neutral-200 shadow-sm overflow-hidden rounded-2xl">
                 <Skeleton className="w-full h-[200px] sm:h-[250px]" />
                 <CardContent className="p-4">
                   <Skeleton className="h-6 w-3/4 mb-2" />
@@ -656,23 +690,23 @@ export default function AllProductsPage() {
             ))}
           </div>
         ) : products.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-6 stagger-grid">
             {products.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
         ) : (
-          <div className="text-center py-24" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif' }}>
+          <div className="text-center py-16 sm:py-24">
             <div className="inline-flex p-8 bg-linear-to-br from-accent/20 to-orange-500/20 rounded-full mb-8 border-4 border-accent/20 shadow-2xl shadow-accent/20 animate-pulse">
               <Package className="h-16 w-16 text-accent" />
             </div>
-            <h2 className="text-4xl md:text-5xl font-black text-accent mb-4">NO PRODUCTS FOUND</h2>
-            <p className="text-lg text-gray-600 mb-8 max-w-md mx-auto leading-relaxed">
+            <h2 className="text-2xl sm:text-4xl md:text-5xl font-extrabold text-accent mb-3 sm:mb-4">No products found</h2>
+            <p className="text-sm sm:text-lg text-muted-foreground mb-6 sm:mb-8 max-w-md mx-auto leading-relaxed px-4 sm:px-0">
               We couldn't find any products matching your search criteria. Try adjusting your filters or search terms.
             </p>
-            <Button onClick={handleRefresh} size="lg" className="bg-linear-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-black text-xl px-8 py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all uppercase tracking-wider">
+            <Button onClick={handleRefresh} size="lg" className="bg-linear-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-semibold text-sm sm:text-base px-6 sm:px-8 py-5 sm:py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all">
               <RefreshCw className="h-5 w-5 mr-2" />
-              REFRESH
+              Refresh products
             </Button>
           </div>
         )}

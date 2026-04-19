@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/
 // import { getServiceById, Service, createConversation, getConversations } from "@/lib/database"
 import type { Service } from "@/lib/database-client"
 import { useAuth } from "@/contexts/AuthContext"
-import { ArrowLeft, MapPin, Clock, DollarSign, Calendar, MessageCircle, CheckCircle, X, ChevronLeft, ChevronRight, Star } from "lucide-react"
+import { ArrowLeft, MapPin, Clock, DollarSign, Calendar, MessageCircle, CheckCircle, X, ChevronLeft, ChevronRight, Star, Hotel, Building2, Truck, Music2, Camera, Briefcase } from "lucide-react"
 import BookingModal from "@/components/services/BookingModal"
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 import { buildPublicServicePath, extractEntityIdFromParam } from "@/lib/public-links"
@@ -175,6 +175,19 @@ export default function ServiceDetailPage() {
     ? (service as any).hospitalityDetails.roomTypes.filter((room: any) => room?.active !== false)
     : []
   const isHospitalityService = service?.category === "hospitality" || hospitalityRoomTypes.length > 0
+  const normalizedCategory = String(service?.category || "").toLowerCase()
+  const hospitalityPropertyType = String((service as any)?.hospitalityDetails?.propertyType || service?.subcategory || "").toLowerCase()
+  const isApartmentStay = isHospitalityService && /apartment|short-let/.test(hospitalityPropertyType)
+  const hospitalityLabel = isApartmentStay ? "Apartment" : "Hotel"
+  const serviceFamily: "hospitality" | "event" | "logistics" | "creative" | "general" = isHospitalityService
+    ? "hospitality"
+    : normalizedCategory === "event-planning"
+      ? "event"
+      : normalizedCategory === "logistics"
+        ? "logistics"
+        : ["photography", "design", "beauty"].includes(normalizedCategory)
+          ? "creative"
+          : "general"
   const selectedPackage = activePackages.find((pkg: any) => pkg.id === selectedPackageId)
     || activePackages.find((pkg: any) => pkg.isDefault)
     || activePackages[0]
@@ -184,6 +197,179 @@ export default function ServiceDetailPage() {
 
   const activeAddOns = (service?.addOnOptions || []).filter((addOn: any) => addOn?.active !== false)
   const selectedAddOns = activeAddOns.filter((addOn: any) => selectedAddOnIds.includes(addOn.id))
+  const serviceRequirements = (() => {
+    if (!service) return [] as string[]
+
+    const requirements: string[] = []
+    const locationType = String(service.locationType || "")
+    const category = String(service.category || "")
+
+    if (isHospitalityService) {
+      requirements.push("Provide a valid ID for every adult guest at check-in.")
+      requirements.push("Confirm guest count and stay dates before completing your booking.")
+      requirements.push(`Observe ${hospitalityLabel.toLowerCase()} check-in and check-out schedule for smoother arrival.`)
+    }
+
+    if (locationType === "home-service") {
+      requirements.push("Share clear address and access instructions for the provider.")
+    }
+
+    if (locationType === "online") {
+      requirements.push("Ensure stable internet and preferred meeting platform details are ready.")
+    }
+
+    if (category === "photography") {
+      requirements.push("Prepare your preferred style references, locations, and shot list.")
+    }
+
+    if (category === "event-planning") {
+      requirements.push("Have your event date, guest estimate, and venue details available.")
+    }
+
+    if (category === "logistics") {
+      requirements.push("Prepare pickup/drop-off details and recipient contact in advance.")
+    }
+
+    if (service.requiresQuote) {
+      requirements.push("Final amount is confirmed by provider quote approval before booking acceptance.")
+    }
+
+    if (!isHospitalityService && !requirements.length) {
+      requirements.push("Review package scope, timing, and location details before booking.")
+    }
+
+    return requirements.slice(0, 6)
+  })()
+  const serviceWorkflow = (() => {
+    if (!service) return [] as string[]
+
+    if (serviceFamily === "event") {
+      return [
+        "Share event date, type, and estimated guest count.",
+        "Align package scope, timeline, and deliverables.",
+        "Confirm execution checklist and final coordination details.",
+      ]
+    }
+
+    if (serviceFamily === "logistics") {
+      return [
+        "Provide pickup and drop-off addresses with contact persons.",
+        "Confirm package type, quantity, and special handling notes.",
+        "Track execution and delivery confirmation after dispatch.",
+      ]
+    }
+
+    if (serviceFamily === "creative") {
+      return [
+        "Share references, style expectations, and preferred outcome.",
+        "Confirm package inclusions and delivery timeline.",
+        "Review output, request adjustments, and close project.",
+      ]
+    }
+
+    if (serviceFamily === "hospitality") {
+      return [
+        "Select room option and confirm your stay dates.",
+        "Verify guest details and check-in requirements.",
+        "Complete reservation and receive booking confirmation.",
+      ]
+    }
+
+    return [
+      "Pick a package that matches your need and budget.",
+      "Confirm timing, location, and any optional add-ons.",
+      "Book and coordinate details with the provider.",
+    ]
+  })()
+
+  const experienceTitle = {
+    hospitality: `${hospitalityLabel} Booking Flow`,
+    event: "Event Delivery Flow",
+    logistics: "Delivery Execution Flow",
+    creative: "Creative Service Flow",
+    general: "Service Booking Flow",
+  }[serviceFamily]
+
+  const experienceSubtitle = {
+    hospitality: "Professional reservation steps for a smooth stay experience.",
+    event: "Plan, align, and execute your event without missed details.",
+    logistics: "Structured dispatch workflow for reliable delivery outcomes.",
+    creative: "From brief to final output with clear collaboration steps.",
+    general: "A streamlined path from inquiry to confirmed booking.",
+  }[serviceFamily]
+
+  const sidebarHint = {
+    hospitality: `Tip: ${hospitalityLabel} reservations are confirmed faster when guest count and dates are complete.`,
+    event: "Tip: Include event timeline and venue details for faster planning response.",
+    logistics: "Tip: Add exact pickup and drop-off instructions to avoid delays.",
+    creative: "Tip: Share references and expected quality level before booking.",
+    general: "Tip: Provide complete notes upfront to reduce back-and-forth.",
+  }[serviceFamily]
+
+  const responseHours = Number((service as any)?.quoteSlaHours || 24)
+  const completedJobs = Number((service as any)?.completedBookings || 0)
+  const cancellationPolicyPercent = Number((service as any)?.cancellationPolicyPercent || 30)
+  const cancellationWindowHours = Number((service as any)?.cancellationWindowHours || 24)
+  const trustTier = service?.featured ? "Premium Verified" : "Verified Provider"
+  const updatedAtDate = service?.updatedAt ? new Date(service.updatedAt) : null
+  const lastUpdatedLabel = updatedAtDate && !Number.isNaN(updatedAtDate.getTime())
+    ? updatedAtDate.toLocaleDateString("en-NG", { year: "numeric", month: "short", day: "numeric" })
+    : "Recently"
+
+  const familyTheme = {
+    hospitality: {
+      overlay: "from-slate-950/85 via-cyan-900/35 to-transparent",
+      chip: "bg-cyan-500/20 text-cyan-100 border-cyan-200/40",
+      featured: "bg-cyan-500 text-cyan-950",
+      panel: "border-cyan-200/40 from-cyan-500/8 via-background to-background",
+      iconWrap: "bg-cyan-500/20 border-cyan-200/40",
+      iconColor: "text-cyan-100",
+    },
+    event: {
+      overlay: "from-slate-950/85 via-fuchsia-900/35 to-transparent",
+      chip: "bg-fuchsia-500/20 text-fuchsia-100 border-fuchsia-200/40",
+      featured: "bg-fuchsia-500 text-fuchsia-50",
+      panel: "border-fuchsia-200/40 from-fuchsia-500/8 via-background to-background",
+      iconWrap: "bg-fuchsia-500/20 border-fuchsia-200/40",
+      iconColor: "text-fuchsia-100",
+    },
+    logistics: {
+      overlay: "from-slate-950/85 via-emerald-900/35 to-transparent",
+      chip: "bg-emerald-500/20 text-emerald-100 border-emerald-200/40",
+      featured: "bg-emerald-500 text-emerald-950",
+      panel: "border-emerald-200/40 from-emerald-500/8 via-background to-background",
+      iconWrap: "bg-emerald-500/20 border-emerald-200/40",
+      iconColor: "text-emerald-100",
+    },
+    creative: {
+      overlay: "from-slate-950/85 via-amber-900/35 to-transparent",
+      chip: "bg-amber-500/20 text-amber-100 border-amber-200/40",
+      featured: "bg-amber-500 text-amber-950",
+      panel: "border-amber-200/40 from-amber-500/8 via-background to-background",
+      iconWrap: "bg-amber-500/20 border-amber-200/40",
+      iconColor: "text-amber-100",
+    },
+    general: {
+      overlay: "from-slate-950/85 via-indigo-900/35 to-transparent",
+      chip: "bg-indigo-500/20 text-indigo-100 border-indigo-200/40",
+      featured: "bg-indigo-500 text-indigo-50",
+      panel: "border-indigo-200/40 from-indigo-500/8 via-background to-background",
+      iconWrap: "bg-indigo-500/20 border-indigo-200/40",
+      iconColor: "text-indigo-100",
+    },
+  }[serviceFamily]
+
+  const FamilyIcon =
+    serviceFamily === "hospitality"
+      ? (isApartmentStay ? Building2 : Hotel)
+      : serviceFamily === "event"
+        ? Music2
+        : serviceFamily === "logistics"
+          ? Truck
+          : serviceFamily === "creative"
+            ? Camera
+            : Briefcase
+
     const selectedPackageImages = Array.isArray(selectedPackage?.images) ? selectedPackage.images : []
     const displayedImages = selectedPackageImages.length > 0
       ? selectedPackageImages
@@ -346,7 +532,7 @@ export default function ServiceDetailPage() {
         />
         
         {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/30 to-transparent" style={{ zIndex: 2 }} />
+        <div className={`absolute inset-0 bg-linear-to-t ${familyTheme.overlay}`} style={{ zIndex: 2 }} />
         
         {/* Bottom Fade to White */}
         <div className="absolute bottom-0 left-0 right-0 h-32 bg-linear-to-t from-background to-transparent" style={{ zIndex: 3 }} />
@@ -368,10 +554,26 @@ export default function ServiceDetailPage() {
               <div className="text-white">
                 <h1 className="text-4xl md:text-5xl font-bold mb-2">{service.title}</h1>
                 <p className="text-lg text-white/90 mb-4">{service.providerName}</p>
+                <div className="flex flex-wrap gap-2">
+                  {isHospitalityService && (
+                    <Badge className={`${familyTheme.chip} border capitalize`}>
+                      {hospitalityLabel} stay
+                    </Badge>
+                  )}
+                  {!isHospitalityService && (
+                    <Badge className={`${familyTheme.chip} border capitalize`}>
+                      {serviceFamily} service
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              <div className={`hidden md:flex h-14 w-14 rounded-2xl border items-center justify-center backdrop-blur-sm ${familyTheme.iconWrap}`}>
+                <FamilyIcon className={`h-7 w-7 ${familyTheme.iconColor}`} />
               </div>
               
               {service.featured && (
-                <Badge className="bg-accent text-accent-foreground px-4 py-2 text-lg">
+                <Badge className={`${familyTheme.featured} px-4 py-2 text-lg`}>
                   Featured
                 </Badge>
               )}
@@ -419,9 +621,48 @@ export default function ServiceDetailPage() {
           </div>
         )}
 
+        <Card className={`mb-8 bg-linear-to-br ${familyTheme.panel}`}>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-xl">{experienceTitle}</CardTitle>
+            <CardDescription>{experienceSubtitle}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {serviceWorkflow.map((step, index) => (
+                <div key={`workflow-step-${index}`} className="rounded-lg border bg-background/90 p-4">
+                  <p className="text-xs font-semibold text-accent mb-2">Step {index + 1}</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{step}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
         {isHospitalityService && hospitalityRoomTypes.length > 0 && (
           <div className="mb-8 space-y-3">
-            <h3 className="text-lg font-semibold">Room Types</h3>
+            <h3 className="text-lg font-semibold">{hospitalityLabel} Options</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Card className="border-accent/20 bg-accent/5">
+                <CardContent className="p-3">
+                  <p className="text-xs text-muted-foreground">Property type</p>
+                  <p className="font-semibold capitalize">{hospitalityPropertyType.replace(/-/g, " ") || hospitalityLabel}</p>
+                </CardContent>
+              </Card>
+              <Card className="border-accent/20 bg-accent/5">
+                <CardContent className="p-3">
+                  <p className="text-xs text-muted-foreground">Check-in / Check-out</p>
+                  <p className="font-semibold">
+                    {(service as any)?.hospitalityDetails?.checkInTime || "14:00"} / {(service as any)?.hospitalityDetails?.checkOutTime || "12:00"}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="border-accent/20 bg-accent/5">
+                <CardContent className="p-3">
+                  <p className="text-xs text-muted-foreground">Total rooms</p>
+                  <p className="font-semibold">{Number((service as any)?.hospitalityDetails?.totalRooms || hospitalityRoomTypes.reduce((sum: number, room: any) => sum + Number(room.roomCount || 0), 0)) || "Not set"}</p>
+                </CardContent>
+              </Card>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {hospitalityRoomTypes.map((room: any) => {
                 const selected = selectedPackageId === room.id || (!selectedPackageId && room.isDefault)
@@ -538,6 +779,36 @@ export default function ServiceDetailPage() {
               </div>
             </div>
 
+            <Card className="border-accent/20 bg-background/90">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Trust & Service Signals</CardTitle>
+                <CardDescription>Confidence indicators before you book</CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+                <div className="rounded-md border p-3 bg-muted/20">
+                  <p className="text-xs text-muted-foreground">Provider tier</p>
+                  <p className="font-semibold">{trustTier}</p>
+                </div>
+                <div className="rounded-md border p-3 bg-muted/20">
+                  <p className="text-xs text-muted-foreground">Response time</p>
+                  <p className="font-semibold">Within {responseHours} hour(s)</p>
+                </div>
+                <div className="rounded-md border p-3 bg-muted/20">
+                  <p className="text-xs text-muted-foreground">Completed jobs</p>
+                  <p className="font-semibold">{completedJobs > 0 ? completedJobs.toLocaleString("en-NG") : "Not published"}</p>
+                </div>
+                <div className="rounded-md border p-3 bg-muted/20">
+                  <p className="text-xs text-muted-foreground">Last updated</p>
+                  <p className="font-semibold">{lastUpdatedLabel}</p>
+                </div>
+              </CardContent>
+              <CardContent className="pt-0">
+                <p className="text-xs text-muted-foreground">
+                  Cancellation policy: {cancellationPolicyPercent}% fee applies within {cancellationWindowHours} hours of start time.
+                </p>
+              </CardContent>
+            </Card>
+
             {/* Tabs */}
             <Tabs defaultValue="description" className="w-full">
               <TabsList className="w-full">
@@ -548,7 +819,9 @@ export default function ServiceDetailPage() {
 
               <TabsContent value="description" className="space-y-4 mt-6">
                 <div>
-                  <h3 className="text-xl font-semibold mb-2">About This Service</h3>
+                  <h3 className="text-xl font-semibold mb-2">
+                    {isHospitalityService ? `${hospitalityLabel} Overview` : "About This Service"}
+                  </h3>
                   <p className="text-muted-foreground whitespace-pre-line">{service.description}</p>
                 </div>
 
@@ -577,10 +850,24 @@ export default function ServiceDetailPage() {
                   <div>
                     <h3 className="text-xl font-semibold mb-2">Stay Details</h3>
                     <div className="space-y-2 text-sm text-muted-foreground">
-                      <p className="capitalize">Property Type: {(service as any)?.hospitalityDetails?.propertyType?.replace(/-/g, " ") || "hotel"}</p>
+                      <p className="capitalize">Property Type: {(service as any)?.hospitalityDetails?.propertyType?.replace(/-/g, " ") || hospitalityLabel.toLowerCase()}</p>
                       <p>Total Rooms: {Number((service as any)?.hospitalityDetails?.totalRooms || 0) || "Not specified"}</p>
                       <p>Check-in: {(service as any)?.hospitalityDetails?.checkInTime || "14:00"}</p>
                       <p>Check-out: {(service as any)?.hospitalityDetails?.checkOutTime || "12:00"}</p>
+                    </div>
+                  </div>
+                )}
+
+                {serviceRequirements.length > 0 && (
+                  <div>
+                    <h3 className="text-xl font-semibold mb-2">Requirements Before Booking</h3>
+                    <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
+                      {serviceRequirements.map((requirement, index) => (
+                        <div key={`service-requirement-${index}`} className="flex items-start gap-2 text-sm text-muted-foreground">
+                          <CheckCircle className="h-4 w-4 text-accent mt-0.5 shrink-0" />
+                          <span>{requirement}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -622,11 +909,11 @@ export default function ServiceDetailPage() {
 
           {/* Booking Sidebar */}
           <div className="animate-fade-in-delay">
-            <Card className="sticky top-24">
+            <Card className="sticky top-24 border-accent/20 shadow-lg shadow-accent/5">
               <CardHeader>
                 <CardTitle className="text-2xl text-accent">{getPriceDisplay()}</CardTitle>
                 <CardDescription>
-                  {service.duration && `${service.duration} minutes session`}
+                  {isHospitalityService ? `${hospitalityLabel} booking` : service.duration && `${service.duration} minutes session`}
                 </CardDescription>
               </CardHeader>
 
@@ -766,6 +1053,22 @@ export default function ServiceDetailPage() {
                   )}
                 </div>
 
+                <div className="rounded-md border p-3 bg-background">
+                  <p className="text-xs text-muted-foreground">{sidebarHint}</p>
+                </div>
+
+                {serviceRequirements.length > 0 && (
+                  <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+                    <p className="text-sm font-semibold">Booking checklist</p>
+                    {serviceRequirements.slice(0, 3).map((requirement, index) => (
+                      <div key={`sidebar-requirement-${index}`} className="flex items-start gap-2 text-xs text-muted-foreground">
+                        <CheckCircle className="h-3.5 w-3.5 text-accent mt-0.5 shrink-0" />
+                        <span>{requirement}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="pt-4 border-t space-y-2">
                   <Button
                     className="w-full hover:bg-accent/90 hover:scale-105 transition-all"
@@ -779,7 +1082,7 @@ export default function ServiceDetailPage() {
                     }}
                   >
                     <Calendar className="h-4 w-4 mr-2" />
-                    {isHospitalityService ? "Book Stay" : "Book Appointment"}
+                    {isHospitalityService ? (isApartmentStay ? "Reserve Apartment" : "Book Stay") : "Book Appointment"}
                   </Button>
 
                   <Button 

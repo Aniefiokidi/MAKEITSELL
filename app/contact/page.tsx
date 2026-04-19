@@ -17,6 +17,9 @@ import SupportChat from "@/components/support/SupportChat"
 
 type HubTab = "contact" | "support"
 
+const SUPPORT_PHONE = "+234 707 826 7836"
+const SUPPORT_WHATSAPP_URL = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP_URL || "https://wa.me/2347078267836"
+
 export default function ContactPage() {
   const searchParams = useSearchParams()
   const initialTab = (searchParams.get("tab") || "").toLowerCase() === "support" ? "support" : "contact"
@@ -205,9 +208,15 @@ export default function ContactPage() {
                         <Phone className="w-5 h-5 text-black" />
                       </div>
                       <div>
-                        <h3 className="font-semibold">Phone</h3>
-                        <p className="text-muted-foreground text-sm">+234 9077874884</p>
-                        <p className="text-muted-foreground text-sm">+234 7031986441</p>
+                        <h3 className="font-semibold">Phone (WhatsApp)</h3>
+                        <Link
+                          href={SUPPORT_WHATSAPP_URL}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-muted-foreground text-sm hover:text-foreground"
+                        >
+                          {SUPPORT_PHONE}
+                        </Link>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">

@@ -319,7 +319,7 @@ export default function ShopPage() {
       ].find((value) => isPdfAsset(value))
 
       return (
-    <Card className={`h-full transition-all duration-300 group overflow-hidden border-none rounded-2xl relative ${isClosed ? "grayscale opacity-75" : "hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02]"}`} style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}>
+    <Card className={`h-full transition-all duration-300 group overflow-hidden border-none rounded-2xl relative card-lift ${isClosed ? "grayscale opacity-75" : "hover:shadow-2xl hover:shadow-accent/40"}`} style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}>
       {/* Full Image Background */}
       <div className="aspect-9/16 relative overflow-hidden rounded-2xl">
         {backgroundImageCandidate ? (
@@ -478,6 +478,16 @@ export default function ShopPage() {
             transform: translateX(5px);
           }
         }
+        @keyframes stagger-up {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
         
         .page-slide-transition {
           animation: slideOutLeft 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
@@ -489,6 +499,30 @@ export default function ShopPage() {
 
         .page-enter-fade {
           animation: pageFadeIn 0.35s ease-out;
+        }
+        .stagger-grid > * {
+          animation: stagger-up 0.45s ease both;
+        }
+        .stagger-grid > *:nth-child(1) { animation-delay: 0.02s; }
+        .stagger-grid > *:nth-child(2) { animation-delay: 0.05s; }
+        .stagger-grid > *:nth-child(3) { animation-delay: 0.08s; }
+        .stagger-grid > *:nth-child(4) { animation-delay: 0.11s; }
+        .stagger-grid > *:nth-child(5) { animation-delay: 0.14s; }
+        .card-lift {
+          transform: translateY(0);
+          will-change: transform, box-shadow;
+        }
+        .card-lift:hover {
+          transform: translateY(-3px);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .stagger-grid > * {
+            animation: none !important;
+          }
+          .card-lift,
+          .card-lift:hover {
+            transform: none !important;
+          }
         }
       `}</style>
       
@@ -654,9 +688,9 @@ export default function ShopPage() {
 
         {/* Stores Grid */}
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5 lg:gap-6 stagger-grid">
             {[...Array(8)].map((_, i) => (
-              <Card key={i} className="h-full">
+              <Card key={i} className="h-full border border-neutral-200 rounded-2xl shadow-sm">
                 <Skeleton className="aspect-video rounded-t-lg" />
                 <CardHeader>
                   <Skeleton className="h-6 w-3/4" />
@@ -675,24 +709,24 @@ export default function ShopPage() {
             ))}
           </div>
         ) : stores.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5 lg:gap-6 animate-in fade-in duration-500">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5 lg:gap-6 stagger-grid">
             {stores.map((store) => (
               <StoreCard key={store._id || store.id} store={store} />
             ))}
           </div>
         ) : (
-          <div className="text-center py-12 sm:py-24" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif' }}>
+          <div className="text-center py-12 sm:py-24">
             <div className="inline-flex p-4 sm:p-8 bg-linear-to-br from-accent/20 to-orange-500/20 rounded-full mb-4 sm:mb-8 border-4 border-accent/20 shadow-2xl shadow-accent/20 animate-pulse">
               <Store className="h-12 w-12 sm:h-24 sm:w-24 text-accent" />
             </div>
-            <h3 className="text-2xl sm:text-5xl font-black mb-2 sm:mb-4 tracking-wider uppercase">NO STORES</h3>
-            <p className="text-muted-foreground text-xs sm:text-xl font-bold mb-4 sm:mb-8 max-w-md mx-auto uppercase tracking-wide px-2">
-              TRY DIFFERENT FILTERS OR SEARCH
+            <h3 className="text-2xl sm:text-4xl md:text-5xl font-extrabold text-accent mb-2 sm:mb-4">No stores found</h3>
+            <p className="text-muted-foreground text-sm sm:text-lg mb-4 sm:mb-8 max-w-md mx-auto px-4 sm:px-0">
+              Try adjusting your filters or search terms to discover available stores.
             </p>
-            <Button onClick={handleRefresh} size="sm" className="bg-linear-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-black text-xs sm:text-xl px-4 sm:px-8 py-2 sm:py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all uppercase tracking-wider">
+            <Button onClick={handleRefresh} size="sm" className="bg-linear-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-semibold text-xs sm:text-base px-4 sm:px-8 py-2 sm:py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all">
               <RefreshCw className="h-3 w-3 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">REFRESH</span>
-              <span className="sm:hidden">REFRESH</span>
+              <span className="hidden sm:inline">Refresh stores</span>
+              <span className="sm:hidden">Refresh</span>
             </Button>
           </div>
         )}

@@ -1,6 +1,9 @@
 import Link from "next/link"
 import { Facebook, Instagram, Mail, Phone } from "lucide-react"
 
+const SUPPORT_PHONE = "+234 707 826 7836"
+const SUPPORT_WHATSAPP_URL = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP_URL || "https://wa.me/2347078267836"
+
 export default function Footer() {
   return (
     <footer className="bg-muted/50 border-t">
@@ -80,15 +83,15 @@ export default function Footer() {
               </li>
               <li className="flex justify-center sm:justify-start items-center space-x-3">
                 <Phone className="h-4 w-4 text-accent" />
-                <span className="text-accent">+234 9077674884</span>
-              </li>
-              <li className="flex justify-center sm:justify-start items-center space-x-3">
-                <Phone className="h-4 w-4 text-accent" />
-                <span className="text-accent">+234 7031984441</span>
-              </li>
-              <li className="flex justify-center sm:justify-start items-center space-x-3">
-                <Phone className="h-4 w-4 text-accent" />
-                <span className="text-accent">+234 8025282040</span>
+                <Link
+                  href={SUPPORT_WHATSAPP_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-accent"
+                  aria-label="Chat with support on WhatsApp"
+                >
+                  {SUPPORT_PHONE}
+                </Link>
               </li>
             </ul>
           </div>

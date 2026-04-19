@@ -38,6 +38,25 @@ interface Booking {
   locationType: string
   location: string
   notes: string
+  requirementDetails?: {
+    event?: {
+      name?: string
+      date?: string
+      guestCount?: number
+      venue?: string
+    }
+    logistics?: {
+      pickupAddress?: string
+      dropoffAddress?: string
+      packageDescription?: string
+      receiverName?: string
+      receiverPhone?: string
+    }
+    creative?: {
+      preferredPlatform?: string
+      deliverableFormat?: string
+    }
+  }
 }
 
 export default function VendorBookingsPage() {
@@ -316,9 +335,53 @@ export default function VendorBookingsPage() {
     }
   }
 
+  const getRequirementHighlights = (booking: Booking) => {
+    const details = booking.requirementDetails
+    if (!details) return [] as string[]
+
+    if (details.event) {
+      return [
+        details.event.name ? `Event: ${details.event.name}` : "",
+        details.event.date ? `Date: ${details.event.date}` : "",
+        Number(details.event.guestCount || 0) > 0 ? `Guests: ${details.event.guestCount}` : "",
+        details.event.venue ? `Venue: ${details.event.venue}` : "",
+      ].filter(Boolean)
+    }
+
+    if (details.logistics) {
+      return [
+        details.logistics.pickupAddress ? `Pickup: ${details.logistics.pickupAddress}` : "",
+        details.logistics.dropoffAddress ? `Drop-off: ${details.logistics.dropoffAddress}` : "",
+        details.logistics.receiverName ? `Receiver: ${details.logistics.receiverName}` : "",
+        details.logistics.receiverPhone ? `Receiver Phone: ${details.logistics.receiverPhone}` : "",
+      ].filter(Boolean)
+    }
+
+    if (details.creative) {
+      return [
+        details.creative.preferredPlatform ? `Platform: ${details.creative.preferredPlatform}` : "",
+        details.creative.deliverableFormat ? `Deliverable: ${details.creative.deliverableFormat}` : "",
+      ].filter(Boolean)
+    }
+
+    return [] as string[]
+  }
+
   const BookingCard = ({ booking }: { booking: Booking }) => (
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="p-4 lg:p-6">
+        {(() => {
+          const requirementHighlights = getRequirementHighlights(booking)
+          const requirementType = booking.requirementDetails?.event
+            ? "Event Requirements"
+            : booking.requirementDetails?.logistics
+              ? "Delivery Requirements"
+              : booking.requirementDetails?.creative
+                ? "Creative Brief"
+                : ""
+
+          return (
+            <>
         <div className="flex justify-between items-start mb-4 gap-2">
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-base lg:text-lg truncate">{booking.serviceName || booking.serviceTitle || "Service Booking"}</h3>
@@ -362,6 +425,17 @@ export default function VendorBookingsPage() {
           <div className="mb-4 p-3 bg-muted rounded-lg">
             <p className="text-sm font-medium mb-1">Customer Notes:</p>
             <p className="text-sm text-muted-foreground">{booking.notes}</p>
+          </div>
+        )}
+
+        {requirementHighlights.length > 0 && (
+          <div className="mb-4 p-3 bg-accent/5 rounded-lg border border-accent/20">
+            <p className="text-sm font-medium mb-1">{requirementType}</p>
+            <div className="space-y-1">
+              {requirementHighlights.slice(0, 4).map((line, idx) => (
+                <p key={`requirement-line-${booking.id}-${idx}`} className="text-xs text-muted-foreground">{line}</p>
+              ))}
+            </div>
           </div>
         )}
 
@@ -448,6 +522,9 @@ export default function VendorBookingsPage() {
             )}
           </div>
         </div>
+            </>
+          )
+        })()}
       </CardContent>
     </Card>
   )

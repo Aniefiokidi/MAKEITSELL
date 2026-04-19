@@ -5,7 +5,6 @@ import { emailService } from '@/lib/email'
 import { User } from '@/lib/models/User'
 import { hashPassword } from '@/lib/password'
 import { enforceRateLimit } from '@/lib/rate-limit'
-import { normalizeNigerianPhone, sendCustomSms } from '@/lib/sms'
 
 function generateResetCode(): string {
   return String(Math.floor(100000 + Math.random() * 900000))
@@ -70,7 +69,6 @@ export async function POST(request: NextRequest) {
       console.log(`[forgot-password] OTP saved to database`)
 
       let emailSent = false
-      let smsSent = false
 
       // Send password reset email
       try {
@@ -96,45 +94,21 @@ export async function POST(request: NextRequest) {
       }
 
       if (!emailSent) {
-        const normalizedPhone = normalizeNigerianPhone(String((user as any).phone_number || (user as any).phone || ''))
-
-        if (normalizedPhone) {
-          try {
-            const sms = await sendCustomSms({
-              phoneNumber: normalizedPhone,
-              message: `Your Make It Sell password reset code is ${token}. Expires in 10 minutes.`,
-            })
-
-            if (sms.ok) {
-              smsSent = true
-              console.log(`[forgot-password] Password reset code sent via SMS to: ${normalizedPhone}`)
-            } else {
-              console.error(`[forgot-password] SMS fallback failed for ${normalizedEmail}:`, sms.errorMessage)
-            }
-          } catch (smsError) {
-            console.error(`[forgot-password] SMS fallback error for ${normalizedEmail}:`, smsError)
-          }
-        }
-
-        if (!smsSent) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: 'Could not send reset code right now. Please try again shortly.',
-              details: emailService.getLastDeliveryError() || undefined,
-            },
-            { status: 502 }
-          )
-        }
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Could not send reset code right now. Please try again shortly.',
+            details: emailService.getLastDeliveryError() || undefined,
+          },
+          { status: 502 }
+        )
       }
 
       return NextResponse.json(
         {
           success: true,
-          channel: emailSent ? 'email' : 'sms',
-          message: emailSent
-            ? 'If an account exists, you will receive a password reset code'
-            : 'If an account exists, you will receive a password reset code by SMS',
+          channel: 'email',
+          message: 'If an account exists, you will receive a password reset code by email',
         },
         { status: 200 }
       )

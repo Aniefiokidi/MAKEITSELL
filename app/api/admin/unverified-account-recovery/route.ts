@@ -4,7 +4,6 @@ import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 import { requireAdminAccess } from '@/lib/server-route-auth'
 import { hashPassword } from '@/lib/password'
-import { normalizeNigerianPhone, sendCustomSms } from '@/lib/sms'
 
 type RecoveryRequest = {
   action?: 'preview' | 'prepare'
@@ -18,14 +17,6 @@ type RecoveryRequest = {
 function generateTemporaryPassword() {
   const raw = crypto.randomBytes(4).toString('hex').toUpperCase()
   return `MIS-${raw}`
-}
-
-function buildApologyMessage(tempPassword: string) {
-  return [
-    'Make It Sell update: We sincerely apologize that your OTP was not delivered earlier.',
-    `Temporary password: ${tempPassword}`,
-    'Sign in with your email and this password, then change it immediately on the setup screen.',
-  ].join(' ')
 }
 
 function escapeRegExp(value: string): string {
@@ -88,11 +79,10 @@ export async function POST(request: NextRequest) {
           email: String(u.email || ''),
           name: u.name || u.displayName || 'User',
           phone: u.phone_number || u.phone || null,
-          hasValidPhone: !!normalizeNigerianPhone(String(u.phone_number || u.phone || '')),
           isEmailVerified: !!u.isEmailVerified,
           mustChangePassword: !!u.mustChangePassword,
         })),
-        note: 'Preview only. No password was changed and no SMS was sent.',
+        note: 'Preview only. No password was changed.',
       })
     }
 
@@ -101,9 +91,6 @@ export async function POST(request: NextRequest) {
     let smsFailed = 0
     const skippedNoPhone: string[] = []
     const failedSms: string[] = []
-
-    const allowSmsSend =
-      String(process.env.ALLOW_UNVERIFIED_RECOVERY_SMS_SEND || '').toLowerCase() === 'true'
 
     for (const user of users as any[]) {
       const temporaryPassword = generateTemporaryPassword()
@@ -125,36 +112,7 @@ export async function POST(request: NextRequest) {
 
       prepared++
 
-      if (!sendSms) {
-        continue
-      }
-
-      if (!allowSmsSend) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              'SMS sending is blocked by default. Set ALLOW_UNVERIFIED_RECOVERY_SMS_SEND=true after deploy, then rerun with sendSms=true.',
-          },
-          { status: 400 }
-        )
-      }
-
-      const phone = normalizeNigerianPhone(String(user.phone_number || user.phone || ''))
-      if (!phone) {
-        skippedNoPhone.push(String(user.email || ''))
-        continue
-      }
-
-      const sms = await sendCustomSms({
-        phoneNumber: phone,
-        message: buildApologyMessage(temporaryPassword),
-      })
-
-      if (sms.ok) {
-        smsSent++
-      } else {
-        smsFailed++
+      if (sendSms) {
         failedSms.push(String(user.email || ''))
       }
     }
@@ -175,8 +133,8 @@ export async function POST(request: NextRequest) {
       hasMore: skip + users.length < totalMatching,
       nextSkip: skip + users.length,
       message: sendSms
-        ? 'Users prepared and SMS attempted where allowed.'
-        : 'Users prepared only. No SMS sent.',
+        ? 'Users prepared. SMS sending is disabled in email-only mode.'
+        : 'Users prepared only.',
     })
   } catch (error: any) {
     console.error('[admin/unverified-account-recovery] Error:', error)

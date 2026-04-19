@@ -25,7 +25,7 @@ interface AuthContextType {
     role?: "customer" | "vendor",
     phone?: string,
     vendorType?: "goods" | "services" | "both",
-    verificationChannel?: "email" | "sms",
+    verificationChannel?: "email",
   ) => Promise<{ user: User; userProfile: UserProfile }>
   logout: () => Promise<void>
 }
@@ -47,6 +47,19 @@ const AuthContext = createContext<AuthContextType>({
     throw new Error("AuthProvider not initialized")
   },
 })
+
+const normalizeBooleanFlag = (value: unknown): boolean => {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number') return value === 1
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    if (normalized === 'true' || normalized === '1' || normalized === 'yes') return true
+    if (normalized === 'false' || normalized === '0' || normalized === 'no' || normalized === '') return false
+  }
+
+  return false
+}
 
 export const useAuth = () => {
   const context = useContext(AuthContext)
@@ -114,6 +127,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         data.user?.vendorType === 'both'
           ? data.user.vendorType
           : undefined
+      const normalizedPhoneVerified = normalizeBooleanFlag(
+        data?.userProfile?.phoneVerified ?? data?.user?.phone_verified ?? data?.user?.phoneVerified
+      )
 
       const derivedProfile = data.userProfile || {
         uid: data.user.id,
@@ -123,12 +139,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         mustChangePassword: !!data.user.mustChangePassword,
         phone: data.user.phone,
         phoneNumber: data.user.phone_number,
-        phoneVerified: !!data.user.phone_verified,
+        phoneVerified: normalizedPhoneVerified,
         vendorType: data.user.role === 'vendor' ? safeVendorType : undefined,
         walletBalance: typeof data.user.walletBalance === 'number' ? data.user.walletBalance : 0,
         createdAt: new Date(),
         updatedAt: new Date(),
       }
+
+      derivedProfile.phoneVerified = normalizedPhoneVerified
 
       setUserProfile(derivedProfile)
     } catch (error) {
@@ -176,6 +194,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             data.user?.vendorType === 'both'
               ? data.user.vendorType
               : undefined
+          const normalizedPhoneVerified = normalizeBooleanFlag(
+            data?.userProfile?.phoneVerified ?? data?.user?.phone_verified ?? data?.user?.phoneVerified
+          )
 
           setUser({
             uid: data.user.id,
@@ -191,12 +212,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             mustChangePassword: !!data.user.mustChangePassword,
             phone: data.user.phone,
             phoneNumber: data.user.phone_number,
-            phoneVerified: !!data.user.phone_verified,
+            phoneVerified: normalizedPhoneVerified,
             vendorType: data.user.role === 'vendor' ? safeVendorType : undefined,
             walletBalance: typeof data.user.walletBalance === 'number' ? data.user.walletBalance : 0,
             createdAt: new Date(),
             updatedAt: new Date()
           }
+          derivedProfile.phoneVerified = normalizedPhoneVerified
           setUserProfile(derivedProfile)
         } else {
           console.log('[AuthContext] No user found in response');
@@ -244,7 +266,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     role: "customer" | "vendor" = "customer",
     phone?: string,
     vendorType?: "goods" | "services" | "both",
-    verificationChannel: "email" | "sms" = "sms",
+    verificationChannel: "email" = "email",
   ): Promise<{ user: User; userProfile: UserProfile }> => {
     try {
       setLoading(true)

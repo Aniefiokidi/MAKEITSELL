@@ -7,7 +7,6 @@ import { getIcsBusyRanges, hasBusyOverlap } from "@/lib/calendar-sync"
 import { connectToDatabase } from "@/lib/mongodb"
 import { User as UserModel } from "@/lib/models/User"
 import { WalletTransaction } from "@/lib/models/WalletTransaction"
-import { normalizeNigerianPhone, sendBookingConfirmationSms } from "@/lib/sms"
 
 const BOOKING_FEE_NAIRA = 500
 
@@ -377,35 +376,6 @@ export async function POST(request: NextRequest) {
       }
       if (providerEmail) {
         await AppointmentEmailService.sendProviderBookingNotification(emailPayload as any)
-      }
-
-      const customerPhone = normalizeNigerianPhone(normalizedBookingData.customerPhone || '')
-      if (customerPhone) {
-        await sendBookingConfirmationSms({
-          phoneNumber: customerPhone,
-          bookingId: booking.id,
-          serviceTitle: normalizedBookingData.serviceTitle,
-          bookingDate: new Date(normalizedBookingData.bookingDate),
-          startTime: normalizedBookingData.startTime,
-          endTime: normalizedBookingData.endTime,
-          totalPrice: Number(normalizedBookingData.totalPrice || 0),
-          recipient: 'customer',
-        })
-      }
-
-      const providerPhone = normalizeNigerianPhone((provider as any)?.phone_number || (provider as any)?.phone || '')
-      if (providerPhone) {
-        await sendBookingConfirmationSms({
-          phoneNumber: providerPhone,
-          bookingId: booking.id,
-          serviceTitle: normalizedBookingData.serviceTitle,
-          bookingDate: new Date(normalizedBookingData.bookingDate),
-          startTime: normalizedBookingData.startTime,
-          endTime: normalizedBookingData.endTime,
-          totalPrice: Number(normalizedBookingData.totalPrice || 0),
-          recipient: 'provider',
-          counterpartyName: normalizedBookingData.customerName,
-        })
       }
 
       console.log('✅ Booking notifications dispatched')

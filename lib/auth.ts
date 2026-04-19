@@ -3,9 +3,22 @@ import { connectToDatabase } from './mongodb';
 import crypto from 'crypto';
 import { User } from './models/User';
 import { hashPassword, needsPasswordRehash, verifyPassword } from './password';
-import { normalizeNigerianPhone, sendOtpSms } from './sms';
+import { normalizeNigerianPhone } from './sms';
 
-export async function signUp({ email, password, name, role, vendorInfo, phone, verificationChannel }: { email: string, password: string, name: string, role?: string, vendorInfo?: any, phone?: string, verificationChannel?: 'email' | 'sms' }) {
+function normalizeBooleanFlag(value: unknown): boolean {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number') return value === 1
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    if (normalized === 'true' || normalized === '1' || normalized === 'yes') return true
+    if (normalized === 'false' || normalized === '0' || normalized === 'no' || normalized === '') return false
+  }
+
+  return false
+}
+
+export async function signUp({ email, password, name, role, vendorInfo, phone, verificationChannel }: { email: string, password: string, name: string, role?: string, vendorInfo?: any, phone?: string, verificationChannel?: 'email' }) {
   await connectToDatabase();
   const normalizedEmail = String(email || '').trim().toLowerCase();
   const existing = await User.findOne({ email: normalizedEmail });
@@ -13,7 +26,6 @@ export async function signUp({ email, password, name, role, vendorInfo, phone, v
   
   const passwordHash = hashPassword(password);
   const sessionToken = crypto.randomBytes(32).toString('hex');
-  const selectedVerificationChannel = verificationChannel === 'email' ? 'email' : 'sms'
   const normalizedPhone = phone ? normalizeNigerianPhone(phone) : null
   
   // Generate a 6-digit verification OTP code valid for 10 minutes.
@@ -38,50 +50,28 @@ export async function signUp({ email, password, name, role, vendorInfo, phone, v
 
   // Send verification email
   try {
-    if (selectedVerificationChannel === 'sms') {
-      if (!normalizedPhone) {
-        throw new Error('VERIFICATION_SMS_PHONE_REQUIRED')
-      }
+    const { emailService } = require('./email');
+    let sent = await emailService.sendEmailVerification({
+      email: user.email,
+      name: user.name || 'User',
+      verificationCode: emailVerificationToken
+    });
 
-      const smsResult = await sendOtpSms(normalizedPhone, emailVerificationToken)
-      if (!smsResult.ok) {
-        throw new Error('VERIFICATION_SMS_SEND_FAILED')
-      }
-      ;(user as any).otp_code = emailVerificationToken
-      ;(user as any).otp_expiry = emailVerificationTokenExpiry
-      ;(user as any).otp_last_sent_at = new Date()
-      ;(user as any).updatedAt = new Date()
-      await user.save()
-      console.log(`[auth.signUp] Verification SMS sent to: ${normalizedPhone}`)
-    } else {
-      const { emailService } = require('./email');
-      let sent = await emailService.sendEmailVerification({
+    // One extra explicit retry path to avoid edge-case delivery misses.
+    if (!sent) {
+      sent = await emailService.sendEmailVerification({
         email: user.email,
         name: user.name || 'User',
         verificationCode: emailVerificationToken
       });
-
-      // One extra explicit retry path to avoid edge-case delivery misses.
-      if (!sent) {
-        sent = await emailService.sendEmailVerification({
-          email: user.email,
-          name: user.name || 'User',
-          verificationCode: emailVerificationToken
-        });
-      }
-
-      if (!sent) {
-        throw new Error('VERIFICATION_EMAIL_SEND_FAILED');
-      }
-
-      console.log(`[auth.signUp] Verification email sent to: ${user.email}`);
     }
+
+    if (!sent) {
+      throw new Error('VERIFICATION_EMAIL_SEND_FAILED');
+    }
+
+    console.log(`[auth.signUp] Verification email sent to: ${user.email}`);
   } catch (emailError) {
-    const errorMessage = String((emailError as any)?.message || emailError || '')
-    if (errorMessage === 'VERIFICATION_SMS_SEND_FAILED' || errorMessage === 'VERIFICATION_SMS_PHONE_REQUIRED') {
-      throw new Error(errorMessage)
-    }
-
     console.error('[auth.signUp] Failed to send verification email:', emailError);
     const retryDelayMs = Number(process.env.VERIFICATION_RETRY_INITIAL_DELAY_MS || 2 * 60 * 1000);
     await User.updateOne(
@@ -186,7 +176,7 @@ export async function signIn({ email, password }: { email: string, password: str
       mustChangePassword: !!(user as any).mustChangePassword,
       phone: (user as any).phone,
       phone_number: (user as any).phone_number,
-      phone_verified: !!(user as any).phone_verified,
+      phone_verified: normalizeBooleanFlag((user as any).phone_verified),
       address: (user as any).address,
       city: (user as any).city,
       state: (user as any).state,
@@ -225,7 +215,7 @@ export async function getUserBySessionToken(sessionToken: string) {
     mustChangePassword: !!(user as any).mustChangePassword,
     phone: (user as any).phone,
     phone_number: (user as any).phone_number,
-    phone_verified: !!(user as any).phone_verified,
+    phone_verified: normalizeBooleanFlag((user as any).phone_verified),
     address: (user as any).address,
     city: (user as any).city,
     state: (user as any).state,

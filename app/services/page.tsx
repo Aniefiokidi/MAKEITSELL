@@ -487,6 +487,40 @@ export default function ServicesPage() {
             transform: translateX(5px);
           }
         }
+        @keyframes stagger-up {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .stagger-grid > * {
+          animation: stagger-up 0.45s ease both;
+        }
+        .stagger-grid > *:nth-child(1) { animation-delay: 0.02s; }
+        .stagger-grid > *:nth-child(2) { animation-delay: 0.05s; }
+        .stagger-grid > *:nth-child(3) { animation-delay: 0.08s; }
+        .stagger-grid > *:nth-child(4) { animation-delay: 0.11s; }
+        .stagger-grid > *:nth-child(5) { animation-delay: 0.14s; }
+        .card-lift {
+          transform: translateY(0);
+          will-change: transform, box-shadow;
+        }
+        .card-lift:hover {
+          transform: translateY(-3px);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .stagger-grid > * {
+            animation: none !important;
+          }
+          .card-lift,
+          .card-lift:hover {
+            transform: none !important;
+          }
+        }
       `}</style>
       <div className={`main-slide-anim main-fade-in${slideOut ? (slideDirection === 'left' ? ' slide-out-left' : ' slide-out-right') : ''}`}> 
       <Header />
@@ -649,9 +683,9 @@ export default function ServicesPage() {
 
         {/* Services Grid */}
         {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4 stagger-grid">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Card key={i} className="animate-pulse">
+              <Card key={i} className="animate-pulse border border-neutral-200 rounded-2xl shadow-sm">
                 <div className="h-32 sm:h-48 bg-muted rounded-t-lg" />
                 <CardHeader className="p-2 sm:p-4">
                   <div className="h-4 sm:h-6 bg-muted rounded w-3/4" />
@@ -664,7 +698,7 @@ export default function ServicesPage() {
             ))}
           </div>
         ) : filteredServices.length === 0 ? (
-          <div className="text-center py-12 sm:py-24" style={{ fontFamily: '"Bebas Neue", "Impact", sans-serif' }}>
+          <div className="text-center py-12 sm:py-24">
             {services.length === 0 ? (
               <div className="space-y-2 sm:space-y-4">
                 <div className="inline-flex p-4 sm:p-8 bg-linear-to-br from-accent/20 to-orange-500/20 rounded-full mb-3 sm:mb-8 border-4 border-accent/20 shadow-2xl shadow-accent/20 animate-pulse">
@@ -673,14 +707,14 @@ export default function ServicesPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </div>
-                <h3 className="text-lg sm:text-5xl font-black mb-1 sm:mb-4 tracking-wider uppercase">NO SERVICES</h3>
-                <p className="text-muted-foreground text-[10px] sm:text-xl font-bold mb-3 sm:mb-8 max-w-md mx-auto uppercase tracking-wide px-2">
-                  SERVICES WILL DROP WHEN PROVIDERS JOIN
+                <h3 className="text-2xl sm:text-4xl md:text-5xl font-extrabold text-accent mb-1 sm:mb-4">No services yet</h3>
+                <p className="text-muted-foreground text-sm sm:text-lg mb-4 sm:mb-8 max-w-md mx-auto px-4 sm:px-0">
+                  Services will appear here as providers publish new offerings.
                 </p>
-                <Button onClick={refreshServices} disabled={refreshing} size="sm" className="bg-linear-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-black text-xs sm:text-xl px-4 sm:px-8 py-2 sm:py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all uppercase tracking-wider">
+                <Button onClick={refreshServices} disabled={refreshing} size="sm" className="bg-linear-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-semibold text-xs sm:text-base px-4 sm:px-8 py-2 sm:py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all">
                   <RefreshCw className="h-3 w-3 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">CHECK FOR NEW SERVICES</span>
-                  <span className="sm:hidden">CHECK NEW</span>
+                  <span className="hidden sm:inline">Check for new services</span>
+                  <span className="sm:hidden">Check new</span>
                 </Button>
               </div>
             ) : (
@@ -690,9 +724,9 @@ export default function ServicesPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
-                <h3 className="text-5xl font-black mb-4 tracking-wider uppercase">NO SERVICES FOUND BESTIE</h3>
-                <p className="text-muted-foreground text-xl font-bold mb-8 max-w-md mx-auto uppercase tracking-wide">
-                  TRY DIFFERENT FILTERS OR SEARCH TERMS TO FIND UR VIBE
+                <h3 className="text-2xl sm:text-4xl md:text-5xl font-extrabold text-accent mb-4">No services found</h3>
+                <p className="text-muted-foreground text-sm sm:text-lg mb-8 max-w-md mx-auto px-4 sm:px-0">
+                  Try adjusting your filters or search terms to discover available services.
                 </p>
                 <Button onClick={() => {
                   setSearchQuery("")
@@ -700,14 +734,14 @@ export default function ServicesPage() {
                   setServiceGroup("all")
                   setSelectedState("all")
                   setSelectedCity("all")
-                }} size="lg" className="bg-linear-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-black text-xl px-8 py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all uppercase tracking-wider">
-                  CLEAR FILTERS FR
+                }} size="lg" className="bg-linear-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-semibold text-sm sm:text-base px-8 py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all">
+                  Clear filters
                 </Button>
               </div>
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4 animate-in fade-in duration-500">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4 stagger-grid">
             {filteredServices.map((service, index) => {
               const serviceName = service.title || 'Service'
               const avatarImage = getServiceAvatarImage(service)
@@ -717,7 +751,7 @@ export default function ServicesPage() {
               return (
                 <Card 
                   key={service.id} 
-                  className="h-full hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02] transition-all duration-300 group overflow-hidden border-none rounded-2xl relative" 
+                  className="h-full hover:shadow-2xl hover:shadow-accent/40 transition-all duration-300 group overflow-hidden border-none rounded-2xl relative card-lift" 
                   style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}
                 >
                   {/* Full Image Background */}

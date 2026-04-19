@@ -219,7 +219,7 @@ export default function CheckoutPage() {
       }
 
       // Validation with better error messages
-      const requiredShippingFields = ["firstName", "lastName", "email", "phone", "address", "city", "state", "zipCode", "deliveryInstructions"]
+      const requiredShippingFields = ["firstName", "lastName", "email", "phone", "address", "city", "state"]
       const missingFields = []
       
       for (const field of requiredShippingFields) {
@@ -372,7 +372,7 @@ export default function CheckoutPage() {
     <ProtectedRoute>
       <div className="min-h-screen flex flex-col">
         <Header />
-        <main className="flex-1 container mx-auto px-4 py-8">
+        <main className="flex-1 container mx-auto px-4 py-8 pb-28 md:pb-8">
           <div className="max-w-6xl mx-auto">
             <div className="flex items-center gap-4 mb-8 animate-fade-in">
               <Button variant="ghost" size="icon" asChild className="hover:scale-110 hover:bg-accent/10 transition-all">
@@ -383,7 +383,7 @@ export default function CheckoutPage() {
               <h1 className="text-3xl font-bold" style={{ textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))' }}>Checkout</h1>
             </div>
 
-            <form onSubmit={handleSubmit}>
+            <form id="checkout-form" onSubmit={handleSubmit}>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Checkout Form */}
                 <div className="space-y-6">
@@ -393,12 +393,42 @@ export default function CheckoutPage() {
                     </Alert>
                   )}
 
+                  <Card className="border-accent/20 bg-accent/5">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">Fees Preview</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span>Items subtotal</span>
+                        <span className="font-medium">₦{formatCurrency(subtotal)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>VAT (7%)</span>
+                        <span className="font-medium">₦{formatCurrency(vat)}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Shipping</span>
+                        <span className="font-medium text-muted-foreground">
+                          {shippingLoading ? 'Calculating...' : shippingIsTbd ? 'TBD' : `₦${formatCurrency(resolvedShipping)}`}
+                        </span>
+                      </div>
+                      <Separator />
+                      <div className="flex items-center justify-between text-base font-semibold">
+                        <span>Total payable</span>
+                        <span>₦{formatCurrency(total)}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Shipping is estimated from your address and updates instantly while you type.
+                      </p>
+                    </CardContent>
+                  </Card>
+
                   {/* Shipping Information */}
                   <Card className="animate-scale-in" style={{ animationDelay: '0.1s' }}>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <Truck className="h-5 w-5 text-accent" />
-                        Shipping Information
+                        1. Contact and Delivery Details
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -523,12 +553,11 @@ export default function CheckoutPage() {
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="zipCode">ZIP Code *</Label>
+                          <Label htmlFor="zipCode">ZIP Code (optional)</Label>
                           <Input
                             id="zipCode"
                             value={shippingInfo.zipCode}
                             onChange={(e) => handleInputChange("zipCode", e.target.value)}
-                            required
                             disabled={loading}
                           />
                         </div>
@@ -537,6 +566,7 @@ export default function CheckoutPage() {
                           <Select
                             value={shippingInfo.country}
                             onValueChange={(value) => handleInputChange("country", value)}
+                            disabled
                           >
                             <SelectTrigger>
                               <SelectValue />
@@ -549,18 +579,17 @@ export default function CheckoutPage() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="deliveryInstructions">Delivery Instructions *</Label>
+                        <Label htmlFor="deliveryInstructions">Delivery Instructions (optional)</Label>
                         <Textarea
                           id="deliveryInstructions"
                           value={shippingInfo.deliveryInstructions}
                           onChange={(e) => handleInputChange("deliveryInstructions", e.target.value)}
-                          required
                           disabled={loading}
                           rows={4}
-                          placeholder="Compulsory: state where to drop goods if no one is available to receive."
+                          placeholder="Landmark or drop-off note for rider"
                         />
                         <p className="text-xs text-muted-foreground">
-                          This is compulsory and used by logistics if sender/receiver is unavailable.
+                          Add landmark details to speed up delivery.
                         </p>
                       </div>
                     </CardContent>
@@ -571,7 +600,7 @@ export default function CheckoutPage() {
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <CreditCard className="h-5 w-5" />
-                        Payment Information
+                        2. Payment
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -670,7 +699,7 @@ export default function CheckoutPage() {
                         </div>
                       </div>
 
-                      <div className="pt-4">
+                      <div className="pt-4 hidden md:block">
                         <Button type="submit" className="w-full border border-accent/40 bg-white text-accent hover:bg-accent hover:text-white hover:scale-105 transition-all hover:shadow-lg" size="lg" disabled={loading}>
                           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                           {loading
@@ -685,6 +714,19 @@ export default function CheckoutPage() {
                       </div>
                     </CardContent>
                   </Card>
+                </div>
+              </div>
+
+              <div className="md:hidden fixed bottom-0 inset-x-0 z-30 border-t border-neutral-200 bg-white/95 backdrop-blur px-4 py-3 shadow-[0_-10px_30px_rgba(0,0,0,0.10)]">
+                <div className="container mx-auto max-w-6xl flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Payable now</p>
+                    <p className="text-base font-bold text-neutral-900">₦{formatCurrency(total)}</p>
+                    <p className="text-[10px] text-muted-foreground">Wallet checkout</p>
+                  </div>
+                  <Button type="submit" className="h-10 px-4 shrink-0 shadow-sm" disabled={loading}>
+                    {loading ? "Processing..." : "Pay with Wallet"}
+                  </Button>
                 </div>
               </div>
             </form>

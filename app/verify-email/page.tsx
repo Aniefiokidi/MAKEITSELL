@@ -14,15 +14,11 @@ export default function VerifyEmailPage() {
   const router = useRouter()
   const token = searchParams.get("token")
   const emailFromQuery = searchParams.get("email") || ""
-  const channelFromQuery = searchParams.get("channel") || "sms"
-  const phoneFromQuery = searchParams.get("phone") || ""
   const deliveryStatus = searchParams.get("delivery")
 
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [message, setMessage] = useState("")
   const [email, setEmail] = useState(emailFromQuery)
-  const [channel, setChannel] = useState<"email" | "sms">(channelFromQuery === "email" ? "email" : "sms")
-  const [phoneNumber, setPhoneNumber] = useState(phoneFromQuery)
   const [otp, setOtp] = useState("")
   const [verifyLoading, setVerifyLoading] = useState(false)
   const [resendLoading, setResendLoading] = useState(false)
@@ -37,14 +33,6 @@ export default function VerifyEmailPage() {
   useEffect(() => {
     setEmail(emailFromQuery)
   }, [emailFromQuery])
-
-  useEffect(() => {
-    setChannel(channelFromQuery === "email" ? "email" : "sms")
-  }, [channelFromQuery])
-
-  useEffect(() => {
-    setPhoneNumber(phoneFromQuery)
-  }, [phoneFromQuery])
 
   useEffect(() => {
     if (deliveryStatus === "failed") {
@@ -95,7 +83,7 @@ export default function VerifyEmailPage() {
       const response = await fetch("/api/auth/verify-email", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), code: otp, channel, phoneNumber })
+        body: JSON.stringify({ email: email.trim().toLowerCase(), code: otp, channel: "email" })
       })
       const result = await response.json()
 
@@ -128,45 +116,17 @@ export default function VerifyEmailPage() {
       const response = await fetch("/api/auth/verify-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, channel, phoneNumber })
+        body: JSON.stringify({ email, channel: "email" })
       })
       const result = await response.json()
 
       if (result.success) {
-        alert(channel === "sms" ? "OTP sent by SMS!" : "Verification code sent! Please check your inbox.")
+        alert("Verification code sent! Please check your inbox.")
       } else {
         alert(result.error || "Failed to send verification code")
       }
     } catch (error) {
       alert("An error occurred while sending the code")
-    } finally {
-      setResendLoading(false)
-    }
-  }
-
-  const fallbackToEmail = async () => {
-    if (!email.trim()) {
-      alert("Please enter your email address")
-      return
-    }
-
-    setChannel("email")
-    setResendLoading(true)
-    try {
-      const response = await fetch("/api/auth/verify-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), channel: "email" })
-      })
-      const result = await response.json()
-
-      if (result.success) {
-        alert("Email OTP sent. Check your inbox and spam folder.")
-      } else {
-        alert(result.error || "Could not send email OTP right now")
-      }
-    } catch {
-      alert("An error occurred while switching to email OTP")
     } finally {
       setResendLoading(false)
     }
@@ -210,34 +170,12 @@ export default function VerifyEmailPage() {
                 status === "error" ? "text-red-800" :
                 "text-foreground"
               }`}>
-                {message || `We sent your verification OTP by ${channel === "sms" ? "SMS" : "email"}. It expires in 10 minutes.`}
+                {message || "We sent your verification OTP by email. It expires in 10 minutes."}
               </AlertDescription>
             </Alert>
 
             {!token && status !== "success" && (
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">OTP channel</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button variant={channel === "email" ? "default" : "outline"} onClick={() => setChannel("email")} type="button">Email</Button>
-                    <Button variant={channel === "sms" ? "default" : "outline"} onClick={() => setChannel("sms")} type="button">Phone</Button>
-                  </div>
-                </div>
-
-                {channel === "sms" && (
-                  <div className="space-y-2">
-                    <label htmlFor="phone" className="text-sm font-medium text-gray-700">Phone number</label>
-                    <input
-                      id="phone"
-                      type="tel"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="080... or +234..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
-                    />
-                  </div>
-                )}
-
                 <div className="space-y-2">
                   <label htmlFor="email" className="text-sm font-medium text-gray-700">
                     Email address
@@ -294,18 +232,6 @@ export default function VerifyEmailPage() {
                     </>
                   )}
                 </Button>
-
-                {channel === "sms" && (
-                  <Button
-                    onClick={fallbackToEmail}
-                    disabled={resendLoading}
-                    variant="ghost"
-                    className="w-full"
-                    type="button"
-                  >
-                    Didn\'t get SMS? Send OTP to Email Instead
-                  </Button>
-                )}
               </div>
             )}
 

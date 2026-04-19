@@ -32,10 +32,13 @@ import { Shield, Users, Truck, Sparkles, ArrowRight, Smartphone, ShoppingBag, Sp
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle2 } from "lucide-react"
 import { buildPublicServicePath } from "@/lib/public-links"
+import { personalizeProducts, personalizeServices, trackProductQuickView, trackServiceView } from "@/lib/personalization"
 
 function TrendingProducts() {
   const [products, setProducts] = useState<any[]>([])
   const [services, setServices] = useState<any[]>([])
+  const [recentlyViewedProducts, setRecentlyViewedProducts] = useState<any[]>([])
+  const [recentlyViewedServices, setRecentlyViewedServices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null)
   const [quickViewOpen, setQuickViewOpen] = useState(false)
@@ -50,6 +53,11 @@ function TrendingProducts() {
     }).format(amount)
   }
 
+  const getProductImage = (product: any) => {
+    const source = Array.isArray(product?.images) ? product.images.find((item: unknown) => typeof item === "string" && item.trim()) : ""
+    return source || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=900&h=900&fit=crop"
+  }
+
   const getServiceDisplayPrice = (service: any) => {
     const packages = (service?.packageOptions || []).filter((pkg: any) => pkg?.active !== false)
     const minPrice = packages.length
@@ -62,96 +70,6 @@ function TrendingProducts() {
 
     return formatCurrency(minPrice)
   }
-
-  const getCategoryIcon = (category: string) => {
-    switch ((category || '').toLowerCase()) {
-      case "photography":
-        return <Camera className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
-      case "consulting":
-        return <Briefcase className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
-      case "repairs":
-        return <Wrench className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
-      case "design":
-        return <Palette className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
-      case "fitness":
-        return <Dumbbell className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
-      case "education":
-        return <GraduationCap className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
-      case "beauty":
-        return <Scissors className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
-      case "cleaning":
-        return <Sparkles className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
-      case "tech":
-        return <Laptop className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
-      default:
-        return <Settings className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
-    }
-  }
-
-  // Image Cycler Component for Product Cards
-  const ImageCycler = ({ product }: { product: any }) => {
-    const [currentImageIndex, setCurrentImageIndex] = useState(0)
-    const [isHovered, setIsHovered] = useState(false)
-
-    useEffect(() => {
-      if (!isHovered || !product.images || product.images.length <= 1) {
-        return
-      }
-
-      const interval = setInterval(() => {
-        setCurrentImageIndex((prevIndex) => {
-          return prevIndex + 1 >= product.images.length ? 0 : prevIndex + 1
-        })
-      }, 2000) // Change image every 2 seconds
-
-      return () => clearInterval(interval)
-    }, [isHovered, product.images])
-
-    // Reset to first image when hover ends
-    useEffect(() => {
-      if (!isHovered) {
-        setCurrentImageIndex(0)
-      }
-    }, [isHovered])
-
-    if (!product.images || product.images.length === 0) {
-      return (
-        <img
-          src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"
-          alt={product.title ? `Product: ${product.title}` : product.name ? `Product: ${product.name}` : "Product image"}
-          className={`absolute inset-0 w-full h-full ${product.category?.toLowerCase() === 'electronics' ? 'object-contain bg-white' : 'object-cover'} group-hover:scale-110 transition-transform duration-500 ${product.stock === 0 ? 'grayscale' : ''}`}
-        />
-      )
-    }
-
-    return (
-      <div 
-        className="absolute inset-0 w-full h-full"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-      >
-        {/* Show only one image at a time with multiple layers for fade effect */}
-        {product.images.map((image: string, index: number) => (
-          <img
-            key={index}
-            src={image || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"}
-            alt={product.title ? `Product: ${product.title}` : product.name ? `Product: ${product.name}` : "Product image"}
-            className={`absolute inset-0 w-full h-full ${product.category?.toLowerCase() === 'electronics' ? 'object-contain bg-white' : 'object-cover'} group-hover:scale-110 transition-all duration-500 ${product.stock === 0 ? 'grayscale' : ''} ${
-              index === currentImageIndex 
-                ? 'opacity-100' 
-                : 'opacity-0'
-            }`}
-            style={{ 
-              transitionProperty: 'opacity, transform', 
-              transitionDuration: '500ms, 500ms',
-              transitionTimingFunction: 'ease-in-out, ease-out'
-            }}
-          />
-        ))}
-      </div>
-    )
-  }
-  
 
   useEffect(() => {
     async function fetchTrending() {
@@ -177,17 +95,92 @@ function TrendingProducts() {
     fetchTrending()
   }, [])
 
+  const recommendedProducts = personalizeProducts(products).slice(0, 4)
+  const recommendedServices = personalizeServices(services).slice(0, 2)
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    try {
+      const raw = localStorage.getItem("mis:user-activity:v1")
+      if (!raw) {
+        setRecentlyViewedProducts([])
+        setRecentlyViewedServices([])
+        return
+      }
+
+      const parsed = JSON.parse(raw)
+      const productViews = Array.isArray(parsed?.productQuickViews) ? parsed.productQuickViews : []
+      const serviceViews = Array.isArray(parsed?.serviceViews) ? parsed.serviceViews : []
+
+      const productMap = new Map(
+        (products || []).map((item: any) => [String(item?.id || item?._id || ""), item])
+      )
+      const serviceMap = new Map(
+        (services || []).map((item: any) => [String(item?.id || item?._id || ""), item])
+      )
+
+      const resolvedProducts: any[] = []
+      const seenProductIds = new Set<string>()
+      for (const entry of [...productViews].sort((a: any, b: any) => Number(b?.ts || 0) - Number(a?.ts || 0))) {
+        const id = String(entry?.id || "")
+        if (!id || seenProductIds.has(id)) continue
+        const matched = productMap.get(id)
+        if (!matched) continue
+        seenProductIds.add(id)
+        resolvedProducts.push(matched)
+        if (resolvedProducts.length >= 4) break
+      }
+
+      const resolvedServices: any[] = []
+      const seenServiceIds = new Set<string>()
+      for (const entry of [...serviceViews].sort((a: any, b: any) => Number(b?.ts || 0) - Number(a?.ts || 0))) {
+        const id = String(entry?.id || "")
+        if (!id || seenServiceIds.has(id)) continue
+        const matched = serviceMap.get(id)
+        if (!matched) continue
+        seenServiceIds.add(id)
+        resolvedServices.push(matched)
+        if (resolvedServices.length >= 4) break
+      }
+
+      setRecentlyViewedProducts(resolvedProducts)
+      setRecentlyViewedServices(resolvedServices)
+    } catch {
+      setRecentlyViewedProducts([])
+      setRecentlyViewedServices([])
+    }
+  }, [products, services])
+
   if (loading) {
     return (
       <div className="space-y-6 sm:space-y-8">
+        <div className="rounded-3xl border border-accent/15 bg-white p-4 sm:p-6 shadow-sm">
+          <div className="h-6 w-48 bg-neutral-200 rounded-md animate-pulse mb-4" />
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={`recommended-skeleton-${i}`} className="border border-neutral-200 rounded-2xl p-3 animate-pulse">
+                <div className="flex gap-3">
+                  <div className="w-20 h-20 rounded-xl bg-neutral-200" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 w-5/6 bg-neutral-200 rounded" />
+                    <div className="h-3 w-2/3 bg-neutral-200 rounded" />
+                    <div className="h-8 w-20 bg-neutral-200 rounded" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4 md:gap-6">
           {[1, 2, 3, 4, 5].map(i => (
-            <div key={`product-${i}`} className="animate-pulse bg-white/60 rounded-2xl sm:rounded-3xl h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px]" />
+            <div key={`product-${i}`} className="animate-pulse bg-white rounded-2xl border border-neutral-200 h-[290px]" />
           ))}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
-          {[1, 2, 3, 4, 5].map(i => (
-            <div key={`service-${i}`} className="animate-pulse bg-white/60 rounded-2xl h-40" />
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 sm:gap-4">
+          {[1, 2, 3, 4, 5, 6].map(i => (
+            <div key={`service-${i}`} className="animate-pulse bg-white rounded-2xl border border-neutral-200 h-60" />
           ))}
         </div>
       </div>
@@ -199,25 +192,222 @@ function TrendingProducts() {
   return (
     <>
       <div className="space-y-8 sm:space-y-10">
-        <div>
-          <div className="mb-3 sm:mb-4">
-            <h3 className="text-base sm:text-lg md:text-xl font-bold text-neutral-900">Top 5 Products</h3>
+        <div className="rounded-3xl border border-accent/20 bg-white p-4 sm:p-6 shadow-sm">
+          <div className="flex items-center justify-between gap-2 mb-4">
+            <h3 className="text-lg sm:text-xl font-semibold text-neutral-900">Recommended for You</h3>
+            <Badge variant="outline" className="text-xs border-accent/30 text-accent">Personalized</Badge>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4 md:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 stagger-grid">
+            {recommendedProducts.map((product: any) => (
+              <Card
+                key={`rec-product-${product.id}`}
+                className="overflow-hidden border border-neutral-200 hover:border-accent/50 hover:shadow-md transition-all duration-300 cursor-pointer card-lift"
+                onClick={() => {
+                  trackProductQuickView({
+                    id: String(product.id || product._id || ""),
+                    category: product.category,
+                    title: product.title || product.name,
+                    storeName: product.storeName || product.vendorName,
+                  })
+                  setSelectedProduct(product)
+                  setQuickViewOpen(true)
+                }}
+              >
+                <div className="flex gap-3 p-3">
+                  <div className="w-20 h-20 rounded-xl overflow-hidden bg-muted shrink-0">
+                    <img
+                      src={getProductImage(product)}
+                      alt={product.title || product.name || "Product image"}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-neutral-900 line-clamp-2">{product.title || product.name}</p>
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{product.storeName || product.vendorName || "Store"}</p>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <span className="text-sm font-bold text-accent">{formatCurrency(Number(product.price || 0))}</span>
+                      <Button
+                        size="sm"
+                        className="h-8 px-3"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          addItem({
+                            productId: product.id,
+                            id: product.id,
+                            title: product.title || product.name || '',
+                            price: product.price,
+                            image: product.images?.[0] || '',
+                            maxStock: product.stock || 100,
+                            vendorId: product.vendorId,
+                            vendorName: product.storeName || product.vendorName || 'Unknown Vendor'
+                          })
+                          notification?.success('Product added to cart', product.title || product.name || 'Added to cart', 2500)
+                        }}
+                      >
+                        Add
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))}
+
+            {recommendedServices.map((service: any) => {
+              const serviceId = String(service.id || service._id || "")
+              return (
+                <Card
+                  key={`rec-service-${serviceId}`}
+                  className="border border-neutral-200 hover:border-accent/50 hover:shadow-md transition-all duration-300 card-lift"
+                >
+                  <div className="p-3 space-y-2">
+                    <p className="text-sm font-semibold text-neutral-900 line-clamp-2">{service.title || service.name || "Service"}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-1">{service.providerName || service.vendorName || "Provider"}</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold text-accent">{getServiceDisplayPrice(service)}</span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 px-3"
+                        onClick={() => {
+                          trackServiceView({
+                            id: serviceId,
+                            title: service.title || service.name,
+                            category: service.category,
+                            providerName: service.providerName || service.vendorName,
+                            location: service.location || service.city || service.state,
+                          })
+                          if (!serviceId) return
+                          window.dispatchEvent(new CustomEvent('slideOutNavigate', { detail: { target: buildPublicServicePath(service) } }))
+                        }}
+                      >
+                        View
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              )
+            })}
+          </div>
+        </div>
+
+        {(recentlyViewedProducts.length > 0 || recentlyViewedServices.length > 0) && (
+          <div className="rounded-3xl border border-neutral-200 bg-white p-4 sm:p-6 shadow-sm">
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <h3 className="text-lg sm:text-xl font-semibold text-neutral-900">Recently Viewed</h3>
+              <Badge variant="outline" className="text-xs">Quick return</Badge>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 stagger-grid">
+              {recentlyViewedProducts.map((product: any) => (
+                <Card
+                  key={`recent-product-${String(product?.id || product?._id || "")}`}
+                  className="overflow-hidden border border-neutral-200 hover:border-accent/40 hover:shadow-md transition-all cursor-pointer card-lift"
+                  onClick={() => {
+                    setSelectedProduct(product)
+                    setQuickViewOpen(true)
+                  }}
+                >
+                  <div className="aspect-square bg-muted overflow-hidden">
+                    <img
+                      src={getProductImage(product)}
+                      alt={product.title || product.name || "Product image"}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="p-2 space-y-1">
+                    <p className="text-xs font-semibold line-clamp-2">{product.title || product.name}</p>
+                    <p className="text-[11px] text-accent font-semibold">{formatCurrency(Number(product.price || 0))}</p>
+                  </div>
+                </Card>
+              ))}
+
+              {recentlyViewedServices.map((service: any) => {
+                const serviceId = String(service?.id || service?._id || "")
+                const serviceName = service.title || service.name || "Service"
+                return (
+                  <Card
+                    key={`recent-service-${serviceId}`}
+                    className="overflow-hidden border border-neutral-200 hover:border-accent/40 hover:shadow-md transition-all cursor-pointer card-lift"
+                    onClick={() => {
+                      if (!serviceId) return
+                      window.dispatchEvent(new CustomEvent('slideOutNavigate', { detail: { target: buildPublicServicePath(service) } }))
+                    }}
+                  >
+                    <div className="aspect-square bg-muted overflow-hidden">
+                      {service.images && service.images.length > 0 && service.images[0] ? (
+                        <img
+                          src={service.images[0]}
+                          alt={serviceName}
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full bg-linear-to-br from-accent/15 to-accent/5">
+                          <Settings className="h-10 w-10 text-accent/70" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-2 space-y-1">
+                      <p className="text-xs font-semibold line-clamp-2">{serviceName}</p>
+                      <p className="text-[11px] text-muted-foreground line-clamp-1">{service.providerName || service.vendorName || "Provider"}</p>
+                      <p className="text-[11px] text-accent font-semibold">{getServiceDisplayPrice(service)}</p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2 text-[11px]"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          if (!serviceId) return
+                          window.dispatchEvent(new CustomEvent('slideOutNavigate', { detail: { target: buildPublicServicePath(service) } }))
+                        }}
+                      >
+                        Open service
+                      </Button>
+                    </div>
+                  </Card>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        <div>
+          <div className="mb-3 sm:mb-4 flex items-center justify-between gap-2">
+            <h3 className="text-base sm:text-lg md:text-xl font-bold text-neutral-900">Top Items This Week</h3>
+            <Link href="/products" className="text-xs sm:text-sm text-accent hover:underline">View all products</Link>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4 md:gap-6 stagger-grid">
             {products.map((product: any) => (
           <Card 
             key={product.id} 
-            className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100 cursor-pointer"
+            className="border border-neutral-200 shadow-sm overflow-hidden relative hover:shadow-lg transition-all duration-300 rounded-2xl active:scale-95 md:active:scale-100 cursor-pointer card-lift"
             onClick={() => {
+              trackProductQuickView({
+                id: String(product.id || product._id || ""),
+                category: product.category,
+                title: product.title || product.name,
+                storeName: product.storeName || product.vendorName,
+              })
               setSelectedProduct(product)
               setQuickViewOpen(true)
             }}
           >
-            <div className="group absolute inset-0 overflow-hidden">
-              {/* Full Card Image Background with Cycling Animation */}
-              <ImageCycler product={product} />
-              
-              {/* Out of Stock Red Tape Overlay */}
+            <div className="group overflow-hidden">
+              <div className="aspect-square overflow-hidden bg-muted">
+                <img
+                  src={getProductImage(product)}
+                  alt={product.title || product.name || "Product image"}
+                  loading="lazy"
+                  decoding="async"
+                  className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${product.stock === 0 ? 'grayscale' : ''}`}
+                />
+              </div>
+
               {product.stock === 0 && (
                 <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
                   <div className="bg-red-600 text-white px-4 py-1 transform -rotate-45 font-bold text-xs shadow-lg">
@@ -225,69 +415,26 @@ function TrendingProducts() {
                   </div>
                 </div>
               )}
-              {/* Product Badges */}
-              <div className="absolute top-2 sm:top-3 left-2 sm:left-3 flex flex-col gap-1 z-10">
+              <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
                 {product.featured && (
-                  <Badge className="bg-yellow-500 text-black font-semibold text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
-                    <svg className="inline w-3 h-3 sm:w-4 sm:h-4 text-yellow-400 fill-current animate-pulse mr-0.5 sm:mr-1" viewBox="0 0 24 24">
-                      <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
-                    </svg> 
+                  <Badge className="bg-yellow-500 text-black font-semibold text-[10px] px-2 py-0.5">
                     Featured
                   </Badge>
                 )}
                 {(product.stock ?? 0) < 10 && (product.stock ?? 0) > 0 && (
-                  <Badge variant="destructive" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
+                  <Badge variant="destructive" className="text-[10px] px-2 py-0.5">
                     Only {product.stock} left
-                  </Badge>
-                )}
-                {product.stock === 0 && (
-                  <Badge variant="secondary" className="bg-gray-600 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
-                    Out of Stock
                   </Badge>
                 )}
               </div>
             </div>
-            {/* Frosted Glass Bubble Content */}
-            <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-2.5 md:p-3 backdrop-blur-xl bg-accent/10 border-t border-white/30 rounded-t-2xl sm:rounded-t-3xl z-30 space-y-1 gap-1 sm:gap-2">
-              <Badge
-                variant="outline"
-                className="inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow bg-accent text-white hover:opacity-90 transition min-h-5 sm:min-h-6 items-center justify-center text-center leading-tight"
-                style={{
-                  whiteSpace: 'normal',
-                  wordBreak: 'break-word',
-                  hyphens: 'auto',
-                  lineHeight: '1.2'
-                }}
-              >
-                <span className="line-clamp-2 sm:line-clamp-1">
-                  {product.title || product.name}
-                </span>
-              </Badge>
-              <div className="flex items-center justify-between gap-1 sm:gap-2">
-                <Badge variant="outline" className="text-[8px] sm:text-[10px] md:text-xs backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 text-white bg-accent max-w-[58%] min-w-0 whitespace-nowrap overflow-hidden text-ellipsis">
-                  <span className="block max-w-full whitespace-nowrap overflow-hidden text-ellipsis">{product.storeName || product.vendorName || 'Store'}</span>
-                </Badge>
-                <Badge
-                  variant="outline"
-                  className="text-[9px] sm:text-[10px] md:text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 backdrop-blur-sm bg-white/70 text-accent"
-                >
-                  NGN {product.price?.toLocaleString?.() || product.price}
-                </Badge>
+            <div className="p-3 space-y-2">
+              <p className="text-sm font-semibold text-neutral-900 line-clamp-2">{product.title || product.name}</p>
+              <p className="text-xs text-muted-foreground line-clamp-1">{product.storeName || product.vendorName || 'Store'}</p>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-accent">{formatCurrency(Number(product.price || 0))}</span>
+                <span className="text-[11px] text-muted-foreground">{product.category || 'General'}</span>
               </div>
-              {/* Sizes Display */}
-              {product.hasSizeOptions && product.sizes && product.sizes.length > 0 && (
-                <div className="flex items-center gap-1 flex-wrap">
-                  {product.sizes.slice(0, 5).map((size: string, idx: number) => (
-                    <Badge
-                      key={idx}
-                      variant="outline"
-                      className="text-[8px] sm:text-[9px] md:text-[10px] px-1 sm:px-1.5 py-0 border-white/40 bg-white/50 text-accent"
-                    >
-                      {size}
-                    </Badge>
-                  ))}
-                </div>
-              )}
               <Button 
                 size="sm"
                 onClick={(e) => {
@@ -311,10 +458,9 @@ function TrendingProducts() {
                   }
                 }}
                 disabled={product.stock === 0}
-                className="w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black"
+                className="w-full h-8 text-xs hover:scale-[1.01] active:scale-95 transition-all"
               >
-                <img src="/images/logo3.png" alt="Add to cart icon" className="w-6 sm:w-7 md:w-8 h-6 sm:h-7 md:h-8 -mt-1 sm:-mt-2" />
-                <span className="leading-none text-accent">Add to cart</span>
+                Add to cart
               </Button>
             </div>
           </Card>
@@ -323,11 +469,12 @@ function TrendingProducts() {
         </div>
 
         <div>
-          <div className="mb-3 sm:mb-4">
-            <h3 className="text-base sm:text-lg md:text-xl font-bold text-neutral-900">Top 5 Services Booked</h3>
+          <div className="mb-3 sm:mb-4 flex items-center justify-between gap-2">
+            <h3 className="text-base sm:text-lg md:text-xl font-bold text-neutral-900">Top Services Booked</h3>
+            <Link href="/services" className="text-xs sm:text-sm text-accent hover:underline">View all services</Link>
           </div>
           {services.length ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4 stagger-grid">
               {services.map((service: any) => {
                 const serviceName = service.title || service.name || service.serviceTitle || 'Service'
                 const serviceId = service.id || service._id
@@ -335,77 +482,50 @@ function TrendingProducts() {
                 return (
                 <Card
                   key={serviceId || serviceName}
-                  className="h-full p-0 gap-0 hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02] transition-all duration-300 group overflow-hidden border-none rounded-2xl relative"
-                  style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}
+                  className="h-full p-0 gap-0 hover:shadow-lg hover:scale-[1.01] transition-all duration-300 group overflow-hidden border border-neutral-200 rounded-2xl relative card-lift"
                 >
-                  <div className="aspect-9/16 relative overflow-hidden rounded-2xl">
-                    {service.images && service.images.length > 0 ? (
+                  <div className="aspect-4/5 relative overflow-hidden rounded-t-2xl">
+                    {service.images && service.images.length > 0 && service.images[0] ? (
                       <img
                         src={service.images[0]}
                         alt={serviceName}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                     ) : (
-                      <div className="flex items-center justify-center h-full bg-linear-to-br from-accent/90 via-orange-500/90 to-red-600/90">
-                        <svg className="h-12 w-12 sm:h-20 sm:w-20 text-white drop-shadow-lg animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
+                      <div className="flex items-center justify-center h-full bg-linear-to-br from-accent/15 to-accent/5">
+                        <Settings className="h-10 w-10 text-accent/70" />
                       </div>
                     )}
 
-                    <div className="absolute inset-0 bg-linear-to-b rounded-2xl from-black/20 via-transparent via-50% to-black/90" />
-
-                    <div className="absolute top-3 sm:top-4 left-1/2 -translate-x-1/2 z-20">
-                      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-white/20 backdrop-blur-md border-3 sm:border-4 border-white overflow-hidden shadow-2xl ring-3 sm:ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110">
-                        <div className="w-full h-full flex items-center justify-center">
-                          {getCategoryIcon(service.category || '')}
-                        </div>
-                      </div>
+                  </div>
+                  <div className="p-3 space-y-2">
+                    <h3 className="text-sm font-semibold text-neutral-900 line-clamp-2">{serviceName}</h3>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Verified className="h-3 w-3 text-accent" />
+                      <span className="line-clamp-1">{service.providerName || service.vendorName || "Provider"}</span>
                     </div>
-
-                    <div className="absolute bottom-0 left-0 right-0 z-10 h-[108px] sm:h-[140px] backdrop-blur-md bg-black/20 rounded-b-2xl border-t border-white/10 p-2 sm:p-4 flex flex-col justify-between">
-                      <div className="flex items-start justify-between gap-2 sm:gap-3">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-xs sm:text-lg md:text-xl font-bold tracking-tight mb-0.5 sm:mb-1 text-white drop-shadow-lg leading-tight line-clamp-2">
-                            {serviceName}
-                          </h3>
-                          {(service.providerName || service.vendorName) && (
-                            <div className="flex items-center gap-0.5 text-[7px] sm:text-xs font-medium text-white/90 tracking-wide mb-1 sm:mb-2">
-                              <Verified className="h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0" />
-                              <span className="leading-tight line-clamp-1">{service.providerName || service.vendorName}</span>
-                            </div>
-                          )}
-
-                          <Badge variant="outline" className="inline-flex max-w-full text-[clamp(6px,1.9vw,9px)] sm:text-[10px] font-semibold py-0.5 px-1 sm:px-1.5 h-4 sm:h-5 tracking-wide border-2 border-white/40 bg-white/10 text-white backdrop-blur-sm whitespace-nowrap">
-                            {service.category || 'Service'}
-                          </Badge>
-                        </div>
-
-                        <div
-                          onClick={() => {
-                            if (!serviceId) return
-                            window.dispatchEvent(new CustomEvent('slideOutNavigate', { detail: { target: buildPublicServicePath(service) } }))
-                          }}
-                          className="shrink-0 w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-xl hover:scale-110 hover:bg-accent hover:text-white transition-all cursor-pointer group/arrow"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent group-hover/arrow:text-white">
-                            <path d="M5 12h14"/>
-                            <path d="m12 5 7 7-7 7"/>
-                          </svg>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between gap-3 text-[11px] font-medium text-white/80 tracking-wide">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          <span>{service.duration || 'Flexible'}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Banknote className="h-3 w-3" />
-                          <span>{getServiceDisplayPrice(service)}</span>
-                        </div>
-                      </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold text-accent">{getServiceDisplayPrice(service)}</span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 px-3"
+                        onClick={() => {
+                          trackServiceView({
+                            id: String(serviceId || ""),
+                            title: serviceName,
+                            category: service.category,
+                            providerName: service.providerName || service.vendorName,
+                            location: service.location || service.city || service.state,
+                          })
+                          if (!serviceId) return
+                          window.dispatchEvent(new CustomEvent('slideOutNavigate', { detail: { target: buildPublicServicePath(service) } }))
+                        }}
+                      >
+                        Open
+                      </Button>
                     </div>
                   </div>
                 </Card>
@@ -833,6 +953,41 @@ export default function HomePage() {
       <style jsx global>{`
         button, .cursor-pointer, a[role="button"] {
           cursor: pointer !important;
+        }
+        @keyframes stagger-up {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .stagger-grid > * {
+          animation: stagger-up 0.45s ease both;
+        }
+        .stagger-grid > *:nth-child(1) { animation-delay: 0.02s; }
+        .stagger-grid > *:nth-child(2) { animation-delay: 0.05s; }
+        .stagger-grid > *:nth-child(3) { animation-delay: 0.08s; }
+        .stagger-grid > *:nth-child(4) { animation-delay: 0.11s; }
+        .stagger-grid > *:nth-child(5) { animation-delay: 0.14s; }
+        .stagger-grid > *:nth-child(6) { animation-delay: 0.17s; }
+        .card-lift {
+          transform: translateY(0);
+          will-change: transform, box-shadow;
+        }
+        .card-lift:hover {
+          transform: translateY(-3px);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .stagger-grid > * {
+            animation: none !important;
+          }
+          .card-lift,
+          .card-lift:hover {
+            transform: none !important;
+          }
         }
         .main-slide-anim {
           transition: transform 0.6s cubic-bezier(.7,1.7,.7,1), opacity 0.6s;

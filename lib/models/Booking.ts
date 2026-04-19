@@ -58,6 +58,25 @@ export interface IBooking extends Document {
     guests?: number;
     pricePerNight?: number;
   };
+  requirementDetails?: {
+    event?: {
+      name?: string;
+      date?: string;
+      guestCount?: number;
+      venue?: string;
+    };
+    logistics?: {
+      pickupAddress?: string;
+      dropoffAddress?: string;
+      packageDescription?: string;
+      receiverName?: string;
+      receiverPhone?: string;
+    };
+    creative?: {
+      preferredPlatform?: string;
+      deliverableFormat?: string;
+    };
+  };
   rescheduleCount?: number;
   rescheduledFromBookingId?: string;
   rescheduledToBookingId?: string;
@@ -132,6 +151,28 @@ const BookingSchema = new Schema<IBooking>({
       children: { type: Number },
       guests: { type: Number },
       pricePerNight: { type: Number },
+    },
+    default: null,
+  },
+  requirementDetails: {
+    type: {
+      event: {
+        name: { type: String },
+        date: { type: String },
+        guestCount: { type: Number },
+        venue: { type: String },
+      },
+      logistics: {
+        pickupAddress: { type: String },
+        dropoffAddress: { type: String },
+        packageDescription: { type: String },
+        receiverName: { type: String },
+        receiverPhone: { type: String },
+      },
+      creative: {
+        preferredPlatform: { type: String },
+        deliverableFormat: { type: String },
+      },
     },
     default: null,
   },

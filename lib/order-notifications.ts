@@ -1,7 +1,5 @@
 import { emailService } from '@/lib/email'
 import { getStores } from '@/lib/mongodb-operations'
-import { User } from '@/lib/models/User'
-import { normalizeNigerianPhone, sendOrderConfirmationSms } from '@/lib/sms'
 
 type OrderLike = any
 
@@ -9,7 +7,6 @@ type VendorBucket = {
   vendorId: string
   vendorName: string
   vendorEmail: string
-  vendorPhone: string
   items: any[]
   total: number
 }
@@ -39,7 +36,6 @@ const buildVendorsFromItems = (items: any[]): VendorBucket[] => {
         vendorId,
         vendorName: String(item?.vendorName || 'Vendor').trim() || 'Vendor',
         vendorEmail: '',
-        vendorPhone: '',
         items: [],
         total: 0,
       })
@@ -65,7 +61,6 @@ const buildVendorBuckets = (order: OrderLike): VendorBucket[] => {
       vendorId: String(vendor?.vendorId || '').trim(),
       vendorName: String(vendor?.vendorName || 'Vendor').trim() || 'Vendor',
       vendorEmail: String(vendor?.vendorEmail || '').trim(),
-      vendorPhone: String(vendor?.vendorPhone || vendor?.phone || vendor?.storePhone || '').trim(),
       items,
       total: toNumber(vendor?.total || sumItems(items)),
     }
@@ -76,7 +71,6 @@ export async function sendOrderPlacementNotifications(orderId: string, order: Or
   const shippingInfo = order?.shippingInfo || {}
   const customerEmail = String(shippingInfo?.email || '').trim()
   const customerName = `${String(shippingInfo?.firstName || '').trim()} ${String(shippingInfo?.lastName || '').trim()}`.trim() || 'Customer'
-  const customerPhone = normalizeNigerianPhone(String(shippingInfo?.phone || ''))
 
   const allItems = Array.isArray(order?.items)
     ? order.items
@@ -107,33 +101,13 @@ export async function sendOrderPlacementNotifications(orderId: string, order: Or
 
   for (const vendor of vendors) {
     let vendorEmail = vendor.vendorEmail
-    let vendorPhone = vendor.vendorPhone
-    let storePhone = ''
-    let preferStorePhone = false
 
-    if (vendor.vendorId) {
-      try {
-        const vendorUser = await User.findById(vendor.vendorId)
-          .select('phone_verified')
-          .lean()
-        preferStorePhone = Boolean(vendorUser) && (vendorUser as any).phone_verified !== true
-      } catch (error) {
-        console.error('[order-notifications] Failed to check vendor phone verification:', error)
-      }
-    }
-
-    if ((!vendorEmail || !vendorPhone || preferStorePhone) && vendor.vendorId) {
+    if (!vendorEmail && vendor.vendorId) {
       try {
         const stores = await getStores({ vendorId: vendor.vendorId, limitCount: 1 })
         const store = stores?.[0]
         if (!vendorEmail) {
           vendorEmail = String(store?.email || '').trim()
-        }
-        storePhone = String(store?.storePhone || store?.phone || '').trim()
-        if (preferStorePhone && storePhone) {
-          vendorPhone = storePhone
-        } else if (!vendorPhone) {
-          vendorPhone = storePhone
         }
       } catch (error) {
         console.error('[order-notifications] Failed to load store contact:', error)
@@ -156,33 +130,5 @@ export async function sendOrderPlacementNotifications(orderId: string, order: Or
         sendVendorCopy: true,
       })
     }
-
-    const normalizedVendorPhone = normalizeNigerianPhone(vendorPhone)
-      || (storePhone ? normalizeNigerianPhone(storePhone) : null)
-    if (normalizedVendorPhone) {
-      await sendOrderConfirmationSms({
-        phoneNumber: normalizedVendorPhone,
-        orderId,
-        amount: vendor.total,
-        productSubtotal: vendor.total,
-        deliveryFee: vendors.length === 1 ? overallDeliveryFee : 0,
-        recipient: 'vendor',
-        itemCount: vendor.items.length,
-        counterpartyName: customerName,
-      })
-    }
-  }
-
-  if (customerPhone) {
-    await sendOrderConfirmationSms({
-      phoneNumber: customerPhone,
-      orderId,
-      amount: overallTotal,
-      productSubtotal: allItemsSubtotal,
-      deliveryFee: overallDeliveryFee,
-      recipient: 'customer',
-      itemCount: allItems.length,
-      deliveryCity: String(shippingInfo?.city || '').trim(),
-    })
   }
 }

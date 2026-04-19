@@ -58,20 +58,6 @@ export default function LoginForm() {
     }
   }
 
-  const goToPhoneVerification = () => {
-    if (!email) {
-      alert("Please enter your email address first")
-      return
-    }
-
-    const params = new URLSearchParams({
-      email,
-      channel: "sms",
-      delivery: "failed",
-    })
-    router.push(`/verify-email?${params.toString()}`)
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -169,7 +155,7 @@ export default function LoginForm() {
                   <>
                     <div className="font-semibold mb-2">📧 Email Verification Required</div>
                     <div>{error}</div>
-                    <div className="mt-2 text-sm">We are sorry some OTP messages were delayed earlier. You can continue with SMS verification below.</div>
+                    <div className="mt-2 text-sm">We are sorry some verification messages were delayed earlier. Please resend and use email verification below.</div>
                   </>
                 ) : error}
                 {(isEmailVerificationError && !isLegacyUserError) && (
@@ -183,28 +169,6 @@ export default function LoginForm() {
                     >
                       {resendLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       {resendLoading ? "Sending..." : "Resend Verification Code"}
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={goToPhoneVerification}
-                      variant="secondary"
-                      size="sm"
-                      className="w-full"
-                    >
-                      Verify With Phone (SMS OTP)
-                    </Button>
-                  </div>
-                )}
-                {isLegacyUserError && (
-                  <div className="mt-2">
-                    <Button
-                      type="button"
-                      onClick={goToPhoneVerification}
-                      variant="secondary"
-                      size="sm"
-                      className="w-full"
-                    >
-                      Verify With Phone (SMS OTP)
                     </Button>
                   </div>
                 )}

@@ -67,22 +67,6 @@ export async function POST(request: NextRequest) {
       }, { status: 502 })
     }
 
-    if (error?.message === 'VERIFICATION_SMS_SEND_FAILED') {
-      return NextResponse.json({
-        success: false,
-        error: 'We created your account, but we could not deliver OTP SMS right now. Please switch to email verification on the verification page.',
-        code: 'VERIFICATION_SMS_SEND_FAILED'
-      }, { status: 502 })
-    }
-
-    if (error?.message === 'VERIFICATION_SMS_PHONE_REQUIRED') {
-      return NextResponse.json({
-        success: false,
-        error: 'A valid phone number with country code is required for SMS verification.',
-        code: 'VERIFICATION_SMS_PHONE_REQUIRED'
-      }, { status: 400 })
-    }
-
     return NextResponse.json({
       success: false,
       error: error.message || 'Failed to create account'
