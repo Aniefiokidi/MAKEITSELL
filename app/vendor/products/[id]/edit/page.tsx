@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter, useParams } from "next/navigation"
 import VendorLayout from "@/components/vendor/VendorLayout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -29,6 +29,8 @@ export default function ProductEditPage() {
   const { id } = params as { id: string }
   const { success, error: showError } = useNotification()
   const [product, setProduct] = useState<any>(null)
+  const dragItem = useRef<number | null>(null)
+  const dragOverItem = useRef<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
@@ -146,6 +148,7 @@ export default function ProductEditPage() {
           colors: colors,
           sizes: sizes,
           colorImages: colorImageUrls,
+          images: product.images, // <-- persist reordered images
         })
       })
       
@@ -183,6 +186,28 @@ export default function ProductEditPage() {
     </VendorLayout>
   )
   
+
+  // Drag-and-drop handlers for image reordering
+  const handleDragStart = (index: number) => {
+    dragItem.current = index
+  }
+  const handleDragEnter = (index: number) => {
+    dragOverItem.current = index
+  }
+  const handleDragEnd = () => {
+    if (dragItem.current === null || dragOverItem.current === null || dragItem.current === dragOverItem.current) {
+      dragItem.current = null
+      dragOverItem.current = null
+      return
+    }
+    const updatedImages = [...product.images]
+    const draggedImg = updatedImages.splice(dragItem.current, 1)[0]
+    updatedImages.splice(dragOverItem.current, 0, draggedImg)
+    setProduct((prev: any) => ({ ...prev, images: updatedImages }))
+    dragItem.current = null
+    dragOverItem.current = null
+  }
+
   if (!product) return null
 
   return (
@@ -288,12 +313,21 @@ export default function ProductEditPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Product Images</CardTitle>
-                <CardDescription>Current product images</CardDescription>
+                <CardDescription>Drag and drop to reorder images</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {product.images.map((img: string, index: number) => (
-                    <div key={index} className="relative aspect-square rounded-lg border-2 border-dashed border-muted-foreground/25 overflow-hidden">
+                    <div
+                      key={index}
+                      className="relative aspect-square rounded-lg border-2 border-dashed border-muted-foreground/25 overflow-hidden cursor-move"
+                      draggable
+                      onDragStart={() => handleDragStart(index)}
+                      onDragEnter={() => handleDragEnter(index)}
+                      onDragEnd={handleDragEnd}
+                      onDragOver={e => e.preventDefault()}
+                      style={{ opacity: dragItem.current === index ? 0.5 : 1 }}
+                    >
                       <Image
                         src={img}
                         alt={`Product ${index + 1}`}
@@ -307,6 +341,9 @@ export default function ProductEditPage() {
                   ))}
                 </div>
                 <p className="text-sm text-muted-foreground mt-4">
+                  Drag and drop images to change their order. The first image will be the main display image.
+                </p>
+                <p className="text-sm text-muted-foreground">
                   You can select up to {product.images.length} color{product.images.length !== 1 ? 's' : ''} (one per image)
                 </p>
               </CardContent>
