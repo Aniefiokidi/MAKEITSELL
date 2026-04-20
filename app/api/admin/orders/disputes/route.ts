@@ -92,9 +92,9 @@ export async function POST(request: NextRequest) {
             throw new Error('Order not found')
           }
 
-          const orderPaymentStatus = String(orderInTxn.paymentStatus || '').toLowerCase()
+          const orderPaymentStatus = String(orderInTxn.paymentStatus || '').toLowerCase() as 'escrow' | 'disputed' | 'refunded';
           const orderDisputed = String(orderInTxn.disputeStatus || '').toLowerCase() === 'active' || Boolean(orderInTxn.disputeRaisedAt)
-          if (!(orderPaymentStatus === 'escrow' || orderPaymentStatus === 'disputed') || !orderDisputed) {
+          if (!(orderPaymentStatus === 'escrow' || orderPaymentStatus === 'disputed' || orderPaymentStatus === 'refunded') || !orderDisputed) {
             throw new Error('Only disputed escrow orders can be refunded')
           }
 
