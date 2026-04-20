@@ -813,7 +813,7 @@ export default function ServiceDetailPage() {
                         for (let i = 0; i < 7; i++) {
                           const check = new Date(today);
                           check.setDate(today.getDate() + i);
-                          const dayName = days[check.getDay()];
+                          const dayName = days[check.getDay()] as keyof typeof service.availability;
                           const slot = service.availability[dayName];
                           if (slot?.available) {
                             return `${dayName.charAt(0).toUpperCase() + dayName.slice(1)}: ${slot.start} - ${slot.end}`;
