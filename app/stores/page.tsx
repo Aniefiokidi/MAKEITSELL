@@ -375,7 +375,18 @@ export default function ShopPage() {
               </h3>
               <div className="flex items-center text-[8px] sm:text-xs font-medium text-white/90 tracking-wide mb-1">
                 <MapPin className="h-2.5 w-2.5 mr-0.5 shrink-0" />
-                <span className="truncate">{store.location || store.city || "Location not specified"}</span>
+                <span className="truncate">
+                  {/* Only show town/city and state, not full address */}
+                  {(() => {
+                    // Prefer explicit city/state fields
+                    const city = store.city || (store.address ? store.address.split(',')[0]?.trim() : "")
+                    const state = store.state || (store.address ? store.address.split(',')[1]?.trim() : "")
+                    if (city && state) return `${city}, ${state}`
+                    if (city) return city
+                    if (state) return state
+                    return "Location not specified"
+                  })()}
+                </span>
               </div>
               
               {store.category && (
