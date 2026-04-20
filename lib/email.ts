@@ -758,6 +758,7 @@ class EmailService {
       ? Number(orderData.deliveryFee)
       : Math.max(0, Number(orderData.total || 0) - productSubtotal)
 
+    const shortOrderId = orderData.orderId.substring(0, 8).toUpperCase();
     const vendorEmailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f7f7f8; border: 1px solid #ececf0; border-radius: 14px; overflow: hidden;">
         <div style="background: #7f1d1d; padding: 24px 20px; text-align: center;">
