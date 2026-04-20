@@ -64,7 +64,7 @@ const buildVendorBuckets = (order: OrderLike): VendorBucket[] => {
       items,
       total: toNumber(vendor?.total || sumItems(items)),
     }
-  }).filter((vendor) => vendor.vendorId)
+  }).filter((vendor: VendorBucket) => vendor.vendorId)
 }
 
 export async function sendOrderPlacementNotifications(orderId: string, order: OrderLike) {
