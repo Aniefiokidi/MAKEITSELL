@@ -779,12 +779,13 @@ export default function ServiceDetailPage() {
               </div>
             </div>
 
+            {/* Trust, Urgency & Conversion Signals */}
             <Card className="border-accent/20 bg-background/90">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Trust & Service Signals</CardTitle>
-                <CardDescription>Confidence indicators before you book</CardDescription>
+                <CardTitle className="text-base">Trust & Conversion Signals</CardTitle>
+                <CardDescription>Book with confidence and urgency</CardDescription>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+              <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-sm">
                 <div className="rounded-md border p-3 bg-muted/20">
                   <p className="text-xs text-muted-foreground">Provider tier</p>
                   <p className="font-semibold">{trustTier}</p>
@@ -800,6 +801,52 @@ export default function ServiceDetailPage() {
                 <div className="rounded-md border p-3 bg-muted/20">
                   <p className="text-xs text-muted-foreground">Last updated</p>
                   <p className="font-semibold">{lastUpdatedLabel}</p>
+                </div>
+                <div className="rounded-md border p-3 bg-yellow-50 border-yellow-200">
+                  <p className="text-xs text-yellow-700">Next available slot</p>
+                  <p className="font-semibold text-yellow-900">
+                    {/* Next slot preview logic */}
+                    {(() => {
+                      if (service?.availability) {
+                        const today = new Date();
+                        const days = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
+                        for (let i = 0; i < 7; i++) {
+                          const check = new Date(today);
+                          check.setDate(today.getDate() + i);
+                          const dayName = days[check.getDay()];
+                          const slot = service.availability[dayName];
+                          if (slot?.available) {
+                            return `${dayName.charAt(0).toUpperCase() + dayName.slice(1)}: ${slot.start} - ${slot.end}`;
+                          }
+                        }
+                      }
+                      return "No slots published";
+                    })()}
+                  </p>
+                </div>
+              </CardContent>
+              <CardContent className="pt-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3">
+                <div className="rounded-md border p-3 bg-blue-50 border-blue-200">
+                  <p className="text-xs text-blue-700">Social proof</p>
+                  <p className="font-semibold text-blue-900">
+                    {completedJobs > 0
+                      ? `Booked ${completedJobs} time${completedJobs === 1 ? '' : 's'} this month`
+                      : "Be the first to book!"}
+                  </p>
+                </div>
+                <div className="rounded-md border p-3 bg-green-50 border-green-200">
+                  <p className="text-xs text-green-700">Booking urgency</p>
+                  <p className="font-semibold text-green-900">
+                    {(() => {
+                      if (service?.availability) {
+                        const days = Object.entries(service.availability).filter(([_, v]) => v.available);
+                        if (days.length <= 2) return "Limited slots left!";
+                        if (days.length <= 4) return "Slots filling up soon";
+                        return "Slots available this week";
+                      }
+                      return "Check calendar for details";
+                    })()}
+                  </p>
                 </div>
               </CardContent>
               <CardContent className="pt-0">

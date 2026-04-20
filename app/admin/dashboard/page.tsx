@@ -84,7 +84,7 @@ export default function AdminDashboard() {
         String(order.orderId) === String(orderId)
           ? {
               ...order,
-              disputeClaimedById: String(user?.id || ''),
+              disputeClaimedById: String(user?.uid || ''),
               disputeClaimedByEmail: String(user?.email || ''),
               disputeClaimedByName: String(user?.name || user?.email || ''),
               disputeClaimedAt: new Date().toISOString(),
