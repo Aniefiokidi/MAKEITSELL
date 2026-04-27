@@ -92,7 +92,7 @@ export async function sendOrderPlacementNotifications(orderId: string, order: Or
   const overallDeliveryFee = Math.max(0, overallTotal - allItemsSubtotal)
 
   const vendors = buildVendorBuckets(order)
-  const customerItemCount = allItems.reduce((sum, item) => sum + Math.max(1, toNumber(item?.quantity || 1)), 0)
+  const customerItemCount = allItems.reduce((sum: number, item) => sum + Math.max(1, toNumber(item?.quantity || 1)), 0)
 
   if (customerEmail) {
     await emailService.sendOrderConfirmationEmails({
