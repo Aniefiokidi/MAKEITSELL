@@ -142,7 +142,11 @@ export default function ShopPage() {
         }
 
         setStores(pinnedStores)
-        setLocationOptions(Array.isArray(data.locationOptions) ? data.locationOptions : [])
+        setLocationOptions(
+          Array.isArray(data.locationOptions)
+            ? [...data.locationOptions].sort((a, b) => a.localeCompare(b))
+            : []
+        )
         setTotalPages(Math.max(1, Number(data?.pagination?.totalPages || 1)))
         setTotalStores(Math.max(0, Number(data?.pagination?.total || 0)))
       } else {
@@ -614,13 +618,13 @@ export default function ShopPage() {
 
               <Select value={selectedLocation} onValueChange={setSelectedLocation}>
                 <SelectTrigger className="flex-1 sm:w-auto border-2 border-accent/20 hover:border-accent/40 transition-colors h-10 text-xs sm:text-sm p-2">
-                  <SelectValue placeholder="Location" />
+                  <SelectValue placeholder="State" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all" className="text-xs sm:text-sm">All Locations</SelectItem>
-                  {locationOptions.map((location) => (
-                    <SelectItem key={location} value={location} className="text-xs sm:text-sm">
-                      {location}
+                  <SelectItem value="all" className="text-xs sm:text-sm">All States</SelectItem>
+                  {locationOptions.map((state) => (
+                    <SelectItem key={state} value={state} className="text-xs sm:text-sm">
+                      {state}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -629,7 +629,7 @@ export default function NewProduct() {
 
           {/* Actions */}
           <div className="flex gap-4">
-            <Button type="submit" disabled={loading} className="flex-1">
+            <Button type="submit" disabled={loading} className="flex-1 border-accent outline-accent outline-2 outline">
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create Product
             </Button>

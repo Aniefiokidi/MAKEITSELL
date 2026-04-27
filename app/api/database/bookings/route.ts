@@ -7,6 +7,7 @@ import { getIcsBusyRanges, hasBusyOverlap } from "@/lib/calendar-sync"
 import { connectToDatabase } from "@/lib/mongodb"
 import { User as UserModel } from "@/lib/models/User"
 import { WalletTransaction } from "@/lib/models/WalletTransaction"
+import { sendBookingConfirmationSms } from "@/lib/sms"
 
 const BOOKING_FEE_NAIRA = 500
 
@@ -376,6 +377,41 @@ export async function POST(request: NextRequest) {
       }
       if (providerEmail) {
         await AppointmentEmailService.sendProviderBookingNotification(emailPayload as any)
+      }
+
+      if (String(normalizedBookingData.customerPhone || '').trim()) {
+        await sendBookingConfirmationSms({
+          phoneNumber: String(normalizedBookingData.customerPhone || '').trim(),
+          bookingId: booking.id,
+          serviceTitle: String(normalizedBookingData.serviceTitle || '').trim(),
+          bookingDate: new Date(normalizedBookingData.bookingDate),
+          startTime: String(normalizedBookingData.startTime || '').trim(),
+          endTime: String(normalizedBookingData.endTime || '').trim(),
+          totalPrice: Number(normalizedBookingData.totalPrice || 0),
+          recipient: 'customer',
+          status: 'pending',
+        })
+      }
+
+      const providerPhone = String(
+        (provider as any)?.phone_number ||
+        (provider as any)?.phone ||
+        ''
+      ).trim()
+
+      if (providerPhone) {
+        await sendBookingConfirmationSms({
+          phoneNumber: providerPhone,
+          bookingId: booking.id,
+          serviceTitle: String(normalizedBookingData.serviceTitle || '').trim(),
+          bookingDate: new Date(normalizedBookingData.bookingDate),
+          startTime: String(normalizedBookingData.startTime || '').trim(),
+          endTime: String(normalizedBookingData.endTime || '').trim(),
+          totalPrice: Number(normalizedBookingData.totalPrice || 0),
+          recipient: 'provider',
+          counterpartyName: String(normalizedBookingData.customerName || '').trim(),
+          status: 'pending',
+        })
       }
 
       console.log('✅ Booking notifications dispatched')

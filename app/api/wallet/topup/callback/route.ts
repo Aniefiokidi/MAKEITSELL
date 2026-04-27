@@ -202,11 +202,11 @@ export async function GET(request: NextRequest) {
       }
     )
 
+
     if (completeUpdate.modifiedCount > 0) {
       const userIdObject = mongoose.Types.ObjectId.isValid(transaction.userId)
         ? new mongoose.Types.ObjectId(transaction.userId)
         : transaction.userId
-      
       await User.updateOne(
         { _id: userIdObject, role: 'customer' },
         {
@@ -214,6 +214,22 @@ export async function GET(request: NextRequest) {
           $set: { updatedAt: new Date() },
         }
       )
+
+      // Send wallet top-up email notification
+      try {
+        const user = await User.findOne({ _id: userIdObject }, { email: 1, walletBalance: 1 })
+        if (user && user.email) {
+          const { sendWalletTopupEmail } = await import('@/lib/wallet-emails')
+          await sendWalletTopupEmail({
+            to: user.email,
+            amount: transaction.amount,
+            reference: transaction.reference,
+            balance: typeof user.walletBalance === 'number' ? user.walletBalance : 0,
+          })
+        }
+      } catch (emailErr) {
+        console.error('[wallet/topup/callback] Failed to send top-up email:', emailErr)
+      }
     }
 
     successRedirect.searchParams.set('wallet', 'success')

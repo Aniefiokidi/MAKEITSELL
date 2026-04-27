@@ -266,12 +266,12 @@ export default function VendorDashboardPage() {
 
             {setupPopupType === "missing-store-image" ? (
               <>
-                <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg border border-accent/40" variant="default" onClick={() => setShowSetupPopup(false)}>
+                <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg border border-accent outline-accent outline-2 outline" variant="default" onClick={() => setShowSetupPopup(false)}>
                   <Link href="/vendor/setup-wizard">
                     Quick Store Setup
                   </Link>
                 </Button>
-                <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg border-accent/40 text-accent hover:bg-accent hover:text-white" variant="outline" onClick={() => setShowSetupPopup(false)}>
+                <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg border-accent outline-accent outline-2 outline text-accent hover:bg-accent hover:text-white" variant="outline" onClick={() => setShowSetupPopup(false)}>
                   <Link href="/vendor/products/new">
                     Add First Product
                   </Link>
@@ -291,7 +291,7 @@ export default function VendorDashboardPage() {
             <h1 className="text-lg font-bold" style={{ textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))' }}>Dashboard</h1>
             <p className="text-xs text-muted-foreground">Welcome back! Here's what's happening with your {vendorType === "services" ? "services" : "store"}.</p>
             <div className="mt-2">
-              <Button asChild size="sm" variant="outline" className="border-accent/40 text-accent hover:bg-accent hover:text-white">
+              <Button asChild size="sm" variant="outline" className="border-accent outline-accent outline-2 outline text-accent hover:bg-accent hover:text-white">
                 <Link href={(vendorType === "services" || (vendorType === "both" && activeTab === "services")) ? "/vendor/services/setup-wizard" : "/vendor/setup-wizard"}>{(vendorType === "services" || (vendorType === "both" && activeTab === "services")) ? "Open Service Setup Wizard" : "Open Setup Wizard"}</Link>
               </Button>
             </div>
@@ -301,7 +301,7 @@ export default function VendorDashboardPage() {
             disabled={dataLoading}
             variant="outline"
             size="sm"
-            className="gap-2 border-accent/40 text-accent hover:bg-accent hover:text-white"
+            className="gap-2 border-accent outline-accent outline-2 outline text-accent hover:bg-accent hover:text-white"
           >
             {dataLoading ? (
               <>

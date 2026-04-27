@@ -1,3 +1,18 @@
+// Helper to clean state options
+const cleanStateOptions = (rawOptions: any[]): string[] => {
+  return [...new Set(
+    (rawOptions || [])
+      .filter(Boolean)
+      .map((s: any) => String(s).trim())
+      .filter((s) =>
+        s.length > 0 &&
+        !s.includes(',') &&
+        !/nigeria/i.test(s) &&
+        !/\d/.test(s) &&           // no entries with digits
+        s.split(' ').length <= 5   // reasonable state name length
+      )
+  )].sort((a, b) => a.localeCompare(b))
+}
 import { NextRequest, NextResponse } from 'next/server'
 import { getStores as mongoGetStores } from '@/lib/mongodb-operations'
 import { requireRoles } from '@/lib/server-route-auth'
@@ -137,8 +152,7 @@ export async function GET(request: NextRequest) {
         linkedWalletUserId: store.linkedWalletUserId || store.vendorId,
       })))
 
-      const locationOptions = await Store.distinct('address', query)
-
+      const stateOptions = await Store.distinct('state', query)
       return NextResponse.json({
         success: true,
         data: mappedStores,
@@ -148,7 +162,7 @@ export async function GET(request: NextRequest) {
           total,
           totalPages: Math.max(1, Math.ceil(total / limitCount)),
         },
-        locationOptions: (locationOptions || []).filter(Boolean),
+        locationOptions: cleanStateOptions(stateOptions),
       })
     }
 
@@ -312,7 +326,7 @@ export async function GET(request: NextRequest) {
       })))
 
       const locationOptions = await Store.distinct('address', query)
-
+      const stateOptions = await Store.distinct('state', query)
       return NextResponse.json({
         success: true,
         data: mappedStores,
@@ -322,7 +336,7 @@ export async function GET(request: NextRequest) {
           total,
           totalPages: Math.max(1, Math.ceil(total / limitCount)),
         },
-        locationOptions: (locationOptions || []).filter(Boolean),
+        locationOptions: cleanStateOptions(stateOptions),
       })
     }
 
@@ -398,8 +412,8 @@ export async function GET(request: NextRequest) {
       }
     }))
 
-    const locationOptions = await Store.distinct('address', query)
-
+    // Return unique states for location filter
+    const stateOptions = await Store.distinct('state', query)
     return NextResponse.json({
       success: true,
       data: mappedStores,
@@ -409,7 +423,7 @@ export async function GET(request: NextRequest) {
         total,
         totalPages: Math.max(1, Math.ceil(total / limitCount)),
       },
-      locationOptions: (locationOptions || []).filter(Boolean),
+      locationOptions: cleanStateOptions(stateOptions),
     })
   } catch (error: any) {
     console.error('Get stores error:', error)

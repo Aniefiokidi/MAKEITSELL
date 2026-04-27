@@ -476,7 +476,7 @@ export default function ProductEditPage() {
 
           {/* Actions */}
           <div className="flex gap-4">
-            <Button type="submit" disabled={saving} className="flex-1">
+            <Button type="submit" disabled={saving} className="flex-1 border-accent outline-accent outline-2 outline">
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save Changes
             </Button>

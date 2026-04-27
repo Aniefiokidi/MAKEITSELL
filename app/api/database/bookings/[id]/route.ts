@@ -5,6 +5,8 @@ import { User as UserModel } from "@/lib/models/User"
 import { WalletTransaction } from "@/lib/models/WalletTransaction"
 import { computeCancellationFee } from "@/lib/service-pricing"
 import { getServiceById } from "@/lib/mongodb-operations"
+import { getUserById } from "@/lib/mongodb-operations"
+import { sendBookingConfirmationSms } from "@/lib/sms"
 
 export async function PATCH(
   request: NextRequest,
@@ -293,6 +295,49 @@ export async function PATCH(
       new: true,
       runValidators: true,
     }).lean()
+
+    const finalStatus = String((updatedBooking as any)?.status || '')
+    const priorStatus = String((existingBooking as any)?.status || '')
+
+    if (finalStatus === 'confirmed' && priorStatus !== 'confirmed') {
+      try {
+        const provider = await getUserById(String((updatedBooking as any)?.providerId || ''))
+        const providerPhone = String(
+          (provider as any)?.phone_number ||
+          (provider as any)?.phone ||
+          ''
+        ).trim()
+
+        const smsPayload = {
+          bookingId: String((updatedBooking as any)?._id || id),
+          serviceTitle: String((updatedBooking as any)?.serviceTitle || '').trim(),
+          bookingDate: new Date((updatedBooking as any)?.bookingDate),
+          startTime: String((updatedBooking as any)?.startTime || '').trim(),
+          endTime: String((updatedBooking as any)?.endTime || '').trim(),
+          totalPrice: Number((updatedBooking as any)?.finalPrice ?? (updatedBooking as any)?.totalPrice ?? 0),
+          status: 'confirmed' as const,
+        }
+
+        if (String((updatedBooking as any)?.customerPhone || '').trim()) {
+          await sendBookingConfirmationSms({
+            phoneNumber: String((updatedBooking as any)?.customerPhone || '').trim(),
+            recipient: 'customer',
+            ...smsPayload,
+          })
+        }
+
+        if (providerPhone) {
+          await sendBookingConfirmationSms({
+            phoneNumber: providerPhone,
+            recipient: 'provider',
+            counterpartyName: String((updatedBooking as any)?.customerName || '').trim(),
+            ...smsPayload,
+          })
+        }
+      } catch (smsError) {
+        console.error('[bookings][PATCH] Confirmation SMS failed:', smsError)
+      }
+    }
 
     return NextResponse.json({
       success: true,

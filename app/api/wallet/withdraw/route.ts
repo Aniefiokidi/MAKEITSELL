@@ -300,6 +300,21 @@ export async function POST(request: NextRequest) {
       { walletBalance: 1 }
     )
 
+    // Send withdrawal email only if completed immediately
+    if (mapTransferStatusToTxStatus(transferStatus) === 'completed' && currentUser.email) {
+      try {
+        const { sendWalletWithdrawalEmail } = await import('@/lib/wallet-emails')
+        await sendWalletWithdrawalEmail({
+          to: currentUser.email,
+          amount: normalizedAmount,
+          reference,
+          balance: typeof refreshedUser?.walletBalance === 'number' ? refreshedUser.walletBalance : 0,
+        })
+      } catch (emailErr) {
+        console.error('[wallet/withdraw] Failed to send withdrawal email:', emailErr)
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: mapTransferStatusToTxStatus(transferStatus) === 'completed'
