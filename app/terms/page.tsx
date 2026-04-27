@@ -19,7 +19,7 @@ export default function TermsPage() {
             </nav>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 animate-fade-in-up">
               <div>
-                <h1 className="text-lg sm:text-2xl md:text-3xl lg:text-4xl font-extrabold mb-2 sm:mb-4 text-transparent bg-clip-text bg-gradient-to-r from-accent to-primary animate-fade-in-up">
+                <h1 className="text-lg sm:text-2xl md:text-3xl lg:text-4xl font-extrabold mb-2 sm:mb-4 text-accent bg-clip-text bg-gradient-to-r from-accent to-primary animate-fade-in-up drop-shadow-md">
                   MAKE IT SELL — TERMS OF SERVICE
                 </h1>
                 <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[8px] xs:text-[9px] sm:text-xs text-muted-foreground animate-fade-in-up">
@@ -302,13 +302,181 @@ export default function TermsPage() {
             </CardContent>
           </Card>
 
+          {/* 11. PAYMENTS & ESCROW */}
+          <Card className="mb-6" id="payments-escrow">
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-base sm:text-lg md:text-xl">11. PAYMENTS & ESCROW</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 p-4 sm:p-6">
+              <ul className="text-[10px] xs:text-xs sm:text-sm text-muted-foreground space-y-2 pl-4">
+                <li>• Make It Sell processes payments on behalf of vendors. When a customer places an order, payment is collected and temporarily held by the platform.</li>
+                <li>• Funds are not immediately released to vendors. Payments are held to allow delivery confirmation and dispute resolution.</li>
+                <li>• Make It Sell may delay, hold, or reverse payments where fraud, disputes, or suspicious activity is detected.</li>
+              </ul>
+            </CardContent>
+          </Card>
+
+          {/* 12. VENDOR PAYOUTS */}
+          <Card className="mb-6" id="vendor-payouts">
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-base sm:text-lg md:text-xl">12. VENDOR PAYOUTS</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 p-4 sm:p-6">
+              <ul className="text-[10px] xs:text-xs sm:text-sm text-muted-foreground space-y-2 pl-4">
+                <li>• Vendors receive payouts after:</li>
+                <ul className="pl-6">
+                  <li>- Order is marked delivered</li>
+                  <li>- No dispute is raised within the review window</li>
+                  <li>- Transaction passes fraud checks</li>
+                </ul>
+                <li>• Payouts are sent to the vendor’s verified bank account. Make It Sell may delay payouts for risk review, disputes, or compliance checks.</li>
+              </ul>
+            </CardContent>
+          </Card>
+
+          {/* 13. SHIPPING & DELIVERY */}
+          <Card className="mb-6" id="shipping-delivery">
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-base sm:text-lg md:text-xl">13. SHIPPING & DELIVERY</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 p-4 sm:p-6">
+              <ul className="text-[10px] xs:text-xs sm:text-sm text-muted-foreground space-y-2 pl-4">
+                <li>• Vendors are responsible for:</li>
+                <ul className="pl-6">
+                  <li>- Packaging items correctly</li>
+                  <li>- Shipping items on time</li>
+                  <li>- Providing accurate tracking where available</li>
+                  <li>- Ensuring items match listing description</li>
+                </ul>
+                <li>• Make It Sell does not directly handle shipping. Delivery timelines depend on vendor and logistics provider.</li>
+              </ul>
+            </CardContent>
+          </Card>
+
+          {/* 14. REFUNDS & RETURNS */}
+          <Card className="mb-6" id="refunds-returns">
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-base sm:text-lg md:text-xl">14. REFUNDS & RETURNS</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 p-4 sm:p-6">
+              <ul className="text-[10px] xs:text-xs sm:text-sm text-muted-foreground space-y-2 pl-4">
+                <li>• Refunds may be issued where:</li>
+                <ul className="pl-6">
+                  <li>- Item is not delivered</li>
+                  <li>- Item is significantly different from description</li>
+                  <li>- Vendor cancels order</li>
+                  <li>- Fraudulent transaction detected</li>
+                </ul>
+                <li>• Refunds are processed back to the original payment method. Make It Sell reserves the right to approve or deny refund requests after reviewing evidence.</li>
+              </ul>
+            </CardContent>
+          </Card>
+
+          {/* 15. CANCELLATIONS */}
+          <Card className="mb-6" id="cancellations">
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-base sm:text-lg md:text-xl">15. CANCELLATIONS</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 p-4 sm:p-6">
+              <ul className="text-[10px] xs:text-xs sm:text-sm text-muted-foreground space-y-2 pl-4">
+                <li>• Orders may be cancelled:</li>
+                <ul className="pl-6">
+                  <li>- By customer before vendor ships item</li>
+                  <li>- By vendor due to stock issues</li>
+                  <li>- By Make It Sell for fraud prevention</li>
+                </ul>
+                <li>• Cancelled orders are refunded automatically.</li>
+              </ul>
+            </CardContent>
+          </Card>
+
+          {/* 16. DISPUTES */}
+          <Card className="mb-6" id="disputes">
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-base sm:text-lg md:text-xl">16. DISPUTES</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 p-4 sm:p-6">
+              <ul className="text-[10px] xs:text-xs sm:text-sm text-muted-foreground space-y-2 pl-4">
+                <li>• Customers may open disputes for:</li>
+                <ul className="pl-6">
+                  <li>- Non-delivery</li>
+                  <li>- Wrong item</li>
+                  <li>- Damaged item</li>
+                  <li>- Misrepresentation</li>
+                </ul>
+                <li>• Make It Sell will review:</li>
+                <ul className="pl-6">
+                  <li>- Chat logs</li>
+                  <li>- Order details</li>
+                  <li>- Delivery confirmation</li>
+                  <li>- Evidence from both parties</li>
+                </ul>
+                <li>• Decision by Make It Sell is final.</li>
+              </ul>
+            </CardContent>
+          </Card>
+
+          {/* 17. WALLET & BALANCE */}
+          <Card className="mb-6" id="wallet-balance">
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-base sm:text-lg md:text-xl">17. WALLET & BALANCE</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 p-4 sm:p-6">
+              <ul className="text-[10px] xs:text-xs sm:text-sm text-muted-foreground space-y-2 pl-4">
+                <li>• Vendors may have a wallet showing available earnings. Wallet balances represent funds pending withdrawal.</li>
+                <li>• Wallet-to-wallet transfers are not supported. Withdrawals are only allowed to verified bank accounts.</li>
+              </ul>
+            </CardContent>
+          </Card>
+
+          {/* 18. PLATFORM FEES */}
+          <Card className="mb-6" id="platform-fees">
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-base sm:text-lg md:text-xl">18. PLATFORM FEES</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 p-4 sm:p-6">
+              <ul className="text-[10px] xs:text-xs sm:text-sm text-muted-foreground space-y-2 pl-4">
+                <li>• Make It Sell may charge:</li>
+                <ul className="pl-6">
+                  <li>- Vendor subscription fee</li>
+                  <li>- Transaction commission</li>
+                  <li>- Service fees</li>
+                </ul>
+                <li>• Fees may change with notice.</li>
+              </ul>
+            </CardContent>
+          </Card>
+
+          {/* 19. FRAUD & RISK CONTROL */}
+          <Card className="mb-6" id="fraud-risk-control">
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-base sm:text-lg md:text-xl">19. FRAUD & RISK CONTROL</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 p-4 sm:p-6">
+              <ul className="text-[10px] xs:text-xs sm:text-sm text-muted-foreground space-y-2 pl-4">
+                <li>• Make It Sell may:</li>
+                <ul className="pl-6">
+                  <li>- Hold transactions</li>
+                  <li>- Reverse payments</li>
+                  <li>- Suspend accounts</li>
+                  <li>- Request additional verification</li>
+                </ul>
+                <li>• This is to protect buyers, vendors, and the platform.</li>
+              </ul>
+            </CardContent>
+          </Card>
+
           {/* Final Notice */}
           <div className="bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-lg p-4 sm:p-6 text-center">
             <p className="text-[10px] xs:text-xs sm:text-sm text-muted-foreground">
               By using Make It Sell, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service.
             </p>
             <div className="mt-4">
-              <Link href="/support" className="inline-flex items-center text-primary hover:underline text-xs sm:text-sm">
+              <Link
+                href="/support"
+                className="inline-flex items-center text-accent font-bold text-xs sm:text-sm transition-all duration-200 hover:scale-105 hover:text-primary animate-pulse"
+                style={{ textShadow: '0 1px 4px rgba(0,0,0,0.08)' }}
+              >
                 Contact Support Team →
               </Link>
             </div>
