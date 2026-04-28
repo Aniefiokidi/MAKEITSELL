@@ -32,9 +32,9 @@ export async function POST(request: NextRequest) {
       totalAmount: clientTotalAmount
     } = body
 
-    const normalizedPaymentMethod = paymentMethod === 'paystack' ? 'xoro_pay' : paymentMethod
-    if (paymentMethod === 'paystack') {
-      console.warn('[PAYMENT INIT] Remapping deprecated paystack method to xoro_pay')
+    const normalizedPaymentMethod = (paymentMethod === 'paystack' || paymentMethod === 'checkout') ? 'xoro_pay' : paymentMethod
+    if (paymentMethod === 'paystack' || paymentMethod === 'checkout') {
+      console.warn('[PAYMENT INIT] Remapping checkout/paystack method to xoro_pay')
     }
 
     // Validate required fields
