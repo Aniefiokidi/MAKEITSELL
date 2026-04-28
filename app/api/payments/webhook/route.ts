@@ -288,6 +288,9 @@ export async function POST(request: NextRequest) {
     const xoroSignature = request.headers.get('x-xoro-signature')
       || request.headers.get('x-signature')
       || request.headers.get('xoropay-signature')
+      || request.headers.get('x-korapay-signature')
+      || request.headers.get('korapay-signature')
+      || request.headers.get('x-webhook-signature')
       || ''
 
     if (paystackSignature) {

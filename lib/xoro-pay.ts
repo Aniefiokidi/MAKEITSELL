@@ -380,7 +380,9 @@ class XoroPayService {
 
   private normalizeAuthResponse(payload: any, fallbackReference: string) {
     const data = asObject(pick(payload, ['data', 'result'], {}))
+    const nestedData = asObject(pick(data, ['data', 'result', 'payload'], {}))
     const checkout = asObject(pick(data, ['checkout'], {}))
+    const nestedCheckout = asObject(pick(nestedData, ['checkout'], {}))
     const authorizationUrl = pick<string>(data, [
       'authorization_url',
       'authorizationUrl',
@@ -392,7 +394,25 @@ class XoroPayService {
       'paymentLink',
       'link',
       'url',
+    ]) || pick<string>(nestedData, [
+      'authorization_url',
+      'authorizationUrl',
+      'checkout_url',
+      'checkoutUrl',
+      'hosted_url',
+      'hostedUrl',
+      'payment_link',
+      'paymentLink',
+      'link',
+      'url',
     ]) || pick<string>(checkout, [
+      'url',
+      'link',
+      'checkout_url',
+      'checkoutUrl',
+      'redirect_url',
+      'redirectUrl',
+    ]) || pick<string>(nestedCheckout, [
       'url',
       'link',
       'checkout_url',
@@ -413,6 +433,7 @@ class XoroPayService {
     ])
 
     const reference = pick<string>(data, ['reference', 'payment_reference', 'paymentReference'])
+      || pick<string>(nestedData, ['reference', 'payment_reference', 'paymentReference'])
       || pick<string>(payload, ['reference', 'payment_reference', 'paymentReference'])
       || fallbackReference
 
@@ -430,6 +451,9 @@ class XoroPayService {
       new Set([
         this.defaultProcessor,
         String(process.env.XORO_PAY_PROCESSOR || '').trim().toLowerCase(),
+        'korapay',
+        'kora_pay',
+        'kora',
         'xoropay',
         '',
       ].filter(Boolean))
