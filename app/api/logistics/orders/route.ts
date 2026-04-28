@@ -5,29 +5,20 @@ import { User } from '@/lib/models/User'
 import { Store } from '@/lib/models/Store'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { estimateShippingFee } from '@/lib/aco-logistics-rates'
-
-const LOGISTICS_USERNAME = 'A&CO@makeitselll.org'
-
-function textContainsLagos(value: unknown): boolean {
-  if (value == null) return false
-  return String(value).toLowerCase().includes('lagos')
-}
-
-function pickupLooksLagos(store: any): boolean {
-  return textContainsLagos(store?.city) || textContainsLagos(store?.state) || textContainsLagos(store?.address)
-}
+import { logisticsEmailAllowedForRegion, resolveLogisticsRegion, storeMatchesLogisticsRegion } from '@/lib/logistics-access'
 
 export async function GET(request: NextRequest) {
   try {
     const view = String(request.nextUrl.searchParams.get('view') || 'active').toLowerCase()
     const resolvedView = view === 'received' ? 'received' : 'active'
+    const region = resolveLogisticsRegion(request.nextUrl.searchParams.get('region'))
 
     const sessionUser = await getSessionUserFromRequest(request)
     if (!sessionUser) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (String(sessionUser.email || '').toLowerCase() !== LOGISTICS_USERNAME.toLowerCase()) {
+    if (!logisticsEmailAllowedForRegion(sessionUser.email, region)) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
     }
 
@@ -135,7 +126,7 @@ export async function GET(request: NextRequest) {
           storeByName.get(normalizedVendorName)
 
         const pickupLocation = store?.address || 'Pickup address not provided'
-        if (!pickupLooksLagos(store)) {
+        if (!storeMatchesLogisticsRegion(store, region)) {
           continue
         }
 
@@ -186,16 +177,15 @@ export async function GET(request: NextRequest) {
       if (resolvedView === 'received') {
         return status === 'received'
       }
-
-      // Landing dashboard should only show actionable, not completed-reference entries.
       return status !== 'received' && status !== 'cancelled'
     })
 
     return NextResponse.json({
       success: true,
       count: filteredRows.length,
-      keyword: 'lagos',
+      keyword: region.keyword,
       view: resolvedView,
+      region: region.key,
       orders: filteredRows,
     })
   } catch (error) {
