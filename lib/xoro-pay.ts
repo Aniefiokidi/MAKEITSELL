@@ -206,6 +206,7 @@ class XoroPayService {
   private webhookSecret: string
   private baseUrl: string
   private defaultProcessor: string
+  private requestTimeoutMs: number
   private bankCodeAliasCache: {
     expiresAt: number
     aliases: Record<string, string>
@@ -217,6 +218,7 @@ class XoroPayService {
     this.webhookSecret = String(process.env.XORO_PAY_WEBHOOK_SECRET || this.secretKey).trim()
     this.baseUrl = normalizeBaseUrl(String(process.env.XORO_PAY_BASE_URL || DEFAULT_XORO_BASE_URL).trim())
     this.defaultProcessor = String(process.env.XORO_PAY_PROCESSOR || 'xoropay').trim().toLowerCase()
+    this.requestTimeoutMs = Math.max(3000, Number(process.env.XORO_PAY_TIMEOUT_MS || 7000))
     this.bankCodeAliasCache = null
   }
 
@@ -315,30 +317,59 @@ class XoroPayService {
         ok: false,
         status: 500,
         payload: { success: false, message: 'XORO_PAY_SECRET_KEY missing on server' },
+        timedOut: false,
+        networkError: false,
       }
     }
 
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      ...init,
-      headers: {
-        ...this.authHeaders(),
-        ...(init?.headers || {}),
-      },
-      cache: 'no-store',
-    })
+    const controller = new AbortController()
+    const timeoutHandle = setTimeout(() => controller.abort(), this.requestTimeoutMs)
 
-    const text = await response.text()
-    let payload: any = {}
     try {
-      payload = text ? JSON.parse(text) : {}
-    } catch {
-      payload = { message: text }
-    }
+      const response = await fetch(`${this.baseUrl}${path}`, {
+        ...init,
+        headers: {
+          ...this.authHeaders(),
+          ...(init?.headers || {}),
+        },
+        cache: 'no-store',
+        signal: controller.signal,
+      })
 
-    return {
-      ok: response.ok,
-      status: response.status,
-      payload,
+      const text = await response.text()
+      let payload: any = {}
+      try {
+        payload = text ? JSON.parse(text) : {}
+      } catch {
+        payload = { message: text }
+      }
+
+      return {
+        ok: response.ok,
+        status: response.status,
+        payload,
+        timedOut: false,
+        networkError: false,
+      }
+    } catch (error: any) {
+      const timedOut = String(error?.name || '').toLowerCase() === 'aborterror'
+      const fallbackMessage = timedOut
+        ? `XoroPay request timeout after ${this.requestTimeoutMs}ms`
+        : (error?.message || 'Network error while contacting XoroPay')
+
+      return {
+        ok: false,
+        status: timedOut ? 504 : 502,
+        payload: {
+          success: false,
+          message: fallbackMessage,
+          error: fallbackMessage,
+        },
+        timedOut,
+        networkError: !timedOut,
+      }
+    } finally {
+      clearTimeout(timeoutHandle)
     }
   }
 
@@ -349,7 +380,9 @@ class XoroPayService {
 
   private normalizeAuthResponse(payload: any, fallbackReference: string) {
     const data = asObject(pick(payload, ['data', 'result'], {}))
+    const nestedData = asObject(pick(data, ['data', 'result', 'payload'], {}))
     const checkout = asObject(pick(data, ['checkout'], {}))
+    const nestedCheckout = asObject(pick(nestedData, ['checkout'], {}))
     const authorizationUrl = pick<string>(data, [
       'authorization_url',
       'authorizationUrl',
@@ -361,7 +394,25 @@ class XoroPayService {
       'paymentLink',
       'link',
       'url',
+    ]) || pick<string>(nestedData, [
+      'authorization_url',
+      'authorizationUrl',
+      'checkout_url',
+      'checkoutUrl',
+      'hosted_url',
+      'hostedUrl',
+      'payment_link',
+      'paymentLink',
+      'link',
+      'url',
     ]) || pick<string>(checkout, [
+      'url',
+      'link',
+      'checkout_url',
+      'checkoutUrl',
+      'redirect_url',
+      'redirectUrl',
+    ]) || pick<string>(nestedCheckout, [
       'url',
       'link',
       'checkout_url',
@@ -382,6 +433,7 @@ class XoroPayService {
     ])
 
     const reference = pick<string>(data, ['reference', 'payment_reference', 'paymentReference'])
+      || pick<string>(nestedData, ['reference', 'payment_reference', 'paymentReference'])
       || pick<string>(payload, ['reference', 'payment_reference', 'paymentReference'])
       || fallbackReference
 
@@ -399,6 +451,9 @@ class XoroPayService {
       new Set([
         this.defaultProcessor,
         String(process.env.XORO_PAY_PROCESSOR || '').trim().toLowerCase(),
+        'korapay',
+        'kora_pay',
+        'kora',
         'xoropay',
         '',
       ].filter(Boolean))
@@ -526,6 +581,14 @@ class XoroPayService {
           raw: result.payload,
         }
       }
+
+      if (result.timedOut || result.networkError) {
+        lastMessage = toErrorMessage(
+          pick(result.payload, ['message', 'error', 'detail', 'details'], lastMessage),
+          lastMessage
+        )
+        break
+      }
     }
 
     return {
@@ -560,6 +623,9 @@ class XoroPayService {
       const response = await this.call(path, { method: 'GET' })
       resolved = response
       if (response.ok || isSuccess(response.payload)) {
+        break
+      }
+      if (response.timedOut || response.networkError) {
         break
       }
     }
