@@ -10,13 +10,13 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Loader2, LogOut, Menu, User } from "lucide-react"
+import { logisticsEmailAllowedForRegion, resolveLogisticsRegion, type LogisticsRegionKey } from "@/lib/logistics-access"
 
-const LOGISTICS_EMAIL = "A&CO@makeitselll.org"
-
-export default function LogisticsLayout({ children }: { children: React.ReactNode }) {
+export default function LogisticsLayout({ children, regionKey = 'lagos' }: { children: React.ReactNode; regionKey?: LogisticsRegionKey }) {
   const { user, logout, loading } = useAuth()
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const region = resolveLogisticsRegion(regionKey)
 
   useEffect(() => {
     if (loading) return
@@ -26,13 +26,13 @@ export default function LogisticsLayout({ children }: { children: React.ReactNod
       return
     }
 
-    if (String(user.email || "").toLowerCase() !== LOGISTICS_EMAIL.toLowerCase()) {
+    if (!logisticsEmailAllowedForRegion(user.email, region)) {
       router.push("/unauthorized")
       return
     }
-  }, [loading, user, router])
+  }, [loading, user, router, region])
 
-  if (loading || !user || String(user.email || "").toLowerCase() !== LOGISTICS_EMAIL.toLowerCase()) {
+  if (loading || !user || !logisticsEmailAllowedForRegion(user.email, region)) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -49,7 +49,7 @@ export default function LogisticsLayout({ children }: { children: React.ReactNod
     <ThemeProvider>
       <div className="flex min-h-screen bg-background flex-col lg:flex-row">
         <div className="hidden lg:flex">
-          <LogisticsSidebar />
+          <LogisticsSidebar region={region} />
         </div>
 
         <div className="flex flex-1 flex-col">
@@ -62,10 +62,10 @@ export default function LogisticsLayout({ children }: { children: React.ReactNod
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="left" className="w-64 p-0">
-                  <LogisticsSidebar />
+                  <LogisticsSidebar region={region} />
                 </SheetContent>
               </Sheet>
-              <h1 className="text-base lg:text-lg font-semibold truncate">A&CO Lagos Logistics</h1>
+              <h1 className="text-base lg:text-lg font-semibold truncate">{region.panelTitle}</h1>
             </div>
 
             <DropdownMenu>

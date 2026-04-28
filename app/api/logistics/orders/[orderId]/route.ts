@@ -4,17 +4,7 @@ import { Order } from '@/lib/models/Order'
 import { Store } from '@/lib/models/Store'
 import { releaseEscrowForOrder, updateOrder } from '@/lib/mongodb-operations'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
-
-const LOGISTICS_USERNAME = 'A&CO@makeitselll.org'
-
-function textContainsLagos(value: unknown): boolean {
-  if (value == null) return false
-  return String(value).toLowerCase().includes('lagos')
-}
-
-function pickupLooksLagos(store: any): boolean {
-  return textContainsLagos(store?.city) || textContainsLagos(store?.state) || textContainsLagos(store?.address)
-}
+import { logisticsEmailAllowedForRegion, resolveLogisticsRegion, storeMatchesLogisticsRegion } from '@/lib/logistics-access'
 
 export async function PATCH(request: NextRequest, context: { params: Promise<{ orderId: string }> }) {
   try {
@@ -23,12 +13,14 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ o
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (String(sessionUser.email || '').toLowerCase() !== LOGISTICS_USERNAME.toLowerCase()) {
+    const { orderId } = await context.params
+    const body = await request.json().catch(() => ({}))
+    const region = resolveLogisticsRegion(body?.region)
+
+    if (!logisticsEmailAllowedForRegion(sessionUser.email, region)) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
     }
 
-    const { orderId } = await context.params
-    const body = await request.json().catch(() => ({}))
     const requestedStatus = String(body?.status || '').trim()
     const vendorId = String(body?.vendorId || '').trim()
     const storeId = String(body?.storeId || '').trim()
@@ -73,8 +65,8 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ o
       targetStore = await Store.findOne({ vendorId: targetVendorId }).lean()
     }
 
-    if (!pickupLooksLagos(targetStore)) {
-      return NextResponse.json({ success: false, error: 'Only Lagos orders can be managed here' }, { status: 400 })
+    if (!storeMatchesLogisticsRegion(targetStore, region)) {
+      return NextResponse.json({ success: false, error: `Only ${region.cityLabel} orders can be managed here` }, { status: 400 })
     }
 
     const now = new Date()
@@ -127,7 +119,6 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ o
           .map((entry: any) => String(entry?.status || '').trim().toLowerCase())
           .filter(Boolean)
 
-        // Keep root status consistent only when all vendor entries are at the same terminal stage.
         if (vendorStatuses.length > 0 && vendorStatuses.every((value: string) => value === requestedStatus.toLowerCase())) {
           updatedOrder = await updateOrder(orderId, {
             status: requestedStatus,

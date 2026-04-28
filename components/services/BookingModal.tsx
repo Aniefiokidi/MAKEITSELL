@@ -227,11 +227,12 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
       })
       const result = await response.json().catch(() => null)
 
-      if (!response.ok || !result?.success || !result?.authorizationUrl) {
+      const authorizationUrl = result?.authorization_url || result?.authorizationUrl || result?.authorization_url_link
+      if (!response.ok || !result?.success || !authorizationUrl) {
         throw new Error(result?.error || 'Unable to initialize wallet top-up')
       }
 
-      window.location.href = result.authorizationUrl
+      window.location.href = authorizationUrl
     } catch (err: any) {
       toast({
         title: 'Top-up failed',

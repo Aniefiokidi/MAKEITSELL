@@ -35,7 +35,7 @@ interface Product {
   id: string
   name?: string
   title?: string
-  description: string
+  description?: string
   price: number
   images: string[]
   category: string
@@ -196,26 +196,26 @@ export default function AllProductsPage() {
   // --- Scroll position preservation ---
   const lastScrollY = useRef<number | null>(null)
 
-  const handleAddToCart = (product: Product) => {
+  const handleAddToCart = (product: any) => {
     if (typeof window !== 'undefined') {
       lastScrollY.current = window.scrollY
     }
     addItem({
-      id: product.id,
-      productId: product.id,
-      title: product.title || product.name || "Product",
-      price: product.price,
-      image: product.images?.[0] || "/placeholder.png",
-      vendorId: product.vendorId,
-      vendorName: product.vendorName || "Unknown Vendor",
-      maxStock: product.stock || 100,
+      id: String(product?.id || ""),
+      productId: String(product?.id || ""),
+      title: product?.title || product?.name || "Product",
+      price: Number(product?.price || 0),
+      image: product?.images?.[0] || "/placeholder.png",
+      vendorId: String(product?.vendorId || ""),
+      vendorName: product?.vendorName || "Unknown Vendor",
+      maxStock: Number(product?.stock || 100),
     })
     notification.success(
       'Product added to cart',
       product.title || product.name || 'Added to cart',
       3000
     )
-    setAddedToCartId(product.id)
+    setAddedToCartId(String(product?.id || ""))
     setTimeout(() => setAddedToCartId(null), 1700)
   }
 
