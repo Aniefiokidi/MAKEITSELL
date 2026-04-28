@@ -406,6 +406,22 @@ class XoroPayService {
 
     const attempts: Array<{ path: string; body: any }> = [
       {
+        path: '/api/initiate',
+        body: {
+          customer: {
+            email: params.email,
+            name: String(metadata.customerName || params.email.split('@')[0] || 'Customer'),
+          },
+          amount: amountMajor,
+          currency,
+          reference: params.reference,
+          processor: this.defaultProcessor,
+          redirect_url: callbackUrl,
+          notification_url: this.getNotificationUrl(),
+          metadata,
+        },
+      },
+      {
         path: '/api/v1/initiate',
         body: {
           customer: {
@@ -523,6 +539,8 @@ class XoroPayService {
   async verifyPayment(reference: string): Promise<XoroPaymentVerifyResult> {
     const encodedReference = encodeURIComponent(reference)
     const paths = [
+      `/api/verify/${encodedReference}`,
+      `/api/verify?reference=${encodedReference}`,
       `/api/v1/verify/${encodedReference}`,
       `/api/v1/verify?reference=${encodedReference}`,
       `/api/v1/transaction/verify/${encodedReference}`,
