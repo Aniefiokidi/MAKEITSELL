@@ -127,6 +127,7 @@ const CATEGORY_SLUG_PRODUCTS_CACHE_TTL_MS = 5 * 60 * 1000
 const CATEGORY_SLUG_SEGMENT_CACHE_TTL_MS = 10 * 60 * 1000
 
 export default function CategoryPage() {
+  const [addedToCartId, setAddedToCartId] = useState<string | null>(null)
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [quickViewOpen, setQuickViewOpen] = useState(false);
   const params = useParams()
@@ -557,6 +558,8 @@ export default function CategoryPage() {
       product.title || product.name || 'Added to cart',
       3000
     )
+    setAddedToCartId(product.id)
+    setTimeout(() => setAddedToCartId(null), 1700)
   }
 
   const categoryProducts = products.filter((p) => p.category === categorySlug)
@@ -941,14 +944,14 @@ export default function CategoryPage() {
                         ₦{product.price}
                       </div>
                     </div>
-                    <Button 
+                    <Button
                       size="sm"
                       onClick={() => handleAddToCart(product)}
-                      disabled={!product.inStock}
-                      className="w-full h-7 text-xs bg-white/90 hover:bg-white text-black backdrop-blur-sm hover:scale-105 transition-all hover:shadow-lg flex items-center justify-center gap-0"
+                      disabled={!product.inStock || addedToCartId === product.id}
+                      className={`w-full h-7 text-xs bg-white/90 hover:bg-white text-black backdrop-blur-sm hover:scale-105 transition-all hover:shadow-lg flex items-center justify-center gap-0 ${addedToCartId === product.id ? 'bg-green-100 text-green-800 border-green-300' : ''}`}
                     >
                       <img src="/images/logo3.png" alt="Add" className="w-8 h-8 -mt-2" />
-                      <span className="leading-none text-accent">Add to cart</span>
+                      <span className="leading-none text-accent">{addedToCartId === product.id ? 'Added to cart' : 'Add to cart'}</span>
                     </Button>
                   </div>
                 </Card>

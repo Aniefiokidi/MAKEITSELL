@@ -66,6 +66,7 @@ const getCompactPagination = (currentPage: number, totalPages: number): Array<nu
 }
 
 export default function AllProductsPage() {
+  const [addedToCartId, setAddedToCartId] = useState<string | null>(null)
   const PRODUCTS_SCROLL_KEY = "mis:scroll:products:list:v1"
   const [loading, setLoading] = useState(true)
   const [products, setProducts] = useState<Product[]>([])
@@ -214,6 +215,8 @@ export default function AllProductsPage() {
       product.title || product.name || 'Added to cart',
       3000
     )
+    setAddedToCartId(product.id)
+    setTimeout(() => setAddedToCartId(null), 1700)
   }
 
   useEffect(() => {
@@ -442,7 +445,7 @@ export default function AllProductsPage() {
             </Badge>
           </div>
           
-          <Button 
+          <Button
             type="button"
             size="sm"
             onClick={(e) => {
@@ -450,11 +453,11 @@ export default function AllProductsPage() {
               e.stopPropagation();
               handleAddToCart(product);
             }}
-            disabled={(product.stock ?? 0) === 0}
-            className="w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black"
+            disabled={(product.stock ?? 0) === 0 || addedToCartId === product.id}
+            className={`w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black ${addedToCartId === product.id ? 'bg-green-100 text-green-800 border-green-300' : ''}`}
           >
             <img src="/images/logo3.png" alt="Add" className="w-6 sm:w-7 md:w-8 h-6 sm:h-7 md:h-8 -mt-1 sm:-mt-2" />
-            <span className="leading-none text-accent">Add to cart</span>
+            <span className="leading-none text-accent">{addedToCartId === product.id ? 'Added to cart' : 'Add to cart'}</span>
           </Button>
         </div>
       </Card>

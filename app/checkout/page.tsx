@@ -53,7 +53,7 @@ export default function CheckoutPage() {
   const [shippingLoading, setShippingLoading] = useState(false)
   const [error, setError] = useState("")
   const [shippingEstimate, setShippingEstimate] = useState<{ cost: number; hasTbd?: boolean; source?: string } | null>(null)
-  const paymentMethod = "wallet"
+  const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'checkout'>("wallet")
   const [checkoutTracked, setCheckoutTracked] = useState(false)
   const [showWalletTopupPrompt, setShowWalletTopupPrompt] = useState(false)
   const [quickTopupAmount, setQuickTopupAmount] = useState("")
@@ -212,10 +212,12 @@ export default function CheckoutPage() {
     console.log("Shipping info on submit:", shippingInfo)
 
     try {
-      if (walletInsufficient) {
-        setQuickTopupAmount(String(walletShortfall > 0 ? walletShortfall : checkoutPayableTotal))
-        setShowWalletTopupPrompt(true)
-        throw new Error('Insufficient wallet balance. Please top up your wallet to place this order.')
+      if (paymentMethod === 'wallet') {
+        if (walletInsufficient) {
+          setQuickTopupAmount(String(walletShortfall > 0 ? walletShortfall : checkoutPayableTotal))
+          setShowWalletTopupPrompt(true)
+          throw new Error('Insufficient wallet balance. Please top up your wallet to place this order.')
+        }
       }
 
       // Validation with better error messages
@@ -252,34 +254,35 @@ export default function CheckoutPage() {
 
       // Prepare order data for payment initialization
       const orderData = {
-        customerId: user?.uid!,
-        customerEmail: shippingInfo.email,
-        paymentMethod,
-        items: items.map(item => ({
+        customerId: user?.uid || '',
+        customerEmail: shippingInfo.email || '',
+        paymentMethod: paymentMethod || 'wallet',
+        items: Array.isArray(items) && items.length > 0 ? items.map(item => ({
           productId: item.productId,
           title: item.title,
           quantity: item.quantity,
           price: item.price,
           vendorId: item.vendorId,
           vendorName: item.vendorName
-        })),
+        })) : [],
         shippingInfo: {
-          firstName: shippingInfo.firstName,
-          lastName: shippingInfo.lastName,
-          email: shippingInfo.email,
-          phone: fullPhoneNumber,
-          address: shippingInfo.address,
-          city: shippingInfo.city,
-          state: shippingInfo.state,
-          zipCode: shippingInfo.zipCode,
-          country: shippingInfo.country,
-          deliveryInstructions: shippingInfo.deliveryInstructions,
+          firstName: shippingInfo.firstName || '',
+          lastName: shippingInfo.lastName || '',
+          email: shippingInfo.email || '',
+          phone: fullPhoneNumber || '',
+          address: shippingInfo.address || '',
+          city: shippingInfo.city || '',
+          state: shippingInfo.state || '',
+          zipCode: shippingInfo.zipCode || '',
+          country: shippingInfo.country || '',
+          deliveryInstructions: typeof shippingInfo.deliveryInstructions === 'string' ? shippingInfo.deliveryInstructions : '',
         },
-        subtotal,
-        vat,
-        shipping: resolvedShipping,
-        totalAmount: total
+        subtotal: subtotal || 0,
+        vat: vat || 0,
+        shipping: resolvedShipping || 0,
+        totalAmount: total || 0
       }
+      console.log('DEBUG orderData:', JSON.stringify(orderData, null, 2))
 
       // Initialize payment
       console.log('Sending order data:', orderData)
@@ -323,24 +326,19 @@ export default function CheckoutPage() {
         if (!result.success) {
           throw new Error(result.error || 'Wallet payment failed')
         }
-
         await refreshProfile()
         await clearCart()
         router.push('/order-confirmation?orderId=' + encodeURIComponent(result.orderId || ''))
         return
+      } else {
+        // Normal checkout (e.g. card)
+        if (!result.authorization_url) {
+          throw new Error('No authorization URL received from payment service')
+        }
+        const { authorization_url } = result
+        window.location.href = authorization_url
+        return
       }
-
-      console.log('Authorization URL:', result.authorization_url)
-
-      if (!result.authorization_url) {
-        throw new Error('No authorization URL received from payment service')
-      }
-      
-      const { authorization_url } = result
-
-      console.log('Redirecting to:', authorization_url)
-      // Redirect to Xoro Pay checkout page
-      window.location.href = authorization_url
     } catch (error: any) {
       console.error('Payment initialization error:', error)
       setError(error.message || "Failed to process order")
@@ -393,36 +391,6 @@ export default function CheckoutPage() {
                     </Alert>
                   )}
 
-                  <Card className="border-accent/20 bg-accent/5">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base">Fees Preview</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
-                      <div className="flex items-center justify-between">
-                        <span>Items subtotal</span>
-                        <span className="font-medium">₦{formatCurrency(subtotal)}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>VAT (7%)</span>
-                        <span className="font-medium">₦{formatCurrency(vat)}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Shipping</span>
-                        <span className="font-medium text-muted-foreground">
-                          {shippingLoading ? 'Calculating...' : shippingIsTbd ? 'TBD' : `₦${formatCurrency(resolvedShipping)}`}
-                        </span>
-                      </div>
-                      <Separator />
-                      <div className="flex items-center justify-between text-base font-semibold">
-                        <span>Total payable</span>
-                        <span>₦{formatCurrency(total)}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Shipping is estimated from your address and updates instantly while you type.
-                      </p>
-                    </CardContent>
-                  </Card>
-
                   {/* Shipping Information */}
                   <Card className="animate-scale-in" style={{ animationDelay: '0.1s' }}>
                     <CardHeader>
@@ -455,8 +423,8 @@ export default function CheckoutPage() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-4 sm:grid-cols-1">
+                        <div className="space-y-2 col-span-2 sm:col-span-1">
                           <Label htmlFor="email">Email *</Label>
                           <Input
                             id="email"
@@ -467,15 +435,18 @@ export default function CheckoutPage() {
                             disabled={loading}
                           />
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-2 col-span-2 sm:col-span-1">
                           <Label htmlFor="phone">Phone *</Label>
-                          <div className="grid grid-cols-[120px_1fr] gap-2">
+                          <div className="grid grid-cols-[90px_1fr] gap-2 sm:grid-cols-[110px_1fr]">
                             <Select
                               value={shippingInfo.phoneCountryCode}
                               onValueChange={(value) => handleInputChange("phoneCountryCode", value)}
                               disabled={loading}
                             >
-                              <SelectTrigger id="phoneCountryCode">
+                              <SelectTrigger
+                                id="phoneCountryCode"
+                                className="min-w-0 w-full max-w-[90px] sm:max-w-[110px] text-[11px] sm:text-xs px-1 py-1"
+                              >
                                 <SelectValue placeholder="Code" />
                               </SelectTrigger>
                               <SelectContent>
@@ -491,6 +462,11 @@ export default function CheckoutPage() {
                               onChange={(e) => handleInputChange("phone", e.target.value)}
                               required
                               disabled={loading}
+                              className="min-w-0 w-full px-3 py-2 text-base tracking-widest"
+                              inputMode="numeric"
+                              maxLength={13}
+                              style={{ fontVariantNumeric: 'tabular-nums', letterSpacing: '0.08em' }}
+                              placeholder="8012345678"
                             />
                           </div>
                         </div>
@@ -510,23 +486,6 @@ export default function CheckoutPage() {
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="city">City *</Label>
-                          <Select
-                            value={shippingInfo.city}
-                            onValueChange={(value) => handleInputChange("city", value)}
-                            disabled={loading || !shippingInfo.state}
-                          >
-                            <SelectTrigger id="city">
-                              <SelectValue placeholder={shippingInfo.state ? "Select city" : "Select state first"} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availableCities.map((city) => (
-                                <SelectItem key={city} value={city}>{city}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
                           <Label htmlFor="state">State *</Label>
                           <Select
                             value={shippingInfo.state}
@@ -542,6 +501,23 @@ export default function CheckoutPage() {
                             <SelectContent>
                               {NIGERIA_STATES.map((state) => (
                                 <SelectItem key={state} value={state}>{state}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="city">City *</Label>
+                          <Select
+                            value={shippingInfo.city}
+                            onValueChange={(value) => handleInputChange("city", value)}
+                            disabled={loading || !shippingInfo.state}
+                          >
+                            <SelectTrigger id="city">
+                              <SelectValue placeholder={shippingInfo.state ? "Select city" : "Select state first"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableCities.map((city) => (
+                                <SelectItem key={city} value={city}>{city}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -604,24 +580,64 @@ export default function CheckoutPage() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="rounded-lg border border-accent/35 p-3 bg-accent/10 text-sm">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="font-medium text-foreground">Wallet payment only</p>
-                          <Shield className="h-4 w-4 text-accent" />
+                      <div className="mb-2">
+                        <Label className="block mb-2 font-semibold text-base">Choose payment method</Label>
+                        <div className="flex gap-4">
+                          <button
+                            type="button"
+                            className={`flex-1 border rounded-lg p-4 flex flex-col items-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/60 focus:border-accent/60 shadow-sm
+                              ${paymentMethod === 'wallet' ? 'border-accent bg-accent/10 ring-2 ring-accent/60' : 'border-muted bg-white hover:border-accent/40'}`}
+                            onClick={() => setPaymentMethod('wallet')}
+                            aria-pressed={paymentMethod === 'wallet'}
+                          >
+                            <Shield className="h-6 w-6 mb-1 text-accent" />
+                            <span className="font-medium">Wallet</span>
+                            <span className="text-xs text-muted-foreground mt-1">Pay instantly from your wallet balance</span>
+                          </button>
+                          <button
+                            type="button"
+                            className={`flex-1 border rounded-lg p-4 flex flex-col items-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/60 focus:border-accent/60 shadow-sm
+                              ${paymentMethod === 'checkout' ? 'border-accent bg-accent/10 ring-2 ring-accent/60' : 'border-muted bg-white hover:border-accent/40'}`}
+                            onClick={() => setPaymentMethod('checkout')}
+                            aria-pressed={paymentMethod === 'checkout'}
+                          >
+                            <CreditCard className="h-6 w-6 mb-1 text-accent" />
+                            <span className="font-medium">Card / Bank</span>
+                            <span className="text-xs text-muted-foreground mt-1">Pay securely with card or bank</span>
+                          </button>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Available wallet balance: ₦{formatCurrency(walletBalance)}
-                        </p>
-                        {walletInsufficient ? (
-                          <Alert variant="destructive" className="mt-3">
-                            <AlertDescription>
-                              Insufficient wallet balance. You need ₦{formatCurrency(walletShortfall)} more to place this order.
-                            </AlertDescription>
-                          </Alert>
-                        ) : (
-                          <p className="text-xs text-green-700 mt-2">Sufficient balance available for this order.</p>
-                        )}
                       </div>
+                      {paymentMethod === 'wallet' && (
+                        <div className="rounded-lg border border-accent/35 p-3 bg-accent/10 text-sm">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-medium text-foreground">Wallet payment</p>
+                            <Shield className="h-4 w-4 text-accent" />
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Available wallet balance: ₦{formatCurrency(walletBalance)}
+                          </p>
+                          {walletInsufficient ? (
+                            <Alert variant="destructive" className="mt-3">
+                              <AlertDescription>
+                                Insufficient wallet balance. You need ₦{formatCurrency(walletShortfall)} more to place this order.
+                              </AlertDescription>
+                            </Alert>
+                          ) : (
+                            <p className="text-xs text-green-700 mt-2">Sufficient balance available for this order.</p>
+                          )}
+                        </div>
+                      )}
+                      {paymentMethod === 'checkout' && (
+                        <div className="rounded-lg border border-accent/35 p-3 bg-accent/10 text-sm">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-medium text-foreground">Pay with Card/Bank</p>
+                            <CreditCard className="h-4 w-4 text-accent" />
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            You will be redirected to a secure payment page to complete your order.
+                          </p>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </div>
@@ -704,7 +720,9 @@ export default function CheckoutPage() {
                           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                           {loading
                             ? "Processing..."
-                            : `Pay with Wallet - ₦${formatCurrency(total)}`}
+                            : paymentMethod === 'wallet'
+                              ? `Pay with Wallet - ₦${formatCurrency(total)}`
+                              : `Pay with Card/Bank - ₦${formatCurrency(total)}`}
                         </Button>
                       </div>
 
@@ -725,7 +743,11 @@ export default function CheckoutPage() {
                     <p className="text-[10px] text-muted-foreground">Wallet checkout</p>
                   </div>
                   <Button type="submit" className="h-10 px-4 shrink-0 shadow-sm" disabled={loading}>
-                    {loading ? "Processing..." : "Pay with Wallet"}
+                    {loading
+                      ? "Processing..."
+                      : paymentMethod === 'wallet'
+                        ? `Pay with Wallet - ₦${formatCurrency(total)}`
+                        : `Pay with Card/Bank - ₦${formatCurrency(total)}`}
                   </Button>
                 </div>
               </div>

@@ -126,6 +126,7 @@ export default function FeaturedProducts() {
   const { user } = useAuth()
   const notification = useNotification()
   const router = useRouter()
+  const [addedToCartId, setAddedToCartId] = useState<string | null>(null)
 
   // Image Cycler Component for Product Cards
   const ImageCycler = ({ product }: { product: any }) => {
@@ -213,6 +214,8 @@ export default function FeaturedProducts() {
       product.title || product.name || 'Added to cart',
       3000
     )
+    setAddedToCartId(product.id)
+    setTimeout(() => setAddedToCartId(null), 1700)
   }
 
   return (
@@ -253,7 +256,7 @@ export default function FeaturedProducts() {
                   <span className="text-sm text-muted-foreground">({product.reviews})</span>
                 </div>
 
-                <h3 className="font-semibold text-base sm:text-lg mb-2 line-clamp-2 text-pretty break-words hyphens-auto leading-tight">{product.title}</h3>
+                <h3 className="font-semibold text-base sm:text-lg mb-2 line-clamp-2 text-pretty wrap-break-word hyphens-auto leading-tight">{product.title}</h3>
                 <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{product.description}</p>
 
                 <div className="flex items-center justify-between mb-3">
@@ -269,14 +272,18 @@ export default function FeaturedProducts() {
               </CardContent>
 
               <CardFooter className="px-4 pt-0">
-                <Button 
-                  className="w-full" 
+                <Button
+                  className={`w-full transition-all duration-200 ${addedToCartId === product.id ? 'bg-green-100 text-green-800 border-green-300' : ''}`}
                   onClick={() => addToCart(product)}
-                  disabled={product.stock === 0}
+                  disabled={product.stock === 0 || addedToCartId === product.id}
                   variant={product.stock === 0 ? "outline" : "default"}
                 >
                   <ShoppingCart className="h-4 w-4 mr-2" />
-                  {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+                  {product.stock === 0
+                    ? 'Out of Stock'
+                    : addedToCartId === product.id
+                      ? 'Added to Cart'
+                      : 'Add to Cart'}
                 </Button>
               </CardFooter>
             </Card>
