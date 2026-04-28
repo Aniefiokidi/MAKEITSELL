@@ -41,7 +41,7 @@ type LogisticsOrder = {
   }>
 }
 
-const region = resolveLogisticsRegion("lagos")
+const region = resolveLogisticsRegion("abuja")
 
 export default function LogisticsPage() {
   const { user, loading: authLoading } = useAuth()
@@ -74,7 +74,7 @@ export default function LogisticsPage() {
     setError("")
 
     try {
-      const response = await fetch("/api/logistics/orders?view=active&region=lagos", {
+      const response = await fetch("/api/logistics/orders?view=active&region=abuja", {
         method: "GET",
         credentials: "include",
       })
@@ -118,7 +118,7 @@ export default function LogisticsPage() {
           status: normalized,
           vendorId: order.vendorId,
           storeId: order.storeId,
-          region: "lagos",
+          region: "abuja",
         }),
       })
 
@@ -161,17 +161,17 @@ export default function LogisticsPage() {
   }
 
   return (
-    <LogisticsLayout regionKey="lagos">
+    <LogisticsLayout regionKey="abuja">
       <div className="container mx-auto px-0 py-0 space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Lagos Logistics Dashboard</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">Abuja Logistics Dashboard</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Access restricted to {region.email}. Showing only active (uncompleted) Lagos deliveries.
+              Access restricted to {region.email}. Showing only active (uncompleted) Abuja deliveries.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/logistics/reference">
+            <Link href="/logistics/abuja/reference">
               <Button variant="secondary">Received Reference</Button>
             </Link>
             <Button variant="outline" onClick={fetchOrders} disabled={loading}>
@@ -190,7 +190,7 @@ export default function LogisticsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card>
             <CardContent className="pt-6">
-              <p className="text-xs text-muted-foreground">Completed Lagos Entries</p>
+              <p className="text-xs text-muted-foreground">Completed Abuja Entries</p>
               <p className="text-2xl font-bold">{prioritizedOrders.length}</p>
             </CardContent>
           </Card>
@@ -203,7 +203,7 @@ export default function LogisticsPage() {
           <Card>
             <CardContent className="pt-6">
               <p className="text-xs text-muted-foreground">Filter Rule</p>
-              <p className="text-2xl font-bold">pickup lagos + active</p>
+              <p className="text-2xl font-bold">pickup abuja + active</p>
             </CardContent>
           </Card>
         </div>
