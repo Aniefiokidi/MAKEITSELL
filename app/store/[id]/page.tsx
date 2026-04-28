@@ -26,7 +26,7 @@ interface Product {
   id: string
   name?: string
   title?: string
-  description: string
+  description?: string
   price: number
   images: string[]
   category: string
@@ -479,28 +479,28 @@ export default function StorePage() {
     return Array.from({ length: end - start + 1 }, (_, i) => start + i)
   }
 
-  const handleAddToCart = (product: Product) => {
+  const handleAddToCart = (product: any) => {
     if (!product || !product.id || !(product.title || product.name)) {
       console.error('Cannot add invalid product to cart:', product)
       return
     }
     addItem({
-      productId: product.id,
-      id: product.id,
-      title: product.title || product.name || '',
-      price: product.price,
-      image: product.images?.[0] || '',
-      maxStock: product.stock || 100,
-      vendorId: product.vendorId,
-      vendorName: product.vendorName || (product as any).vendor?.name || 'Unknown Vendor'
+      productId: String(product?.id || ""),
+      id: String(product?.id || ""),
+      title: product?.title || product?.name || '',
+      price: Number(product?.price || 0),
+      image: product?.images?.[0] || '',
+      maxStock: Number(product?.stock || 100),
+      vendorId: String(product?.vendorId || ""),
+      vendorName: product?.vendorName || product?.vendor?.name || 'Unknown Vendor'
     })
-    void trackFunnelEvent(product.vendorId, "cart_add", { productId: product.id, storeId })
+    void trackFunnelEvent(String(product?.vendorId || ""), "cart_add", { productId: String(product?.id || ""), storeId })
     notification.success(
       'Product added to cart',
       product.title || product.name || 'Added to cart',
       3000
     )
-    setAddedToCartId(product.id)
+    setAddedToCartId(String(product?.id || ""))
     setTimeout(() => setAddedToCartId(null), 1700)
   }
 

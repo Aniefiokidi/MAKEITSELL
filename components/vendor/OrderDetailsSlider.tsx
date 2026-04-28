@@ -1,11 +1,9 @@
 import React from "react";
-import { useNotification } from "@/contexts/NotificationContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 
 export default function OrderDetailsSlider({ open, onOpenChange, order, onStatusUpdated }: { open: boolean; onOpenChange: (v: boolean) => void; order: any; onStatusUpdated?: () => void }) {
   if (!order) return null;
-  const { success, error: notifyError } = useNotification();
   // Prefer shippingInfo for customer details
   const shipping = order.shippingInfo || {};
   const productSubtotal = Number.isFinite(Number(order?.vendor?.total))
@@ -97,85 +95,8 @@ export default function OrderDetailsSlider({ open, onOpenChange, order, onStatus
             {order.deliveredAt && <div><span className="font-semibold">Delivered:</span> {new Date(order.deliveredAt).toLocaleString()}</div>}
             {order.cancelledAt && <div><span className="font-semibold">Cancelled:</span> {new Date(order.cancelledAt).toLocaleString()}</div>}
           </div>
-          {/* Vendor Actions */}
-          <div className="mt-6 grid grid-cols-2 gap-3">
-            <button
-              className="px-3 py-2 rounded-md bg-accent text-white text-sm font-semibold hover:bg-accent/90 disabled:opacity-50"
-              disabled={order.status === 'confirmed' || order.status === 'processing' || order.status === 'shipped' || order.status === 'shipped_interstate' || order.status === 'out_for_delivery' || order.status === 'delivered'}
-              onClick={async () => {
-                try {
-                  const res = await fetch('/api/vendor/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: order.orderId || order.id, status: 'confirmed', vendorId: order.vendor?.vendorId || order.storeId }) })
-                  const json = await res.json();
-                  if (res.ok && json.success) { success('Order confirmed'); onStatusUpdated?.(); onOpenChange(false); } else { notifyError(json.error || 'Failed to confirm order'); }
-                } catch (e: any) { notifyError(e?.message || 'Failed to confirm order'); }
-              }}
-            >
-              Confirm Order
-            </button>
-            <button
-              className="px-3 py-2 rounded-md bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
-              disabled={order.status === 'shipped' || order.status === 'shipped_interstate' || order.status === 'out_for_delivery' || order.status === 'delivered'}
-              onClick={async () => {
-                try {
-                  const res = await fetch('/api/vendor/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: order.orderId || order.id, status: 'shipped', vendorId: order.vendor?.vendorId || order.storeId }) })
-                  const json = await res.json();
-                  if (res.ok && json.success) { success('Marked as shipped'); onStatusUpdated?.(); onOpenChange(false); } else { notifyError(json.error || 'Failed to mark shipped'); }
-                } catch (e: any) { notifyError(e?.message || 'Failed to mark shipped'); }
-              }}
-            >
-              Mark Shipped
-            </button>
-            <button
-              className="px-3 py-2 rounded-md bg-blue-700 text-white text-sm font-semibold hover:bg-blue-800 disabled:opacity-50"
-              disabled={order.status === 'shipped' || order.status === 'shipped_interstate' || order.status === 'out_for_delivery' || order.status === 'delivered'}
-              onClick={async () => {
-                try {
-                  const res = await fetch('/api/vendor/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: order.orderId || order.id, status: 'shipped_interstate', vendorId: order.vendor?.vendorId || order.storeId }) })
-                  const json = await res.json();
-                  if (res.ok && json.success) { success('Marked as shipped (interstate)'); onStatusUpdated?.(); onOpenChange(false); } else { notifyError(json.error || 'Failed to mark shipped (interstate)'); }
-                } catch (e: any) { notifyError(e?.message || 'Failed to mark shipped (interstate)'); }
-              }}
-            >
-              Shipped (Interstate)
-            </button>
-            <button
-              className="px-3 py-2 rounded-md bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 disabled:opacity-50"
-              disabled={order.status === 'out_for_delivery' || order.status === 'delivered'}
-              onClick={async () => {
-                try {
-                  const res = await fetch('/api/vendor/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: order.orderId || order.id, status: 'out_for_delivery', vendorId: order.vendor?.vendorId || order.storeId }) })
-                  const json = await res.json();
-                  if (res.ok && json.success) { success('Out for delivery'); onStatusUpdated?.(); onOpenChange(false); } else { notifyError(json.error || 'Failed to mark out for delivery'); }
-                } catch (e: any) { notifyError(e?.message || 'Failed to mark out for delivery'); }
-              }}
-            >
-              Out for Delivery
-            </button>
-            <button
-              className="px-3 py-2 rounded-md bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-50"
-              disabled={order.status === 'delivered'}
-              onClick={async () => {
-                try {
-                  const res = await fetch('/api/vendor/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: order.orderId || order.id, status: 'delivered', vendorId: order.vendor?.vendorId || order.storeId }) })
-                  const json = await res.json();
-                  if (res.ok && json.success) { success('Marked delivered'); onStatusUpdated?.(); onOpenChange(false); } else { notifyError(json.error || 'Failed to mark delivered'); }
-                } catch (e: any) { notifyError(e?.message || 'Failed to mark delivered'); }
-              }}
-            >
-              Mark Delivered
-            </button>
-            <button
-              className="px-3 py-2 rounded-md bg-red-600 text-white text-sm font-semibold hover:bg-red-700"
-              onClick={async () => {
-                try {
-                  const res = await fetch('/api/vendor/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: order.orderId || order.id, status: 'cancelled', vendorId: order.vendor?.vendorId || order.storeId }) })
-                  const json = await res.json();
-                  if (res.ok && json.success) { success('Order cancelled'); onStatusUpdated?.(); onOpenChange(false); } else { notifyError(json.error || 'Failed to cancel order'); }
-                } catch (e: any) { notifyError(e?.message || 'Failed to cancel order'); }
-              }}
-            >
-              Cancel Order
-            </button>
+          <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Delivery status updates are restricted to logistics and admin accounts for escrow safety.
           </div>
         </div>
         </div>
