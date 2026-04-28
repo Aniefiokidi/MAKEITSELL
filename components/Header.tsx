@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion } from "framer-motion"
-import { Wallet, Menu, X, Eye, EyeOff } from "lucide-react"
+import { Wallet, Menu, X, Eye, EyeOff, ArrowDownCircle, ArrowUpCircle, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -389,13 +389,14 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
         return
       }
 
-      if (!result.authorization_url) {
+      const authorizationUrl = result?.authorization_url || result?.authorizationUrl || result?.authorization_url_link
+      if (!authorizationUrl) {
         notification.error("Payment URL not returned", "Top up failed", 3000)
         return
       }
 
       notification.info("Redirecting to secure payment...", "Wallet top up", 2000)
-      window.location.href = result.authorization_url
+      window.location.href = authorizationUrl
     } catch (error) {
       notification.error("Network error while topping up wallet", "Top up failed", 3000)
     } finally {
@@ -772,30 +773,37 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Current balance: <span className="font-semibold text-foreground">{formattedWalletBalance || currencyFormatter.format(0)}</span>
-                </p>
+              <div className="space-y-4">
+                <div className="rounded-xl border bg-gradient-to-br from-accent/10 via-background to-background p-4">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Available balance</p>
+                  <p className="mt-1 text-2xl font-semibold text-foreground">{formattedWalletBalance || currencyFormatter.format(0)}</p>
+                  <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                    <Sparkles className="h-3.5 w-3.5 text-accent" />
+                    Instant updates after successful top-up or withdrawal.
+                  </p>
+                </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <Button
                     onClick={() => setActiveWalletView("topup")}
-                    className="h-24 flex flex-col items-center justify-center"
+                    className="h-24 flex flex-col items-center justify-center gap-1 rounded-xl"
                   >
-                    <div className="text-2xl mb-1">+</div>
+                    <ArrowUpCircle className="h-6 w-6" />
                     <span>Top up</span>
+                    <span className="text-[11px] opacity-80">Add funds</span>
                   </Button>
                   <Button
                     onClick={() => setActiveWalletView("withdraw")}
                     variant="outline"
-                    className="h-24 flex flex-col items-center justify-center"
+                    className="h-24 flex flex-col items-center justify-center gap-1 rounded-xl"
                   >
-                    <div className="text-2xl mb-1">-</div>
+                    <ArrowDownCircle className="h-6 w-6" />
                     <span>Withdraw</span>
+                    <span className="text-[11px] text-muted-foreground">Move to bank</span>
                   </Button>
                 </div>
 
-                <div className="rounded-md border p-3">
+                <div className="rounded-xl border bg-background p-3">
                   <p className="text-xs font-medium mb-2">Recent wallet activity</p>
                   {walletTxLoading ? (
                     <p className="text-xs text-muted-foreground">Loading transactions...</p>
@@ -855,9 +863,10 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
               </DialogHeader>
 
               <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Current balance: <span className="font-semibold text-foreground">{formattedWalletBalance || currencyFormatter.format(0)}</span>
-                </p>
+                <div className="rounded-xl border bg-muted/30 p-3">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Current balance</p>
+                  <p className="text-lg font-semibold text-foreground">{formattedWalletBalance || currencyFormatter.format(0)}</p>
+                </div>
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Amount to top up</label>

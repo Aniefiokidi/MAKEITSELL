@@ -146,8 +146,9 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     )
   } catch (error: any) {
+    console.error('app/api/vendor/wallet/topup/route.ts error:', error)
     return NextResponse.json(
-      { success: false, error: 'Failed to top up vendor wallet' },
+      { success: false, error: error?.message || 'Failed to top up vendor wallet' },
       { status: 500 }
     )
   }

@@ -120,11 +120,12 @@ export default function CheckoutPage() {
       })
 
       const result = await response.json().catch(() => ({}))
-      if (!response.ok || !result?.success || !result?.authorization_url) {
+      const authorizationUrl = result?.authorization_url || result?.authorizationUrl || result?.authorization_url_link
+      if (!response.ok || !result?.success || !authorizationUrl) {
         throw new Error(result?.error || 'Unable to initialize wallet top-up')
       }
 
-      window.location.href = String(result.authorization_url)
+      window.location.href = String(authorizationUrl)
     } catch (err: any) {
       setError(err?.message || 'Failed to start wallet top-up')
     } finally {
@@ -332,7 +333,8 @@ export default function CheckoutPage() {
         return
       } else {
         // Normal checkout (e.g. card)
-        if (!result.authorization_url) {
+        const authorizationUrl = result?.authorization_url || result?.authorizationUrl || result?.authorization_url_link
+      if (!authorizationUrl) {
           throw new Error('No authorization URL received from payment service')
         }
         const { authorization_url } = result
