@@ -147,14 +147,15 @@ export default function CheckoutPage() {
   }, [checkoutTracked, items, subtotal])
 
   useEffect(() => {
-    const hasAddressFields = Boolean(
-      shippingInfo.address.trim() &&
-      shippingInfo.city.trim() &&
+    // Only require state and city for delivery fee estimation
+    const hasLocationFields = Boolean(
+      
       shippingInfo.state.trim() &&
+      shippingInfo.city.trim() &&
       shippingInfo.country.trim()
     )
 
-    if (!hasAddressFields || items.length === 0) {
+    if (!hasLocationFields || items.length === 0) {
       setShippingEstimate(null)
       return
     }
@@ -167,7 +168,7 @@ export default function CheckoutPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             customerAddress: {
-              address: shippingInfo.address,
+              address: shippingInfo.address || '',
               city: shippingInfo.city,
               state: shippingInfo.state,
               country: shippingInfo.country,
@@ -203,7 +204,7 @@ export default function CheckoutPage() {
     }, 450)
 
     return () => clearTimeout(timer)
-  }, [items, shippingInfo.address, shippingInfo.city, shippingInfo.state, shippingInfo.country])
+  }, [items, shippingInfo.city, shippingInfo.state, shippingInfo.country, shippingInfo.address])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

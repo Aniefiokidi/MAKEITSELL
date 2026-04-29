@@ -65,8 +65,8 @@ export const acoLogisticsRates: {
         zone: "Zone C",
         price: 9000,
         states: [
-          "Abuja", "Adamawa", "Bauchi", "Benue", "Borno", "Gombe", "Jigawa", "Jos", "Kaduna", "Kano", "Katsina", "Kebbi",
-          "Kogi", "Nasarawa", "Niger", "Sokoto", "Taraba", "Yobe", "Zamfara",
+          "Abuja", "Adamawa", "Bauchi", "Benue","Bayelsa", "Borno", "Gombe", "Jigawa", "Jos", "Kaduna", "Kano", "Katsina", "Kebbi",
+          "Kogi", "Nasarawa", "Niger", "Sokoto", "Taraba","Plateau", "Yobe", "Zamfara",
         ],
       },
     ],
