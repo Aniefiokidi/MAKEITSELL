@@ -546,13 +546,13 @@ function TrendingProducts() {
         }}
         onAddToCart={p => {
           addItem({
-            productId: p.id,
-            id: p.id,
+            productId: String(p.id || ''),
+            id: String(p.id || ''),
             title: p.title || p.name || '',
-            price: p.price,
+            price: Number(p.price || 0),
             image: p.images?.[0] || '',
-            maxStock: p.stock || 100,
-            vendorId: p.vendorId,
+            maxStock: Number(p.stock || 100),
+            vendorId: String(p.vendorId || ''),
             vendorName: (p as any).storeName || p.vendorName || 'Unknown Vendor'
           })
           if (notification) {

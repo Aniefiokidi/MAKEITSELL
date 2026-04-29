@@ -2,8 +2,25 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getOrders, getOrderById, releaseEscrowForOrder, updateOrder } from '@/lib/mongodb-operations'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 
+const CUSTOMER_VISIBLE_PAYMENT_STATUSES = new Set([
+  'escrow',
+  'released',
+  'disputed',
+  'refunded',
+  'paid',
+  'successful',
+  'success',
+  'completed',
+  'confirmed',
+])
+
 export async function GET(request: NextRequest) {
   try {
+    const sessionUser = await getSessionUserFromRequest(request)
+    if (!sessionUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const searchParams = request.nextUrl.searchParams
     const customerId = searchParams.get('customerId')
     const vendorId = searchParams.get('vendorId')
@@ -19,8 +36,27 @@ export async function GET(request: NextRequest) {
     if (customerId) filters.customerId = customerId
     if (vendorId) filters.vendorId = vendorId
 
+    const isAdmin = String(sessionUser.role || '').toLowerCase() === 'admin'
+    const requestedCustomerId = String(customerId || '')
+    const requestedVendorId = String(vendorId || '')
+    const sessionUserId = String(sessionUser.id || '')
+
+    if (!isAdmin) {
+      if (requestedCustomerId && requestedCustomerId !== sessionUserId) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+      if (requestedVendorId && requestedVendorId !== sessionUserId) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+    }
+
     const orders = await getOrders(filters)
-    return NextResponse.json(orders || [])
+    const visibleOrders = (orders || []).filter((order: any) => {
+      const paymentStatus = String(order?.paymentStatus || '').trim().toLowerCase()
+      return CUSTOMER_VISIBLE_PAYMENT_STATUSES.has(paymentStatus)
+    })
+
+    return NextResponse.json(visibleOrders)
   } catch (error) {
     console.error('Error fetching orders:', error)
     return NextResponse.json(

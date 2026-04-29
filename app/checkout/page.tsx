@@ -120,11 +120,12 @@ export default function CheckoutPage() {
       })
 
       const result = await response.json().catch(() => ({}))
-      if (!response.ok || !result?.success || !result?.authorization_url) {
+      const authorizationUrl = result?.authorization_url || result?.authorizationUrl || result?.authorization_url_link
+      if (!response.ok || !result?.success || !authorizationUrl) {
         throw new Error(result?.error || 'Unable to initialize wallet top-up')
       }
 
-      window.location.href = String(result.authorization_url)
+      window.location.href = String(authorizationUrl)
     } catch (err: any) {
       setError(err?.message || 'Failed to start wallet top-up')
     } finally {
@@ -221,7 +222,7 @@ export default function CheckoutPage() {
       }
 
       // Validation with better error messages
-      const requiredShippingFields = ["firstName", "lastName", "email", "phone", "address", "city", "state"]
+      const requiredShippingFields = ["firstName", "lastName", "email", "phone", "address", "city", "state", "deliveryInstructions"]
       const missingFields = []
       
       for (const field of requiredShippingFields) {
@@ -275,7 +276,7 @@ export default function CheckoutPage() {
           state: shippingInfo.state || '',
           zipCode: shippingInfo.zipCode || '',
           country: shippingInfo.country || '',
-          deliveryInstructions: typeof shippingInfo.deliveryInstructions === 'string' ? shippingInfo.deliveryInstructions : '',
+          deliveryInstructions: typeof shippingInfo.deliveryInstructions === 'string' ? shippingInfo.deliveryInstructions.trim() : '',
         },
         subtotal: subtotal || 0,
         vat: vat || 0,
@@ -332,7 +333,8 @@ export default function CheckoutPage() {
         return
       } else {
         // Normal checkout (e.g. card)
-        if (!result.authorization_url) {
+        const authorizationUrl = result?.authorization_url || result?.authorizationUrl || result?.authorization_url_link
+      if (!authorizationUrl) {
           throw new Error('No authorization URL received from payment service')
         }
         const { authorization_url } = result
@@ -555,7 +557,7 @@ export default function CheckoutPage() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="deliveryInstructions">Delivery Instructions (optional)</Label>
+                        <Label htmlFor="deliveryInstructions">Delivery Instructions *</Label>
                         <Textarea
                           id="deliveryInstructions"
                           value={shippingInfo.deliveryInstructions}
@@ -563,9 +565,10 @@ export default function CheckoutPage() {
                           disabled={loading}
                           rows={4}
                           placeholder="Landmark or drop-off note for rider"
+                          required
                         />
                         <p className="text-xs text-muted-foreground">
-                          Add landmark details to speed up delivery.
+                          Delivery instruction is required (use nearest landmark / gate note).
                         </p>
                       </div>
                     </CardContent>

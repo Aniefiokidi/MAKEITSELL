@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { Loader2, MapPin, Phone, Package, RefreshCw } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import LogisticsLayout from "@/components/logistics/LogisticsLayout"
+import { logisticsEmailAllowedForRegion, resolveLogisticsRegion } from "@/lib/logistics-access"
 
 type LogisticsOrder = {
   rowId: string
@@ -39,7 +40,7 @@ type LogisticsOrder = {
   }>
 }
 
-const LOGISTICS_EMAIL = "A&CO@makeitselll.org"
+const region = resolveLogisticsRegion("lagos")
 
 export default function LogisticsReferencePage() {
   const { user, loading: authLoading } = useAuth()
@@ -64,14 +65,14 @@ export default function LogisticsReferencePage() {
     [prioritizedOrders]
   )
 
-  const isAllowedUser = Boolean(user?.email && user.email.toLowerCase() === LOGISTICS_EMAIL.toLowerCase())
+  const isAllowedUser = logisticsEmailAllowedForRegion(user?.email, region)
 
   const fetchOrders = async () => {
     setLoading(true)
     setError("")
 
     try {
-      const response = await fetch("/api/logistics/orders?view=received", {
+      const response = await fetch("/api/logistics/orders?view=received&region=lagos", {
         method: "GET",
         credentials: "include",
       })
@@ -127,7 +128,7 @@ export default function LogisticsReferencePage() {
   }
 
   return (
-    <LogisticsLayout>
+    <LogisticsLayout regionKey="lagos">
       <div className="container mx-auto px-0 py-0 space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>

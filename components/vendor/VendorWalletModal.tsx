@@ -303,13 +303,14 @@ export function VendorWalletModal({
         return
       }
 
-      if (!result.authorization_url) {
+      const authorizationUrl = result?.authorization_url || result?.authorizationUrl || result?.authorization_url_link
+      if (!authorizationUrl) {
         notification.error('Payment URL not returned', 'Top up failed', 3000)
         return
       }
 
       notification.info('Redirecting to secure payment...', 'Wallet top up', 2000)
-      window.location.href = result.authorization_url
+      window.location.href = authorizationUrl
     } catch {
       notification.error('Network error while topping up wallet', 'Top up failed', 3000)
     } finally {
