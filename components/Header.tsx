@@ -250,7 +250,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
 
       setBanks((prev) => (prev.length > 0 ? prev : FALLBACK_BANKS))
       try {
-        const res = await fetch("/api/vendor/banks", {
+        const res = await fetch("/api/vendor/banks?refresh=1", {
           method: "GET",
           credentials: "include",
         })

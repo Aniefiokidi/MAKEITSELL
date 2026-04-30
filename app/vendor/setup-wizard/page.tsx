@@ -99,7 +99,7 @@ export default function VendorSetupWizardPage() {
         const [storeRes, productsRes, banksRes] = await Promise.all([
           fetch(`/api/database/stores?vendorId=${user.uid}`),
           fetch(`/api/database/products?vendorId=${user.uid}&limit=100`),
-          fetch("/api/vendor/banks"),
+          fetch("/api/vendor/banks?refresh=1"),
         ])
 
         const [storeJson, productsJson, banksJson] = await Promise.all([

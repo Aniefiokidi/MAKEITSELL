@@ -77,6 +77,7 @@ const fetchPaystackBanks = async () => {
 
 export async function GET(request: NextRequest) {
   try {
+    const forceRefresh = new URL(request.url).searchParams.get('refresh') === '1'
     const rateLimitResponse = enforceRateLimit(request, {
       key: 'vendor-banks-list',
       maxRequests: 40,
@@ -89,20 +90,29 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (cachedBanks && cachedAt && Date.now() - cachedAt < CACHE_TTL_MS) {
-      return NextResponse.json({ success: true, banks: cachedBanks })
+    if (!forceRefresh && cachedBanks && cachedAt && Date.now() - cachedAt < CACHE_TTL_MS) {
+      return NextResponse.json({ success: true, banks: cachedBanks, source: 'cache', count: cachedBanks.length })
     }
 
     const fallbackResult = await fetchPaystackBanks()
     let banks = Array.isArray(fallbackResult.banks) ? fallbackResult.banks : []
-    if (!fallbackResult.success || banks.length === 0) {
+    const paystackLooksComplete = fallbackResult.success && banks.length >= 25
+    if (!paystackLooksComplete) {
+      // Do not cache fallback-only data; this prevents stale short lists from persisting.
       banks = FALLBACK_BANKS
+      return NextResponse.json({
+        success: true,
+        banks,
+        source: 'fallback',
+        count: banks.length,
+        warning: 'Full Paystack bank list unavailable. Check PAYSTACK_SECRET_KEY in deployed env.',
+      })
     }
 
     cachedBanks = banks
     cachedAt = Date.now()
 
-    return NextResponse.json({ success: true, banks })
+    return NextResponse.json({ success: true, banks, source: 'paystack', count: banks.length })
   } catch (error: any) {
     console.error('[banks] unexpected', error)
     return NextResponse.json({ success: false, error: 'Failed to fetch banks' }, { status: 500 })

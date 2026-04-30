@@ -226,7 +226,7 @@ export default function VendorStoreSettingsPage() {
     const fetchBanks = async () => {
       setBanksLoading(true);
       try {
-        const res = await fetch("/api/vendor/banks");
+        const res = await fetch("/api/vendor/banks?refresh=1");
         const data = await res.json();
         if (data.success && Array.isArray(data.banks)) {
           const byCode = new Map<string, { name: string; code: string }>();
