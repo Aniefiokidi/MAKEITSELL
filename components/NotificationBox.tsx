@@ -74,7 +74,7 @@ function NotificationItem({ notification }: { notification: Notification }) {
   return (
     <div
       className={cn(
-        "flex items-start gap-3 p-4 rounded-lg border-l-4 shadow-lg backdrop-blur-sm transition-all duration-300 max-w-md w-full",
+        "flex items-start gap-3 p-4 rounded-lg border-l-4 shadow-lg transition-all duration-300 max-w-md w-full",
         styles.bgColor,
         styles.borderColor,
         isExiting
@@ -114,7 +114,7 @@ export function NotificationBox() {
   if (notifications.length === 0) return null
 
   return (
-    <div className="fixed bottom-4 right-4 z-100 flex flex-col gap-3 pointer-events-none">
+    <div className="fixed bottom-4 right-4 z-[99999] flex flex-col gap-3 pointer-events-none [filter:none] [backdrop-filter:none]">
       {notifications.map((notification) => (
         <div key={notification.id} className="pointer-events-auto">
           <NotificationItem notification={notification} />
