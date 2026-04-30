@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { xoroPayService } from '@/lib/xoro-pay'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { enforceSameOrigin } from '@/lib/request-security'
@@ -151,30 +150,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'bankCode and accountNumber are required' }, { status: 400 })
     }
 
-    const normalizedForXoro = await xoroPayService.normalizeBankCodeForPayout(bankCode)
-    const xoroCodes = Array.from(new Set([normalizedForXoro, bankCode]))
-    let xoroResult: Awaited<ReturnType<typeof xoroPayService.resolveAccount>> | null = null
-    for (const code of xoroCodes) {
-      const attempt = await xoroPayService.resolveAccount(code, accountNumber)
-      if (attempt.success && attempt.accountName) {
-        xoroResult = attempt
-        break
-      }
-      if (!xoroResult) {
-        xoroResult = attempt
-      }
-    }
-
-    if (xoroResult?.success && xoroResult.accountName) {
-      return NextResponse.json({
-        success: true,
-        accountName: xoroResult.accountName,
-        accountNumber: xoroResult.accountNumber || accountNumber,
-        // Keep the UI-selected/provider code; payout path will normalize internally.
-        bankCode,
-      })
-    }
-
     const paystackCodes = Array.from(new Set([bankCode, denormalizeBankCodeForProvider(bankCode)]))
     let fallbackResult: Awaited<ReturnType<typeof resolveWithPaystack>> | null = null
     for (const code of paystackCodes) {
@@ -199,7 +174,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: toFriendlyResolveError(fallbackResult?.message || xoroResult?.message || 'Failed to resolve account'),
+          error: toFriendlyResolveError(fallbackResult?.message || 'Failed to resolve account'),
         },
         { status: 400 }
       )

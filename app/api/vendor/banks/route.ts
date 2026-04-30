@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { xoroPayService } from '@/lib/xoro-pay'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { enforceRateLimit } from '@/lib/rate-limit'
 
@@ -7,6 +6,17 @@ let cachedBanks: any[] | null = null
 let cachedAt: number | null = null
 const CACHE_TTL_MS = 1000 * 60 * 60 // 1 hour
 const PAYSTACK_BASE_URL = 'https://api.paystack.co'
+const FALLBACK_BANKS: Array<{ name: string; code: string }> = [
+  { name: 'Access Bank', code: '044' },
+  { name: 'First Bank of Nigeria', code: '011' },
+  { name: 'GTBank', code: '058' },
+  { name: 'United Bank For Africa', code: '033' },
+  { name: 'Zenith Bank', code: '057' },
+  { name: 'Fidelity Bank', code: '070' },
+  { name: 'FCMB', code: '214' },
+  { name: 'Wema Bank', code: '035' },
+  { name: 'OPay', code: '999992' },
+]
 
 const getPaystackSecret = () => {
   const key = String(process.env.PAYSTACK_SECRET_KEY || '').trim()
@@ -62,22 +72,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, banks: cachedBanks })
     }
 
-    const xoroResult = await xoroPayService.listBanks()
-    let banks = Array.isArray(xoroResult.banks) ? xoroResult.banks : []
-
-    if (!xoroResult.success || banks.length === 0) {
-      console.error('[banks] Xoro error', xoroResult?.message, xoroResult?.raw)
-      const fallbackResult = await fetchPaystackBanks()
-      if (!fallbackResult.success || fallbackResult.banks.length === 0) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: xoroResult?.message || fallbackResult.message || 'Failed to fetch banks',
-          },
-          { status: 502 }
-        )
-      }
-      banks = fallbackResult.banks
+    const fallbackResult = await fetchPaystackBanks()
+    let banks = Array.isArray(fallbackResult.banks) ? fallbackResult.banks : []
+    if (!fallbackResult.success || banks.length === 0) {
+      banks = FALLBACK_BANKS
     }
 
     cachedBanks = banks
