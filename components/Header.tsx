@@ -59,7 +59,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
   const [accountVerified, setAccountVerified] = useState(false)
   const [verifyLoading, setVerifyLoading] = useState(false)
   const [accountError, setAccountError] = useState<string | null>(null)
-  const [banks, setBanks] = useState<{ name: string; code: string }[]>([])
+  const [banks, setBanks] = useState<{ name: string; code: string }[]>(FALLBACK_BANKS)
   const [withdrawalPin, setWithdrawalPin] = useState("")
   const [newPin, setNewPin] = useState("")
   const [confirmNewPin, setConfirmNewPin] = useState("")
@@ -248,6 +248,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
         return
       }
 
+      setBanks((prev) => (prev.length > 0 ? prev : FALLBACK_BANKS))
       try {
         const res = await fetch("/api/vendor/banks", {
           method: "GET",
@@ -1070,7 +1071,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                         className="w-full border rounded px-3 py-2 text-sm bg-white"
                         value={bankCode}
                         onChange={(e) => handleBankChange(e.target.value)}
-                        disabled={verifyLoading || banks.length === 0}
+                        disabled={verifyLoading}
                       >
                         <option value="">Select bank</option>
                         {banks.map((bank) => (

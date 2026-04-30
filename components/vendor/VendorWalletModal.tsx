@@ -67,7 +67,7 @@ export function VendorWalletModal({
   const [accountName, setAccountName] = useState('')
   const [accountVerified, setAccountVerified] = useState(false)
   const [verifyLoading, setVerifyLoading] = useState(false)
-  const [banks, setBanks] = useState<{ name: string; code: string }[]>([])
+  const [banks, setBanks] = useState<{ name: string; code: string }[]>(FALLBACK_BANKS)
   const [accountError, setAccountError] = useState<string | null>(null)
   const [withdrawalPin, setWithdrawalPin] = useState('')
   const [showWithdrawalPin, setShowWithdrawalPin] = useState(false)
@@ -118,6 +118,7 @@ export function VendorWalletModal({
     if (!open) return
 
     const fetchBanks = async () => {
+      setBanks((prev) => (prev.length > 0 ? prev : FALLBACK_BANKS))
       try {
         const res = await fetch('/api/vendor/banks', {
           method: 'GET',
@@ -682,7 +683,7 @@ export function VendorWalletModal({
                       className='w-full border rounded px-3 py-2 text-sm bg-white dark:bg-neutral-900'
                       value={bankCode}
                       onChange={(e) => handleBankChange(e.target.value)}
-                      disabled={verifyLoading || banks.length === 0}
+                      disabled={verifyLoading}
                     >
                       <option value=''>Select bank</option>
                       {banks.map((bank) => (
