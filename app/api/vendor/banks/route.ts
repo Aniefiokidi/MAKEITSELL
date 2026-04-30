@@ -19,7 +19,7 @@ const FALLBACK_BANKS: Array<{ name: string; code: string }> = [
 ]
 
 const getPaystackSecret = () => {
-  const key = String(process.env.PAYSTACK_SECRET_KEY || '').trim()
+  const key = String(process.env.PAYSTACK_SECRET_KEY || process.env.PAYSTACK_SECRET || '').trim()
   return key && key.startsWith('sk_') ? key : ''
 }
 
@@ -29,28 +29,49 @@ const fetchPaystackBanks = async () => {
     return { success: false, banks: [] as Array<{ name: string; code: string }>, message: 'Paystack secret key unavailable' }
   }
 
-  const response = await fetch(`${PAYSTACK_BASE_URL}/bank?country=nigeria&currency=NGN`, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${secret}`,
-    },
-    cache: 'no-store',
-  })
+  const byCode = new Map<string, { name: string; code: string }>()
+  let page = 1
+  let pageCount = 1
 
-  const payload = await response.json().catch(() => ({}))
-  const banks = Array.isArray(payload?.data)
-    ? payload.data
-        .map((bank: any) => ({
-          name: String(bank?.name || '').trim(),
-          code: String(bank?.code || '').trim(),
-        }))
-        .filter((bank: { name: string; code: string }) => bank.name && bank.code)
-    : []
+  // Fetch all available pages from Paystack so we return the complete bank list.
+  do {
+    const response = await fetch(`${PAYSTACK_BASE_URL}/bank?country=nigeria&currency=NGN&perPage=100&page=${page}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${secret}`,
+      },
+      cache: 'no-store',
+    })
+
+    const payload = await response.json().catch(() => ({}))
+    const banksOnPage = Array.isArray(payload?.data)
+      ? payload.data
+          .map((bank: any) => ({
+            name: String(bank?.name || '').trim(),
+            code: String(bank?.code || '').trim(),
+          }))
+          .filter((bank: { name: string; code: string }) => bank.name && bank.code)
+      : []
+
+    banksOnPage.forEach((bank: { name: string; code: string }) => {
+      if (!byCode.has(bank.code)) byCode.set(bank.code, bank)
+    })
+
+    const responsePageCount = Number(payload?.meta?.pageCount || payload?.meta?.page_count || 1)
+    pageCount = Number.isFinite(responsePageCount) && responsePageCount > 0 ? responsePageCount : 1
+
+    if (!response.ok || !payload?.status) {
+      break
+    }
+    page += 1
+  } while (page <= pageCount)
+
+  const banks = Array.from(byCode.values()).sort((a, b) => a.name.localeCompare(b.name))
 
   return {
-    success: response.ok && Boolean(payload?.status) && banks.length > 0,
+    success: banks.length > 0,
     banks,
-    message: payload?.message || 'Failed to fetch banks from fallback provider',
+    message: banks.length > 0 ? 'Banks retrieved' : 'Failed to fetch banks from Paystack',
   }
 }
 
