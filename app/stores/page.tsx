@@ -142,21 +142,9 @@ export default function ShopPage() {
         }
 
         // Sort so allowed states come first, then coming soon (greyed out) at the end
-        const allowedStates = [
-          "lagos",
-          "abuja",
-          "nassarawa",
-          "nasarrawa",
-          "nasarawa",
-          "federal capital territory",
-          "ibadan",
-          "ogun"
-        ];
         const sortedStores = [...pinnedStores].sort((a, b) => {
-          const stateA = (a.state || "").toLowerCase().trim();
-          const stateB = (b.state || "").toLowerCase().trim();
-          const isAllowedA = allowedStates.includes(stateA);
-          const isAllowedB = allowedStates.includes(stateB);
+          const isAllowedA = isAllowedStoreByLocation(a);
+          const isAllowedB = isAllowedStoreByLocation(b);
           if (isAllowedA === isAllowedB) return 0;
           return isAllowedA ? -1 : 1;
         });
@@ -326,23 +314,13 @@ export default function ShopPage() {
     )
   }
 
-  const allowedStates = [
-    "lagos",
-    "abuja",
-    "nassarawa",
-    "nasarrawa",
-    "federal capital territory",
-    "ibadan",
-    "ogun"
-  ];
   const StoreCard = ({ store }: { store: any }) => (
     (() => {
       const firstProductImage = store.featuredProduct?.image || store.productImages?.[0];
       const backgroundImageCandidate = store.profileImage || store.bannerImage || store.backgroundImage || firstProductImage;
       const logoImageCandidate = store.storeImage || store.logoImage || store.profileImage || firstProductImage;
       const isClosed = store.isOpen === false;
-      const state = (store.state || "").toLowerCase().trim();
-      const isAllowed = allowedStates.includes(state);
+      const isAllowed = isAllowedStoreByLocation(store);
       const isGreyed = !isAllowed;
       const storeBrandingPdfUrl = [
         store.storeImage,
@@ -782,4 +760,36 @@ export default function ShopPage() {
       </div>
     </div>
   )
+}
+
+const normalizeStateText = (value: unknown) =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+
+const ALLOWED_STATE_TOKENS = [
+  "lagos",
+  "abuja",
+  "federal capital territory",
+  "fct",
+  "ibadan",
+  "oyo",
+  "ogun",
+  "nasarawa",
+  "nassarawa",
+  "nasarrawa",
+  "rivers",
+  "kaduna",
+]
+
+const isAllowedStoreByLocation = (store: any) => {
+  const locationBlob = normalizeStateText([
+    store?.state,
+    store?.city,
+    store?.address,
+    store?.location,
+  ].filter(Boolean).join(" "))
+  return ALLOWED_STATE_TOKENS.some((token) => locationBlob.includes(token))
 }

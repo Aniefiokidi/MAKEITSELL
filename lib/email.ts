@@ -59,6 +59,21 @@ interface OrderEmailData {
   sendVendorCopy?: boolean
 }
 
+interface OrderStatusUpdateEmailData {
+  to: string
+  orderId: string
+  status: string
+  statusLabel: string
+  customerName: string
+  vendorName: string
+  items: any[]
+  total: number
+  productSubtotal?: number
+  deliveryFee?: number
+  shippingAddress: any
+  role: 'customer' | 'vendor'
+}
+
 export type RegistrationIssueTemplateOverrides = {
   subject?: string
   body?: string
@@ -580,6 +595,60 @@ class EmailService {
       return customerEmailSent && vendorEmailSent
     } catch (error) {
       console.error('Failed to send order emails:', error)
+      return false
+    }
+  }
+
+  async sendOrderStatusUpdateEmail(data: OrderStatusUpdateEmailData): Promise<boolean> {
+    try {
+      const appBase = this.getAppBaseUrl()
+      const shortOrderId = String(data.orderId || '').substring(0, 8).toUpperCase()
+      const greetingName = data.role === 'vendor' ? data.vendorName : data.customerName
+      const subtitle = data.role === 'vendor'
+        ? `Order #${shortOrderId} for ${data.customerName}`
+        : `Order #${shortOrderId} from ${data.vendorName}`
+      const productSubtotal = Number.isFinite(Number(data.productSubtotal))
+        ? Number(data.productSubtotal)
+        : (Array.isArray(data.items)
+          ? data.items.reduce((sum, item) => sum + (Number(item?.price || 0) * Number(item?.quantity || 1)), 0)
+          : 0)
+      const deliveryFee = Number.isFinite(Number(data.deliveryFee))
+        ? Number(data.deliveryFee)
+        : Math.max(0, Number(data.total || 0) - productSubtotal)
+      const total = productSubtotal + deliveryFee
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; background: #ffffff; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
+          <div style="background: #7f1d1d; color: #fff; padding: 20px;">
+            <h1 style="margin: 0; font-size: 24px;">Order Status Update</h1>
+            <p style="margin: 8px 0 0 0; opacity: 0.92;">${data.statusLabel}</p>
+          </div>
+          <div style="padding: 20px;">
+            <p style="margin: 0 0 12px 0;">Hi ${this.escapeHtml(String(greetingName || 'there'))},</p>
+            <p style="margin: 0 0 12px 0;">${this.escapeHtml(subtitle)}</p>
+            <div style="background: #f7f7f8; border: 1px solid #ececec; border-radius: 8px; padding: 12px;">
+              <p style="margin: 0 0 6px 0;"><strong>Current stage:</strong> ${this.escapeHtml(data.statusLabel)}</p>
+              <p style="margin: 0 0 6px 0;"><strong>Order ID:</strong> ${shortOrderId}</p>
+              <p style="margin: 0 0 6px 0;"><strong>Product subtotal:</strong> ₦${productSubtotal.toLocaleString('en-NG')}</p>
+              <p style="margin: 0 0 6px 0;"><strong>Delivery fee:</strong> ${deliveryFee > 0 ? `₦${deliveryFee.toLocaleString('en-NG')}` : 'FREE'}</p>
+              <p style="margin: 0;"><strong>Total:</strong> ₦${total.toLocaleString('en-NG')}</p>
+            </div>
+            <div style="margin-top: 16px;">
+              <a href="${appBase}/order?orderId=${encodeURIComponent(String(data.orderId || ''))}" style="display: inline-block; background: #7f1d1d; color: #fff; text-decoration: none; padding: 10px 16px; border-radius: 8px; font-weight: 700;">
+                View Order
+              </a>
+            </div>
+          </div>
+        </div>
+      `
+
+      return this.sendEmail({
+        to: data.to,
+        subject: `${data.statusLabel} - Order #${shortOrderId}`,
+        html,
+      })
+    } catch (error) {
+      console.error('[emailService.sendOrderStatusUpdateEmail] Failed:', error)
       return false
     }
   }

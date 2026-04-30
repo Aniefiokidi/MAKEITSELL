@@ -41,8 +41,9 @@ export default function CustomerOrdersPage() {
   const [storeNames, setStoreNames] = useState<{ [vendorId: string]: string }>({})
   
   // Filter states
-  const [completionFilter, setCompletionFilter] = useState<'all' | 'complete' | 'incomplete'>('incomplete')
+  const [completionFilter, setCompletionFilter] = useState<'confirmed' | 'non_confirmed'>('non_confirmed')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [stagePreviewByOrder, setStagePreviewByOrder] = useState<Record<string, string>>({})
 
   // Format currency with commas
   const formatCurrency = (amount: number) => {
@@ -158,13 +159,17 @@ export default function CustomerOrdersPage() {
     }
   })
 
+  const isConfirmedBucket = (status: string) => {
+    return ['confirmed', 'processing', 'shipped', 'shipped_interstate', 'out_for_delivery', 'delivered', 'received'].includes(String(status || '').toLowerCase())
+  }
+
   // Apply filters
   const flattenedOrders = allFlattenedOrders.filter(order => {
-    // Completion filter
-    if (completionFilter === 'complete') {
-      if (!['delivered', 'received'].includes(order.status)) return false
-    } else if (completionFilter === 'incomplete') {
-      if (['delivered', 'received', 'cancelled'].includes(order.status)) return false
+    // Confirmed vs non-confirmed toggle
+    if (completionFilter === 'confirmed') {
+      if (!isConfirmedBucket(order.status)) return false
+    } else if (completionFilter === 'non_confirmed') {
+      if (isConfirmedBucket(order.status)) return false
     }
     
     // Status filter
@@ -188,31 +193,23 @@ export default function CustomerOrdersPage() {
               <div className="flex flex-col md:flex-row gap-4">
                 {/* Completion Filter */}
                 <div className="flex-1">
-                  <label className="block text-sm font-semibold mb-2">Order Status</label>
+                  <label className="block text-sm font-semibold mb-2">Order Group</label>
                   <div className="flex gap-2">
                     <Button
-                      variant={completionFilter === 'all' ? 'default' : 'outline'}
+                      variant={completionFilter === 'confirmed' ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => setCompletionFilter('all')}
+                      onClick={() => setCompletionFilter('confirmed')}
                       className="flex-1"
                     >
-                      All ({allFlattenedOrders.length})
+                      Confirmed ({allFlattenedOrders.filter(o => isConfirmedBucket(o.status)).length})
                     </Button>
                     <Button
-                      variant={completionFilter === 'complete' ? 'default' : 'outline'}
+                      variant={completionFilter === 'non_confirmed' ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => setCompletionFilter('complete')}
+                      onClick={() => setCompletionFilter('non_confirmed')}
                       className="flex-1"
                     >
-                      Complete ({allFlattenedOrders.filter(o => ['delivered', 'received'].includes(o.status)).length})
-                    </Button>
-                    <Button
-                      variant={completionFilter === 'incomplete' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setCompletionFilter('incomplete')}
-                      className="flex-1"
-                    >
-                      In Progress ({allFlattenedOrders.filter(o => !['delivered', 'received', 'cancelled'].includes(o.status)).length})
+                      Non Confirmed ({allFlattenedOrders.filter(o => !isConfirmedBucket(o.status)).length})
                     </Button>
                   </div>
                 </div>
@@ -265,7 +262,7 @@ export default function CustomerOrdersPage() {
               <span className="text-6xl mb-4">🔍</span>
               <h2 className="text-3xl font-bold mb-2">No Orders Match Your Filters</h2>
               <p className="text-muted-foreground mb-6">Try adjusting your filters to see more orders.</p>
-              <Button size="lg" onClick={() => { setCompletionFilter('all'); setStatusFilter('all'); }} className="bg-accent text-white font-bold px-8 py-4 rounded-full shadow-lg hover:bg-accent/80 transition-all">
+              <Button size="lg" onClick={() => { setCompletionFilter('non_confirmed'); setStatusFilter('all'); }} className="bg-accent text-white font-bold px-8 py-4 rounded-full shadow-lg hover:bg-accent/80 transition-all">
                 Clear Filters
               </Button>
             </div>
@@ -316,80 +313,52 @@ export default function CustomerOrdersPage() {
                         <div className="text-muted-foreground text-xs mt-0.5">Placed: {order.createdAt ? (typeof order.createdAt === 'string' ? new Date(order.createdAt).toLocaleDateString() : order.createdAt?.toLocaleDateString?.()) : 'date unknown'}</div>
                       </div>
                     </div>
-                  {/* Stepper */}
-                  <div className="mb-6 relative">
-                    {/* Vertical line behind all steps */}
-                    <span className="absolute left-2.5 top-2 w-px h-[calc(100%-1.5rem)] bg-accent/20 z-0"></span>
-                    {/* Extended timeline with all statuses and countdowns */}
+                  <div className="mb-6 rounded-md border border-border/60 bg-muted/30 p-3 text-sm">
                     {(() => {
-                      // Timeline steps and mapping to order fields
-                      const steps = [
-                        { label: 'ORDER PLACED', badge: 'ORDER PLACED', key: 'createdAt', desc: '' },
-                        { label: 'PENDING PAYMENT', badge: 'PENDING PAYMENT', key: 'pendingPaymentAt', desc: 'Awaiting payment confirmation.' },
-                        { label: 'CONFIRMED', badge: 'CONFIRMED', key: 'confirmedAt', desc: 'Order confirmed by vendor.' },
-                        { label: 'PROCESSING', badge: 'PROCESSING', key: 'processingAt', desc: 'Order is being processed.' },
-                        { label: 'SHIPPED', badge: 'SHIPPED', key: 'shippedAt', desc: '' },
-                        { label: 'SHIPPED (INTERSTATE)', badge: 'SHIPPED INTERSTATE', key: 'shippedInterstateAt', desc: '' },
-                        { label: 'OUT FOR DELIVERY', badge: 'OUT FOR DELIVERY', key: 'outForDeliveryAt', desc: '' },
-                        { label: 'DELIVERED', badge: 'DELIVERED', key: 'deliveredAt', desc: '' },
-                        { label: 'RECEIVED', badge: 'RECEIVED', key: 'receivedAt', desc: '' },
-                        { label: 'CANCELLED', badge: 'CANCELLED', key: 'cancelledAt', desc: 'Order was cancelled.' },
-                      ];
-                      // Map status to step index for active/current
-                      const statusOrder = [
-                        'pending', 'pending_payment', 'confirmed', 'processing', 'shipped', 'shipped_interstate', 'out_for_delivery', 'delivered', 'received', 'cancelled'
-                      ];
-                      const currentIdx = statusOrder.indexOf(order.status);
+                      const orderKey = `${order._parentOrderId || order.orderId || order.id}-${idx}`
+                      const stageOptions = [
+                        { value: 'pending', label: 'Pending', dateKey: 'createdAt', desc: 'Awaiting vendor review.' },
+                        { value: 'pending_payment', label: 'Pending Payment', dateKey: 'pendingPaymentAt', desc: 'Awaiting payment confirmation.' },
+                        { value: 'confirmed', label: 'Confirmed', dateKey: 'confirmedAt', desc: 'Order confirmed by vendor.' },
+                        { value: 'processing', label: 'Processing', dateKey: 'processingAt', desc: 'Order is being processed.' },
+                        { value: 'shipped', label: 'Shipped', dateKey: 'shippedAt', desc: '' },
+                        { value: 'shipped_interstate', label: 'Shipped (Interstate)', dateKey: 'shippedInterstateAt', desc: '' },
+                        { value: 'out_for_delivery', label: 'Out for Delivery', dateKey: 'outForDeliveryAt', desc: '' },
+                        { value: 'delivered', label: 'Delivered', dateKey: 'deliveredAt', desc: '' },
+                        { value: 'received', label: 'Received', dateKey: 'receivedAt', desc: '' },
+                        { value: 'cancelled', label: 'Cancelled', dateKey: 'cancelledAt', desc: 'Order was cancelled.' },
+                      ]
+                      const selectedStage = stagePreviewByOrder[orderKey] || order.status || 'pending'
+                      const selectedStageData = stageOptions.find((option) => option.value === selectedStage) || stageOptions[0]
+                      const stageDate = order[selectedStageData.dateKey] || (selectedStageData.dateKey === 'createdAt' ? order.createdAt : undefined)
 
-                      // Escrow/auto-cancel countdown logic
-                      let countdown = '';
-                      if (['pending', 'pending_payment'].includes(order.status) && order.autoCancelAt) {
-                        const diff = new Date(order.autoCancelAt).getTime() - Date.now();
-                        if (diff > 0) {
-                          const hours = Math.floor(diff / (1000 * 60 * 60));
-                          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                          countdown = `Auto-cancels in ${hours}h ${minutes}m`;
-                        } else {
-                          countdown = 'Cancelling soon';
-                        }
-                      } else if (String(order.paymentStatus || '').toLowerCase() === 'escrow' && order.escrowReleaseAt) {
-                        const diff = new Date(order.escrowReleaseAt).getTime() - Date.now();
-                        if (diff > 0) {
-                          const hours = Math.floor(diff / (1000 * 60 * 60));
-                          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                          countdown = `Escrow auto-release in ${hours}h ${minutes}m`;
-                        } else {
-                          countdown = 'Releasing soon';
-                        }
-                      }
-
-                      return steps.map((step, sidx) => {
-                        const date = order[step.key] || (step.key === 'createdAt' ? order.createdAt : undefined);
-                        const isActive = currentIdx >= sidx && order.status !== 'cancelled';
-                        const isCurrent = currentIdx === sidx;
-                        return (
-                          <div key={step.label} className="mb-8 last:mb-0 flex items-start relative z-10">
-                            <div className="relative flex flex-col items-center mr-4" style={{ minWidth: 20 }}>
-                              <span className={`w-5 h-5 rounded-full flex items-center justify-center border-2 z-10 text-xs font-bold ${isActive ? 'bg-accent text-white border-accent shadow' : 'bg-white text-accent border-accent/40'} ${isCurrent ? 'ring-2 ring-accent/40' : ''}`}>{isActive ? <>&#10003;</> : ''}</span>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold tracking-wide mb-1 ${isActive ? 'bg-accent/90 text-white' : 'bg-muted text-muted-foreground border border-muted-foreground/20'}`}>{step.badge}</span>
-                              <div className="text-xs text-muted-foreground">{date ? (typeof date === 'string' ? new Date(date).toLocaleDateString() : date?.toLocaleDateString?.()) : ''}</div>
-                              {step.desc && <div className="text-xs text-muted-foreground max-w-xs">{step.desc}</div>}
-                              {isCurrent && countdown && <div className="text-xs text-amber-700 font-semibold mt-1">{countdown}</div>}
-                              {step.label === 'DELIVERED' && order.deliveredAt && (
-                                <div className="text-xs text-accent mt-1">Delivered on {typeof order.deliveredAt === 'string' ? new Date(order.deliveredAt).toLocaleDateString() : order.deliveredAt?.toLocaleDateString?.()}</div>
-                              )}
-                              {step.label === 'RECEIVED' && (order as any).receivedAt && (
-                                <div className="text-xs text-green-600 mt-1">Received on {typeof (order as any).receivedAt === 'string' ? new Date((order as any).receivedAt).toLocaleDateString() : (order as any).receivedAt?.toLocaleDateString?.()}</div>
-                              )}
-                              {step.label === 'CANCELLED' && order.cancelledAt && (
-                                <div className="text-xs text-destructive mt-1">Cancelled on {typeof order.cancelledAt === 'string' ? new Date(order.cancelledAt).toLocaleDateString() : order.cancelledAt?.toLocaleDateString?.()}</div>
-                              )}
-                            </div>
+                      return (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <label className="text-xs font-semibold text-muted-foreground">Stage</label>
+                            <select
+                              value={selectedStage}
+                              onChange={(e) => setStagePreviewByOrder((prev) => ({ ...prev, [orderKey]: e.target.value }))}
+                              className="w-40 px-2 py-1 text-xs border border-border rounded-md bg-background text-foreground"
+                            >
+                              {stageOptions.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              ))}
+                            </select>
                           </div>
-                        );
-                      });
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">{selectedStageData.label}</Badge>
+                            {stageDate && (
+                              <span className="text-xs text-muted-foreground">
+                                {typeof stageDate === 'string' ? new Date(stageDate).toLocaleDateString() : stageDate?.toLocaleDateString?.()}
+                              </span>
+                            )}
+                          </div>
+                          {selectedStageData.desc && (
+                            <p className="text-xs text-muted-foreground">{selectedStageData.desc}</p>
+                          )}
+                        </div>
+                      )
                     })()}
                   </div>
                   <div className="mt-6 rounded-md border border-border/60 bg-muted/30 p-3 text-sm">
