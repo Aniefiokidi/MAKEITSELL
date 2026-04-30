@@ -4,7 +4,7 @@ import { getUserBySessionToken } from '@/lib/auth'
 import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
-import { xoroPayService } from '@/lib/xoro-pay'
+import { createTransferRecipient, initiateTransfer } from '@/lib/paystack-transfer'
 import crypto from 'crypto'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { enforceSameOrigin } from '@/lib/request-security'
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedAmount = Math.round(amount * 100) / 100
-    const minimumWithdrawal = Number(process.env.XORO_MIN_WITHDRAWAL_NGN || 1000)
+    const minimumWithdrawal = Number(process.env.PAYSTACK_MIN_WITHDRAWAL_NGN || 1000)
     if (normalizedAmount < minimumWithdrawal) {
       return NextResponse.json(
         { success: false, error: `Minimum withdrawal is ${minimumWithdrawal}` },
@@ -112,7 +112,6 @@ export async function POST(request: NextRequest) {
     }
 
     await connectToDatabase()
-    bankCodeForPayout = await xoroPayService.normalizeBankCodeForPayout(bankCode)
 
     const userForPin = await User.findOne(
       { _id: currentUser.id, role: 'customer' },
@@ -159,12 +158,12 @@ export async function POST(request: NextRequest) {
     const payoutReference = `wd_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`
     const transferReason = `Customer wallet withdrawal to ${accountName}`
 
-    let transferProvider = 'xoro_payout'
+    let transferProvider = 'paystack_payout'
     let transferCode = ''
     let transferStatus = 'pending'
     let transferRecipientCode = ''
     let transferMeta: Record<string, any> = {}
-    let xoroError = ''
+    let payoutError = ''
 
     try {
       const storedProfile = userForPin?.payoutProfile && typeof userForPin.payoutProfile === 'object'
@@ -173,7 +172,7 @@ export async function POST(request: NextRequest) {
       const storedBankCode = normalizeText((storedProfile as any).bankCode)
       const storedAccountNumber = normalizeAccountNumber((storedProfile as any).accountNumber)
       const storedAccountName = normalizeText((storedProfile as any).accountName)
-      const storedRecipientCode = normalizeText((storedProfile as any).xoroRecipientCode)
+      const storedRecipientCode = normalizeText((storedProfile as any).paystackRecipientCode)
 
       const accountChanged = (
         storedBankCode !== normalizeText(bankCode)
@@ -184,7 +183,7 @@ export async function POST(request: NextRequest) {
       const recipientCode = !accountChanged ? storedRecipientCode : ''
 
       const nextPayoutProfile: Record<string, any> = {
-        provider: 'xoro',
+        provider: 'paystack',
         bankName,
         bankCode,
         accountNumber,
@@ -192,7 +191,7 @@ export async function POST(request: NextRequest) {
         updatedAt: new Date(),
       }
       if (recipientCode) {
-        nextPayoutProfile.xoroRecipientCode = recipientCode
+        nextPayoutProfile.paystackRecipientCode = recipientCode
         nextPayoutProfile.recipientCreatedAt = (storedProfile as any).recipientCreatedAt || new Date()
       }
 
@@ -206,23 +205,34 @@ export async function POST(request: NextRequest) {
         }
       )
 
-      const xoroTransfer = await xoroPayService.initiateTransfer({
+      let resolvedRecipientCode = recipientCode
+      if (!resolvedRecipientCode) {
+        const recipient = await createTransferRecipient({
+          name: accountName,
+          accountNumber,
+          bankCode: bankCodeForPayout,
+        })
+        if (!recipient.success || !recipient.recipientCode) {
+          throw new Error(recipient.message || 'Failed to create transfer recipient')
+        }
+        resolvedRecipientCode = recipient.recipientCode
+        nextPayoutProfile.paystackRecipientCode = resolvedRecipientCode
+        nextPayoutProfile.recipientCreatedAt = new Date()
+        await User.updateOne({ _id: currentUser.id }, { $set: { payoutProfile: nextPayoutProfile, updatedAt: new Date() } })
+      }
+
+      const transfer = await initiateTransfer({
         amount: normalizedAmount,
-        recipientCode,
+        recipientCode: resolvedRecipientCode,
         reference: payoutReference,
         reason: transferReason,
-        accountNumber,
-        bankCode: bankCodeForPayout,
-        accountName,
-        customerEmail: currentUser.email,
-        customerName: currentUser.name || currentUser.email,
       })
 
-      if (xoroTransfer.success && xoroTransfer.transferCode && xoroTransfer.status !== 'otp') {
-        transferProvider = 'xoro_payout'
-        transferCode = xoroTransfer.transferCode
-        transferStatus = xoroTransfer.status || 'pending'
-        transferRecipientCode = recipientCode
+      if (transfer.success && transfer.transferCode) {
+        transferProvider = 'paystack_payout'
+        transferCode = transfer.transferCode
+        transferStatus = transfer.status || 'pending'
+        transferRecipientCode = resolvedRecipientCode
         transferMeta = {
           payoutProfileUsed: {
             bankName,
@@ -233,14 +243,14 @@ export async function POST(request: NextRequest) {
             reusedStoredRecipient: Boolean(storedRecipientCode) && !accountChanged,
             accountChanged,
           },
-          xoroTransferRaw: xoroTransfer.raw || null,
+          paystackTransferRaw: transfer.raw || null,
         }
       } else {
-        const transferMsg = xoroTransfer.message || 'Xoro transfer initiation failed'
-        xoroError = transferMsg
+        const transferMsg = transfer.message || 'Paystack transfer initiation failed'
+        payoutError = transferMsg
       }
-    } catch (xoroFailure: any) {
-      xoroError = xoroFailure?.message || 'Xoro transfer request failed'
+    } catch (transferFailure: any) {
+      payoutError = transferFailure?.message || 'Paystack transfer request failed'
     }
 
     if (!transferCode) {
@@ -258,13 +268,13 @@ export async function POST(request: NextRequest) {
         bankCode,
         bankCodeForPayout,
         payoutReference,
-        xoroError,
+        payoutError,
       })
 
       return NextResponse.json(
         {
           success: false,
-          error: xoroError || 'Automatic payout failed. No funds were deducted. Please try again shortly.',
+          error: payoutError || 'Automatic payout failed. No funds were deducted. Please try again shortly.',
         },
         { status: 502 }
       )

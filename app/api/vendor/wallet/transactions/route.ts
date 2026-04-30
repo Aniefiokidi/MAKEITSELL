@@ -4,7 +4,7 @@ import { getUserBySessionToken } from '@/lib/auth'
 import { connectToDatabase } from '@/lib/mongodb'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { User } from '@/lib/models/User'
-import { xoroPayService } from '@/lib/xoro-pay'
+import { paystackService } from '@/lib/payment'
 import mongoose from 'mongoose'
 
 const getDirection = (type: string) => {
@@ -65,9 +65,9 @@ const pickTransferStatus = (tx: any) => {
   const rawStatus =
     tx?.metadata?.transferData?.status
     || tx?.metadata?.transferStatus
-    || tx?.metadata?.xoroTransferRaw?.status
-    || tx?.metadata?.xoroTransferRaw?.transfer_status
-    || tx?.metadata?.xoroTransferRaw?.transferStatus
+    || tx?.metadata?.paystackTransferRaw?.status
+    || tx?.metadata?.paystackTransferRaw?.transfer_status
+    || tx?.metadata?.paystackTransferRaw?.transferStatus
     || ''
 
   return String(rawStatus || '').trim()
@@ -144,10 +144,10 @@ export async function GET(request: NextRequest) {
         continue
       }
 
-      let verification: Awaited<ReturnType<typeof xoroPayService.verifyPayment>> | null = null
+      let verification: Awaited<ReturnType<typeof paystackService.verifyPayment>> | null = null
       for (const candidate of candidates) {
         try {
-          const attempt = await xoroPayService.verifyPayment(candidate)
+          const attempt = await paystackService.verifyPayment(candidate)
           if (attempt.success) {
             verification = attempt
             break
@@ -164,7 +164,7 @@ export async function GET(request: NextRequest) {
         continue
       }
 
-      const verifyStatus = String(verification.status || '').trim().toLowerCase()
+      const verifyStatus = String(verification.data?.status || '').trim().toLowerCase()
       const isExplicitPaid = EXPLICIT_PAID_STATUSES.has(verifyStatus)
       const isExplicitFailed = EXPLICIT_FAILED_STATUSES.has(verifyStatus)
 
@@ -177,8 +177,8 @@ export async function GET(request: NextRequest) {
                 status: 'failed',
                 metadata: {
                   ...(pendingTopup.metadata || {}),
-                  xoroVerification: {
-                    status: verification.status,
+                  paystackVerification: {
+                    status: verification.data?.status,
                     message: verification.message,
                     source: 'vendor-wallet-transactions-read',
                     at: new Date().toISOString(),
@@ -192,7 +192,7 @@ export async function GET(request: NextRequest) {
         continue
       }
 
-      const resolvedReference = verification.reference || candidates[0]
+      const resolvedReference = String(verification.data?.reference || candidates[0])
 
       const completeUpdate = await WalletTransaction.updateOne(
         { _id: pendingTopup._id, status: 'pending' },
@@ -202,7 +202,7 @@ export async function GET(request: NextRequest) {
             paymentReference: resolvedReference,
             metadata: {
               ...(pendingTopup.metadata || {}),
-              xoroPayData: verification.raw || {},
+              paystackData: verification.data || {},
             },
             updatedAt: new Date(),
           },

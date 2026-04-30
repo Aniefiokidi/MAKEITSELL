@@ -3,7 +3,7 @@ import mongoose from 'mongoose'
 import { connectToDatabase } from '@/lib/mongodb'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { User } from '@/lib/models/User'
-import { xoroPayService } from '@/lib/xoro-pay'
+import { paystackService } from '@/lib/payment'
 
 const getAdminKeyFromRequest = (request: NextRequest, body: any) => {
   return (
@@ -95,12 +95,12 @@ export async function POST(request: NextRequest) {
       } else {
         for (const candidate of candidates) {
           try {
-            const verification = await xoroPayService.verifyPayment(candidate)
-            const verifyStatus = String(verification.status || '').trim().toLowerCase()
+            const verification = await paystackService.verifyPayment(candidate)
+            const verifyStatus = String(verification.data?.status || '').trim().toLowerCase()
             if (verification.success && EXPLICIT_PAID_STATUSES.has(verifyStatus)) {
               shouldComplete = true
-              verifiedReference = verification.reference || candidate
-              verificationRaw = verification.raw || null
+              verifiedReference = String(verification.data?.reference || candidate)
+              verificationRaw = verification.data || null
               break
             }
           } catch {
@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
             paymentReference: verifiedReference,
             metadata: {
               ...(tx.metadata || {}),
-              xoroPayData: verificationRaw || tx?.metadata?.xoroPayData || null,
+              paystackData: verificationRaw || tx?.metadata?.paystackData || null,
               adminReconcile: {
                 reason: completionReason,
                 originalAmount: Number(tx.amount || 0),

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import connectToDatabase from '@/lib/mongodb'
 import { Order } from '@/lib/models/Order'
 import { Store } from '@/lib/models/Store'
-import { releaseEscrowForOrder, updateOrder } from '@/lib/mongodb-operations'
+import { releaseEscrowForOrder, updateOrder, getOrderById } from '@/lib/mongodb-operations'
+import { sendOrderStatusChangeNotifications } from '@/lib/order-notifications'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { logisticsEmailAllowedForRegion, resolveLogisticsRegion, storeMatchesLogisticsRegion } from '@/lib/logistics-access'
 
@@ -133,8 +134,16 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ o
       })
     }
 
+
     if (!updatedOrder) {
       return NextResponse.json({ success: false, error: 'Failed to update order' }, { status: 500 })
+    }
+
+    // Send status change notification (customer & vendor)
+    try {
+      await sendOrderStatusChangeNotifications(orderId, updatedOrder, requestedStatus)
+    } catch (notifyErr) {
+      console.error('[order-status-notification] Failed:', notifyErr)
     }
 
     if (requestedStatus === 'received') {

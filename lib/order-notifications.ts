@@ -1,3 +1,82 @@
+// Notify customer and vendors on any order status change
+export async function sendOrderStatusChangeNotifications(orderId: string, order: OrderLike, newStatus: string) {
+  const shippingInfo = order?.shippingInfo || {}
+  const customerEmail = String(shippingInfo?.email || '').trim()
+  const customerName = `${String(shippingInfo?.firstName || '').trim()} ${String(shippingInfo?.lastName || '').trim()}`.trim() || 'Customer'
+  const allItems = Array.isArray(order?.items)
+    ? order.items
+    : (Array.isArray(order?.vendors) ? order.vendors.flatMap((v: any) => (Array.isArray(v?.items) ? v.items : [])) : [])
+  const allItemsSubtotal = sumItems(allItems)
+  const overallTotal = toNumber(order?.totalAmount || allItemsSubtotal)
+  const overallDeliveryFee = Math.max(0, overallTotal - allItemsSubtotal)
+  const vendors = buildVendorBuckets(order)
+
+  // Email subject and message by status
+  const statusLabels: Record<string, string> = {
+    confirmed: 'Order Confirmed',
+    shipped: 'Order Shipped',
+    out_for_delivery: 'Order Out for Delivery',
+    delivered: 'Order Delivered',
+    received: 'Order Received',
+    cancelled: 'Order Cancelled',
+    pending: 'Order Pending',
+    pending_payment: 'Order Pending Payment',
+    processing: 'Order Processing',
+    completed: 'Order Completed',
+  }
+  const statusLabel = statusLabels[newStatus] || `Order Status Updated: ${newStatus}`
+
+  // Notify customer
+  if (customerEmail) {
+    await emailService.sendOrderStatusUpdateEmail({
+      to: customerEmail,
+      orderId,
+      status: newStatus,
+      statusLabel,
+      customerName,
+      vendorName: vendors.length === 1 ? vendors[0].vendorName : 'Multiple Vendors',
+      items: allItems,
+      total: overallTotal,
+      productSubtotal: allItemsSubtotal,
+      deliveryFee: overallDeliveryFee,
+      shippingAddress: shippingInfo,
+      role: 'customer',
+    })
+  }
+
+  // Notify each vendor
+  for (const vendor of vendors) {
+    let vendorEmail = vendor.vendorEmail
+    if (!vendorEmail && vendor.vendorId) {
+      try {
+        const stores = await getStores({ vendorId: vendor.vendorId, limitCount: 5 })
+        const preferredStore = (stores || []).find((store: any) => String(store?._id || '') === String(vendor.storeId || '')) || stores?.[0]
+        const store = preferredStore
+        if (!vendorEmail) {
+          vendorEmail = String(store?.email || '').trim()
+        }
+      } catch (error) {
+        console.error('[order-notifications] Failed to load store contact:', error)
+      }
+    }
+    if (vendorEmail) {
+      await emailService.sendOrderStatusUpdateEmail({
+        to: vendorEmail,
+        orderId,
+        status: newStatus,
+        statusLabel,
+        customerName,
+        vendorName: vendor.vendorName,
+        items: vendor.items,
+        total: vendor.total,
+        productSubtotal: vendor.total,
+        deliveryFee: vendors.length === 1 ? overallDeliveryFee : 0,
+        shippingAddress: shippingInfo,
+        role: 'vendor',
+      })
+    }
+  }
+}
 import { emailService } from '@/lib/email'
 import { getStores } from '@/lib/mongodb-operations'
 import { sendOrderConfirmationSms } from '@/lib/sms'

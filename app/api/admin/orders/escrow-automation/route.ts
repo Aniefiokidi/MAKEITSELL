@@ -95,44 +95,46 @@ const trySendReceiptReminder = async (order: any) => {
 }
 
 const processEscrowOrders = async () => {
-  const now = Date.now()
-  const orders = await Order.find({ paymentStatus: 'escrow' }).limit(500).lean()
+  const now = Date.now();
+  // Escrow auto-release logic
+  const orders = await Order.find({ paymentStatus: 'escrow' }).limit(500).lean();
 
-  let reminderSent = 0
-  let released = 0
-  let disputedSkipped = 0
+  let reminderSent = 0;
+  let released = 0;
+  let disputedSkipped = 0;
+  let autoCancelled = 0;
 
   for (const order of orders as any[]) {
-    const isDisputed = Boolean(order?.disputeRaisedAt) || String(order?.disputeStatus || '').toLowerCase() === 'active'
+    const isDisputed = Boolean(order?.disputeRaisedAt) || String(order?.disputeStatus || '').toLowerCase() === 'active';
     if (isDisputed) {
-      disputedSkipped += 1
-      continue
+      disputedSkipped += 1;
+      continue;
     }
 
-    const paidAtMs = new Date(order?.paidAt || 0).getTime()
-    const reminderAlreadySent = Boolean(order?.escrowReminderSentAt)
+    const paidAtMs = new Date(order?.paidAt || 0).getTime();
+    const reminderAlreadySent = Boolean(order?.escrowReminderSentAt);
 
     if (!reminderAlreadySent && Number.isFinite(paidAtMs) && now - paidAtMs >= FIVE_HOURS_MS) {
-      const sent = await trySendReceiptReminder(order)
+      const sent = await trySendReceiptReminder(order);
       if (sent) {
         await Order.updateOne(
           { _id: order._id, paymentStatus: 'escrow' },
           { $set: { escrowReminderSentAt: new Date(), updatedAt: new Date() } }
-        )
-        reminderSent += 1
+        );
+        reminderSent += 1;
       }
     }
 
-    const releaseAtMs = new Date(order?.escrowReleaseAt || 0).getTime()
+    const releaseAtMs = new Date(order?.escrowReleaseAt || 0).getTime();
     if (!Number.isFinite(releaseAtMs) || releaseAtMs > now) {
-      continue
+      continue;
     }
 
     const releaseResult: any = await releaseEscrowForOrder(String(order.orderId || ''), {
       paymentReference: String(order?.paymentReference || ''),
       provider: String(order?.paymentMethod || ''),
       source: 'escrow_auto_release',
-    })
+    });
 
     if (releaseResult?.success) {
       await updateOrder(String(order.orderId || ''), {
@@ -140,9 +142,28 @@ const processEscrowOrders = async () => {
         status: 'completed',
         confirmedAt: new Date(),
         receivedAt: order?.receivedAt || new Date(),
-      })
-      released += 1
+      });
+      released += 1;
     }
+  }
+
+  // Auto-cancel logic for unconfirmed orders (pending or pending_payment > 24h)
+  const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+  const cutoff = new Date(Date.now() - TWENTY_FOUR_HOURS_MS);
+  const staleOrders = await Order.find({
+    status: { $in: ['pending', 'pending_payment'] },
+    createdAt: { $lte: cutoff },
+    cancelledAt: { $exists: false },
+  }).limit(200).lean();
+
+  for (const order of staleOrders as any[]) {
+    await updateOrder(String(order.orderId || ''), {
+      status: 'cancelled',
+      cancelledAt: new Date(),
+      cancel_reason: 'Auto-cancelled after 24h without confirmation/payment',
+    });
+    autoCancelled += 1;
+    // Optionally: send cancellation email/notification here
   }
 
   return {
@@ -150,7 +171,9 @@ const processEscrowOrders = async () => {
     reminderSent,
     released,
     disputedSkipped,
-  }
+    autoCancelled,
+    staleOrdersChecked: staleOrders.length,
+  };
 }
 
 export async function POST(request: NextRequest) {

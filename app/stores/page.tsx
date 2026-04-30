@@ -126,29 +126,48 @@ export default function ShopPage() {
       const data = await response.json()
       
       if (data.success) {
-        const rawStores = data.data || []
-        const shouldPersonalize = sortBy === "for-you" && selectedCategory === "all"
-        const rankedStores = shouldPersonalize ? personalizeStores(rawStores) : rawStores
-        const pinnedStores = [...rankedStores]
+        const rawStores = data.data || [];
+        const shouldPersonalize = sortBy === "for-you" && selectedCategory === "all";
+        const rankedStores = shouldPersonalize ? personalizeStores(rawStores) : rawStores;
+        const pinnedStores = [...rankedStores];
 
         const pinnedIndex = pinnedStores.findIndex((store) => {
-          const name = String(store?.name || store?.storeName || "").trim().toLowerCase()
-          return name === "jlc" && store?.isOpen !== false
-        })
+          const name = String(store?.name || store?.storeName || "").trim().toLowerCase();
+          return name === "jlc" && store?.isOpen !== false;
+        });
 
         if (pinnedIndex > 0) {
-          const [pinnedStore] = pinnedStores.splice(pinnedIndex, 1)
-          pinnedStores.unshift(pinnedStore)
+          const [pinnedStore] = pinnedStores.splice(pinnedIndex, 1);
+          pinnedStores.unshift(pinnedStore);
         }
 
-        setStores(pinnedStores)
+        // Sort so allowed states come first, then coming soon (greyed out) at the end
+        const allowedStates = [
+          "lagos",
+          "abuja",
+          "nassarawa",
+          "nasarrawa",
+          "nasarawa",
+          "federal capital territory",
+          "ibadan",
+          "ogun"
+        ];
+        const sortedStores = [...pinnedStores].sort((a, b) => {
+          const stateA = (a.state || "").toLowerCase().trim();
+          const stateB = (b.state || "").toLowerCase().trim();
+          const isAllowedA = allowedStates.includes(stateA);
+          const isAllowedB = allowedStates.includes(stateB);
+          if (isAllowedA === isAllowedB) return 0;
+          return isAllowedA ? -1 : 1;
+        });
+        setStores(sortedStores);
         setLocationOptions(
           Array.isArray(data.locationOptions)
             ? [...data.locationOptions].sort((a, b) => a.localeCompare(b))
             : []
-        )
-        setTotalPages(Math.max(1, Number(data?.pagination?.totalPages || 1)))
-        setTotalStores(Math.max(0, Number(data?.pagination?.total || 0)))
+        );
+        setTotalPages(Math.max(1, Number(data?.pagination?.totalPages || 1)));
+        setTotalStores(Math.max(0, Number(data?.pagination?.total || 0)));
       } else {
         console.error("Failed to fetch stores:", data.error)
         setStores([])
@@ -307,117 +326,127 @@ export default function ShopPage() {
     )
   }
 
+  const allowedStates = [
+    "lagos",
+    "abuja",
+    "nassarawa",
+    "nasarrawa",
+    "federal capital territory",
+    "ibadan",
+    "ogun"
+  ];
   const StoreCard = ({ store }: { store: any }) => (
     (() => {
-      const firstProductImage = store.featuredProduct?.image || store.productImages?.[0]
-      const backgroundImageCandidate = store.profileImage || store.bannerImage || store.backgroundImage || firstProductImage
-      const logoImageCandidate = store.storeImage || store.logoImage || store.profileImage || firstProductImage
-      const isClosed = store.isOpen === false
-
+      const firstProductImage = store.featuredProduct?.image || store.productImages?.[0];
+      const backgroundImageCandidate = store.profileImage || store.bannerImage || store.backgroundImage || firstProductImage;
+      const logoImageCandidate = store.storeImage || store.logoImage || store.profileImage || firstProductImage;
+      const isClosed = store.isOpen === false;
+      const state = (store.state || "").toLowerCase().trim();
+      const isAllowed = allowedStates.includes(state);
+      const isGreyed = !isAllowed;
       const storeBrandingPdfUrl = [
         store.storeImage,
         store.logoImage,
         store.profileImage,
         store.bannerImage,
         store.backgroundImage,
-      ].find((value) => isPdfAsset(value))
+      ].find((value) => isPdfAsset(value));
 
       return (
-    <Card className={`h-full transition-all duration-300 group overflow-hidden border-none rounded-2xl relative card-lift ${isClosed ? "grayscale opacity-75" : "hover:shadow-2xl hover:shadow-accent/40"}`} style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif' }}>
-      {/* Full Image Background */}
-      <div className="aspect-9/16 relative overflow-hidden rounded-2xl">
-        {backgroundImageCandidate ? (
-          <Image
-            src={resolveStoreImageSrc(backgroundImageCandidate, firstProductImage)}
-            alt={store.name}
-            fill
-            className="object-cover group-hover:scale-105 transition-transform duration-500"
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full bg-linear-to-br from-accent/90 via-orange-500/90 to-red-600/90">
-            <Store className="h-20 w-20 text-white drop-shadow-lg animate-pulse" />
-          </div>
-        )}
-        
-        {/* Dark overlay gradient at bottom for text readability */}
-        <div className="absolute inset-0 bg-linear-to-b from-black/20 via-transparent via-50% to-black/90" />
-        {isClosed && (
-          <div className="absolute inset-0 bg-slate-900/35 z-5" />
-        )}
-
-        {isClosed && (
-          <div className="absolute top-4 right-4 z-30">
-            <Badge className="bg-slate-800/90 text-white border border-white/20 uppercase tracking-wide text-[10px]">Closed Store</Badge>
-          </div>
-        )}
-        
-        {/* Logo in Center Top */}
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
-          <div className="w-16 h-16 rounded-full bg-white border-4 border-white overflow-hidden shadow-2xl ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110">
-            {logoImageCandidate ? (
+        <Card
+          className={`h-full transition-all duration-300 group overflow-hidden border-none rounded-2xl relative card-lift ${isClosed || isGreyed ? "grayscale opacity-75 pointer-events-none" : "hover:shadow-2xl hover:shadow-accent/40"}`}
+          style={{ fontFamily: '"Montserrat", "Inter", system-ui, sans-serif', position: 'relative' }}
+        >
+          {/* Full Image Background */}
+          <div className="aspect-9/16 relative overflow-hidden rounded-2xl">
+            {backgroundImageCandidate ? (
               <Image
-                src={resolveStoreImageSrc(logoImageCandidate, firstProductImage)}
-                alt={`${store.name} logo`}
-                width={64}
-                height={64}
-                className="object-cover"
+                src={resolveStoreImageSrc(backgroundImageCandidate, firstProductImage)}
+                alt={store.name}
+                fill
+                className="object-cover group-hover:scale-105 transition-transform duration-500"
               />
             ) : (
-              <div className="w-full h-full bg-linear-to-br from-accent to-orange-500 flex items-center justify-center">
-                <Store className="h-8 w-8 text-white" />
+              <div className="flex items-center justify-center h-full bg-linear-to-br from-accent/90 via-orange-500/90 to-red-600/90">
+                <Store className="h-20 w-20 text-white drop-shadow-lg animate-pulse" />
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Content Overlay at Bottom - Full Width */}
-        <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-b-2xl border-t border-white/10 p-3 sm:p-4">
-          <div className="flex items-start justify-between w-full gap-1 mb-1">
-            <div className="flex-1 min-w-0">
-              <h3 className="text-xs sm:text-base md:text-lg font-bold tracking-tight mb-0.5 text-white drop-shadow-lg truncate">
-                {store.name || "Unnamed Store"}
-              </h3>
-              <div className="flex items-center text-[8px] sm:text-xs font-medium text-white/90 tracking-wide mb-1">
-                <MapPin className="h-2.5 w-2.5 mr-0.5 shrink-0" />
-                <span className="truncate">
-                  {/* Only show town/city and state, not full address */}
-                  {(() => {
-                    // Prefer explicit city/state fields
-                    const city = store.city || (store.address ? store.address.split(',')[0]?.trim() : "")
-                    const state = store.state || (store.address ? store.address.split(',')[1]?.trim() : "")
-                    if (city && state) return `${city}, ${state}`
-                    if (city) return city
-                    if (state) return state
-                    return "Location not specified"
-                  })()}
-                </span>
+            {/* Dark overlay gradient at bottom for text readability */}
+            <div className="absolute inset-0 bg-linear-to-b from-black/20 via-transparent via-50% to-black/90" />
+            {(isClosed || isGreyed) && (
+              <div className="absolute inset-0 bg-slate-900/35 z-5" />
+            )}
+            {isClosed && (
+              <div className="absolute top-4 right-4 z-30">
+                <Badge className="bg-slate-800/90 text-white border border-white/20 uppercase tracking-wide text-[10px]">Closed Store</Badge>
               </div>
-              
-              {store.category && (
-                <Badge variant="outline" className="inline-flex max-w-full text-[clamp(6px,1.9vw,9px)] sm:text-[10px] font-semibold py-0.5 px-1 sm:px-1.5 h-4 sm:h-5 tracking-wide border-2 border-white/40 bg-white/10 text-white backdrop-blur-sm whitespace-nowrap">
-                  {categories.find(c => c.id === store.category)?.name || store.category}
-                </Badge>
-              )}
-              {isClosed && (
-                <p className="mt-1 text-[8px] sm:text-[10px] uppercase font-bold tracking-wider text-white/90">Temporarily closed</p>
-              )}
+            )}
+            {isGreyed && (
+              <div className="absolute inset-0 z-40 flex items-center justify-center">
+                <span className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white bg-black/70 px-4 py-2 rounded-xl tracking-wider" style={{ pointerEvents: 'none' }}>Coming Soon</span>
+              </div>
+            )}
+            {/* Logo in Center Top */}
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
+              <div className="w-16 h-16 rounded-full bg-white border-4 border-white overflow-hidden shadow-2xl ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110">
+                {logoImageCandidate ? (
+                  <Image
+                    src={resolveStoreImageSrc(logoImageCandidate, firstProductImage)}
+                    alt={`${store.name} logo`}
+                    width={64}
+                    height={64}
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-linear-to-br from-accent to-orange-500 flex items-center justify-center">
+                    <Store className="h-8 w-8 text-white" />
+                  </div>
+                )}
+              </div>
             </div>
-
-            {/* Arrow Button */}
-            <Link href={buildPublicStorePath(store)} onClick={(e) => {
-              e.preventDefault()
-              handleStoreClick(store)
-            }}>
-              <div className="shrink-0 w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full bg-white flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 hover:bg-accent hover:text-white transition-all duration-200 cursor-pointer group/arrow">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent group-hover/arrow:text-white transition-colors group-hover/arrow:translate-x-0.5">
-                  <path d="M5 12h14"/>
-                  <path d="m12 5 7 7-7 7"/>
-                </svg>
+            {/* Content Overlay at Bottom - Full Width */}
+            <div className="absolute bottom-0 left-0 right-0 z-10 backdrop-blur-md bg-black/20 rounded-b-2xl border-t border-white/10 p-3 sm:p-4">
+              <div className="flex items-start justify-between w-full gap-1 mb-1">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-xs sm:text-base md:text-lg font-bold tracking-tight mb-0.5 text-white drop-shadow-lg truncate">
+                    {store.name || "Unnamed Store"}
+                  </h3>
+                  <div className="flex items-center text-[8px] sm:text-xs font-medium text-white/90 tracking-wide mb-1">
+                    <MapPin className="h-2.5 w-2.5 mr-0.5 shrink-0" />
+                    <span className="truncate">
+                      {/* Only show town/city and state, not full address */}
+                      {(() => {
+                        // Prefer explicit city/state fields
+                        const city = store.city || (store.address ? store.address.split(',')[0]?.trim() : "")
+                        const state = store.state || (store.address ? store.address.split(',')[1]?.trim() : "")
+                        if (city && state) return `${city}, ${state}`
+                        if (city) return city
+                        if (state) return state
+                        return "Location not specified"
+                      })()}
+                    </span>
+                  </div>
+                  {store.category && (
+                    <Badge variant="outline" className="inline-flex max-w-full text-[clamp(6px,1.9vw,9px)] sm:text-[10px] font-semibold py-0.5 px-1 sm:px-1.5 h-4 sm:h-5 tracking-wide border-2 border-white/40 bg-white/10 text-white backdrop-blur-sm whitespace-nowrap">
+                      {categories.find(c => c.id === store.category)?.name || store.category}
+                    </Badge>
+                  )}
+                  {isClosed && (
+                    <p className="mt-1 text-[8px] sm:text-[10px] uppercase font-bold tracking-wider text-white/90">Temporarily closed</p>
+                  )}
+                </div>
+                {/* Arrow Button - only enabled if not greyed */}
+                <div style={{ pointerEvents: isGreyed ? 'none' : undefined, opacity: isGreyed ? 0.5 : 1 }}>
+                  <Link href={isGreyed ? '#' : buildPublicStorePath(store)} onClick={e => { if (isGreyed) e.preventDefault(); else { e.preventDefault(); handleStoreClick(store); } }} tabIndex={isGreyed ? -1 : 0} aria-disabled={isGreyed}>
+                    <div className={`shrink-0 w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full bg-white flex items-center justify-center shadow-xl ${isGreyed ? '' : 'hover:scale-110 active:scale-95 hover:bg-accent hover:text-white'} transition-all duration-200 cursor-pointer group/arrow`} style={{ pointerEvents: isGreyed ? 'none' : undefined }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent group-hover/arrow:text-white transition-colors group-hover/arrow:translate-x-0.5">
+                        <path d="M5 12h14"/>
+                        <path d="m12 5 7 7-7 7"/>
+                      </svg>
+                    </div>
+                  </Link>
+                </div>
               </div>
-            </Link>
-          </div>
-
-          {/* Stats */}
           <div className="flex items-center gap-1 sm:gap-2 md:gap-3 text-[7px] sm:text-[10px] md:text-[11px] font-medium text-white/80 tracking-wide">
             <div className="flex items-center gap-0.5">
               <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3" />

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { xoroPayService } from '@/lib/xoro-pay'
 import { paystackService } from '@/lib/payment'
 import { updateOrder, getOrderById } from '@/lib/mongodb-operations'
 import { Order } from '@/lib/models/Order'
@@ -102,18 +101,6 @@ const resolveOrderId = async (reference: string, verificationResult: NormalizedV
 }
 
 const verifyWithAnyProvider = async (reference: string): Promise<NormalizedVerification> => {
-  const xoroResult = await xoroPayService.verifyPayment(reference)
-  if (xoroResult.success) {
-    const metadata = xoroResult.metadata || {}
-    const orderId = String(metadata.orderId || '')
-    return {
-      success: true,
-      orderId,
-      paymentData: xoroResult.raw || {},
-      message: orderId ? undefined : 'Order ID missing in Xoro payment metadata; using fallback resolution',
-    }
-  }
-
   const paystackResult = await paystackService.verifyPayment(reference)
   if (paystackResult.success) {
     const paymentData = paystackResult.data || {}
@@ -128,7 +115,7 @@ const verifyWithAnyProvider = async (reference: string): Promise<NormalizedVerif
 
   return {
     success: false,
-    message: xoroResult.message || paystackResult.message || 'Payment verification failed',
+    message: paystackResult.message || 'Payment verification failed',
   }
 }
 

@@ -3,6 +3,35 @@ import fs from 'fs'
 import path from 'path'
 import { getCanonicalAppBaseUrl } from './app-url'
 
+// --- Standalone helpers for email status update ---
+function getOrderItemImageUrl(item: any): string {
+  const rawImage =
+    (Array.isArray(item?.images) && item.images[0]) ||
+    item?.image ||
+    item?.productImage ||
+    item?.thumbnail ||
+    (Array.isArray(item?.product?.images) && item.product.images[0]) ||
+    item?.product?.image ||
+    '/images/placeholder-product.svg';
+  return toAbsoluteUrl(rawImage);
+}
+
+function toAbsoluteUrl(value: string | undefined | null): string {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('//')) {
+    return `https:${trimmed}`;
+  }
+  if (/^https?:\/\//i.test(trimmed) || /^data:/i.test(trimmed)) {
+    return trimmed;
+  }
+  const base = getCanonicalAppBaseUrl();
+  if (trimmed.startsWith('/')) {
+    return `${base}${trimmed}`;
+  }
+  return `${base}/${trimmed}`;
+}
+
 interface EmailData {
   to: string
   subject: string
@@ -1314,7 +1343,7 @@ class EmailService {
 export const emailService = new EmailService()
 
 // Export convenience functions
-export const sendEmail = async (to: string, subject: string, template: string, data: any) => {
+export const sendEmailByTemplate = async (to: string, subject: string, template: string, data: any) => {
   if (template === 'subscription-confirmed') {
     return await emailService.sendSubscriptionEmail(to, subject, data)
   }

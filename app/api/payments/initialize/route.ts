@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { xoroPayService } from '@/lib/xoro-pay'
 import { paystackService } from '@/lib/payment'
 import { createOrder, getOrderById, updateOrder } from '@/lib/mongodb-operations'
 import { v4 as uuidv4 } from 'uuid'
@@ -32,10 +31,7 @@ export async function POST(request: NextRequest) {
       totalAmount: clientTotalAmount
     } = body
 
-    const normalizedPaymentMethod = (paymentMethod === 'paystack' || paymentMethod === 'checkout') ? 'xoro_pay' : paymentMethod
-    if (paymentMethod === 'paystack' || paymentMethod === 'checkout') {
-      console.warn('[PAYMENT INIT] Remapping checkout/paystack method to xoro_pay')
-    }
+    const normalizedPaymentMethod = (paymentMethod === 'checkout') ? 'paystack' : paymentMethod
 
     // Validate required fields
     if (!items || !shippingInfo || !customerId || !shippingInfo.email || !String(shippingInfo.deliveryInstructions || '').trim()) {
@@ -260,64 +256,6 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json(
         { success: false, error: paymentResult.message || 'Payment initialization failed', paystack: paymentResult },
-        { status: 400 }
-      )
-    }
-
-    // Initialize payment with Xoro Pay
-    if (normalizedPaymentMethod === 'xoro_pay') {
-      console.log('Initializing Xoro Pay payment with data:', {
-        email: shippingInfo.email,
-        amount: computedTotalAmount,
-        orderId,
-        customerId,
-        itemCount: items.length
-      })
-      
-      const paymentReference = `${orderId}-${Date.now()}`
-      const callbackUrl = `${getCanonicalAppBaseUrl()}/api/payments/verify`
-
-      const paymentResult = await xoroPayService.initializePayment({
-        email: shippingInfo.email,
-        amount: computedTotalAmount,
-        reference: paymentReference,
-        callbackUrl,
-        metadata: {
-          orderId,
-          customerId,
-          items,
-          subtotal,
-          vat,
-          shipping,
-          hasTbdShipping,
-          totalAmount: computedTotalAmount,
-          type: 'order',
-        },
-      })
-
-      console.log('Xoro Pay result:', paymentResult)
-      if (!paymentResult.success) {
-        console.error('Full Xoro Pay error response:', paymentResult)
-      }
-
-      if (paymentResult.success) {
-        const resolvedReference = paymentResult.reference || paymentReference
-        await updateOrder(orderId, {
-          paymentReference: resolvedReference,
-        })
-
-        const response = {
-          success: true,
-          orderId,
-          authorization_url: paymentResult.authorizationUrl,
-          reference: resolvedReference,
-        }
-        console.log('API returning successful response:', response)
-        return NextResponse.json(response)
-      }
-
-      return NextResponse.json(
-        { success: false, error: paymentResult.message || 'Payment initialization failed', xoroPay: paymentResult },
         { status: 400 }
       )
     }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getOrders, getOrderById, releaseEscrowForOrder, updateOrder } from '@/lib/mongodb-operations'
+import { sendOrderStatusChangeNotifications } from '@/lib/order-notifications'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 
 export async function GET(request: NextRequest) {
@@ -68,9 +69,17 @@ export async function PATCH(request: NextRequest) {
       timestampUpdates.deliveredAt = now
     }
 
+
     const updated = await updateOrder(orderId, { status, ...timestampUpdates })
     if (!updated) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    }
+
+    // Send status change notification (customer & vendor)
+    try {
+      await sendOrderStatusChangeNotifications(orderId, updated, status)
+    } catch (notifyErr) {
+      console.error('[order-status-notification] Failed:', notifyErr)
     }
 
     if (status === 'received') {

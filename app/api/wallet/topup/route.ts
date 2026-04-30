@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getUserBySessionToken } from '@/lib/auth'
-import { xoroPayService } from '@/lib/xoro-pay'
+import { paystackService } from '@/lib/payment'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { connectToDatabase } from '@/lib/mongodb'
 import { calculateTopupAmounts } from '@/lib/topup-fee'
@@ -74,41 +74,32 @@ export async function POST(request: NextRequest) {
     const appBaseUrl = getCanonicalAppBaseUrl(requestOrigin)
     const callbackUrl = `${appBaseUrl}/api/wallet/topup/callback`
 
-    const paymentResult = await xoroPayService.initializePayment({
+    const paymentResult = await paystackService.initializePayment({
       email: currentUser.email,
       amount: payableAmount,
-      reference,
+      orderId: reference,
+      customerId: String(currentUser.id),
+      items: [
+        {
+          productId: 'wallet-topup',
+          title: 'Wallet Top Up',
+          quantity: 1,
+          price: walletCreditAmount,
+          vendorId: 'makeitsell',
+          vendorName: 'Make It Sell',
+        },
+      ],
       callbackUrl,
-      metadata: {
-        orderId: reference,
-        customerId: String(currentUser.id),
-        walletCreditAmount,
-        topupFeeAmount: feeAmount,
-        payableAmount,
-        items: [
-          {
-            productId: 'wallet-topup',
-            title: 'Wallet Top Up',
-            quantity: 1,
-            price: walletCreditAmount,
-            vendorId: 'makeitsell',
-            vendorName: 'Make It Sell',
-          },
-        ],
-        type: 'wallet_topup',
-      },
     })
 
-    if (!paymentResult.success || !paymentResult.authorizationUrl || !paymentResult.reference) {
-      const providerError = paymentResult.raw?.message
-        || paymentResult.raw?.error
-        || paymentResult.raw?.detail
-        || paymentResult.raw?.details
+    if (!paymentResult.success || !paymentResult.authUrl) {
+      const providerError = paymentResult?.data?.message
+        || paymentResult?.message
       return NextResponse.json(
         {
           success: false,
           error: paymentResult.message || providerError || 'Failed to initialize wallet top-up',
-          provider: 'xoro_pay',
+          provider: 'paystack',
         },
         { status: 400 }
       )
@@ -120,8 +111,8 @@ export async function POST(request: NextRequest) {
       amount: walletCreditAmount,
       status: 'pending',
       reference,
-      paymentReference: paymentResult.reference,
-      provider: 'xoro_pay',
+      paymentReference: String(paymentResult.data?.reference || reference),
+      provider: 'paystack',
       metadata: {
         customerEmail: currentUser.email,
         walletCreditAmount,
@@ -136,9 +127,9 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         message: 'Wallet top-up initialized',
-        authorization_url: paymentResult.authorizationUrl,
+        authorization_url: paymentResult.authUrl,
         reference,
-        paymentReference: paymentResult.reference,
+        paymentReference: String(paymentResult.data?.reference || reference),
         walletCreditAmount,
         feeAmount,
         payableAmount,

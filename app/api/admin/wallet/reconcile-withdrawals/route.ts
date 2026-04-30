@@ -17,9 +17,9 @@ const mapTransferStatusToTxStatus = (status: string) => {
 const pickTransferStatus = (tx: any) => {
   const rawStatus =
     tx?.metadata?.transferStatus
-    || tx?.metadata?.xoroTransferRaw?.status
-    || tx?.metadata?.xoroTransferRaw?.transfer_status
-    || tx?.metadata?.xoroTransferRaw?.transferStatus
+    || tx?.metadata?.paystackTransferRaw?.status
+    || tx?.metadata?.paystackTransferRaw?.transfer_status
+    || tx?.metadata?.paystackTransferRaw?.transferStatus
     || ''
 
   return String(rawStatus || '').trim()
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     const withdrawals = await WalletTransaction.find({
       type: 'withdrawal',
-      provider: 'xoro_payout',
+      provider: 'paystack_payout',
       status: { $in: ['pending', 'failed'] },
     })
       .sort({ createdAt: -1 })

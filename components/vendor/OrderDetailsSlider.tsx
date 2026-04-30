@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 
@@ -20,6 +20,37 @@ export default function OrderDetailsSlider({ open, onOpenChange, order, onStatus
     ? Number(order.deliveryFee)
     : Math.max(0, grossTotal - productSubtotal)
   const total = productSubtotal + deliveryFee
+
+  // Countdown timer for escrow auto-release
+  const [escrowCountdown, setEscrowCountdown] = useState<string>("");
+  useEffect(() => {
+    if (String(order.paymentStatus || '').toLowerCase() !== 'escrow' || !order.escrowReleaseAt) {
+      setEscrowCountdown("");
+      return;
+    }
+    const updateCountdown = () => {
+      const now = Date.now();
+      const releaseAt = new Date(order.escrowReleaseAt).getTime();
+      const diff = releaseAt - now;
+      if (diff <= 0) {
+        setEscrowCountdown("Releasing soon");
+        return;
+      }
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      let str = "";
+      if (days > 0) str += `${days}d `;
+      if (hours > 0 || days > 0) str += `${hours}h `;
+      if (minutes > 0 || hours > 0 || days > 0) str += `${minutes}m `;
+      str += `${seconds}s`;
+      setEscrowCountdown(str.trim());
+    };
+    updateCountdown();
+    const timer = setInterval(updateCountdown, 1000);
+    return () => clearInterval(timer);
+  }, [order.paymentStatus, order.escrowReleaseAt]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -68,32 +99,76 @@ export default function OrderDetailsSlider({ open, onOpenChange, order, onStatus
               <span className="text-2xl font-extrabold text-accent">₦{total.toLocaleString()}</span>
             </div>
           </div>
-          <div className="flex items-center gap-2 mt-4">
-            <Badge variant={order.status === "delivered" ? "default" : order.status === "shipped" ? "secondary" : order.status === "cancelled" ? "destructive" : "outline"} className="px-4 py-2 text-base font-semibold">
-              {order.status}
-            </Badge>
-            <Badge variant={String(order.paymentStatus || '').toLowerCase() === 'released' ? 'secondary' : 'outline'} className="px-4 py-2 text-base font-semibold">
-              payment: {order.paymentStatus || 'pending'}
-            </Badge>
-          </div>
-          {String(order.paymentStatus || '').toLowerCase() === 'escrow' && (
-            <div className="text-xs text-amber-700 mt-2">
-              Buyer has paid. Funds are in escrow.
-              {order.escrowReleaseAt ? ` Auto-release scheduled: ${new Date(order.escrowReleaseAt).toLocaleString()}` : ''}
-            </div>
-          )}
-          {String(order.paymentStatus || '').toLowerCase() === 'released' && (
-            <div className="text-xs text-green-700 mt-2">
-              Escrow released to vendor wallet.
-              {order.releasedAt ? ` Released at: ${new Date(order.releasedAt).toLocaleString()}` : ''}
-            </div>
-          )}
-          <div className="grid grid-cols-2 gap-2 mt-2 text-xs text-muted-foreground">
-            {order.confirmedAt && <div><span className="font-semibold">Confirmed:</span> {new Date(order.confirmedAt).toLocaleString()}</div>}
-            {order.shippedAt && <div><span className="font-semibold">Shipped:</span> {new Date(order.shippedAt).toLocaleString()}</div>}
-            {order.outForDeliveryAt && <div><span className="font-semibold">Out for Delivery:</span> {new Date(order.outForDeliveryAt).toLocaleString()}</div>}
-            {order.deliveredAt && <div><span className="font-semibold">Delivered:</span> {new Date(order.deliveredAt).toLocaleString()}</div>}
-            {order.cancelledAt && <div><span className="font-semibold">Cancelled:</span> {new Date(order.cancelledAt).toLocaleString()}</div>}
+          {/* Vertical timeline for all statuses and countdowns */}
+          <div className="mt-6 mb-4">
+            {(() => {
+              const steps = [
+                { label: 'ORDER PLACED', badge: 'ORDER PLACED', key: 'createdAt', desc: '' },
+                { label: 'PENDING PAYMENT', badge: 'PENDING PAYMENT', key: 'pendingPaymentAt', desc: 'Awaiting payment confirmation.' },
+                { label: 'CONFIRMED', badge: 'CONFIRMED', key: 'confirmedAt', desc: 'Order confirmed by vendor.' },
+                { label: 'PROCESSING', badge: 'PROCESSING', key: 'processingAt', desc: 'Order is being processed.' },
+                { label: 'SHIPPED', badge: 'SHIPPED', key: 'shippedAt', desc: '' },
+                { label: 'SHIPPED (INTERSTATE)', badge: 'SHIPPED INTERSTATE', key: 'shippedInterstateAt', desc: '' },
+                { label: 'OUT FOR DELIVERY', badge: 'OUT FOR DELIVERY', key: 'outForDeliveryAt', desc: '' },
+                { label: 'DELIVERED', badge: 'DELIVERED', key: 'deliveredAt', desc: '' },
+                { label: 'RECEIVED', badge: 'RECEIVED', key: 'receivedAt', desc: '' },
+                { label: 'CANCELLED', badge: 'CANCELLED', key: 'cancelledAt', desc: 'Order was cancelled.' },
+              ];
+              const statusOrder = [
+                'pending', 'pending_payment', 'confirmed', 'processing', 'shipped', 'shipped_interstate', 'out_for_delivery', 'delivered', 'received', 'cancelled'
+              ];
+              const currentIdx = statusOrder.indexOf(order.status);
+
+              // Escrow/auto-cancel countdown logic
+              let countdown = '';
+              if (['pending', 'pending_payment'].includes(order.status) && order.autoCancelAt) {
+                const diff = new Date(order.autoCancelAt).getTime() - Date.now();
+                if (diff > 0) {
+                  const hours = Math.floor(diff / (1000 * 60 * 60));
+                  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                  countdown = `Auto-cancels in ${hours}h ${minutes}m`;
+                } else {
+                  countdown = 'Cancelling soon';
+                }
+              } else if (String(order.paymentStatus || '').toLowerCase() === 'escrow' && order.escrowReleaseAt) {
+                const diff = new Date(order.escrowReleaseAt).getTime() - Date.now();
+                if (diff > 0) {
+                  const hours = Math.floor(diff / (1000 * 60 * 60));
+                  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                  countdown = `Escrow auto-release in ${hours}h ${minutes}m`;
+                } else {
+                  countdown = 'Releasing soon';
+                }
+              }
+
+              return steps.map((step, sidx) => {
+                const date = order[step.key] || (step.key === 'createdAt' ? order.createdAt : undefined);
+                const isActive = currentIdx >= sidx && order.status !== 'cancelled';
+                const isCurrent = currentIdx === sidx;
+                return (
+                  <div key={step.label} className="mb-6 last:mb-0 flex items-start relative z-10">
+                    <div className="relative flex flex-col items-center mr-4" style={{ minWidth: 20 }}>
+                      <span className={`w-5 h-5 rounded-full flex items-center justify-center border-2 z-10 text-xs font-bold ${isActive ? 'bg-accent text-white border-accent shadow' : 'bg-white text-accent border-accent/40'} ${isCurrent ? 'ring-2 ring-accent/40' : ''}`}>{isActive ? <>&#10003;</> : ''}</span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold tracking-wide mb-1 ${isActive ? 'bg-accent/90 text-white' : 'bg-muted text-muted-foreground border border-muted-foreground/20'}`}>{step.badge}</span>
+                      <div className="text-xs text-muted-foreground">{date ? (typeof date === 'string' ? new Date(date).toLocaleDateString() : date?.toLocaleDateString?.()) : ''}</div>
+                      {step.desc && <div className="text-xs text-muted-foreground max-w-xs">{step.desc}</div>}
+                      {isCurrent && countdown && <div className="text-xs text-amber-700 font-semibold mt-1">{countdown}</div>}
+                      {step.label === 'DELIVERED' && order.deliveredAt && (
+                        <div className="text-xs text-accent mt-1">Delivered on {typeof order.deliveredAt === 'string' ? new Date(order.deliveredAt).toLocaleDateString() : order.deliveredAt?.toLocaleDateString?.()}</div>
+                      )}
+                      {step.label === 'RECEIVED' && (order as any).receivedAt && (
+                        <div className="text-xs text-green-600 mt-1">Received on {typeof (order as any).receivedAt === 'string' ? new Date((order as any).receivedAt).toLocaleDateString() : (order as any).receivedAt?.toLocaleDateString?.()}</div>
+                      )}
+                      {step.label === 'CANCELLED' && order.cancelledAt && (
+                        <div className="text-xs text-destructive mt-1">Cancelled on {typeof order.cancelledAt === 'string' ? new Date(order.cancelledAt).toLocaleDateString() : order.cancelledAt?.toLocaleDateString?.()}</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              });
+            })()}
           </div>
           <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
             Delivery status updates are restricted to logistics and admin accounts for escrow safety.

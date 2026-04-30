@@ -320,48 +320,77 @@ export default function CustomerOrdersPage() {
                   <div className="mb-6 relative">
                     {/* Vertical line behind all steps */}
                     <span className="absolute left-2.5 top-2 w-px h-[calc(100%-1.5rem)] bg-accent/20 z-0"></span>
-                    {[
-                      { label: 'ORDER PLACED', date: order.createdAt, desc: '', badge: 'ORDER PLACED' },
-                      { label: 'PENDING CONFIRMATION', date: order.createdAt, desc: 'We are in the process of confirming your order. You will receive an SMS / Call shortly.', badge: 'PENDING CONFIRMATION' },
-                      { label: 'SHIPPED', date: order.shippedAt, desc: '', badge: 'SHIPPED' },
-                      { label: 'DELIVERED', date: order.deliveredAt, desc: '', badge: 'DELIVERED' },
-                      { label: 'RECEIVED', date: (order as any).receivedAt, desc: '', badge: 'RECEIVED' },
-                    ].map((step, sidx, arr) => {
-                      const isActive = (() => {
-                        if (step.label === 'ORDER PLACED') return true;
-                        if (step.label === 'PENDING CONFIRMATION') return ['pending', 'pending_payment', 'confirmed', 'processing', 'shipped', 'shipped_interstate', 'out_for_delivery', 'delivered', 'received'].includes(order.status);
-                        if (step.label === 'SHIPPED') return ['shipped', 'shipped_interstate', 'out_for_delivery', 'delivered', 'received'].includes(order.status);
-                        if (step.label === 'DELIVERED') return ['delivered', 'received'].includes(order.status);
-                        if (step.label === 'RECEIVED') return order.status === 'received';
-                        return false;
-                      })();
-                      const isCurrent = (() => {
-                        if (step.label === 'ORDER PLACED') return order.status === 'pending' || order.status === 'pending_payment';
-                        if (step.label === 'PENDING CONFIRMATION') return ['confirmed', 'processing'].includes(order.status);
-                        if (step.label === 'SHIPPED') return ['shipped', 'shipped_interstate', 'out_for_delivery'].includes(order.status);
-                        if (step.label === 'DELIVERED') return order.status === 'delivered';
-                        if (step.label === 'RECEIVED') return order.status === 'received';
-                        return false;
-                      })();
-                      return (
-                        <div key={step.label} className="mb-8 last:mb-0 flex items-start relative z-10">
-                          <div className="relative flex flex-col items-center mr-4" style={{ minWidth: 20 }}>
-                            <span className={`w-5 h-5 rounded-full flex items-center justify-center border-2 z-10 text-xs font-bold ${isActive ? 'bg-accent text-white border-accent shadow' : 'bg-white text-accent border-accent/40'} ${isCurrent ? 'ring-2 ring-accent/40' : ''}`}>{isActive ? <>&#10003;</> : ''}</span>
+                    {/* Extended timeline with all statuses and countdowns */}
+                    {(() => {
+                      // Timeline steps and mapping to order fields
+                      const steps = [
+                        { label: 'ORDER PLACED', badge: 'ORDER PLACED', key: 'createdAt', desc: '' },
+                        { label: 'PENDING PAYMENT', badge: 'PENDING PAYMENT', key: 'pendingPaymentAt', desc: 'Awaiting payment confirmation.' },
+                        { label: 'CONFIRMED', badge: 'CONFIRMED', key: 'confirmedAt', desc: 'Order confirmed by vendor.' },
+                        { label: 'PROCESSING', badge: 'PROCESSING', key: 'processingAt', desc: 'Order is being processed.' },
+                        { label: 'SHIPPED', badge: 'SHIPPED', key: 'shippedAt', desc: '' },
+                        { label: 'SHIPPED (INTERSTATE)', badge: 'SHIPPED INTERSTATE', key: 'shippedInterstateAt', desc: '' },
+                        { label: 'OUT FOR DELIVERY', badge: 'OUT FOR DELIVERY', key: 'outForDeliveryAt', desc: '' },
+                        { label: 'DELIVERED', badge: 'DELIVERED', key: 'deliveredAt', desc: '' },
+                        { label: 'RECEIVED', badge: 'RECEIVED', key: 'receivedAt', desc: '' },
+                        { label: 'CANCELLED', badge: 'CANCELLED', key: 'cancelledAt', desc: 'Order was cancelled.' },
+                      ];
+                      // Map status to step index for active/current
+                      const statusOrder = [
+                        'pending', 'pending_payment', 'confirmed', 'processing', 'shipped', 'shipped_interstate', 'out_for_delivery', 'delivered', 'received', 'cancelled'
+                      ];
+                      const currentIdx = statusOrder.indexOf(order.status);
+
+                      // Escrow/auto-cancel countdown logic
+                      let countdown = '';
+                      if (['pending', 'pending_payment'].includes(order.status) && order.autoCancelAt) {
+                        const diff = new Date(order.autoCancelAt).getTime() - Date.now();
+                        if (diff > 0) {
+                          const hours = Math.floor(diff / (1000 * 60 * 60));
+                          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                          countdown = `Auto-cancels in ${hours}h ${minutes}m`;
+                        } else {
+                          countdown = 'Cancelling soon';
+                        }
+                      } else if (String(order.paymentStatus || '').toLowerCase() === 'escrow' && order.escrowReleaseAt) {
+                        const diff = new Date(order.escrowReleaseAt).getTime() - Date.now();
+                        if (diff > 0) {
+                          const hours = Math.floor(diff / (1000 * 60 * 60));
+                          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                          countdown = `Escrow auto-release in ${hours}h ${minutes}m`;
+                        } else {
+                          countdown = 'Releasing soon';
+                        }
+                      }
+
+                      return steps.map((step, sidx) => {
+                        const date = order[step.key] || (step.key === 'createdAt' ? order.createdAt : undefined);
+                        const isActive = currentIdx >= sidx && order.status !== 'cancelled';
+                        const isCurrent = currentIdx === sidx;
+                        return (
+                          <div key={step.label} className="mb-8 last:mb-0 flex items-start relative z-10">
+                            <div className="relative flex flex-col items-center mr-4" style={{ minWidth: 20 }}>
+                              <span className={`w-5 h-5 rounded-full flex items-center justify-center border-2 z-10 text-xs font-bold ${isActive ? 'bg-accent text-white border-accent shadow' : 'bg-white text-accent border-accent/40'} ${isCurrent ? 'ring-2 ring-accent/40' : ''}`}>{isActive ? <>&#10003;</> : ''}</span>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold tracking-wide mb-1 ${isActive ? 'bg-accent/90 text-white' : 'bg-muted text-muted-foreground border border-muted-foreground/20'}`}>{step.badge}</span>
+                              <div className="text-xs text-muted-foreground">{date ? (typeof date === 'string' ? new Date(date).toLocaleDateString() : date?.toLocaleDateString?.()) : ''}</div>
+                              {step.desc && <div className="text-xs text-muted-foreground max-w-xs">{step.desc}</div>}
+                              {isCurrent && countdown && <div className="text-xs text-amber-700 font-semibold mt-1">{countdown}</div>}
+                              {step.label === 'DELIVERED' && order.deliveredAt && (
+                                <div className="text-xs text-accent mt-1">Delivered on {typeof order.deliveredAt === 'string' ? new Date(order.deliveredAt).toLocaleDateString() : order.deliveredAt?.toLocaleDateString?.()}</div>
+                              )}
+                              {step.label === 'RECEIVED' && (order as any).receivedAt && (
+                                <div className="text-xs text-green-600 mt-1">Received on {typeof (order as any).receivedAt === 'string' ? new Date((order as any).receivedAt).toLocaleDateString() : (order as any).receivedAt?.toLocaleDateString?.()}</div>
+                              )}
+                              {step.label === 'CANCELLED' && order.cancelledAt && (
+                                <div className="text-xs text-destructive mt-1">Cancelled on {typeof order.cancelledAt === 'string' ? new Date(order.cancelledAt).toLocaleDateString() : order.cancelledAt?.toLocaleDateString?.()}</div>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex flex-col gap-1">
-                            <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold tracking-wide mb-1 ${isActive ? 'bg-accent/90 text-white' : 'bg-muted text-muted-foreground border border-muted-foreground/20'}`}>{step.badge}</span>
-                            <div className="text-xs text-muted-foreground">{step.date ? (typeof step.date === 'string' ? new Date(step.date).toLocaleDateString() : step.date?.toLocaleDateString?.()) : ''}</div>
-                            {step.desc && <div className="text-xs text-muted-foreground max-w-xs">{step.desc}</div>}
-                            {step.label === 'DELIVERED' && order.deliveredAt && (
-                              <div className="text-xs text-accent mt-1">Delivered on {typeof order.deliveredAt === 'string' ? new Date(order.deliveredAt).toLocaleDateString() : order.deliveredAt?.toLocaleDateString?.()}</div>
-                            )}
-                            {step.label === 'RECEIVED' && (order as any).receivedAt && (
-                              <div className="text-xs text-green-600 mt-1">Received on {typeof (order as any).receivedAt === 'string' ? new Date((order as any).receivedAt).toLocaleDateString() : (order as any).receivedAt?.toLocaleDateString?.()}</div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      });
+                    })()}
                   </div>
                   <div className="mt-6 rounded-md border border-border/60 bg-muted/30 p-3 text-sm">
                     <div className="flex items-center justify-between">

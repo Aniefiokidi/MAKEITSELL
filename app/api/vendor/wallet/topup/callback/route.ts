@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { xoroPayService } from '@/lib/xoro-pay'
+import { paystackService } from '@/lib/payment'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { User } from '@/lib/models/User'
 import { connectToDatabase } from '@/lib/mongodb'
@@ -49,10 +49,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(errorRedirect.toString())
     }
 
-    let verificationResult: Awaited<ReturnType<typeof xoroPayService.verifyPayment>> | null = null
+    let verificationResult: Awaited<ReturnType<typeof paystackService.verifyPayment>> | null = null
     for (const reference of referencesFromQuery) {
       try {
-        const attempt = await xoroPayService.verifyPayment(reference)
+        const attempt = await paystackService.verifyPayment(reference)
         if (attempt.success) {
           verificationResult = attempt
           break
@@ -65,10 +65,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const paymentData = verificationResult?.raw || {}
-    const metadata = verificationResult?.metadata || {}
+    const paymentData = verificationResult?.data || {}
+    const metadata = paymentData?.metadata || {}
     const orderIdFromMeta = metadata?.orderId || metadata?.orderID
-    const resolvedReference = verificationResult?.reference || referencesFromQuery[0]
+    const resolvedReference = String(paymentData?.reference || referencesFromQuery[0])
 
     await connectToDatabase()
 
@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
           paymentReference: resolvedReference,
           metadata: {
             ...(transaction.metadata || {}),
-            xoroPayData: paymentData,
+            paystackData: paymentData,
           },
           updatedAt: new Date(),
         },
