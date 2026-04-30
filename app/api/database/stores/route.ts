@@ -61,6 +61,43 @@ const ensureStoreSlug = async (store: any): Promise<string> => {
   return generatedSlug
 }
 
+const allowedLocationRegex = '(lagos|abuja|federal\\s+capital\\s+territory|\\bfct\\b|ibadan|oyo|ogun|nasarawa|nassarawa|nasarrawa|rivers|kaduna)'
+
+const allowedLocationSortStages = () => ([
+  {
+    $addFields: {
+      locationBlob: {
+        $toLower: {
+          $trim: {
+            input: {
+              $concat: [
+                { $ifNull: ['$state', ''] },
+                ' ',
+                { $ifNull: ['$city', ''] },
+                ' ',
+                { $ifNull: ['$address', ''] },
+                ' ',
+                { $ifNull: ['$location', ''] },
+              ],
+            },
+          },
+        },
+      },
+    },
+  },
+  {
+    $addFields: {
+      allowedLocationSort: {
+        $cond: [
+          { $regexMatch: { input: '$locationBlob', regex: allowedLocationRegex } },
+          1,
+          0,
+        ],
+      },
+    },
+  },
+])
+
 export async function GET(request: NextRequest) {
   try {
     await connectToDatabase()
@@ -102,6 +139,7 @@ export async function GET(request: NextRequest) {
     if (sortBy === 'products') {
       const productSortedStores = await Store.aggregate([
         { $match: query },
+        ...allowedLocationSortStages(),
         {
           $lookup: {
             from: 'products',
@@ -126,7 +164,7 @@ export async function GET(request: NextRequest) {
             firstProductImage: { $arrayElemAt: ['$productMeta.firstProductImage', 0] },
           },
         },
-        { $sort: { isOpen: -1, productCount: -1, storeName: 1 } },
+        { $sort: { allowedLocationSort: -1, isOpen: -1, productCount: -1, storeName: 1 } },
         { $skip: skip },
         { $limit: limitCount },
       ])
@@ -169,6 +207,7 @@ export async function GET(request: NextRequest) {
     if (sortBy === 'for-you') {
       const forYouStores = await Store.aggregate([
         { $match: query },
+        ...allowedLocationSortStages(),
         {
           $lookup: {
             from: 'products',
@@ -299,7 +338,7 @@ export async function GET(request: NextRequest) {
             },
           },
         },
-        { $sort: { openSort: -1, isPinnedJlc: -1, setupTier: -1, hasLogoImage: -1, hasStoreCardImage: -1, productCount: -1, createdAt: -1, storeName: 1 } },
+        { $sort: { allowedLocationSort: -1, openSort: -1, isPinnedJlc: -1, setupTier: -1, hasLogoImage: -1, hasStoreCardImage: -1, productCount: -1, createdAt: -1, storeName: 1 } },
         { $skip: skip },
         { $limit: limitCount },
       ])
@@ -340,16 +379,14 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const findSort: Record<string, 1 | -1> =
-      sortBy === 'newest'
-        ? { isOpen: -1, createdAt: -1 }
-        : { isOpen: -1, storeName: 1, createdAt: -1 }
-
-    let storesPage = await Store.find(query)
-      .sort(findSort)
-      .skip(skip)
-      .limit(limitCount)
-      .lean()
+    const isNewestSort = sortBy === 'newest'
+    const storesPage = await Store.aggregate([
+      { $match: query },
+      ...allowedLocationSortStages(),
+      { $sort: isNewestSort ? { allowedLocationSort: -1, isOpen: -1, createdAt: -1 } : { allowedLocationSort: -1, isOpen: -1, storeName: 1, createdAt: -1 } },
+      { $skip: skip },
+      { $limit: limitCount },
+    ])
 
     const vendorIds = Array.from(new Set(storesPage.map((store: any) => String(store.vendorId || '')).filter(Boolean)))
 
