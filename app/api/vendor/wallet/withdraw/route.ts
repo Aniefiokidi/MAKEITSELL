@@ -40,6 +40,18 @@ const mapTransferStatusToTxStatus = (status: string) => {
 
 const normalizeAccountNumber = (value: any) => String(value || '').replace(/\D/g, '')
 const normalizeText = (value: any) => String(value || '').trim()
+const toFriendlyPayoutError = (message: string) => {
+  const text = String(message || '').trim()
+  const normalized = text.toLowerCase()
+  if (
+    normalized.includes('balance is not enough')
+    || normalized.includes('insufficient balance')
+    || normalized.includes('insufficient funds')
+  ) {
+    return 'Withdrawal could not be processed by payout provider right now. Your wallet balance was not deducted. Please try again shortly.'
+  }
+  return text || 'Automatic payout failed. No funds were deducted. Please try again shortly.'
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -285,7 +297,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: payoutError || 'Automatic payout failed. No funds were deducted. Please try again shortly.',
+          error: toFriendlyPayoutError(payoutError),
         },
         { status: 502 }
       )
