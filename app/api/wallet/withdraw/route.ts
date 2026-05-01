@@ -4,7 +4,7 @@ import { getUserBySessionToken } from '@/lib/auth'
 import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
-import { createTransferRecipient, initiateTransfer } from '@/lib/paystack-transfer'
+import { createTransferRecipient, fetchPaystackNgnBalance, initiateTransfer } from '@/lib/paystack-transfer'
 import crypto from 'crypto'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { enforceSameOrigin } from '@/lib/request-security'
@@ -124,6 +124,17 @@ export async function POST(request: NextRequest) {
     }
 
     await connectToDatabase()
+
+    const paystackBalance = await fetchPaystackNgnBalance()
+    if (paystackBalance.success && Number(paystackBalance.availableNgn || 0) < normalizedAmount) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Payout provider balance is currently ₦${Number(paystackBalance.availableNgn || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}, which is below this withdrawal amount. Please try again after balance is funded.`,
+        },
+        { status: 502 }
+      )
+    }
 
     const userForPin = await User.findOne(
       { _id: currentUser.id, role: 'customer' },
@@ -258,7 +269,9 @@ export async function POST(request: NextRequest) {
           paystackTransferRaw: transfer.raw || null,
         }
       } else {
-        const transferMsg = transfer.message || 'Paystack transfer initiation failed'
+        const providerStatus = String((transfer.raw as any)?.data?.status || (transfer.raw as any)?.status || '').trim()
+        const providerMessage = String((transfer.raw as any)?.message || '').trim()
+        const transferMsg = [transfer.message, providerMessage, providerStatus].filter(Boolean).join(' | ') || 'Paystack transfer initiation failed'
         payoutError = transferMsg
       }
     } catch (transferFailure: any) {

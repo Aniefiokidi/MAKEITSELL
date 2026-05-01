@@ -12,6 +12,12 @@ interface InitiateTransferResponse {
   message?: string
   raw?: any
 }
+interface PaystackNgnBalanceResponse {
+  success: boolean
+  availableNgn?: number
+  message?: string
+  raw?: any
+}
 
 const PAYSTACK_BASE_URL = 'https://api.paystack.co'
 
@@ -121,6 +127,40 @@ export async function initiateTransfer(params: {
     return {
       success: false,
       message: error?.message || 'Unable to initiate bank transfer',
+    }
+  }
+}
+
+export async function fetchPaystackNgnBalance(): Promise<PaystackNgnBalanceResponse> {
+  try {
+    const secret = getPaystackSecret()
+    const response = await fetch(`${PAYSTACK_BASE_URL}/balance`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${secret}`,
+      },
+      cache: 'no-store',
+    })
+
+    const result = await response.json()
+    const balances = Array.isArray(result?.data) ? result.data : []
+    const ngn = balances.find((entry: any) => String(entry?.currency || '').toUpperCase() === 'NGN')
+    const availableNgn = Number(ngn?.balance || 0) / 100
+
+    if (response.ok && result?.status) {
+      return { success: true, availableNgn, raw: result }
+    }
+
+    return {
+      success: false,
+      availableNgn,
+      message: result?.message || 'Unable to fetch Paystack balance',
+      raw: result,
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error?.message || 'Unable to fetch Paystack balance',
     }
   }
 }
