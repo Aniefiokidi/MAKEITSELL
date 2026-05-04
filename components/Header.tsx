@@ -27,6 +27,16 @@ interface WalletTx {
   direction?: "credit" | "debit" | "neutral"
 }
 
+
+const hasValidContactPhone = (value: any) => {
+  const raw = String(value || '').trim()
+  if (!raw) return false
+  const digits = raw.replace(/\D/g, '')
+  if (digits.length < 10 || digits.length > 15) return false
+  if (/^(\d)+$/.test(digits)) return false
+  return true
+}
+
 const FALLBACK_BANKS: Array<{ name: string; code: string }> = [
   { name: "Access Bank", code: "044" },
   { name: "GTBank", code: "058" },
@@ -75,6 +85,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
   const [walletTxLoading, setWalletTxLoading] = useState(false)
   const [mobileDrawerWidth, setMobileDrawerWidth] = useState("85vw")
   const [isScrolled, setIsScrolled] = useState(false)
+  const [vendorPhonePromptOpen, setVendorPhonePromptOpen] = useState(false)
   const contentTopGap = homeBg ? 0 : 14
 
   const profileWalletBalance =
