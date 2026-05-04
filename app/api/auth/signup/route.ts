@@ -5,6 +5,17 @@ import { signUp } from '@/lib/auth'
 import { enforceRateLimit } from '@/lib/rate-limit'
 
 
+const isValidContactPhone = (phoneInput: string) => {
+  const raw = String(phoneInput || '').trim()
+  if (!raw) return false
+  const digits = raw.replace(/\D/g, '')
+  if (digits.length < 10 || digits.length > 15) return false
+  if (/^(\d)\1+$/.test(digits)) return false
+  if (digits === '0000000000') return false
+  return true
+}
+
+
 export async function POST(request: NextRequest) {
   try {
     const rateLimitResponse = enforceRateLimit(request, {
@@ -15,6 +26,7 @@ export async function POST(request: NextRequest) {
     if (rateLimitResponse) return rateLimitResponse
 
     const { email, password, name, role, vendorType, phone, verificationChannel } = await request.json()
+    const normalizedPhone = String(phone || '').trim()
 
     const isValidVendorType = vendorType === "goods" || vendorType === "services" || vendorType === "both"
     if (role === "vendor" && !isValidVendorType) {
@@ -24,6 +36,15 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
     
+
+    if (role === "vendor") {
+      if (!normalizedPhone) {
+        return NextResponse.json({ success: false, error: 'Phone number is required for vendor signup' }, { status: 400 })
+      }
+      if (!isValidContactPhone(normalizedPhone)) {
+        return NextResponse.json({ success: false, error: 'Enter a valid vendor phone number (10-15 digits)' }, { status: 400 })
+      }
+    }
     const vendorInfo = role === "vendor" ? {
       businessName: name,
       businessType: vendorType
@@ -33,7 +54,7 @@ export async function POST(request: NextRequest) {
       email,
       password,
       name,
-      phone,
+      phone: normalizedPhone,
       verificationChannel,
       role: role === "admin" ? "customer" : role,
       vendorInfo
