@@ -37,6 +37,7 @@ interface EmailData {
   subject: string
   html: string
   text?: string
+  from?: string
   replyTo?: string
   headers?: Record<string, string>
   attachments?: any[]
@@ -172,6 +173,7 @@ class EmailService {
         String(envFromFile.SMTP_SECURE || '').toLowerCase() === 'true' || configuredPort === 465
 
       const from =
+        String(emailData.from || '').trim() ||
         envFromFile.EMAIL_FROM ||
         `"${envFromFile.SMTP_FROM_NAME || 'Make It Sell Support'}" <${envFromFile.SUPPORT_EMAIL || envFromFile.SMTP_FROM_EMAIL || user}>`
 
@@ -382,6 +384,7 @@ class EmailService {
       if (!apiKey) return false
 
       const fromAddress = String(
+        emailData.from ||
         this.getEnv('RESEND_FROM') ||
         this.getEnv('RESEND_DEFAULT_FROM') ||
         'Make It Sell <verify@makeitsell.ng>'
@@ -493,14 +496,15 @@ class EmailService {
 
     console.log('[emailService.sendEmail] Attempting to send email to:', emailData.to)
     console.log('[emailService.sendEmail] Subject:', emailData.subject)
-    console.log('[emailService.sendEmail] From address:', this.getFromAddress())
+    const fromAddress = String(emailData.from || '').trim() || this.getFromAddress()
+    console.log('[emailService.sendEmail] From address:', fromAddress)
 
     const maxAttempts = 3
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         const result = await this.transporter.sendMail({
-          from: this.getFromAddress(),
+          from: fromAddress,
           to: emailData.to,
           subject: emailData.subject,
           html: emailData.html,
