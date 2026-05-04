@@ -820,20 +820,30 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                           </div>
                           <div className="text-right">
                             <p className={
-                              String(tx.status || '').toLowerCase() === 'pending'
-                                ? 'font-semibold text-amber-600'
-                                : String(tx.status || '').toLowerCase() === 'failed'
-                                  ? 'font-semibold text-red-600'
-                                  : tx.direction === "credit"
-                                    ? "font-semibold text-green-600"
-                                    : tx.direction === "debit"
-                                      ? "font-semibold text-red-600"
-                                      : "font-semibold"
+                              String(tx.status || '').toLowerCase() === 'completed'
+                                ? 'font-semibold text-green-600'
+                                : String(tx.status || '').toLowerCase() === 'pending'
+                                  ? 'font-semibold text-amber-600'
+                                  : String(tx.status || '').toLowerCase() === 'failed'
+                                    ? 'font-semibold text-red-600'
+                                    : tx.direction === "credit"
+                                      ? "font-semibold text-green-600"
+                                      : tx.direction === "debit"
+                                        ? "font-semibold text-red-600"
+                                        : "font-semibold"
                             }>
                               {tx.direction === "credit" ? "+" : tx.direction === "debit" ? "-" : ""}
                               {currencyFormatter.format(Number(tx.amount || 0))}
                             </p>
-                            <p className={String(tx.status || '').toLowerCase() === 'pending' ? 'text-amber-600' : 'text-muted-foreground'}>{String(tx.status || '').replace(/_/g, ' ')}</p>
+                            <p className={
+                              String(tx.status || '').toLowerCase() === 'completed'
+                                ? 'text-green-600'
+                                : String(tx.status || '').toLowerCase() === 'pending'
+                                  ? 'text-amber-600'
+                                  : String(tx.status || '').toLowerCase() === 'failed'
+                                    ? 'text-red-600'
+                                    : 'text-muted-foreground'
+                            }>{String(tx.status || '').replace(/_/g, ' ')}</p>
                           </div>
                         </div>
                       ))}
