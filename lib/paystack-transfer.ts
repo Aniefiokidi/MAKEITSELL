@@ -12,6 +12,15 @@ interface InitiateTransferResponse {
   message?: string
   raw?: any
 }
+
+interface VerifyTransferResponse {
+  success: boolean
+  transferCode?: string
+  reference?: string
+  status?: string
+  message?: string
+  raw?: any
+}
 interface PaystackNgnBalanceResponse {
   success: boolean
   availableNgn?: number
@@ -161,6 +170,52 @@ export async function fetchPaystackNgnBalance(): Promise<PaystackNgnBalanceRespo
     return {
       success: false,
       message: error?.message || 'Unable to fetch Paystack balance',
+    }
+  }
+}
+
+
+export async function verifyTransfer(reference: string): Promise<VerifyTransferResponse> {
+  try {
+    const cleanedReference = String(reference || '').trim()
+    if (!cleanedReference) {
+      return { success: false, message: 'Transfer reference is required' }
+    }
+
+    const secret = getPaystackSecret()
+
+    const response = await fetch(`${PAYSTACK_BASE_URL}/transfer/verify/${encodeURIComponent(cleanedReference)}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${secret}`,
+      },
+      cache: 'no-store',
+    })
+
+    const result = await response.json()
+    const transferData = result?.data || {}
+    const status = String(transferData?.status || '').toLowerCase().trim()
+
+    if (response.ok && result?.status) {
+      return {
+        success: true,
+        status,
+        transferCode: String(transferData?.transfer_code || '').trim() || undefined,
+        reference: String(transferData?.reference || cleanedReference).trim(),
+        raw: result,
+      }
+    }
+
+    return {
+      success: false,
+      status,
+      message: result?.message || 'Unable to verify transfer',
+      raw: result,
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error?.message || 'Unable to verify transfer',
     }
   }
 }
