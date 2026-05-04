@@ -436,14 +436,17 @@ class PaystackService {
     }
   }
 
-  verifyWebhook(payload: any, signature: string): boolean {
+  verifyWebhook(rawBody: string, signature: string): boolean {
     try {
       const hash = crypto
         .createHmac('sha512', this.secretKey)
-        .update(JSON.stringify(payload))
+        .update(rawBody)
         .digest('hex')
-      
-      return hash === signature
+
+      const incoming = String(signature || '').trim()
+      if (!incoming) return false
+
+      return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(incoming))
     } catch (error) {
       console.error('Webhook verification error:', error)
       return false
