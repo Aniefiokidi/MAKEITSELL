@@ -294,7 +294,7 @@ export async function POST(request: NextRequest) {
       || ''
 
     if (paystackSignature) {
-      const isValidPaystack = paystackService.verifyWebhook(payload, paystackSignature)
+      const isValidPaystack = paystackService.verifyWebhook(body, paystackSignature)
       if (!isValidPaystack) {
         console.error('Invalid Paystack webhook signature')
         return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
