@@ -28,6 +28,17 @@ const COUNTRY_CODES = [
   { code: "+91", label: "India (+91)" },
 ]
 
+
+function isValidContactPhone(phoneInput: string): boolean {
+  const raw = String(phoneInput || '').trim()
+  if (!raw) return false
+  const digits = raw.replace(/\D/g, '')
+  if (digits.length < 10 || digits.length > 15) return false
+  if (/^(\d)\1+$/.test(digits)) return false
+  if (digits === '0000000000') return false
+  return true
+}
+
 function formatPhoneWithCountryCode(countryCode: string, phoneInput: string): string {
   const raw = String(phoneInput || '').trim()
   if (!raw) return ''
@@ -164,6 +175,11 @@ export default function SignupForm() {
       }
       if (!formData.storePhone.trim()) {
         setError("Store phone number is required for vendor signup")
+        setLoading(false)
+        return
+      }
+      if (!isValidContactPhone(storePhoneWithCode || formData.storePhone)) {
+        setError("Enter a valid store phone number (10-15 digits, no repeated digits)")
         setLoading(false)
         return
       }
