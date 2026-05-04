@@ -27,6 +27,16 @@ interface WalletTx {
   direction?: "credit" | "debit" | "neutral"
 }
 
+
+const hasValidContactPhone = (value: any) => {
+  const raw = String(value || '').trim()
+  if (!raw) return false
+  const digits = raw.replace(/\D/g, '')
+  if (digits.length < 10 || digits.length > 15) return false
+  if (/^(\d)+$/.test(digits)) return false
+  return true
+}
+
 const FALLBACK_BANKS: Array<{ name: string; code: string }> = [
   { name: "Access Bank", code: "044" },
   { name: "GTBank", code: "058" },
@@ -75,6 +85,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
   const [walletTxLoading, setWalletTxLoading] = useState(false)
   const [mobileDrawerWidth, setMobileDrawerWidth] = useState("85vw")
   const [isScrolled, setIsScrolled] = useState(false)
+  const [vendorPhonePromptOpen, setVendorPhonePromptOpen] = useState(false)
   const contentTopGap = homeBg ? 0 : 14
 
   const profileWalletBalance =
@@ -820,20 +831,30 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                           </div>
                           <div className="text-right">
                             <p className={
-                              String(tx.status || '').toLowerCase() === 'pending'
-                                ? 'font-semibold text-amber-600'
-                                : String(tx.status || '').toLowerCase() === 'failed'
-                                  ? 'font-semibold text-red-600'
-                                  : tx.direction === "credit"
-                                    ? "font-semibold text-green-600"
-                                    : tx.direction === "debit"
-                                      ? "font-semibold text-red-600"
-                                      : "font-semibold"
+                              String(tx.status || '').toLowerCase() === 'completed'
+                                ? 'font-semibold text-green-600'
+                                : String(tx.status || '').toLowerCase() === 'pending'
+                                  ? 'font-semibold text-amber-600'
+                                  : String(tx.status || '').toLowerCase() === 'failed'
+                                    ? 'font-semibold text-red-600'
+                                    : tx.direction === "credit"
+                                      ? "font-semibold text-green-600"
+                                      : tx.direction === "debit"
+                                        ? "font-semibold text-red-600"
+                                        : "font-semibold"
                             }>
                               {tx.direction === "credit" ? "+" : tx.direction === "debit" ? "-" : ""}
                               {currencyFormatter.format(Number(tx.amount || 0))}
                             </p>
-                            <p className={String(tx.status || '').toLowerCase() === 'pending' ? 'text-amber-600' : 'text-muted-foreground'}>{String(tx.status || '').replace(/_/g, ' ')}</p>
+                            <p className={
+                              String(tx.status || '').toLowerCase() === 'completed'
+                                ? 'text-green-600'
+                                : String(tx.status || '').toLowerCase() === 'pending'
+                                  ? 'text-amber-600'
+                                  : String(tx.status || '').toLowerCase() === 'failed'
+                                    ? 'text-red-600'
+                                    : 'text-muted-foreground'
+                            }>{String(tx.status || '').replace(/_/g, ' ')}</p>
                           </div>
                         </div>
                       ))}

@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { getUserBySessionToken } from '@/lib/auth'
 import { connectToDatabase } from '@/lib/mongodb'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
+import { verifyTransfer } from '@/lib/paystack-transfer'
 import { User } from '@/lib/models/User'
 import { paystackService } from '@/lib/payment'
 import mongoose from 'mongoose'
@@ -234,8 +235,42 @@ export async function GET(request: NextRequest) {
       .lean()
 
     for (const pendingWithdrawal of pendingWithdrawals as any[]) {
-      const transferStatus = pickTransferStatus(pendingWithdrawal)
-      const mappedStatus = mapTransferStatusToTxStatus(transferStatus)
+      let transferStatus = pickTransferStatus(pendingWithdrawal)
+      let mappedStatus = mapTransferStatusToTxStatus(transferStatus)
+
+      if (mappedStatus === 'pending') {
+        const payoutReference = String(pendingWithdrawal?.metadata?.payoutReference || '').trim()
+        if (payoutReference) {
+          const verifiedTransfer = await verifyTransfer(payoutReference)
+          const verifiedStatus = String(verifiedTransfer.status || '').trim().toLowerCase()
+          const verifiedMappedStatus = mapTransferStatusToTxStatus(verifiedStatus)
+
+          if (verifiedTransfer.success && verifiedMappedStatus !== 'pending') {
+            transferStatus = verifiedStatus || transferStatus
+            mappedStatus = verifiedMappedStatus
+
+            await WalletTransaction.updateOne(
+              { _id: pendingWithdrawal._id },
+              {
+                $set: {
+                  metadata: {
+                    ...(pendingWithdrawal.metadata || {}),
+                    transferData: verifiedTransfer.raw?.data || pendingWithdrawal?.metadata?.transferData || {},
+                    transferStatus: transferStatus,
+                    paystackTransferVerification: {
+                      source: 'wallet-transactions-read',
+                      status: verifiedTransfer.status || '',
+                      checkedAt: new Date().toISOString(),
+                    },
+                  },
+                  updatedAt: new Date(),
+                },
+              }
+            )
+          }
+        }
+      }
+
       if (mappedStatus === 'pending') {
         continue
       }
