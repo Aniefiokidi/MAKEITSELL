@@ -21,6 +21,7 @@ import {
   Mail,
   History,
   UserRoundPlus,
+  KeyRound,
 } from "lucide-react"
 
 const adminNavItems = [
@@ -103,6 +104,11 @@ const adminNavItems = [
     title: "Restore Vendor",
     href: "/admin/restore-vendor",
     icon: UserRoundPlus,
+  },
+  {
+    title: "Set Temp Password",
+    href: "/admin/set-temp-password",
+    icon: KeyRound,
   },
   {
     title: "Reports",

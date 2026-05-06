@@ -1411,6 +1411,93 @@ class EmailService {
       },
     })
   }
+
+  async sendTempPasswordEmail({ email, name, temporaryPassword }: {
+    email: string
+    name: string
+    temporaryPassword: string
+  }): Promise<boolean> {
+    const appBase = this.getAppBaseUrl()
+    const logoUrl = `${appBase}/images/logo2.png`
+    const accent = '#7f1d1d'
+    const safeName = this.escapeHtml(name || 'there')
+    const supportEmail = this.getEnv('SUPPORT_EMAIL') || 'support@makeitsell.ng'
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+        <div style="background: ${accent}; padding: 24px 20px; text-align: center;">
+          <div style="display: inline-block; background: #ffffff; border-radius: 10px; padding: 10px 16px; margin-bottom: 14px;">
+            <img src="${logoUrl}" alt="Make It Sell" style="height: 44px; width: auto; display: block;" />
+          </div>
+          <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 700;">Your Account Has Been Restored</h1>
+          <p style="color: rgba(255,255,255,0.88); margin: 8px 0 0 0; font-size: 14px;">Action required &mdash; please log in and set a new password</p>
+        </div>
+
+        <div style="padding: 28px 24px; background: #ffffff;">
+          <p style="margin: 0 0 14px 0; color: #1f2937; font-size: 15px;">Hi ${safeName},</p>
+          <p style="margin: 0 0 14px 0; color: #374151; line-height: 1.6;">
+            We recently identified an issue with your Make It Sell account and have restored access for you. A <strong>temporary password</strong> has been set below.
+          </p>
+          <p style="margin: 0 0 20px 0; color: #374151; line-height: 1.6;">
+            Please log in using this temporary password and you will be prompted immediately to choose a new one. Your store and account data are fully intact.
+          </p>
+
+          <div style="background: #fdf2f2; border: 2px solid ${accent}; border-radius: 10px; padding: 18px 20px; margin: 0 0 24px 0; text-align: center;">
+            <p style="margin: 0 0 6px 0; color: #6b7280; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em;">Your Temporary Password</p>
+            <p style="margin: 0; font-size: 26px; font-weight: 800; letter-spacing: 3px; color: ${accent}; font-family: 'Courier New', monospace;">${this.escapeHtml(temporaryPassword)}</p>
+          </div>
+
+          <div style="background: #f9fafb; border-radius: 8px; padding: 16px; margin: 0 0 24px 0;">
+            <p style="margin: 0 0 8px 0; color: #374151; font-weight: 700; font-size: 14px;">Steps to get back in:</p>
+            <ol style="margin: 0; padding-left: 20px; color: #4b5563; font-size: 14px; line-height: 2;">
+              <li>Click the button below to go to the login page</li>
+              <li>Enter your email and the temporary password above</li>
+              <li>You will be taken directly to a page to set your new password</li>
+              <li>Once done, you can continue using your account normally</li>
+            </ol>
+          </div>
+
+          <div style="text-align: center; margin-bottom: 24px;">
+            <a href="${appBase}/login" style="display: inline-block; background: ${accent}; color: #ffffff; text-decoration: none; padding: 13px 32px; border-radius: 8px; font-size: 15px; font-weight: 700;">
+              Log In Now
+            </a>
+          </div>
+
+          <p style="margin: 0 0 6px 0; color: #6b7280; font-size: 13px; line-height: 1.6;">
+            If you did not expect this email or need help, reply here or contact us at
+            <a href="mailto:${supportEmail}" style="color: ${accent}; font-weight: 600;">${supportEmail}</a>.
+          </p>
+        </div>
+
+        <div style="background: #f9fafb; border-top: 1px solid #e5e7eb; padding: 14px 24px; text-align: center;">
+          <p style="margin: 0; color: #9ca3af; font-size: 12px;">Make It Sell &mdash; Lagos, Nigeria</p>
+        </div>
+      </div>
+    `
+
+    const text = [
+      `Hi ${name || 'there'},`,
+      '',
+      'Your Make It Sell account has been restored. A temporary password has been set for you.',
+      '',
+      `Temporary password: ${temporaryPassword}`,
+      '',
+      'Steps:',
+      '1. Go to ' + appBase + '/login',
+      '2. Enter your email and the temporary password above',
+      '3. You will be asked to set a new password immediately',
+      '',
+      `Support: ${supportEmail}`,
+    ].join('\n')
+
+    return this.sendEmail({
+      to: email,
+      subject: 'Your Make It Sell account has been restored — action required',
+      html,
+      text,
+      replyTo: supportEmail,
+    })
+  }
 }
 
 export const emailService = new EmailService()

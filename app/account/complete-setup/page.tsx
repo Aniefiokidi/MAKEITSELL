@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -71,11 +72,18 @@ export default function CompleteSetupPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4">
       <Card className="w-full max-w-lg">
-        <CardHeader>
-          <CardTitle>Complete Account Setup</CardTitle>
+        <CardHeader className="text-center">
+          <Image
+            src="/images/logo2.png"
+            alt="Make It Sell"
+            width={80}
+            height={80}
+            className="mx-auto mb-3 rounded-full object-contain"
+            priority
+          />
+          <CardTitle>Set Your New Password</CardTitle>
           <CardDescription>
-            We are sorry your verification OTP was not delivered earlier. We set a temporary password for access.
-            Please change it now to secure your account.
+            A temporary password was set for your account. Enter it below along with a new password of your choice to secure your account.
           </CardDescription>
         </CardHeader>
         <CardContent>
