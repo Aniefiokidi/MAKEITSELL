@@ -20,6 +20,7 @@ import {
   Activity,
   Mail,
   History,
+  UserRoundPlus,
 } from "lucide-react"
 
 const adminNavItems = [
@@ -97,6 +98,11 @@ const adminNavItems = [
     title: "Unverified Recovery",
     href: "/admin/unverified-recovery",
     icon: Mail,
+  },
+  {
+    title: "Restore Vendor",
+    href: "/admin/restore-vendor",
+    icon: UserRoundPlus,
   },
   {
     title: "Reports",

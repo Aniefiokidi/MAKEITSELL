@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { 
-  deleteStore, 
-  deleteProductsByVendor, 
-  deleteOrdersByVendor, 
+import {
+  deleteStore,
+  deleteProductsByVendor,
+  deleteOrdersByVendor,
   deleteUserCartItemsByVendor,
   deleteServicesByVendor,
   deleteBookingsByVendor,
@@ -10,10 +10,21 @@ import {
   deleteUser,
   deleteSessions
 } from '@/lib/mongodb-operations'
+import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 
 export async function DELETE(request: NextRequest) {
+  const sessionUser = await getSessionUserFromRequest(request)
+  if (!sessionUser) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const { vendorId, userId } = await request.json()
+
+    // Vendor can only delete their own account; admins may delete any account
+    if (sessionUser.role !== 'admin' && sessionUser.id !== String(userId)) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+    }
 
     if (!vendorId || !userId) {
       return NextResponse.json({
