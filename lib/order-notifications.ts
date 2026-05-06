@@ -80,6 +80,7 @@ export async function sendOrderStatusChangeNotifications(orderId: string, order:
 import { emailService } from '@/lib/email'
 import { getStores } from '@/lib/mongodb-operations'
 import { sendOrderConfirmationSms } from '@/lib/sms'
+import { detectLogisticsRegionFromAddress } from '@/lib/logistics-access'
 
 type OrderLike = any
 
@@ -173,6 +174,15 @@ export async function sendOrderPlacementNotifications(orderId: string, order: Or
   const vendors = buildVendorBuckets(order)
   const customerItemCount = allItems.reduce((sum: number, item: any) => sum + Math.max(1, toNumber(item?.quantity || 1)), 0)
 
+  // Collect resolved store data for logistics email
+  const resolvedVendors: Array<{
+    vendorName: string
+    storeName: string
+    phone: string
+    address: string
+    items: any[]
+  }> = []
+
   if (customerEmail) {
     await emailService.sendOrderConfirmationEmails({
       customerEmail,
@@ -210,22 +220,30 @@ export async function sendOrderPlacementNotifications(orderId: string, order: Or
   for (const vendor of vendors) {
     let vendorEmail = vendor.vendorEmail
     let vendorPhone = vendor.vendorPhone
+    let storeAddress = ''
+    let storeName = vendor.vendorName
 
     if ((!vendorEmail || !vendorPhone) && vendor.vendorId) {
       try {
         const stores = await getStores({ vendorId: vendor.vendorId, limitCount: 5 })
         const preferredStore = (stores || []).find((store: any) => String(store?._id || '') === String(vendor.storeId || '')) || stores?.[0]
         const store = preferredStore
-        if (!vendorEmail) {
-          vendorEmail = String(store?.email || '').trim()
-        }
-        if (!vendorPhone) {
-          vendorPhone = String(store?.phone || '').trim()
-        }
+        if (!vendorEmail) vendorEmail = String(store?.email || '').trim()
+        if (!vendorPhone) vendorPhone = String(store?.phone || '').trim()
+        storeAddress = String(store?.address || '').trim()
+        storeName = String(store?.storeName || vendor.vendorName).trim()
       } catch (error) {
         console.error('[order-notifications] Failed to load store contact:', error)
       }
     }
+
+    resolvedVendors.push({
+      vendorName: vendor.vendorName,
+      storeName,
+      phone: vendorPhone,
+      address: storeAddress,
+      items: vendor.items,
+    })
 
     if (vendorEmail) {
       await emailService.sendOrderConfirmationEmails({
@@ -261,5 +279,38 @@ export async function sendOrderPlacementNotifications(orderId: string, order: Or
         console.error('[order-notifications] Vendor SMS failed:', error)
       }
     }
+  }
+
+  // Send logistics notification based on delivery city/state
+  try {
+    const deliveryCity = String(shippingInfo?.city || '').trim()
+    const deliveryState = String(shippingInfo?.state || '').trim()
+    const region = detectLogisticsRegionFromAddress(deliveryCity, deliveryState)
+
+    if (region) {
+      const customerAddress = [
+        shippingInfo?.address,
+        deliveryCity,
+        deliveryState,
+        shippingInfo?.zipCode,
+      ].filter(Boolean).join(', ')
+
+      await emailService.sendLogisticsOrderEmail({
+        to: region.notificationEmail,
+        logisticsName: region.panelTitle,
+        orderId,
+        customerName,
+        customerPhone,
+        customerAddress,
+        vendors: resolvedVendors,
+        allItems,
+        total: overallTotal,
+        productSubtotal: allItemsSubtotal,
+        deliveryFee: overallDeliveryFee,
+        orderDate: new Date(),
+      })
+    }
+  } catch (error) {
+    console.error('[order-notifications] Logistics email failed:', error)
   }
 }

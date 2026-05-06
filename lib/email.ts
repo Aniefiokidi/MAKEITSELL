@@ -60,6 +60,29 @@ interface OrderEmailData {
   sendVendorCopy?: boolean
 }
 
+interface LogisticsVendorInfo {
+  vendorName: string
+  storeName?: string
+  phone: string
+  address: string
+  items: any[]
+}
+
+interface LogisticsOrderEmailData {
+  to: string
+  logisticsName: string
+  orderId: string
+  customerName: string
+  customerPhone: string
+  customerAddress: string
+  vendors: LogisticsVendorInfo[]
+  allItems: any[]
+  total: number
+  productSubtotal: number
+  deliveryFee: number
+  orderDate?: Date
+}
+
 interface OrderStatusUpdateEmailData {
   to: string
   orderId: string
@@ -1409,6 +1432,179 @@ class EmailService {
       headers: {
         'X-Entity-Ref-ID': `registration-issue-${Date.now()}`,
       },
+    })
+  }
+
+  async sendLogisticsOrderEmail(data: LogisticsOrderEmailData): Promise<boolean> {
+    const appBase = this.getAppBaseUrl()
+    const logoUrl = `${appBase}/images/logo2.png`
+    const accent = '#7f1d1d'
+    const supportEmail = this.getEnv('SUPPORT_EMAIL') || 'support@makeitsell.ng'
+    const orderDate = data.orderDate || new Date()
+    const shortId = String(data.orderId || '').substring(0, 8).toUpperCase()
+
+    const itemRows = data.allItems.map((item: any) => {
+      const imageUrl = this.toAbsoluteUrl(
+        (Array.isArray(item?.images) && item.images[0]) ||
+        item?.image || item?.productImage || item?.thumbnail ||
+        '/images/placeholder-product.svg'
+      )
+      const qty = Number(item?.quantity || 1)
+      const price = Number(item?.price || 0)
+      return `
+        <tr style="border-bottom: 1px solid #f0f0f0;">
+          <td style="padding: 10px 8px; width: 64px; vertical-align: middle;">
+            <img src="${imageUrl}" alt="${this.escapeHtml(String(item?.title || item?.name || ''))}"
+                 style="width: 56px; height: 56px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb;" />
+          </td>
+          <td style="padding: 10px 8px; vertical-align: middle;">
+            <div style="font-weight: 600; color: #111827;">${this.escapeHtml(String(item?.title || item?.name || 'Product'))}</div>
+            ${item?.sku ? `<div style="font-size: 12px; color: #6b7280;">SKU: ${this.escapeHtml(String(item.sku))}</div>` : ''}
+            <div style="font-size: 12px; color: #6b7280;">Qty: ${qty}</div>
+          </td>
+          <td style="padding: 10px 8px; text-align: right; vertical-align: middle; white-space: nowrap; color: #374151;">
+            ₦${(price * qty).toLocaleString('en-NG')}
+          </td>
+        </tr>
+      `
+    }).join('')
+
+    const vendorPickupRows = data.vendors.map((v) => `
+      <tr style="border-bottom: 1px solid #f0f0f0;">
+        <td style="padding: 10px 8px; vertical-align: top;">
+          <div style="font-weight: 600; color: #111827;">${this.escapeHtml(v.storeName || v.vendorName)}</div>
+          <div style="font-size: 13px; color: #374151; margin-top: 3px;">${this.escapeHtml(v.address || 'Address not provided')}</div>
+        </td>
+        <td style="padding: 10px 8px; vertical-align: top; white-space: nowrap;">
+          <a href="tel:${this.escapeHtml(v.phone)}" style="color: ${accent}; font-weight: 600; text-decoration: none;">${this.escapeHtml(v.phone || 'N/A')}</a>
+        </td>
+        <td style="padding: 10px 8px; vertical-align: top; font-size: 13px; color: #4b5563;">
+          ${v.items.map((i: any) => `${this.escapeHtml(String(i?.title || i?.name || 'Item'))} ×${Number(i?.quantity || 1)}`).join('<br />')}
+        </td>
+      </tr>
+    `).join('')
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+
+        <div style="background: ${accent}; padding: 22px 20px; text-align: center;">
+          <div style="display: inline-block; background: #ffffff; border-radius: 10px; padding: 9px 14px; margin-bottom: 12px;">
+            <img src="${logoUrl}" alt="Make It Sell" style="height: 40px; width: auto; display: block;" />
+          </div>
+          <h1 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 700;">New Delivery Order</h1>
+          <p style="color: rgba(255,255,255,0.88); margin: 6px 0 0 0; font-size: 13px;">
+            ${this.escapeHtml(data.logisticsName)} &mdash; Order #${shortId}
+          </p>
+        </div>
+
+        <div style="padding: 22px 20px;">
+
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <tr>
+              <td style="width: 50%; vertical-align: top; padding-right: 12px;">
+                <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px;">
+                  <p style="margin: 0 0 4px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #9ca3af;">Order</p>
+                  <p style="margin: 0 0 4px 0; font-size: 18px; font-weight: 700; color: #111827;">#${shortId}</p>
+                  <p style="margin: 0; font-size: 13px; color: #6b7280;">${orderDate.toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                </div>
+              </td>
+              <td style="width: 50%; vertical-align: top; padding-left: 12px;">
+                <div style="background: #fdf2f2; border: 1px solid #fca5a5; border-radius: 8px; padding: 14px;">
+                  <p style="margin: 0 0 4px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #9ca3af;">Delivery Total</p>
+                  <p style="margin: 0 0 4px 0; font-size: 18px; font-weight: 700; color: ${accent};">₦${data.total.toLocaleString('en-NG')}</p>
+                  <p style="margin: 0; font-size: 13px; color: #6b7280;">Fee: ₦${data.deliveryFee.toLocaleString('en-NG')}</p>
+                </div>
+              </td>
+            </tr>
+          </table>
+
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+            <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #166534;">Deliver To (Customer)</p>
+            <p style="margin: 0 0 4px 0; font-size: 15px; font-weight: 700; color: #111827;">${this.escapeHtml(data.customerName)}</p>
+            <p style="margin: 0 0 4px 0; font-size: 14px; color: #374151;">${this.escapeHtml(data.customerAddress)}</p>
+            <p style="margin: 0; font-size: 14px;">
+              <a href="tel:${this.escapeHtml(data.customerPhone)}" style="color: ${accent}; font-weight: 700; text-decoration: none;">${this.escapeHtml(data.customerPhone || 'N/A')}</a>
+            </p>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <p style="margin: 0 0 10px 0; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #374151;">Pickup From (Vendors)</p>
+            <table style="width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+              <thead>
+                <tr style="background: #f9fafb;">
+                  <th style="padding: 10px 8px; text-align: left; font-size: 12px; color: #6b7280; font-weight: 600;">Store / Address</th>
+                  <th style="padding: 10px 8px; text-align: left; font-size: 12px; color: #6b7280; font-weight: 600;">Phone</th>
+                  <th style="padding: 10px 8px; text-align: left; font-size: 12px; color: #6b7280; font-weight: 600;">Items</th>
+                </tr>
+              </thead>
+              <tbody>${vendorPickupRows}</tbody>
+            </table>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <p style="margin: 0 0 10px 0; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #374151;">Order Items</p>
+            <table style="width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+              <thead>
+                <tr style="background: #f9fafb;">
+                  <th style="padding: 10px 8px; text-align: left; font-size: 12px; color: #6b7280; font-weight: 600; width: 64px;"></th>
+                  <th style="padding: 10px 8px; text-align: left; font-size: 12px; color: #6b7280; font-weight: 600;">Product</th>
+                  <th style="padding: 10px 8px; text-align: right; font-size: 12px; color: #6b7280; font-weight: 600;">Amount</th>
+                </tr>
+              </thead>
+              <tbody>${itemRows}</tbody>
+              <tfoot>
+                <tr style="background: #f9fafb; border-top: 2px solid #e5e7eb;">
+                  <td colspan="2" style="padding: 12px 8px; text-align: right; font-weight: 700; color: #374151;">Subtotal</td>
+                  <td style="padding: 12px 8px; text-align: right; font-weight: 700; color: #111827;">₦${data.productSubtotal.toLocaleString('en-NG')}</td>
+                </tr>
+                <tr style="background: #f9fafb;">
+                  <td colspan="2" style="padding: 4px 8px 12px; text-align: right; font-weight: 700; color: #374151;">Delivery Fee</td>
+                  <td style="padding: 4px 8px 12px; text-align: right; font-weight: 700; color: #111827;">₦${data.deliveryFee.toLocaleString('en-NG')}</td>
+                </tr>
+                <tr style="background: #fdf2f2; border-top: 1px solid #fca5a5;">
+                  <td colspan="2" style="padding: 12px 8px; text-align: right; font-size: 15px; font-weight: 800; color: ${accent};">Total</td>
+                  <td style="padding: 12px 8px; text-align: right; font-size: 15px; font-weight: 800; color: ${accent};">₦${data.total.toLocaleString('en-NG')}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+        </div>
+
+        <div style="background: #f9fafb; border-top: 1px solid #e5e7eb; padding: 14px 20px; text-align: center;">
+          <p style="margin: 0; color: #9ca3af; font-size: 12px;">Make It Sell &mdash; Lagos, Nigeria &mdash; <a href="mailto:${supportEmail}" style="color: #9ca3af;">${supportEmail}</a></p>
+        </div>
+      </div>
+    `
+
+    const text = [
+      `NEW DELIVERY ORDER #${shortId}`,
+      `For: ${data.logisticsName}`,
+      `Date: ${orderDate.toLocaleDateString()}`,
+      '',
+      `DELIVER TO: ${data.customerName}`,
+      `Address: ${data.customerAddress}`,
+      `Phone: ${data.customerPhone}`,
+      '',
+      'PICKUP FROM:',
+      ...data.vendors.map(v => `  ${v.storeName || v.vendorName} | ${v.address} | ${v.phone}`),
+      '',
+      'ITEMS:',
+      ...data.allItems.map((i: any) => `  ${String(i?.title || i?.name || 'Item')} x${Number(i?.quantity || 1)} = ₦${(Number(i?.price || 0) * Number(i?.quantity || 1)).toLocaleString()}`),
+      '',
+      `Subtotal: ₦${data.productSubtotal.toLocaleString()}`,
+      `Delivery fee: ₦${data.deliveryFee.toLocaleString()}`,
+      `Total: ₦${data.total.toLocaleString()}`,
+      '',
+      `Support: ${supportEmail}`,
+    ].join('\n')
+
+    return this.sendEmail({
+      to: data.to,
+      subject: `New delivery order #${shortId} — ${data.logisticsName}`,
+      html,
+      text,
+      replyTo: supportEmail,
     })
   }
 

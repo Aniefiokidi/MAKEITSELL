@@ -5,6 +5,7 @@ export type LogisticsRegionConfig = {
   cityLabel: string
   keyword: string
   email: string
+  notificationEmail: string
   basePath: string
   panelTitle: string
 }
@@ -15,6 +16,7 @@ const REGION_CONFIG: Record<LogisticsRegionKey, LogisticsRegionConfig> = {
     cityLabel: 'Lagos',
     keyword: 'lagos',
     email: 'A&CO@makeitselll.org',
+    notificationEmail: 'Kingmishi456@gmail.com',
     basePath: '/logistics',
     panelTitle: 'A&CO Lagos Logistics',
   },
@@ -23,6 +25,7 @@ const REGION_CONFIG: Record<LogisticsRegionKey, LogisticsRegionConfig> = {
     cityLabel: 'Abuja',
     keyword: 'abuja',
     email: 'Orahlogistics@gmail.com',
+    notificationEmail: 'Orahlogistics@gmail.com',
     basePath: '/logistics/abuja',
     panelTitle: 'Orah Abuja Logistics',
   },
@@ -47,4 +50,12 @@ export function storeMatchesLogisticsRegion(store: any, region: LogisticsRegionC
   const keyword = region.keyword.toLowerCase()
   const values = [store?.city, store?.state, store?.address]
   return values.some((value) => String(value || '').toLowerCase().includes(keyword))
+}
+
+export function detectLogisticsRegionFromAddress(city: unknown, state: unknown): LogisticsRegionConfig | null {
+  const haystack = `${String(city || '')} ${String(state || '')}`.toLowerCase()
+  for (const config of Object.values(REGION_CONFIG)) {
+    if (haystack.includes(config.keyword)) return config
+  }
+  return null
 }
