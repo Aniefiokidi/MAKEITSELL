@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     }
 
     await connectToDatabase()
-    const db = mongoose.connection.db
+    const db = mongoose.connection.db!
 
     // Look up the orphaned store
     const storeQuery: any = {}
