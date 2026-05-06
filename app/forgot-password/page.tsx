@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
-import { AlertCircle, CheckCircle, Mail, Lock } from "lucide-react"
+import { AlertCircle, CheckCircle, Mail, Lock, Eye, EyeOff } from "lucide-react"
 
 export default function ForgotPasswordPage() {
   const router = useRouter()
@@ -21,6 +21,8 @@ export default function ForgotPasswordPage() {
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [loading, setLoading] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
   // Preserve legacy support if a token exists in URL while moving users to OTP flow.
@@ -232,30 +234,50 @@ export default function ForgotPasswordPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="password">New Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="At least 6 characters"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    required
-                    disabled={loading}
-                    className="h-12"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showNewPassword ? "text" : "password"}
+                      placeholder="At least 6 characters"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      required
+                      disabled={loading}
+                      className="h-12 pr-11"
+                    />
+                    <button
+                      type="button"
+                      aria-label={showNewPassword ? "Hide new password" : "Show new password"}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowNewPassword((v) => !v)}
+                    >
+                      {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="confirm">Confirm New Password</Label>
-                  <Input
-                    id="confirm"
-                    type="password"
-                    placeholder="Confirm your new password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                    disabled={loading}
-                    className="h-12"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="confirm"
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="Confirm your new password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      disabled={loading}
+                      className="h-12 pr-11"
+                    />
+                    <button
+                      type="button"
+                      aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowConfirmPassword((v) => !v)}
+                    >
+                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 <Button

@@ -765,7 +765,7 @@ export default function HomePage() {
             </div>
           )}
           {/* HERO SECTION */}
-          <section className="relative min-h-screen flex items-center justify-center pt-6 sm:pt-4 md:pt-0 mt-0 md:-mt-20 overflow-hidden">
+          <section className="relative min-h-screen flex items-center justify-center pt-16 sm:pt-14 md:pt-12 lg:pt-0 mt-0 lg:-mt-20 overflow-hidden">
             <div className="container mx-auto px-4 sm:px-8 max-w-[1600px]">
               <div className="flex flex-col-reverse items-center justify-center text-center gap-1 sm:gap-4 md:flex-row md:text-left md:items-center md:gap-0">
                 {/* Left: Texts */}
