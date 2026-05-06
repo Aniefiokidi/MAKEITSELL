@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   if (unauthorized) return unauthorized
 
   try {
-    const { query, sendEmail = true } = await request.json()
+    const { query, sendEmail = true, forceCreate = false, createName = '' } = await request.json()
 
     if (!query || typeof query !== 'string' || !query.trim()) {
       return NextResponse.json(
@@ -32,13 +32,40 @@ export async function POST(request: NextRequest) {
     await connectToDatabase()
 
     const pattern = escapeRegExp(query.trim())
-    const users = await User.find({
+    let users = await User.find({
       $or: [
         { name: { $regex: pattern, $options: 'i' } },
         { email: { $regex: pattern, $options: 'i' } },
         { displayName: { $regex: pattern, $options: 'i' } },
       ],
     }).select('_id email name displayName role mustChangePassword isEmailVerified')
+
+    // If not found and forceCreate is set, create the account (email required)
+    if (users.length === 0 && forceCreate) {
+      const emailInput = query.trim()
+      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput)
+      if (!isEmail) {
+        return NextResponse.json({
+          success: true,
+          found: 0,
+          results: [],
+          message: 'No users matched. To create an account, enter a valid email address and check "Create account if not found".',
+        })
+      }
+      const newUser = await User.create({
+        email: emailInput.toLowerCase(),
+        name: String(createName || emailInput.split('@')[0]),
+        role: 'customer',
+        passwordHash: '',
+        sessionToken: crypto.randomBytes(32).toString('hex'),
+        isEmailVerified: true,
+        mustChangePassword: true,
+        walletBalance: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      users = [newUser] as any
+    }
 
     if (users.length === 0) {
       return NextResponse.json({

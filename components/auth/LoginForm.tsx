@@ -14,8 +14,12 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useAuth } from "@/contexts/AuthContext"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 
+const LOGISTICS_EMAIL_ROUTES: Record<string, string> = {
+  'a&co@makeitselll.org': '/logistics',
+  'orahlogistics@gmail.com': '/logistics/abuja',
+}
+
 export default function LoginForm() {
-  const logisticsEmail = "a&co@makeitselll.org"
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -81,8 +85,9 @@ export default function LoginForm() {
         router.push(redirectTo)
       } else {
         // Default redirects based on user role
-        if (result.user?.email?.toLowerCase?.() === logisticsEmail) {
-          router.push("/logistics")
+        const logisticsRoute = LOGISTICS_EMAIL_ROUTES[result.user?.email?.toLowerCase?.() ?? '']
+        if (logisticsRoute) {
+          router.push(logisticsRoute)
         } else if (result.userProfile?.role === "vendor") {
           router.push("/vendor/dashboard")
         } else if (result.userProfile?.role === "admin") {

@@ -29,7 +29,9 @@ type ApiResult = {
 
 export default function SetTempPasswordPage() {
   const [query, setQuery] = useState('')
+  const [createName, setCreateName] = useState('')
   const [sendEmail, setSendEmail] = useState(true)
+  const [forceCreate, setForceCreate] = useState(false)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<ApiResult | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -46,7 +48,7 @@ export default function SetTempPasswordPage() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: query.trim(), sendEmail }),
+        body: JSON.stringify({ query: query.trim(), sendEmail, forceCreate, createName: createName.trim() }),
       })
       const data = await res.json()
       setResult(data)
@@ -107,6 +109,28 @@ export default function SetTempPasswordPage() {
                 />
                 Send notification email to user(s)
               </label>
+
+              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={forceCreate}
+                  onChange={(e) => setForceCreate(e.target.checked)}
+                  className="rounded"
+                />
+                Create account if not found (enter email address above)
+              </label>
+
+              {forceCreate && (
+                <div className="space-y-2">
+                  <Label htmlFor="createName">Display name for new account (optional)</Label>
+                  <Input
+                    id="createName"
+                    value={createName}
+                    onChange={(e) => setCreateName(e.target.value)}
+                    placeholder="e.g. Orah Logistics"
+                  />
+                </div>
+              )}
             </form>
           </CardContent>
         </Card>
