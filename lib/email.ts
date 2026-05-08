@@ -685,7 +685,7 @@ class EmailService {
     const orderDate = orderData.orderDate || new Date()
     const accent = '#7f1d1d'
     const appBase = this.getAppBaseUrl()
-    const logoUrl = `${appBase}/images/logo2.png`
+    const logoUrl = 'https://res.cloudinary.com/dgqxt06km/image/upload/q_auto/f_auto/v1778221830/logo_2_ovdgjg.png'
     
     const itemsList = orderData.items.map(item => {
       const imageUrl = this.getOrderItemImageUrl(item)
@@ -869,7 +869,7 @@ class EmailService {
     }).join('')
 
     const vendorOrdersUrl = this.getVendorOrdersUrl()
-    const logoUrl = `${this.getAppBaseUrl()}/images/logo2.png`
+    const logoUrl = 'https://res.cloudinary.com/dgqxt06km/image/upload/q_auto/f_auto/v1778221830/logo_2_ovdgjg.png'
 
     const computedProductSubtotal = orderData.items.reduce((sum, item) => {
       const qty = Number(item?.quantity || 0)
@@ -1185,7 +1185,7 @@ class EmailService {
     const posterToken = '{{poster}}'
     const signatureToken = '{{signature}}'
     const appBase = this.getAppBaseUrl()
-    const logoUrl = 'https://www.makeitsell.ng/images/logo%20(2).png'
+    const logoUrl = 'https://res.cloudinary.com/dgqxt06km/image/upload/q_auto/f_auto/v1778221830/logo_2_ovdgjg.png'
     const instagramUrl = 'https://www.instagram.com/makeitsell.ng/?__pwa=1'
     const twitterUrl = 'https://x.com/makeitsellorg'
     const instagramIconUrl = 'https://img.icons8.com/ios-filled/50/5b2f21/instagram-new.png'
@@ -1437,7 +1437,7 @@ class EmailService {
 
   async sendLogisticsOrderEmail(data: LogisticsOrderEmailData): Promise<boolean> {
     const appBase = this.getAppBaseUrl()
-    const logoUrl = `${appBase}/images/logo2.png`
+    const logoUrl = 'https://res.cloudinary.com/dgqxt06km/image/upload/q_auto/f_auto/v1778221830/logo_2_ovdgjg.png'
     const accent = '#7f1d1d'
     const supportEmail = this.getEnv('SUPPORT_EMAIL') || 'support@makeitsell.ng'
     const orderDate = data.orderDate || new Date()
@@ -1608,13 +1608,178 @@ class EmailService {
     })
   }
 
+  async sendVendorCampaignEmail({ email, name }: { email: string; name: string }): Promise<boolean> {
+    const appBase = this.getAppBaseUrl()
+    const logoUrl = 'https://res.cloudinary.com/dgqxt06km/image/upload/q_auto/f_auto/v1778221830/logo_2_ovdgjg.png'
+    const accent = '#7f1d1d'
+    const whatsappUrl = 'https://wa.me/2347078267836'
+    const whatsappNumber = '+234 707 826 7836'
+    const supportEmail = this.getEnv('SUPPORT_EMAIL') || 'support@makeitsell.ng'
+    const safeName = this.escapeHtml(name || 'Vendor')
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+        <div style="background: ${accent}; padding: 28px 20px; text-align: center;">
+          <div style="display: inline-block; background: #ffffff; border-radius: 10px; padding: 10px 16px; margin-bottom: 14px;">
+            <img src="${logoUrl}" alt="Make It Sell" style="height: 44px; width: auto; display: block;" />
+          </div>
+          <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 700;">Action Required — Test Phase Begins May 8</h1>
+          <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 14px;">Important update for Make It Sell vendors</p>
+        </div>
+
+        <div style="padding: 30px 28px; background: #ffffff;">
+          <p style="margin: 0 0 16px 0; color: #1f2937; font-size: 15px;">Hi ${safeName},</p>
+          <p style="margin: 0 0 18px 0; color: #374151; font-size: 15px; line-height: 1.7;">
+            We are excited to announce that <strong style="color: ${accent};">Make It Sell is entering its test phase</strong>. This is a major step forward, and your store plays a key role.
+          </p>
+
+          <div style="background: #fdf2f2; border-left: 4px solid ${accent}; border-radius: 0 8px 8px 0; padding: 16px 20px; margin-bottom: 22px;">
+            <p style="margin: 0; font-weight: 700; color: ${accent}; font-size: 15px;">What's happening:</p>
+            <p style="margin: 8px 0 0 0; color: #374151; font-size: 14px; line-height: 1.7;">
+              From <strong>Thursday May 8 to Wednesday May 13</strong>, the Make It Sell team will be placing orders from random vendor stores on the platform as part of the official test. Your store could be selected.
+            </p>
+          </div>
+
+          <p style="margin: 0 0 12px 0; color: #1f2937; font-size: 15px; font-weight: 700;">To qualify for the test, you must:</p>
+          <ol style="margin: 0 0 22px 0; padding-left: 22px; color: #374151; font-size: 14px; line-height: 2.2;">
+            <li><strong>Upload your phone number</strong> on your store profile — this is essential for delivery coordination</li>
+            <li><strong>Complete your store setup</strong> — ensure your products have prices, images, and accurate descriptions</li>
+            <li><strong>Contact us on WhatsApp</strong> to confirm your store is ready (details below)</li>
+          </ol>
+
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 20px; margin-bottom: 24px; text-align: center;">
+            <p style="margin: 0 0 8px 0; color: #166534; font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em;">Reach Out on WhatsApp</p>
+            <p style="margin: 0 0 14px 0; color: #374151; font-size: 14px; line-height: 1.6;">
+              WhatsApp is the <strong>only way</strong> to confirm your store qualifies for the test phase. Please message us before May 8.
+            </p>
+            <a href="${whatsappUrl}" style="display: inline-block; background: #22c55e; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-size: 15px; font-weight: 700;">
+              Chat on WhatsApp — ${whatsappNumber}
+            </a>
+          </div>
+
+          <div style="text-align: center; margin-bottom: 24px;">
+            <a href="${appBase}/vendor/dashboard" style="display: inline-block; background: ${accent}; color: #ffffff; text-decoration: none; padding: 13px 32px; border-radius: 8px; font-size: 15px; font-weight: 700;">
+              Go to My Store Dashboard
+            </a>
+          </div>
+
+          <p style="margin: 0; color: #6b7280; font-size: 13px; line-height: 1.6;">
+            Questions? Email us at <a href="mailto:${supportEmail}" style="color: ${accent}; font-weight: 600;">${supportEmail}</a> or reach us on WhatsApp above.
+          </p>
+        </div>
+
+        <div style="background: #f9fafb; border-top: 1px solid #e5e7eb; padding: 16px 24px; text-align: center;">
+          <p style="margin: 0; color: #9ca3af; font-size: 12px;">Make It Sell Marketplace &mdash; Lagos, Nigeria</p>
+        </div>
+      </div>
+    `
+
+    const text = [
+      `Hi ${name || 'Vendor'},`,
+      '',
+      'Make It Sell is entering its test phase — and your store matters.',
+      '',
+      'From May 8 to May 13, the MIS team will be placing orders from random vendor stores.',
+      '',
+      'To qualify, you must:',
+      '1. Upload your phone number on your store profile',
+      '2. Complete your store setup (prices, images, descriptions)',
+      '3. Message us on WhatsApp to confirm: ' + whatsappNumber,
+      '',
+      'WhatsApp is the ONLY way to confirm your store qualifies.',
+      '',
+      'Go to your dashboard: ' + appBase + '/vendor/dashboard',
+      '',
+      `Support: ${supportEmail}`,
+    ].join('\n')
+
+    return this.sendEmail({
+      to: email,
+      subject: 'Action Required — Make It Sell Test Phase Starts May 8',
+      html,
+      text,
+      replyTo: supportEmail,
+    })
+  }
+
+  async sendLogisticsCampaignEmail({ email, logisticsName }: { email: string; logisticsName: string }): Promise<boolean> {
+    const appBase = this.getAppBaseUrl()
+    const logoUrl = 'https://res.cloudinary.com/dgqxt06km/image/upload/q_auto/f_auto/v1778221830/logo_2_ovdgjg.png'
+    const accent = '#7f1d1d'
+    const supportEmail = this.getEnv('SUPPORT_EMAIL') || 'support@makeitsell.ng'
+    const safeName = this.escapeHtml(logisticsName || 'Logistics Partner')
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+        <div style="background: ${accent}; padding: 28px 20px; text-align: center;">
+          <div style="display: inline-block; background: #ffffff; border-radius: 10px; padding: 10px 16px; margin-bottom: 14px;">
+            <img src="${logoUrl}" alt="Make It Sell" style="height: 44px; width: auto; display: block;" />
+          </div>
+          <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 700;">Delivery Alert — Test Phase May 8–13</h1>
+          <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 14px;">Heads up for ${safeName}</p>
+        </div>
+
+        <div style="padding: 30px 28px; background: #ffffff;">
+          <p style="margin: 0 0 16px 0; color: #1f2937; font-size: 15px;">Hi ${safeName},</p>
+          <p style="margin: 0 0 18px 0; color: #374151; font-size: 15px; line-height: 1.7;">
+            This is an advance notice from <strong style="color: ${accent};">Make It Sell</strong>. We are entering our official <strong>test phase</strong> and want to keep you in the loop.
+          </p>
+
+          <div style="background: #fdf2f2; border-left: 4px solid ${accent}; border-radius: 0 8px 8px 0; padding: 18px 20px; margin-bottom: 24px;">
+            <p style="margin: 0 0 6px 0; font-weight: 700; color: ${accent}; font-size: 16px;">Deliveries incoming: May 8 – May 13</p>
+            <p style="margin: 0; color: #374151; font-size: 14px; line-height: 1.7;">
+              During this window, test orders will be placed on the platform and will require delivery. You will receive individual order notification emails as orders come in, with all the details you need — customer address, vendor pickup location, items, and amounts.
+            </p>
+          </div>
+
+          <p style="margin: 0 0 14px 0; color: #374151; font-size: 14px; line-height: 1.7;">
+            Please ensure your team is available and ready to handle deliveries during this period. Each order email will contain the full breakdown so there are no surprises.
+          </p>
+
+          <p style="margin: 0 0 24px 0; color: #374151; font-size: 14px; line-height: 1.7;">
+            If you have any questions or need to discuss logistics coordination, please reply to this email or reach us at <a href="mailto:${supportEmail}" style="color: ${accent}; font-weight: 600;">${supportEmail}</a>.
+          </p>
+
+          <p style="margin: 0; color: #374151; font-size: 15px; font-weight: 600;">Thank you for your continued partnership.</p>
+        </div>
+
+        <div style="background: #f9fafb; border-top: 1px solid #e5e7eb; padding: 16px 24px; text-align: center;">
+          <p style="margin: 0; color: #9ca3af; font-size: 12px;">Make It Sell Marketplace &mdash; Lagos, Nigeria</p>
+        </div>
+      </div>
+    `
+
+    const text = [
+      `Hi ${logisticsName || 'Logistics Partner'},`,
+      '',
+      'This is an advance notice from Make It Sell.',
+      '',
+      'We are entering our test phase from May 8 to May 13.',
+      'Deliveries will be coming in during this window.',
+      '',
+      'You will receive individual order notification emails with all the details — customer address, vendor pickup, items, and amounts.',
+      '',
+      'Please ensure your team is available during this period.',
+      '',
+      `Contact us: ${supportEmail}`,
+    ].join('\n')
+
+    return this.sendEmail({
+      to: email,
+      subject: `Delivery Alert — Make It Sell Test Phase May 8–13 (${logisticsName})`,
+      html,
+      text,
+      replyTo: supportEmail,
+    })
+  }
+
   async sendTempPasswordEmail({ email, name, temporaryPassword }: {
     email: string
     name: string
     temporaryPassword: string
   }): Promise<boolean> {
     const appBase = this.getAppBaseUrl()
-    const logoUrl = `${appBase}/images/logo2.png`
+    const logoUrl = 'https://res.cloudinary.com/dgqxt06km/image/upload/q_auto/f_auto/v1778221830/logo_2_ovdgjg.png'
     const accent = '#7f1d1d'
     const safeName = this.escapeHtml(name || 'there')
     const supportEmail = this.getEnv('SUPPORT_EMAIL') || 'support@makeitsell.ng'
