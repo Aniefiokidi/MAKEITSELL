@@ -19,18 +19,19 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
-    const { vendorId, userId } = await request.json()
+    const body = await request.json()
+    const userId = String(body?.userId || '').trim()
+    // vendorId defaults to userId — for vendors they're the same; for customers
+    // who somehow have stores, this ensures cleanup still runs.
+    const vendorId = String(body?.vendorId || userId).trim()
 
-    // Vendor can only delete their own account; admins may delete any account
-    if (sessionUser.role !== 'admin' && sessionUser.id !== String(userId)) {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+    if (!userId) {
+      return NextResponse.json({ success: false, error: 'User ID is required' }, { status: 400 })
     }
 
-    if (!vendorId || !userId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Vendor ID and User ID are required'
-      }, { status: 400 })
+    // User can only delete their own account; admins may delete any account
+    if (sessionUser.role !== 'admin' && sessionUser.id !== userId) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
     }
 
     console.log(`Starting account deletion for vendor: ${vendorId}, user: ${userId}`)

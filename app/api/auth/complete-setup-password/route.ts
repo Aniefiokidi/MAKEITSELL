@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
     const emailInput = String(body?.email || '').trim().toLowerCase()
     const currentPassword = String(body?.currentPassword || '')
     const newPassword = String(body?.newPassword || '')
+    const chosenRole = String(body?.role || '').trim() || null
 
     if (!currentPassword || !newPassword) {
       return NextResponse.json({ success: false, error: 'Current and new passwords are required' }, { status: 400 })
@@ -56,14 +57,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'New password must be different from current password' }, { status: 400 })
     }
 
+    const allowedRoles = ['vendor', 'customer', 'csa', 'admin']
+    const roleUpdate = chosenRole && allowedRoles.includes(chosenRole) ? { role: chosenRole } : {}
+
+    const newSessionToken = crypto.randomBytes(32).toString('hex')
+
     await User.updateOne(
       { _id: user._id },
       {
         $set: {
           passwordHash: hashPassword(newPassword),
           mustChangePassword: false,
-          sessionToken: crypto.randomBytes(32).toString('hex'),
+          sessionToken: newSessionToken,
           updatedAt: new Date(),
+          ...roleUpdate,
         },
         $unset: {
           temporaryPasswordIssuedAt: '',
@@ -71,7 +78,8 @@ export async function POST(request: NextRequest) {
       }
     )
 
-    return NextResponse.json({ success: true, message: 'Password updated successfully' })
+    const finalRole = (chosenRole && allowedRoles.includes(chosenRole)) ? chosenRole : String(user.role || 'customer')
+    return NextResponse.json({ success: true, message: 'Password updated successfully', role: finalRole })
   } catch (error: any) {
     console.error('[auth/complete-setup-password] Error:', error)
     return NextResponse.json(
