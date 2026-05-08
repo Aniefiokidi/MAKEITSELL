@@ -1640,6 +1640,11 @@ class EmailService {
             </p>
           </div>
 
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px 20px; margin-bottom: 22px; text-align: center;">
+            <p style="margin: 0; font-size: 16px; font-weight: 800; color: #166534;">🎉 Make It Sell is paying for all test orders</p>
+            <p style="margin: 8px 0 0 0; color: #374151; font-size: 14px; line-height: 1.7;">All purchases made during the test phase are fully covered by Make It Sell. You will receive payment for every order that comes through your store.</p>
+          </div>
+
           <p style="margin: 0 0 12px 0; color: #1f2937; font-size: 15px; font-weight: 700;">To qualify for the test, you must:</p>
           <ol style="margin: 0 0 22px 0; padding-left: 22px; color: #374151; font-size: 14px; line-height: 2.2;">
             <li><strong>Upload your phone number</strong> on your store profile — this is essential for delivery coordination</li>
