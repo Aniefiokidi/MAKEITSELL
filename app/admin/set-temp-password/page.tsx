@@ -30,6 +30,7 @@ type ApiResult = {
 export default function SetTempPasswordPage() {
   const [query, setQuery] = useState('')
   const [createName, setCreateName] = useState('')
+  const [createRole, setCreateRole] = useState('vendor')
   const [sendEmail, setSendEmail] = useState(true)
   const [forceCreate, setForceCreate] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -48,7 +49,7 @@ export default function SetTempPasswordPage() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: query.trim(), sendEmail, forceCreate, createName: createName.trim() }),
+        body: JSON.stringify({ query: query.trim(), sendEmail, forceCreate, createName: createName.trim(), createRole }),
       })
       const data = await res.json()
       setResult(data)
@@ -121,14 +122,30 @@ export default function SetTempPasswordPage() {
               </label>
 
               {forceCreate && (
-                <div className="space-y-2">
-                  <Label htmlFor="createName">Display name for new account (optional)</Label>
-                  <Input
-                    id="createName"
-                    value={createName}
-                    onChange={(e) => setCreateName(e.target.value)}
-                    placeholder="e.g. Orah Logistics"
-                  />
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="createName">Display name for new account (optional)</Label>
+                    <Input
+                      id="createName"
+                      value={createName}
+                      onChange={(e) => setCreateName(e.target.value)}
+                      placeholder="e.g. Orah Logistics"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="createRole">Account role</Label>
+                    <select
+                      id="createRole"
+                      value={createRole}
+                      onChange={(e) => setCreateRole(e.target.value)}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="vendor">Vendor</option>
+                      <option value="customer">Customer</option>
+                      <option value="csa">Logistics / CSA</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
                 </div>
               )}
             </form>

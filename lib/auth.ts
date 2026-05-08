@@ -110,7 +110,8 @@ export async function signUp({ email, password, name, role, vendorInfo, phone, v
 
 export async function signIn({ email, password }: { email: string, password: string }) {
   await connectToDatabase();
-  const user = await User.findOne({ email });
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const user = await User.findOne({ email: normalizedEmail });
   if (!user) throw new Error('Invalid credentials');
   
   // Check email verification

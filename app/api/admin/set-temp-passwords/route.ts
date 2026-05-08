@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   if (unauthorized) return unauthorized
 
   try {
-    const { query, sendEmail = true, forceCreate = false, createName = '' } = await request.json()
+    const { query, sendEmail = true, forceCreate = false, createName = '', createRole = 'vendor' } = await request.json()
 
     if (!query || typeof query !== 'string' || !query.trim()) {
       return NextResponse.json(
@@ -52,10 +52,12 @@ export async function POST(request: NextRequest) {
           message: 'No users matched. To create an account, enter a valid email address and check "Create account if not found".',
         })
       }
+      const allowedRoles = ['vendor', 'customer', 'admin', 'csa']
+      const resolvedRole = allowedRoles.includes(createRole) ? createRole : 'vendor'
       const newUser = await User.create({
         email: emailInput.toLowerCase(),
         name: String(createName || emailInput.split('@')[0]),
-        role: 'customer',
+        role: resolvedRole,
         passwordHash: '',
         sessionToken: crypto.randomBytes(32).toString('hex'),
         isEmailVerified: true,
