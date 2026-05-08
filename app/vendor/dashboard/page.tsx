@@ -16,7 +16,8 @@ import {
   Clock,
   Star,
   Plus,
-  CreditCard
+  CreditCard,
+  Phone,
 } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { getSessionToken } from "@/lib/auth-client"
@@ -36,6 +37,10 @@ export default function VendorDashboardPage() {
   const [walletBalance, setWalletBalance] = useState(0);
   const [activeTab, setActiveTab] = useState<"goods" | "services">("goods");
   const [setupPopupType, setSetupPopupType] = useState<"missing-store-image" | null>(null);
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [phoneInput, setPhoneInput] = useState('');
+  const [phoneSaving, setPhoneSaving] = useState(false);
+  const [phoneSaveError, setPhoneSaveError] = useState('');
 
   const getSetupPopupSnoozeKey = (vendorId: string) => `mis:vendor:setup-popup:snooze:${vendorId}`;
 
@@ -107,6 +112,8 @@ export default function VendorDashboardPage() {
 
         if (stores.length > 0) {
           setStoreData(stores[0]);
+          const hasPhone = Boolean(String(stores[0]?.phone || '').trim());
+          if (!hasPhone) setShowPhoneModal(true);
         }
 
         const vendorType = userProfile?.vendorType || "both";
@@ -181,6 +188,32 @@ export default function VendorDashboardPage() {
       console.error("Error loading dashboard data:", error);
     } finally {
       setDataLoading(false);
+    }
+  };
+
+  const savePhoneNumber = async () => {
+    const phone = phoneInput.trim();
+    if (!phone || !storeData?._id) return;
+    setPhoneSaving(true);
+    setPhoneSaveError('');
+    try {
+      const res = await fetch(`/api/database/stores/${storeData._id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      });
+      const data = await res.json();
+      if (res.ok && (data.success !== false)) {
+        setStoreData((prev: any) => ({ ...prev, phone }));
+        setShowPhoneModal(false);
+      } else {
+        setPhoneSaveError(data?.error || 'Failed to save. Please try again.');
+      }
+    } catch {
+      setPhoneSaveError('Network error. Please try again.');
+    } finally {
+      setPhoneSaving(false);
     }
   };
 
@@ -282,6 +315,50 @@ export default function VendorDashboardPage() {
             <Button variant="ghost" className="w-full mt-1 text-xs border border-accent/20 hover:bg-accent/10" onClick={dismissSetupPopupForToday}>
               Don't remind me today
             </Button>
+          </div>
+        </div>
+      )}
+      {/* Phone number modal — shown immediately if store has no phone */}
+      {showPhoneModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl p-8 max-w-sm w-full mx-4 border border-accent">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="rounded-full bg-accent/10 p-2">
+                <Phone className="h-5 w-5 text-accent" />
+              </div>
+              <h2 className="text-lg font-bold">Add Your Phone Number</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-5">
+              Your store needs a phone number so logistics can coordinate delivery when your products are ordered. This is required to qualify for the test phase.
+            </p>
+            <input
+              type="tel"
+              value={phoneInput}
+              onChange={e => { setPhoneInput(e.target.value); setPhoneSaveError(''); }}
+              placeholder="+234 800 000 0000"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm mb-1 focus:outline-none focus:ring-2 focus:ring-accent"
+              onKeyDown={e => e.key === 'Enter' && savePhoneNumber()}
+              autoFocus
+            />
+            {phoneSaveError && (
+              <p className="text-xs text-destructive mb-3">{phoneSaveError}</p>
+            )}
+            <div className="flex gap-2 mt-4">
+              <Button
+                className="flex-1 bg-accent text-white hover:bg-accent/90"
+                disabled={!phoneInput.trim() || phoneSaving}
+                onClick={savePhoneNumber}
+              >
+                {phoneSaving ? 'Saving…' : 'Save Phone Number'}
+              </Button>
+              <Button
+                variant="outline"
+                className="border-accent/30"
+                onClick={() => setShowPhoneModal(false)}
+              >
+                Later
+              </Button>
+            </div>
           </div>
         </div>
       )}
