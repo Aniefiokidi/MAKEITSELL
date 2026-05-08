@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState } from "react"
 import AdminLayout from "@/components/admin/AdminLayout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Trash2 } from "lucide-react"
 
 const getCompactPagination = (currentPage: number, totalPages: number): Array<number | string> => {
   if (totalPages <= 7) {
@@ -28,6 +30,8 @@ export default function AdminVendorsPage() {
   const [vendors, setVendors] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [storeActionStoreId, setStoreActionStoreId] = useState<string | null>(null)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [search, setSearch] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [currentNoStorePage, setCurrentNoStorePage] = useState(1)
@@ -154,6 +158,21 @@ export default function AdminVendorsPage() {
       window.alert("Failed to update store open status.")
     } finally {
       setStoreActionStoreId(null)
+    }
+  }
+
+  const handleDeleteStore = async (storeId: string) => {
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/database/stores/${storeId}`, { method: 'DELETE', credentials: 'include' })
+      const data = await res.json()
+      if (!res.ok || data.success === false) throw new Error(data?.error || 'Delete failed')
+      setVendors(prev => prev.map(v => String(v.storeId || '') === storeId ? { ...v, hasStore: false, storeId: '', storeName: 'N/A', isOpen: false } : v))
+      setDeleteConfirmId(null)
+    } catch (err: any) {
+      window.alert(err?.message || 'Failed to delete store')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -359,20 +378,37 @@ export default function AdminVendorsPage() {
                             </span>
                           </div>
                           {vendor.hasStore ? (
-                            <div className="flex justify-between items-center gap-2 pt-1">
-                              <span className="font-medium">Store Open:</span>
-                              <div className="flex items-center gap-2">
-                                <Badge className={`text-xs border ${vendor.isOpen ? "bg-green-100 text-green-800 border-green-300" : "bg-red-100 text-red-800 border-red-300"}`}>
-                                  {vendor.isOpen ? "Open" : "Closed"}
-                                </Badge>
-                                <Switch
-                                  checked={vendor.isOpen !== false}
-                                  className="data-[state=checked]:bg-green-500! data-[state=unchecked]:bg-red-500!"
-                                  disabled={storeActionStoreId === String(vendor.storeId || "")}
-                                  onCheckedChange={(checked) => handleStoreOpenToggle(vendor, checked)}
-                                />
+                            <>
+                              <div className="flex justify-between items-center gap-2 pt-1">
+                                <span className="font-medium">Store Open:</span>
+                                <div className="flex items-center gap-2">
+                                  <Badge className={`text-xs border ${vendor.isOpen ? "bg-green-100 text-green-800 border-green-300" : "bg-red-100 text-red-800 border-red-300"}`}>
+                                    {vendor.isOpen ? "Open" : "Closed"}
+                                  </Badge>
+                                  <Switch
+                                    checked={vendor.isOpen !== false}
+                                    className="data-[state=checked]:bg-green-500! data-[state=unchecked]:bg-red-500!"
+                                    disabled={storeActionStoreId === String(vendor.storeId || "")}
+                                    onCheckedChange={(checked) => handleStoreOpenToggle(vendor, checked)}
+                                  />
+                                </div>
                               </div>
-                            </div>
+                              <div className="pt-2">
+                                {deleteConfirmId === String(vendor.storeId || '') ? (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-destructive font-medium">Delete store?</span>
+                                    <Button size="sm" variant="destructive" className="h-7 text-xs px-2" disabled={deleting} onClick={() => handleDeleteStore(String(vendor.storeId))}>
+                                      {deleting ? '…' : 'Yes, delete'}
+                                    </Button>
+                                    <Button size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => setDeleteConfirmId(null)}>Cancel</Button>
+                                  </div>
+                                ) : (
+                                  <Button size="sm" variant="outline" className="h-7 text-xs text-destructive border-destructive/30 hover:bg-destructive hover:text-white" onClick={() => setDeleteConfirmId(String(vendor.storeId || ''))}>
+                                    <Trash2 className="h-3 w-3 mr-1" /> Delete Store
+                                  </Button>
+                                )}
+                              </div>
+                            </>
                           ) : null}
                         </div>
                       </CardContent>
@@ -392,6 +428,7 @@ export default function AdminVendorsPage() {
                         <TableHead className="text-xs">Status</TableHead>
                         <TableHead className="text-xs">Store Open</TableHead>
                         <TableHead className="text-xs">Joined</TableHead>
+                        <TableHead className="text-xs">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -427,6 +464,25 @@ export default function AdminVendorsPage() {
                           </TableCell>
                           <TableCell className="text-xs">
                             {vendor.createdAt ? new Date(vendor.createdAt).toLocaleDateString() : "N/A"}
+                          </TableCell>
+                          <TableCell>
+                            {vendor.hasStore ? (
+                              deleteConfirmId === String(vendor.storeId || '') ? (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-destructive">Sure?</span>
+                                  <Button size="sm" variant="destructive" className="h-6 text-xs px-2" disabled={deleting} onClick={() => handleDeleteStore(String(vendor.storeId))}>
+                                    {deleting ? '…' : 'Delete'}
+                                  </Button>
+                                  <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => setDeleteConfirmId(null)}>No</Button>
+                                </div>
+                              ) : (
+                                <Button size="sm" variant="outline" className="h-6 text-xs text-destructive border-destructive/30 hover:bg-destructive hover:text-white" onClick={() => setDeleteConfirmId(String(vendor.storeId || ''))}>
+                                  <Trash2 className="h-3 w-3 mr-1" /> Delete Store
+                                </Button>
+                              )
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
