@@ -252,7 +252,7 @@ export default function SearchResults({ query }: { query: string }) {
                     fill
                     className="object-cover group-hover:scale-110 transition-transform duration-500"
                   />
-                  {product.stock === 0 && (
+                  {product.stock === 0 && product.category !== 'Food & Beverages' && (
                     <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
                       <div className="bg-red-600 text-white px-4 sm:px-8 py-1 sm:py-2 transform -rotate-45 font-bold text-xs sm:text-sm shadow-lg">OUT OF STOCK</div>
                     </div>
@@ -264,7 +264,7 @@ export default function SearchResults({ query }: { query: string }) {
                     {(product.stock ?? 0) < 10 && (product.stock ?? 0) > 0 && (
                       <Badge variant="destructive" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">Only {product.stock} left</Badge>
                     )}
-                    {product.stock === 0 && (
+                    {product.stock === 0 && product.category !== 'Food & Beverages' && (
                       <Badge variant="secondary" className="bg-gray-600 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">Out of Stock</Badge>
                     )}
                   </div>
@@ -290,7 +290,7 @@ export default function SearchResults({ query }: { query: string }) {
                       e.stopPropagation();
                       handleAddToCart(product);
                     }}
-                    disabled={product.stock === 0}
+                    disabled={product.stock === 0 && product.category !== 'Food & Beverages'}
                     className="w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black"
                   >
                     <img src="/images/logo3.png" alt="Add" className="w-6 sm:w-7 md:w-8 h-6 sm:h-7 md:h-8 -mt-1 sm:-mt-2" />
@@ -326,7 +326,7 @@ export default function SearchResults({ query }: { query: string }) {
                           e.stopPropagation();
                           handleAddToCart(product);
                         }}
-                        disabled={product.stock === 0}
+                        disabled={product.stock === 0 && product.category !== 'Food & Beverages'}
                         className="h-6 text-[10px] bg-white/20 hover:bg-white/30 text-white"
                       >
                         Add

@@ -160,7 +160,7 @@ export default function FeaturedProducts() {
           src="/placeholder.svg"
           alt={product.title}
           fill
-          className={`object-cover group-hover:scale-110 transition-transform duration-300 ${product.stock === 0 ? 'grayscale' : ''}`}
+          className={`object-cover group-hover:scale-110 transition-transform duration-300 ${product.stock === 0 && product.category !== 'Food & Beverages' ? 'grayscale' : ''}`}
         />
       )
     }
@@ -178,7 +178,7 @@ export default function FeaturedProducts() {
             src={image || "/placeholder.svg"}
             alt={product.title}
             fill
-            className={`object-cover group-hover:scale-110 transition-all duration-500 ${product.stock === 0 ? 'grayscale' : ''} ${
+            className={`object-cover group-hover:scale-110 transition-all duration-500 ${product.stock === 0 && product.category !== 'Food & Beverages' ? 'grayscale' : ''} ${
               index === currentImageIndex 
                 ? 'opacity-100' 
                 : 'opacity-0'
@@ -230,7 +230,7 @@ export default function FeaturedProducts() {
 
         <div className="grid grid-cols-1 gap-6  sm:grid-cols-2 lg:grid-cols-4">
           {products.map((product, index) => (
-            <Card key={product.id} className={`group overflow-hidden  transition-all duration-300 animate-scale-in hover-lift ${product.stock === 0 ? 'opacity-75' : ''}`} style={{ animationDelay: `${index * 0.1}s` }}>
+            <Card key={product.id} className={`group overflow-hidden  transition-all duration-300 animate-scale-in hover-lift ${product.stock === 0 && product.category !== 'Food & Beverages' ? 'opacity-75' : ''}`} style={{ animationDelay: `${index * 0.1}s` }}>
               <div className="relative h-60 w-full aspect-square overflow-hidden">
                 <ImageCycler product={product} />
                 {product.originalPrice > product.price && product.stock > 0 && (
@@ -238,7 +238,7 @@ export default function FeaturedProducts() {
                     Save ₦{(product.originalPrice - product.price).toFixed(2)}
                   </Badge>
                 )}
-                {product.stock === 0 && (
+                {product.stock === 0 && product.category !== 'Food & Beverages' && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="bg-red-600 text-white px-8 py-2 transform -rotate-45 font-bold text-sm shadow-lg">
                       OUT OF STOCK
@@ -275,11 +275,11 @@ export default function FeaturedProducts() {
                 <Button
                   className={`w-full transition-all duration-200 ${addedToCartId === product.id ? 'bg-green-100 text-green-800 border-green-300' : ''}`}
                   onClick={() => addToCart(product)}
-                  disabled={product.stock === 0 || addedToCartId === product.id}
-                  variant={product.stock === 0 ? "outline" : "default"}
+                  disabled={(product.stock === 0 && product.category !== 'Food & Beverages') || addedToCartId === product.id}
+                  variant={product.stock === 0 && product.category !== 'Food & Beverages' ? "outline" : "default"}
                 >
                   <ShoppingCart className="h-4 w-4 mr-2" />
-                  {product.stock === 0
+                  {product.stock === 0 && product.category !== 'Food & Beverages'
                     ? 'Out of Stock'
                     : addedToCartId === product.id
                       ? 'Added to Cart'

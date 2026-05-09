@@ -944,7 +944,7 @@ export default function StorePage() {
                         <ImageCycler product={product} store={store} />
                         
                         {/* Out of Stock Red Tape Overlay */}
-                        {product.stock === 0 && (
+                        {product.stock === 0 && product.category !== 'Food & Beverages' && (
                           <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
                             <div className="bg-red-600 text-white px-4 sm:px-8 py-1 sm:py-2 transform -rotate-45 font-bold text-xs sm:text-sm shadow-lg">
                               OUT OF STOCK
@@ -967,7 +967,7 @@ export default function StorePage() {
                               Only {product.stock} left
                             </Badge>
                           )}
-                          {product.stock === 0 && (
+                          {product.stock === 0 && product.category !== 'Food & Beverages' && (
                             <Badge variant="secondary" className="bg-gray-600 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
                               Out of Stock
                             </Badge>
@@ -1050,7 +1050,7 @@ export default function StorePage() {
                             e.stopPropagation()
                             handleAddToCart(product)
                           }}
-                          disabled={product.stock === 0 || addedToCartId === product.id}
+                          disabled={(product.stock === 0 && product.category !== 'Food & Beverages') || addedToCartId === product.id}
                           className={`w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 ${
                             imageBrightness[product.id] === 'light' 
                               ? 'bg-white/20 hover:bg-white/80 text-accent' 

@@ -107,28 +107,35 @@ export default function ProductPage({ params }: { params: { id: string } }) {
             <div className="mb-4 text-accent font-bold text-2xl">₦{product.price?.toLocaleString?.() || product.price}</div>
             
             {/* Stock Status */}
-            <div className={`mb-4 rounded-lg p-3 flex items-center gap-2 text-sm ${
-              (product.stock || 0) > 10 
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-                : (product.stock || 0) > 0
-                ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                : 'bg-red-50 text-red-700 border border-red-200'
-            }`}>
-              <div className={`w-2 h-2 rounded-full ${
-                (product.stock || 0) > 10 
-                  ? 'bg-emerald-500' 
+            {product.category === 'Food & Beverages' ? (
+              <div className="mb-4 rounded-lg p-3 flex items-center gap-2 text-sm bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                <span className="font-semibold">Made to order</span>
+              </div>
+            ) : (
+              <div className={`mb-4 rounded-lg p-3 flex items-center gap-2 text-sm ${
+                (product.stock || 0) > 10
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                   : (product.stock || 0) > 0
-                  ? 'bg-amber-500'
-                  : 'bg-red-500'
-              }`}></div>
-              <span className="font-semibold">
-                {(product.stock || 0) > 10 
-                  ? `In Stock (${product.stock}+ available)` 
-                  : (product.stock || 0) > 0
-                  ? `Only ${product.stock} left!`
-                  : 'Out of Stock'}
-              </span>
-            </div>
+                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                  : 'bg-red-50 text-red-700 border border-red-200'
+              }`}>
+                <div className={`w-2 h-2 rounded-full ${
+                  (product.stock || 0) > 10
+                    ? 'bg-emerald-500'
+                    : (product.stock || 0) > 0
+                    ? 'bg-amber-500'
+                    : 'bg-red-500'
+                }`}></div>
+                <span className="font-semibold">
+                  {(product.stock || 0) > 10
+                    ? `In Stock (${product.stock}+ available)`
+                    : (product.stock || 0) > 0
+                    ? `Only ${product.stock} left!`
+                    : 'Out of Stock'}
+                </span>
+              </div>
+            )}
 
             {/* Color Options */}
             {product.hasColorOptions && product.colors && product.colors.length > 0 && (
@@ -193,9 +200,9 @@ export default function ProductPage({ params }: { params: { id: string } }) {
             
             <button
               className="w-full bg-accent text-white font-bold py-3 px-4 rounded-lg hover:bg-accent/90 transition disabled:opacity-60 disabled:cursor-not-allowed"
-              disabled={product.stock === 0 || product.status !== 'active'}
+              disabled={(product.stock === 0 && product.category !== 'Food & Beverages') || product.status !== 'active'}
             >
-              {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+              {product.stock === 0 && product.category !== 'Food & Beverages' ? 'Out of Stock' : 'Add to Cart'}
             </button>
           </div>
         </div>

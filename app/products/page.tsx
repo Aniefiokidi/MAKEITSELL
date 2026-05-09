@@ -362,7 +362,7 @@ export default function AllProductsPage() {
           <ImageCycler product={product} />
           
           {/* Out of Stock Red Tape Overlay */}
-          {(product.stock ?? 0) === 0 && (
+          {(product.stock ?? 0) === 0 && product.category !== 'Food & Beverages' && (
             <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
               <div className="bg-red-600 text-white px-4 sm:px-8 py-1 sm:py-2 transform -rotate-45 font-bold text-xs sm:text-sm shadow-lg">
                 OUT OF STOCK
@@ -385,7 +385,7 @@ export default function AllProductsPage() {
                 Only {product.stock} left
               </Badge>
             )}
-            {(product.stock ?? 0) === 0 && (
+            {(product.stock ?? 0) === 0 && product.category !== 'Food & Beverages' && (
               <Badge variant="secondary" className="bg-gray-600 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
                 Out of Stock
               </Badge>
