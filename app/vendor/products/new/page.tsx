@@ -286,7 +286,7 @@ export default function NewProduct() {
           productDocuments: documentUrls,
           vendorId: user.uid,
           vendorName: userProfile?.displayName || user.email || "Vendor",
-          stock: Number(formData.stock) || 0,
+          stock: formData.category === 'Food & Beverages' ? 9999 : (Number(formData.stock) || 0),
           sku: formData.sku,
           featured: formData.featured,
           status: "active",
@@ -426,18 +426,27 @@ export default function NewProduct() {
               )}
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="stock">Stock Quantity</Label>
-                  <Input
-                    id="stock"
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    value={formData.stock}
-                    onChange={(e) => handleInputChange("stock", e.target.value)}
-                    disabled={loading}
-                  />
-                </div>
+                {formData.category !== 'Food & Beverages' ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="stock">Stock Quantity</Label>
+                    <Input
+                      id="stock"
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      value={formData.stock}
+                      onChange={(e) => handleInputChange("stock", e.target.value)}
+                      disabled={loading}
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label>Stock</Label>
+                    <div className="flex h-10 items-center rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
+                      Made to order
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="sku">SKU</Label>

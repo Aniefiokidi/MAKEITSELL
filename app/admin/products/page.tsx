@@ -104,10 +104,16 @@ export default function AdminProductsPage() {
                           <div className="flex justify-between items-start gap-2">
                             <span className="font-medium">Stock:</span>
                             <div className="text-right">
-                              <p className="text-xs font-semibold">{product.stock || 0}</p>
-                              <Badge variant={product.stock > 0 ? "secondary" : "destructive"} className="text-xs">
-                                {product.stock > 0 ? "In Stock" : "Out"}
-                              </Badge>
+                              {product.category === 'Food & Beverages' ? (
+                                <p className="text-xs italic text-muted-foreground">Made to order</p>
+                              ) : (
+                                <>
+                                  <p className="text-xs font-semibold">{product.stock || 0}</p>
+                                  <Badge variant={product.stock > 0 ? "secondary" : "destructive"} className="text-xs">
+                                    {product.stock > 0 ? "In Stock" : "Out"}
+                                  </Badge>
+                                </>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -138,11 +144,17 @@ export default function AdminProductsPage() {
                           <TableCell className="text-xs">{product.vendorEmail || product.vendorName || "N/A"}</TableCell>
                           <TableCell className="text-xs">{product.category || "N/A"}</TableCell>
                           <TableCell className="text-xs font-semibold">₦{(product.price || 0).toLocaleString()}</TableCell>
-                          <TableCell className="text-xs">{product.stock || 0}</TableCell>
+                          <TableCell className="text-xs">
+                            {product.category === 'Food & Beverages' ? <span className="italic text-muted-foreground">Made to order</span> : (product.stock || 0)}
+                          </TableCell>
                           <TableCell>
-                            <Badge variant={product.stock > 0 ? "secondary" : "destructive"} className="text-xs">
-                              {product.stock > 0 ? "In Stock" : "Out"}
-                            </Badge>
+                            {product.category === 'Food & Beverages' ? (
+                              <Badge variant="secondary" className="text-xs">Made to order</Badge>
+                            ) : (
+                              <Badge variant={product.stock > 0 ? "secondary" : "destructive"} className="text-xs">
+                                {product.stock > 0 ? "In Stock" : "Out"}
+                              </Badge>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}

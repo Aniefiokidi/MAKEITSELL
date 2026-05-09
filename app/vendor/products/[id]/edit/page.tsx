@@ -140,7 +140,7 @@ export default function ProductEditPage() {
           description: product.description,
           price: Number(product.price),
           category: product.category,
-          stock: Number(product.stock) || 0,
+          stock: product.category === 'Food & Beverages' ? 9999 : (Number(product.stock) || 0),
           sku: product.sku,
           featured: product.featured || false,
           hasColorOptions: colors.length > 0,
@@ -283,17 +283,26 @@ export default function ProductEditPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="stock">Stock Quantity</Label>
-                  <Input
-                    id="stock"
-                    type="number"
-                    min="0"
-                    value={product.stock || 0}
-                    onChange={(e) => handleInputChange("stock", e.target.value)}
-                    disabled={saving}
-                  />
-                </div>
+                {product.category !== 'Food & Beverages' ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="stock">Stock Quantity</Label>
+                    <Input
+                      id="stock"
+                      type="number"
+                      min="0"
+                      value={product.stock || 0}
+                      onChange={(e) => handleInputChange("stock", e.target.value)}
+                      disabled={saving}
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label>Stock</Label>
+                    <div className="flex h-10 items-center rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
+                      Made to order
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="sku">SKU (Optional)</Label>

@@ -359,7 +359,7 @@ const VendorProductsPage = () => {
                       </TableCell>
                       <TableCell className="font-mono text-sm">{product.sku}</TableCell>
                       <TableCell className="font-medium">₦{product.price}</TableCell>
-                      <TableCell>{product.stock}</TableCell>
+                      <TableCell>{product.category === 'Food & Beverages' ? <span className="text-xs text-muted-foreground italic">Made to order</span> : product.stock}</TableCell>
                       <TableCell>{getStatusBadge(product.status, product.stock)}</TableCell>
                       <TableCell>{product.sales || 0} sold</TableCell>
                       <TableCell>
