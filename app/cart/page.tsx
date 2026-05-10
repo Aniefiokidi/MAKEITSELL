@@ -2,25 +2,19 @@
 
 import { useCart } from "@/contexts/CartContext"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { ShoppingCart, Plus, Minus, Trash2, ArrowLeft, Loader2 } from "lucide-react"
+import { ShoppingCart, Plus, Minus, Trash2, ArrowLeft, Loader2, ShoppingBag } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
-import { useState, useEffect } from "react"
-// For fetching store names
-import { useCallback } from "react"
-
+import { useState, useEffect, useCallback } from "react"
 
 export default function CartPage() {
   const { items, totalItems, totalPrice, updateQuantity, removeItem } = useCart()
   const [isLoading, setIsLoading] = useState(true)
   const [storeNames, setStoreNames] = useState<{ [vendorId: string]: string }>({})
 
-  // Fetch store names for all vendorIds in cart
   const fetchStoreNames = useCallback(async () => {
     const vendorIds = Array.from(new Set(items.map(item => item.vendorId).filter(Boolean)))
     const names: { [vendorId: string]: string } = {}
@@ -43,27 +37,22 @@ export default function CartPage() {
   }, [items])
 
   useEffect(() => {
-    // Cart should be loaded by now, but give it a moment
-    const timer = setTimeout(() => setIsLoading(false), 1000)
+    const timer = setTimeout(() => setIsLoading(false), 800)
     return () => clearTimeout(timer)
   }, [])
 
   useEffect(() => {
     if (items.length > 0) fetchStoreNames()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items])
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
-        <main className="flex-1 container mx-auto px-4 py-16">
-          <div className="max-w-2xl mx-auto text-center">
-            <Loader2 className="h-24 w-24 text-muted-foreground mx-auto mb-6 animate-spin" />
-            <h1 className="text-3xl font-bold mb-4">Loading your cart...</h1>
-            <p className="text-muted-foreground mb-8">
-              Please wait while we load your shopping cart.
-            </p>
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <Loader2 className="h-10 w-10 text-accent mx-auto animate-spin" />
+            <p className="text-muted-foreground text-sm">Loading your cart…</p>
           </div>
         </main>
         <Footer />
@@ -75,18 +64,19 @@ export default function CartPage() {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
-        <main className="flex-1 container mx-auto px-4 py-16">
-          <div className="max-w-2xl mx-auto text-center">
-            <ShoppingCart className="h-24 w-24 text-muted-foreground mx-auto mb-6" />
-            <h1 className="text-3xl font-bold mb-4">Your cart is empty</h1>
-            <p className="text-muted-foreground mb-8">
-              Looks like you haven't added any items to your cart yet. Start shopping to fill it up!
-            </p>
-            <Button asChild size="lg" className="hover:bg-accent/90 hover:scale-105 transition-all">
-              <Link href="/stores">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Continue Shopping
-              </Link>
+        <main className="flex-1 flex items-center justify-center px-4">
+          <div className="text-center space-y-5 max-w-sm">
+            <div className="w-20 h-20 rounded-full bg-accent/10 flex items-center justify-center mx-auto">
+              <ShoppingBag className="h-9 w-9 text-accent" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold">Your cart is empty</h1>
+              <p className="text-muted-foreground text-sm mt-1">
+                Add items from your favourite stores to get started.
+              </p>
+            </div>
+            <Button asChild size="lg" className="w-full">
+              <Link href="/stores">Browse Stores</Link>
             </Button>
           </div>
         </main>
@@ -95,121 +85,137 @@ export default function CartPage() {
     )
   }
 
+  const subtotal = totalPrice
+  const tax = subtotal * 0.08
+  const total = subtotal + tax
+
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-muted/30">
       <Header />
-      <main className="flex-1 container mx-auto px-4 py-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center gap-4 mb-8">
-            <Button variant="ghost" size="icon" asChild className="hover:scale-110 hover:bg-accent/10 transition-all">
-              <Link href="/stores">
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            </Button>
-            <h1 className="text-3xl font-bold">Shopping Cart ({totalItems} items)</h1>
+      <main className="flex-1 w-full max-w-5xl mx-auto px-4 py-6 sm:py-10">
+
+        {/* Page title */}
+        <div className="flex items-center gap-3 mb-6">
+          <Button variant="ghost" size="icon" asChild className="shrink-0">
+            <Link href="/stores"><ArrowLeft className="h-4 w-4" /></Link>
+          </Button>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold leading-tight">Shopping Cart</h1>
+            <p className="text-xs text-muted-foreground">{totalItems} {totalItems === 1 ? 'item' : 'items'}</p>
           </div>
+        </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Cart Items */}
-            <div className="lg:col-span-2 space-y-4">
-              {items.map((item) => (
-                <Card key={item.productId}>
-                  <CardContent className="p-6">
-                    <div className="flex items-center space-x-4">
-                      <div className="relative h-24 w-24 rounded-md overflow-hidden bg-muted">
-                        <Image src={item.image || "/placeholder.svg"} alt={item.title} fill className="object-cover" />
-                      </div>
-                      <div className="flex-1 space-y-2">
-                        <h3 className="text-lg font-semibold">{item.title}</h3>
-                        <p className="text-sm text-muted-foreground">Sold by {storeNames[item.vendorId] || item.vendorName || 'Store'}</p>
-                        <p className="text-lg font-bold text-accent">₦{item.price.toLocaleString('en-NG', {minimumFractionDigits: 2})}</p>
-                        {item.quantity >= item.maxStock && (
-                          <p className="text-xs text-destructive">Maximum quantity reached</p>
-                        )}
-                      </div>
-                      <div className="flex flex-col items-end space-y-4">
-                        <div className="flex items-center space-x-3">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                            className="hover:bg-accent/10 hover:text-accent transition-all"
-                          >
-                            <Minus className="h-4 w-4" />
-                          </Button>
-                          <Input
-                            type="number"
-                            min="1"
-                            max={item.maxStock}
-                            value={item.quantity}
-                            onChange={(e) => updateQuantity(item.productId, Number.parseInt(e.target.value) || 1)}
-                            className="w-16 text-center"
-                          />
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                            disabled={item.quantity >= item.maxStock}
-                            className="hover:bg-accent/10 hover:text-accent transition-all"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:bg-destructive hover:text-white transition-all"
-                          onClick={() => removeItem(item.productId)}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Remove
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-            {/* Order Summary */}
-            <div className="lg:col-span-1">
-              <Card className="sticky top-24">
-                <CardHeader>
-                  <CardTitle>Order Summary</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>Subtotal ({totalItems} items)</span>
-                      <span>₦{totalPrice.toLocaleString('en-NG', {minimumFractionDigits: 2})}</span>
+          {/* ── Cart items ── */}
+          <div className="lg:col-span-2 space-y-3">
+            {items.map((item) => (
+              <div key={item.productId} className="bg-white rounded-2xl shadow-sm border border-border/50 overflow-hidden">
+                <div className="p-4">
+                  <div className="flex gap-3">
+                    {/* Product image */}
+                    <div className="relative w-20 h-20 sm:w-24 sm:h-24 shrink-0 rounded-xl overflow-hidden bg-muted">
+                      <Image
+                        src={item.image || "/placeholder.svg"}
+                        alt={item.title}
+                        fill
+                        className="object-cover"
+                      />
                     </div>
-                    <div className="flex justify-between">
-                      <span>Shipping</span>
-                      <span className="text-muted-foreground">TBD</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      *Rider will inform you of delivery cost
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Tax</span>
-                      <span>₦{(totalPrice * 0.08).toLocaleString('en-NG', {minimumFractionDigits: 2})}</span>
+
+                    {/* Name + store + price */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+                      <div>
+                        <h3 className="font-semibold text-sm sm:text-base leading-snug line-clamp-2">{item.title}</h3>
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                          {storeNames[item.vendorId] || item.vendorName || 'Store'}
+                        </p>
+                      </div>
+                      <p className="text-accent font-bold text-sm sm:text-base mt-1">
+                        ₦{item.price.toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+                      </p>
                     </div>
                   </div>
-                  <Separator />
-                  <div className="flex justify-between text-lg font-semibold">
-                    <span>Total</span>
-                    <span>₦{(totalPrice * 1.08).toLocaleString('en-NG', {minimumFractionDigits: 2})}</span>
+
+                  {/* Qty + line total + remove */}
+                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/40">
+                    {/* Quantity stepper */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                        className="w-8 h-8 rounded-full border border-border flex items-center justify-center hover:border-accent hover:text-accent transition-colors"
+                      >
+                        <Minus className="h-3 w-3" />
+                      </button>
+                      <span className="w-7 text-center font-bold text-sm">{item.quantity}</span>
+                      <button
+                        onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                        disabled={item.quantity >= item.maxStock}
+                        className="w-8 h-8 rounded-full border border-border flex items-center justify-center hover:border-accent hover:text-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
+                    </div>
+
+                    {/* Line total + remove */}
+                    <div className="flex items-center gap-3">
+                      <span className="font-bold text-sm sm:text-base">
+                        ₦{(item.price * item.quantity).toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+                      </span>
+                      <button
+                        onClick={() => removeItem(item.productId)}
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-destructive hover:bg-destructive hover:text-white transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
-                  <Button asChild className="w-full border border-accent/40 bg-white text-accent hover:bg-accent hover:text-white hover:scale-105 transition-all hover:shadow-lg" size="lg">
-                    <Link href="/checkout">Proceed to Checkout</Link>
-                  </Button>
-                  <Button variant="outline" asChild className="w-full bg-transparent hover:bg-accent/10 hover:text-accent transition-all">
-                    <Link href="/stores">Continue Shopping</Link>
-                  </Button>
-                </CardContent>
-              </Card>
+
+                  {item.quantity >= item.maxStock && (
+                    <p className="text-xs text-destructive mt-2">Maximum quantity reached</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ── Order summary ── */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-2xl shadow-sm border border-border/50 p-5 lg:sticky lg:top-24">
+              <h2 className="font-bold text-base mb-4">Order Summary</h2>
+
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Subtotal ({totalItems} {totalItems === 1 ? 'item' : 'items'})</span>
+                  <span className="font-medium">₦{subtotal.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Shipping</span>
+                  <span className="text-muted-foreground">TBD</span>
+                </div>
+                <p className="text-xs text-muted-foreground -mt-1">Rider will confirm delivery cost</p>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Tax (8%)</span>
+                  <span className="font-medium">₦{tax.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+
+              <Separator className="my-4" />
+
+              <div className="flex justify-between font-bold text-base mb-5">
+                <span>Total</span>
+                <span className="text-accent">₦{total.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</span>
+              </div>
+
+              <Button asChild className="w-full" size="lg">
+                <Link href="/checkout">Proceed to Checkout</Link>
+              </Button>
+              <Button variant="outline" asChild className="w-full mt-2">
+                <Link href="/stores">Continue Shopping</Link>
+              </Button>
             </div>
           </div>
+
         </div>
       </main>
       <Footer />

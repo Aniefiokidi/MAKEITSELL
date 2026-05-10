@@ -142,8 +142,9 @@ export function ProductQuickView({
   const hasSizeOptions = Array.isArray(product.sizes) && product.sizes.length > 0
 
   const stockCount = product.stock ?? 0
-  const isOutOfStock = stockCount === 0
-  const isLowStock = stockCount > 0 && stockCount <= 10
+  const isFoodCategory = product.category === 'Food & Beverages'
+  const isOutOfStock = stockCount === 0 && !isFoodCategory
+  const isLowStock = stockCount > 0 && stockCount <= 10 && !isFoodCategory
 
   const shareUrl =
     typeof window !== "undefined"
@@ -205,7 +206,9 @@ export function ProductQuickView({
     ? "bg-amber-100 text-amber-800 border border-amber-200"
     : "bg-emerald-100 text-emerald-800 border border-emerald-200"
 
-  const stockLabel = isOutOfStock
+  const stockLabel = isFoodCategory
+    ? "Made to order"
+    : isOutOfStock
     ? "Out of stock"
     : isLowStock
     ? `Only ${stockCount} left`

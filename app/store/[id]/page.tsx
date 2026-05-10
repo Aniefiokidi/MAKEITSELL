@@ -601,7 +601,7 @@ export default function StorePage() {
           alt={(product.title || (product as any).name || 'Product') as string}
           loading="lazy"
           decoding="async"
-          className={`absolute inset-0 w-full h-full ${store?.category?.toLowerCase() === 'electronics' ? 'object-contain bg-white' : 'object-cover'} group-hover:scale-110 transition-transform duration-500 ${product.stock === 0 ? 'grayscale' : ''}`}
+          className={`absolute inset-0 w-full h-full ${store?.category?.toLowerCase() === 'electronics' ? 'object-contain bg-white' : 'object-cover'} group-hover:scale-110 transition-transform duration-500 ${product.stock === 0 && product.category !== 'Food & Beverages' ? 'grayscale' : ''}`}
         />
       )
     }
@@ -624,7 +624,7 @@ export default function StorePage() {
           loading="lazy"
           decoding="async"
           fetchPriority="low"
-          className={`absolute inset-0 w-full h-full ${store?.category?.toLowerCase() === 'electronics' ? 'object-contain bg-white' : 'object-cover'} group-hover:scale-110 transition-all duration-500 ${product.stock === 0 ? 'grayscale' : ''} opacity-100`}
+          className={`absolute inset-0 w-full h-full ${store?.category?.toLowerCase() === 'electronics' ? 'object-contain bg-white' : 'object-cover'} group-hover:scale-110 transition-all duration-500 ${product.stock === 0 && product.category !== 'Food & Beverages' ? 'grayscale' : ''} opacity-100`}
           style={{
             transitionProperty: 'opacity, transform',
             transitionDuration: '450ms, 450ms',
