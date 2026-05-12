@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   if (unauthorized) return unauthorized
 
   try {
-    const { query, sendEmail = true, forceCreate = false, createName = '', createRole = 'vendor' } = await request.json()
+    const { query, sendEmail = true, forceCreate = false, createName = '', createRole = 'vendor', flagOnly = false } = await request.json()
 
     if (!query || typeof query !== 'string' || !query.trim()) {
       return NextResponse.json(
@@ -81,6 +81,24 @@ export async function POST(request: NextRequest) {
     const results = []
 
     for (const user of users as any[]) {
+      if (flagOnly) {
+        // Just set the flag — do not change the password
+        await User.updateOne(
+          { _id: user._id },
+          { $set: { mustChangePassword: true, updatedAt: new Date() } }
+        )
+        results.push({
+          id: String(user._id),
+          email: user.email,
+          name: user.name || user.displayName || '',
+          role: user.role || 'customer',
+          temporaryPassword: '(unchanged)',
+          emailSent: false,
+          emailError: null,
+        })
+        continue
+      }
+
       const temporaryPassword = generateTemporaryPassword()
       const passwordHash = hashPassword(temporaryPassword)
       const sessionToken = crypto.randomBytes(32).toString('hex')

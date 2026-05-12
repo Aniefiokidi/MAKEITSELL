@@ -33,6 +33,7 @@ export default function SetTempPasswordPage() {
   const [createRole, setCreateRole] = useState('vendor')
   const [sendEmail, setSendEmail] = useState(true)
   const [forceCreate, setForceCreate] = useState(false)
+  const [flagOnly, setFlagOnly] = useState(false)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<ApiResult | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -49,7 +50,7 @@ export default function SetTempPasswordPage() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: query.trim(), sendEmail, forceCreate, createName: createName.trim(), createRole }),
+        body: JSON.stringify({ query: query.trim(), sendEmail, forceCreate, createName: createName.trim(), createRole, flagOnly }),
       })
       const data = await res.json()
       setResult(data)
@@ -109,6 +110,16 @@ export default function SetTempPasswordPage() {
                   className="rounded"
                 />
                 Send notification email to user(s)
+              </label>
+
+              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={flagOnly}
+                  onChange={(e) => setFlagOnly(e.target.checked)}
+                  className="rounded"
+                />
+                Flag for password change only — keep existing password, just force reset on next login
               </label>
 
               <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
