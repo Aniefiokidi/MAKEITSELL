@@ -21,9 +21,7 @@ export default function CustomerOrdersPage() {
   const [reviewSubmitting, setReviewSubmitting] = useState<string | null>(null)
   const [reviewedKeys, setReviewedKeys] = useState<Set<string>>(new Set())
 
-  // Filter states
-  const [completionFilter, setCompletionFilter] = useState<'confirmed' | 'non_confirmed'>('non_confirmed')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [tab, setTab] = useState<'ongoing' | 'completed' | 'cancelled'>('ongoing')
   // Format currency with commas
   const formatCurrency = (amount: number) => {
     return amount.toLocaleString('en-NG')
@@ -126,26 +124,14 @@ export default function CustomerOrdersPage() {
     }
   })
 
-  const isConfirmedBucket = (status: string) => {
-    return ['confirmed', 'processing', 'shipped', 'shipped_interstate', 'out_for_delivery', 'delivered', 'received'].includes(String(status || '').toLowerCase())
+  const getTabBucket = (status: string) => {
+    const s = String(status || '').toLowerCase()
+    if (s === 'cancelled') return 'cancelled'
+    if (['delivered', 'received'].includes(s)) return 'completed'
+    return 'ongoing'
   }
 
-  // Apply filters
-  const flattenedOrders = allFlattenedOrders.filter(order => {
-    // Confirmed vs non-confirmed toggle
-    if (completionFilter === 'confirmed') {
-      if (!isConfirmedBucket(order.status)) return false
-    } else if (completionFilter === 'non_confirmed') {
-      if (isConfirmedBucket(order.status)) return false
-    }
-    
-    // Status filter
-    if (statusFilter !== 'all' && order.status !== statusFilter) {
-      return false
-    }
-    
-    return true
-  })
+  const flattenedOrders = allFlattenedOrders.filter(o => getTabBucket(o.status) === tab)
 
   return (
     <React.Fragment>
@@ -154,60 +140,25 @@ export default function CustomerOrdersPage() {
         <section className="flex-1 w-full max-w-7xl mx-auto mt-10 mb-16 px-2 md:px-0">
           <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-center mb-8">Package History</h1>
           
-          {/* Filters */}
+          {/* Tab Toggle */}
           {!loading && allFlattenedOrders.length > 0 && (
-            <div className="mb-6 bg-card rounded-lg p-4 shadow-md border border-border">
-              <div className="flex flex-col md:flex-row gap-4">
-                {/* Completion Filter */}
-                <div className="flex-1">
-                  <label className="block text-sm font-semibold mb-2">Order Group</label>
-                  <div className="flex gap-2">
-                    <Button
-                      variant={completionFilter === 'confirmed' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setCompletionFilter('confirmed')}
-                      className="flex-1"
-                    >
-                      Confirmed ({allFlattenedOrders.filter(o => isConfirmedBucket(o.status)).length})
-                    </Button>
-                    <Button
-                      variant={completionFilter === 'non_confirmed' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setCompletionFilter('non_confirmed')}
-                      className="flex-1"
-                    >
-                      Non Confirmed ({allFlattenedOrders.filter(o => !isConfirmedBucket(o.status)).length})
-                    </Button>
-                  </div>
-                </div>
-                
-                {/* Delivery Stage Filter */}
-                <div className="flex-1">
-                  <label className="block text-sm font-semibold mb-2">Delivery Stage</label>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
+            <div className="mb-6 flex gap-2 bg-muted/50 rounded-xl p-1 w-full max-w-sm mx-auto">
+              {(['ongoing', 'completed', 'cancelled'] as const).map(t => {
+                const count = allFlattenedOrders.filter(o => getTabBucket(o.status) === t).length
+                return (
+                  <button
+                    key={t}
+                    onClick={() => setTab(t)}
+                    className={`flex-1 py-2 text-sm font-semibold rounded-lg capitalize transition-all ${
+                      tab === t
+                        ? 'bg-white shadow text-accent'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
                   >
-                    <option value="all">All Stages</option>
-                    <option value="pending">Pending</option>
-                    <option value="pending_payment">Pending Payment</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="processing">Processing</option>
-                    <option value="shipped">Shipped</option>
-                    <option value="shipped_interstate">Shipped (Interstate)</option>
-                    <option value="out_for_delivery">Out for Delivery</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="received">Received</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
-                </div>
-              </div>
-              
-              {/* Results count */}
-              <div className="mt-3 text-sm text-muted-foreground">
-                Showing {flattenedOrders.length} of {allFlattenedOrders.length} orders
-              </div>
+                    {t} <span className="text-xs opacity-70">({count})</span>
+                  </button>
+                )
+              })}
             </div>
           )}
           
@@ -229,8 +180,8 @@ export default function CustomerOrdersPage() {
               <span className="text-6xl mb-4">🔍</span>
               <h2 className="text-3xl font-bold mb-2">No Orders Match Your Filters</h2>
               <p className="text-muted-foreground mb-6">Try adjusting your filters to see more orders.</p>
-              <Button size="lg" onClick={() => { setCompletionFilter('non_confirmed'); setStatusFilter('all'); }} className="bg-accent text-white font-bold px-8 py-4 rounded-full shadow-lg hover:bg-accent/80 transition-all">
-                Clear Filters
+              <Button size="lg" onClick={() => setTab('ongoing')} className="bg-accent text-white font-bold px-8 py-4 rounded-full shadow-lg hover:bg-accent/80 transition-all">
+                View Ongoing Orders
               </Button>
             </div>
           ) : (
