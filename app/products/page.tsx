@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import Header from "@/components/Header"
 import { useCart } from "@/contexts/CartContext"
 import { useNotification } from "@/contexts/NotificationContext"
+import { useWishlist } from "@/contexts/WishlistContext"
 import { ProductQuickView } from "@/components/ui/product-quick-view"
 import { useRouter } from "next/navigation"
 import { initPersonalizationSync, personalizeProducts, trackProductQuickView, trackSearch } from "@/lib/personalization"
@@ -84,6 +85,7 @@ export default function AllProductsPage() {
   const [isTransitioning, setIsTransitioning] = useState(false)
   const { addItem } = useCart()
   const notification = useNotification()
+  const wishlist = useWishlist()
   const router = useRouter()
   const itemsPerPage = 24
 
@@ -400,10 +402,10 @@ export default function AllProductsPage() {
               className="bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-110 active:scale-95 transition-all h-8 w-8 p-0 sm:h-9 sm:w-9"
               onClick={(e) => {
                 e.stopPropagation()
-                /* Add to wishlist */
+                wishlist.toggle({ productId: String(product.id), title: product.title, price: Number(product.price), image: String(product.images?.[0] || ''), vendorId: String(product.vendorId || ''), category: product.category || '' })
               }}
             >
-              <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${wishlist.isInWishlist(String(product.id)) ? 'fill-red-500 text-red-500' : ''}`} />
             </Button>
           </div>
         </div>

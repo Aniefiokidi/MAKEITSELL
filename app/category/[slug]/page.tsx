@@ -14,6 +14,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Search, ShoppingCart, Heart, ArrowLeft, Filter, Star, X, ChevronDown, ChevronUp, Clock, Verified, Banknote, MapPin, Users, Store } from "lucide-react"
 import { useCart } from "@/contexts/CartContext"
 import { useNotification } from "@/contexts/NotificationContext"
+import { useWishlist } from "@/contexts/WishlistContext"
 import { ProductQuickView } from "@/components/ui/product-quick-view"
 import Link from "next/link"
 import Header from "@/components/Header"
@@ -165,6 +166,7 @@ export default function CategoryPage() {
   
   const { addToCart } = useCart()
   const notification = useNotification()
+  const wishlist = useWishlist()
 
   // Load recently viewed products from localStorage
   useEffect(() => {
@@ -923,9 +925,10 @@ export default function CategoryPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-110 transition-all"
+                        className="bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-110 transition-all h-8 w-8 p-0"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); wishlist.toggle({ productId: String(product.id), title: product.name || '', price: Number(product.price || 0), image: String(product.images?.[0] || ''), vendorId: String(product.vendorId || ''), category: product.category || '' }) }}
                       >
-                        <Heart className="w-4 h-4" />
+                        <Heart className={`w-4 h-4 ${wishlist.isInWishlist(String(product.id)) ? 'fill-red-500 text-red-500' : ''}`} />
                       </Button>
                     </div>
                   </div>
@@ -1031,9 +1034,9 @@ export default function CategoryPage() {
                         size="sm"
                         variant="outline"
                         className="bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-110 active:scale-95 transition-all h-8 w-8 p-0 sm:h-9 sm:w-9"
-                        onClick={e => e.preventDefault()}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); wishlist.toggle({ productId: String(product.id), title: product.name || product.title || '', price: Number(product.price || 0), image: String(product.images?.[0] || ''), vendorId: String(product.vendorId || ''), category: product.category || '' }) }}
                       >
-                        <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${wishlist.isInWishlist(String(product.id)) ? 'fill-red-500 text-red-500' : ''}`} />
                       </Button>
                     </div>
                   </div>

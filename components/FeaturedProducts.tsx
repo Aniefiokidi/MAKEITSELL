@@ -4,8 +4,9 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Star, ShoppingCart } from "lucide-react"
+import { Star, ShoppingCart, Heart } from "lucide-react"
 import { useCart } from "@/contexts/CartContext"
+import { useWishlist } from "@/contexts/WishlistContext"
 import { useAuth } from "@/contexts/AuthContext"
 import { useNotification } from "@/contexts/NotificationContext"
 import { useRouter } from "next/navigation"
@@ -126,6 +127,7 @@ export default function FeaturedProducts() {
   const { user } = useAuth()
   const notification = useNotification()
   const router = useRouter()
+  const wishlist = useWishlist()
   const [addedToCartId, setAddedToCartId] = useState<string | null>(null)
 
   // Image Cycler Component for Product Cards
@@ -245,6 +247,12 @@ export default function FeaturedProducts() {
                     </div>
                   </div>
                 )}
+                <button
+                  className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:scale-110 active:scale-95 z-10"
+                  onClick={(e) => { e.preventDefault(); wishlist.toggle({ productId: String(product.id), title: product.title, price: Number(product.price), image: product.images?.[0] || '', vendorId: String((product as any).vendorId || ''), category: product.category || '' }) }}
+                >
+                  <Heart className={`w-4 h-4 ${wishlist.isInWishlist(String(product.id)) ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
+                </button>
               </div>
 
               <CardContent className="px-4">

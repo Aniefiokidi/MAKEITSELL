@@ -7,8 +7,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { useNotification } from "@/contexts/NotificationContext";
-import { MapPin, Users, Clock, Store as StoreIcon, ExternalLink } from "lucide-react";
+import { MapPin, Users, Clock, Store as StoreIcon, ExternalLink, Heart } from "lucide-react";
 import React from "react";
+import { useWishlist } from "@/contexts/WishlistContext";
 
 const getCategoryIcon = (category: string) => {
   // ...copy from services page if needed...
@@ -19,6 +20,7 @@ export default function SearchResults({ query }: { query: string }) {
   const router = useRouter();
   const { addItem } = useCart();
   const notification = useNotification();
+  const wishlist = useWishlist();
   const [products, setProducts] = React.useState<any[]>([]);
   const [services, setServices] = React.useState<any[]>([]);
   const [stores, setStores] = React.useState<any[]>([]);
@@ -268,6 +270,12 @@ export default function SearchResults({ query }: { query: string }) {
                       <Badge variant="secondary" className="bg-gray-600 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">Out of Stock</Badge>
                     )}
                   </div>
+                  <button
+                    className="absolute top-2 right-2 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:scale-110 active:scale-95 z-10"
+                    onClick={(e) => { e.stopPropagation(); wishlist.toggle({ productId: String(product.id), title: product.title || product.name || '', price: Number(product.price || 0), image: String(product.images?.[0] || ''), vendorId: String(product.vendorId || ''), category: product.category || '' }) }}
+                  >
+                    <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${wishlist.isInWishlist(String(product.id)) ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
+                  </button>
                 </div>
                 <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-2.5 md:p-3 backdrop-blur-xl bg-accent/10 border-t border-white/30 rounded-t-2xl sm:rounded-t-3xl z-30 space-y-1 gap-1 sm:gap-2">
                   <Badge variant="outline" className="inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow bg-accent text-white hover:opacity-90 transition min-h-5 sm:min-h-6 items-center justify-center text-center leading-tight">
