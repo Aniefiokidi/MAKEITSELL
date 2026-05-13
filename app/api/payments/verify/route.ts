@@ -330,6 +330,11 @@ export async function POST(request: NextRequest) {
 
               // First check current stock to prevent negative values
               const currentProduct = await db.collection('products').findOne({ $or: filters })
+              // Skip made-to-order food products (sentinel 9999)
+              if (currentProduct?.stock === 9999) {
+                await db.collection('products').updateOne({ $or: filters }, { $inc: { sales: qty } })
+                continue
+              }
               const currentStock = currentProduct?.stock || 0
               const stockDeduction = Math.min(qty, currentStock) // Don't deduct more than available stock
               

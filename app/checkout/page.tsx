@@ -71,6 +71,7 @@ export default function CheckoutPage() {
     zipCode: "",
     country: "Nigeria",
     deliveryInstructions: "",
+    preferredDeliveryTime: "",
   })
 
   const handleInputChange = (field: string, value: string) => {
@@ -80,6 +81,8 @@ export default function CheckoutPage() {
   const availableCities = useMemo(() => {
     return shippingInfo.state ? (NIGERIA_STATE_CITY_OPTIONS[shippingInfo.state] || []) : []
   }, [shippingInfo.state])
+
+  const hasFoodItems = useMemo(() => items.some(i => i.category === 'Food & Beverages'), [items])
 
   // Calculate VAT at 7% of subtotal
   const calculateVAT = (amount: number) => {
@@ -278,6 +281,7 @@ export default function CheckoutPage() {
           zipCode: shippingInfo.zipCode || '',
           country: shippingInfo.country || '',
           deliveryInstructions: typeof shippingInfo.deliveryInstructions === 'string' ? shippingInfo.deliveryInstructions.trim() : '',
+          preferredDeliveryTime: shippingInfo.preferredDeliveryTime || '',
         },
         subtotal: subtotal || 0,
         vat: vat || 0,
@@ -572,6 +576,26 @@ export default function CheckoutPage() {
                           Delivery instruction is required (use nearest landmark / gate note).
                         </p>
                       </div>
+
+                      {hasFoodItems && (
+                        <div className="space-y-2 rounded-lg border border-orange-200 bg-orange-50 p-3">
+                          <Label htmlFor="preferredDeliveryTime" className="text-orange-800 font-semibold">
+                            🍽 Preferred Delivery Time
+                          </Label>
+                          <Input
+                            id="preferredDeliveryTime"
+                            type="datetime-local"
+                            value={shippingInfo.preferredDeliveryTime}
+                            onChange={(e) => handleInputChange("preferredDeliveryTime", e.target.value)}
+                            disabled={loading}
+                            min={new Date(Date.now() + 30 * 60 * 1000).toISOString().slice(0, 16)}
+                            className="bg-white"
+                          />
+                          <p className="text-xs text-orange-700">
+                            Your cart contains food items. Let the vendor know your preferred delivery time (optional).
+                          </p>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
 

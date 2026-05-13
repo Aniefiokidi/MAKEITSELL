@@ -3,48 +3,27 @@ import React from "react"
 import { useEffect, useState } from "react"
 import Image from "next/image"
 import { useAuth } from "@/contexts/AuthContext"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Header from "@/components/Header"
 import { useNotification } from "@/contexts/NotificationContext"
-interface Booking {
-  id: string
-  customerId: string
-  vendorId: string
-  serviceId: string
-  serviceName: string
-  date: string
-  time: string
-  status: string
-  totalAmount: number
-  customerName?: string
-  customerEmail?: string
-  customerPhone?: string
-  notes?: string
-  storeName?: string
-  location?: string
-  createdAt: Date
-}
 
 export default function CustomerOrdersPage() {
   const { user } = useAuth()
   const { success, error: notifyError } = useNotification()
   const [orders, setOrders] = useState<any[]>([])
-  const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedOrder, setSelectedOrder] = useState<any>(null)
-  const [showRatingModal, setShowRatingModal] = useState(false)
   const [productDetails, setProductDetails] = useState<Record<string, any>>({})
-  const [storeDetails, setStoreDetails] = useState<Record<string, any>>({})
   const [storeNames, setStoreNames] = useState<{ [vendorId: string]: string }>({})
-  
+  const [reviewingKey, setReviewingKey] = useState<string | null>(null)
+  const [reviewRatings, setReviewRatings] = useState<Record<string, number>>({})
+  const [reviewComments, setReviewComments] = useState<Record<string, string>>({})
+  const [reviewSubmitting, setReviewSubmitting] = useState<string | null>(null)
+  const [reviewedKeys, setReviewedKeys] = useState<Set<string>>(new Set())
+
   // Filter states
   const [completionFilter, setCompletionFilter] = useState<'confirmed' | 'non_confirmed'>('non_confirmed')
   const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [stagePreviewByOrder, setStagePreviewByOrder] = useState<Record<string, string>>({})
-
   // Format currency with commas
   const formatCurrency = (amount: number) => {
     return amount.toLocaleString('en-NG')
@@ -55,14 +34,9 @@ export default function CustomerOrdersPage() {
       if (user) {
         setLoading(true)
         try {
-          const [ordersResponse, bookingsResponse] = await Promise.all([
-            fetch(`/api/orders?customerId=${user.uid}`),
-            fetch(`/api/bookings?customerId=${user.uid}`)
-          ])
+          const ordersResponse = await fetch(`/api/orders?customerId=${user.uid}`)
           const ordersResult = await ordersResponse.json()
-          const bookingsResult = await bookingsResponse.json()
           setOrders(Array.isArray(ordersResult) ? ordersResult : [])
-          setBookings(Array.isArray(bookingsResult) ? bookingsResult : [])
 
           // Fetch product and store details for each order
           const productIds = new Set<string>()
@@ -123,19 +97,12 @@ export default function CustomerOrdersPage() {
   }, [user]);
 
   // Debug: Log fetched data
-  useEffect(() => {
-    if (!loading) {
-      console.log('ORDERS:', orders);
-      console.log('PRODUCT DETAILS:', productDetails);
-      console.log('STORE DETAILS:', storeDetails);
-    }
-  }, [loading, orders, productDetails, storeDetails]);
   // Flatten orders so each product is its own card, even if from the same vendor
   const allFlattenedOrders = orders.flatMap(order => {
     if (Array.isArray(order.vendors) && order.vendors.length > 0) {
-      return order.vendors.flatMap((vendor: any, vIdx: number) => (
+      return order.vendors.flatMap((vendor: any) => (
         Array.isArray(vendor.items) && vendor.items.length > 0
-          ? vendor.items.map((prod: any, pIdx: number) => ({
+          ? vendor.items.map((prod: any) => ({
               ...order,
               _parentOrderId: order.orderId || order.id,
               vendor,
@@ -147,7 +114,7 @@ export default function CustomerOrdersPage() {
           : []
       ))
     } else if (Array.isArray(order.products) && order.products.length > 0) {
-      return order.products.map((prod: any, pIdx: number) => ({
+      return order.products.map((prod: any) => ({
         ...order,
         _parentOrderId: order.orderId || order.id,
         product: prod,
@@ -313,54 +280,58 @@ export default function CustomerOrdersPage() {
                         <div className="text-muted-foreground text-xs mt-0.5">Placed: {order.createdAt ? (typeof order.createdAt === 'string' ? new Date(order.createdAt).toLocaleDateString() : order.createdAt?.toLocaleDateString?.()) : 'date unknown'}</div>
                       </div>
                     </div>
-                  <div className="mb-6 rounded-md border border-border/60 bg-muted/30 p-3 text-sm">
-                    {(() => {
-                      const orderKey = `${order._parentOrderId || order.orderId || order.id}-${idx}`
-                      const stageOptions = [
-                        { value: 'pending', label: 'Pending', dateKey: 'createdAt', desc: 'Awaiting vendor review.' },
-                        { value: 'pending_payment', label: 'Pending Payment', dateKey: 'pendingPaymentAt', desc: 'Awaiting payment confirmation.' },
-                        { value: 'confirmed', label: 'Confirmed', dateKey: 'confirmedAt', desc: 'Order confirmed by vendor.' },
-                        { value: 'processing', label: 'Processing', dateKey: 'processingAt', desc: 'Order is being processed.' },
-                        { value: 'shipped', label: 'Shipped', dateKey: 'shippedAt', desc: '' },
-                        { value: 'shipped_interstate', label: 'Shipped (Interstate)', dateKey: 'shippedInterstateAt', desc: '' },
-                        { value: 'out_for_delivery', label: 'Out for Delivery', dateKey: 'outForDeliveryAt', desc: '' },
-                        { value: 'delivered', label: 'Delivered', dateKey: 'deliveredAt', desc: '' },
-                        { value: 'received', label: 'Received', dateKey: 'receivedAt', desc: '' },
-                        { value: 'cancelled', label: 'Cancelled', dateKey: 'cancelledAt', desc: 'Order was cancelled.' },
-                      ]
-                      const selectedStage = stagePreviewByOrder[orderKey] || order.status || 'pending'
-                      const selectedStageData = stageOptions.find((option) => option.value === selectedStage) || stageOptions[0]
-                      const stageDate = order[selectedStageData.dateKey] || (selectedStageData.dateKey === 'createdAt' ? order.createdAt : undefined)
-
-                      return (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <label className="text-xs font-semibold text-muted-foreground">Stage</label>
-                            <select
-                              value={selectedStage}
-                              onChange={(e) => setStagePreviewByOrder((prev) => ({ ...prev, [orderKey]: e.target.value }))}
-                              className="w-40 px-2 py-1 text-xs border border-border rounded-md bg-background text-foreground"
-                            >
-                              {stageOptions.map((option) => (
-                                <option key={option.value} value={option.value}>{option.label}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline">{selectedStageData.label}</Badge>
-                            {stageDate && (
-                              <span className="text-xs text-muted-foreground">
-                                {typeof stageDate === 'string' ? new Date(stageDate).toLocaleDateString() : stageDate?.toLocaleDateString?.()}
-                              </span>
-                            )}
-                          </div>
-                          {selectedStageData.desc && (
-                            <p className="text-xs text-muted-foreground">{selectedStageData.desc}</p>
-                          )}
+                  {/* Order Timeline */}
+                  {(() => {
+                    const status = order.status || 'pending'
+                    const isCancelled = status === 'cancelled'
+                    const stages = isCancelled ? [
+                      { key: 'pending', label: 'Placed', dateField: 'createdAt' },
+                      { key: 'cancelled', label: 'Cancelled', dateField: 'cancelledAt' },
+                    ] : [
+                      { key: 'pending', label: 'Order Placed', dateField: 'createdAt' },
+                      { key: 'confirmed', label: 'Confirmed', dateField: 'confirmedAt' },
+                      { key: 'processing', label: 'Processing', dateField: 'processingAt' },
+                      { key: 'shipped', label: 'Shipped', dateField: 'shippedAt' },
+                      { key: 'out_for_delivery', label: 'Out for Delivery', dateField: 'outForDeliveryAt' },
+                      { key: 'delivered', label: 'Delivered', dateField: 'deliveredAt' },
+                      { key: 'received', label: 'Received', dateField: 'receivedAt' },
+                    ]
+                    const statusOrder = ['pending','pending_payment','confirmed','processing','shipped','shipped_interstate','out_for_delivery','delivered','received']
+                    const currentIdx = statusOrder.indexOf(status)
+                    return (
+                      <div className="mb-4 px-1 pt-1">
+                        <div className="relative flex flex-col">
+                          {stages.map((stage, si) => {
+                            const stageIdx = statusOrder.indexOf(stage.key)
+                            const isPast = isCancelled ? (stage.key === 'pending') : stageIdx < currentIdx
+                            const isCurrent = stage.key === status || (stage.key === 'shipped' && status === 'shipped_interstate')
+                            const stageDate = (order as any)[stage.dateField] || (stage.dateField === 'createdAt' ? order.createdAt : null)
+                            const formattedDate = stageDate ? new Date(stageDate).toLocaleDateString('en-NG', { day: 'numeric', month: 'short' }) : null
+                            return (
+                              <div key={stage.key} className="flex items-start gap-3 relative">
+                                {si < stages.length - 1 && (
+                                  <div className={`absolute left-[11px] top-5 w-0.5 ${isPast || isCurrent ? 'bg-accent' : 'bg-border'}`} style={{ height: 'calc(100% + 2px)' }} />
+                                )}
+                                <div className={`relative z-10 mt-0.5 w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
+                                  isCancelled && stage.key === 'cancelled' ? 'bg-destructive' :
+                                  isCurrent ? 'bg-accent ring-2 ring-accent/30' :
+                                  isPast ? 'bg-accent' : 'bg-border'
+                                }`}>
+                                  {(isPast || isCurrent) && (
+                                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                  )}
+                                </div>
+                                <div className={`pb-4 text-xs ${isCurrent ? 'font-bold text-accent' : isPast ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                  <span>{stage.label}</span>
+                                  {formattedDate && <span className="block text-[10px] text-muted-foreground font-normal">{formattedDate}</span>}
+                                </div>
+                              </div>
+                            )
+                          })}
                         </div>
-                      )
-                    })()}
-                  </div>
+                      </div>
+                    )
+                  })()}
                   <div className="mt-6 rounded-md border border-border/60 bg-muted/30 p-3 text-sm">
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Product Subtotal:</span>
@@ -383,7 +354,7 @@ export default function CustomerOrdersPage() {
                     </div>
                   </div>
                   {/* Customer Acknowledgment */}
-                  {(order.status === 'delivered') && (
+                  {order.status === 'delivered' && (
                     <div className="mt-4 flex justify-end">
                       <Button
                         className="bg-green-600 text-white hover:bg-green-700"
@@ -416,6 +387,78 @@ export default function CustomerOrdersPage() {
                       </Button>
                     </div>
                   )}
+
+                  {/* Rate this store — shown after order is received */}
+                  {order.status === 'received' && (() => {
+                    const rKey = `${order._parentOrderId || order.orderId || order.id}-${order.storeId || idx}`
+                    const isOpen = reviewingKey === rKey
+                    const isReviewed = reviewedKeys.has(rKey)
+                    if (isReviewed) return (
+                      <p className="mt-3 text-xs text-green-600 font-medium text-right">✓ Review submitted</p>
+                    )
+                    return (
+                      <div className="mt-3">
+                        {!isOpen ? (
+                          <div className="flex justify-end">
+                            <Button size="sm" variant="outline" className="border-accent text-accent hover:bg-accent hover:text-white"
+                              onClick={() => setReviewingKey(rKey)}>
+                              ⭐ Rate this store
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="rounded-lg border border-accent/30 bg-accent/5 p-3 space-y-2">
+                            <p className="text-xs font-semibold">Rate your experience with {storeName}</p>
+                            <div className="flex gap-1">
+                              {[1,2,3,4,5].map(n => (
+                                <button key={n} type="button"
+                                  onClick={() => setReviewRatings(p => ({ ...p, [rKey]: n }))}>
+                                  <svg className={`w-6 h-6 ${n <= (reviewRatings[rKey] ?? 5) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 fill-gray-200'}`} viewBox="0 0 24 24">
+                                    <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
+                                  </svg>
+                                </button>
+                              ))}
+                            </div>
+                            <textarea
+                              className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs resize-none focus:outline-none focus:ring-1 focus:ring-accent"
+                              rows={2}
+                              placeholder="Share your experience (optional)…"
+                              value={reviewComments[rKey] ?? ''}
+                              onChange={e => setReviewComments(p => ({ ...p, [rKey]: e.target.value }))}
+                            />
+                            <div className="flex gap-2 justify-end">
+                              <Button size="sm" variant="ghost" onClick={() => setReviewingKey(null)}>Cancel</Button>
+                              <Button size="sm" disabled={reviewSubmitting === rKey}
+                                onClick={async () => {
+                                  const storeId = order.storeId || order.vendor?.vendorId
+                                  const orderId = order._parentOrderId || order.orderId || order.id
+                                  if (!storeId || !orderId) return
+                                  setReviewSubmitting(rKey)
+                                  try {
+                                    const res = await fetch(`/api/store/${storeId}/reviews`, {
+                                      method: 'POST',
+                                      credentials: 'include',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ orderId, rating: reviewRatings[rKey] ?? 5, comment: reviewComments[rKey] ?? '' }),
+                                    })
+                                    const data = await res.json()
+                                    if (data.success) {
+                                      setReviewedKeys(p => new Set([...p, rKey]))
+                                      setReviewingKey(null)
+                                      success('Review submitted!', 'Thank you for your feedback.')
+                                    } else {
+                                      notifyError('Could not submit', data.error || 'Please try again')
+                                    }
+                                  } catch { notifyError('Error', 'Failed to submit review') }
+                                  setReviewSubmitting(null)
+                                }}>
+                                {reviewSubmitting === rKey ? 'Submitting…' : 'Submit'}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
                 </div>
               );
               })}

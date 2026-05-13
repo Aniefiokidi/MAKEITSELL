@@ -17,6 +17,7 @@ import Link from "next/link"
 import { useCart } from "@/contexts/CartContext"
 import { useAuth } from "@/contexts/AuthContext"
 import { useNotification } from "@/contexts/NotificationContext"
+import { useWishlist } from "@/contexts/WishlistContext"
 import { ProductQuickView } from "@/components/ui/product-quick-view"
 import { trackFunnelEvent } from "@/lib/funnel-tracker"
 import { trackStoreView } from "@/lib/personalization"
@@ -91,6 +92,13 @@ export default function StorePage() {
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [priceRange, setPriceRange] = useState("all")
   const [activeTab, setActiveTab] = useState("products")
+  const [reviews, setReviews] = useState<any[]>([])
+  const [reviewsLoading, setReviewsLoading] = useState(false)
+  const [canReview, setCanReview] = useState(false)
+  const [reviewOrderId, setReviewOrderId] = useState('')
+  const [reviewRating, setReviewRating] = useState(5)
+  const [reviewComment, setReviewComment] = useState('')
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
   const [isFollowing, setIsFollowing] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
   const [isTransitioning, setIsTransitioning] = useState(false)
@@ -131,6 +139,7 @@ export default function StorePage() {
   const { addItem } = useCart()
   const { user } = useAuth()
   const notification = useNotification()
+  const wishlist = useWishlist()
 
   const getStateFromAddress = (value?: string) => {
     if (!value) return ""
@@ -326,6 +335,55 @@ export default function StorePage() {
     }
   }
 
+  // Load reviews when reviews tab is opened
+  const loadReviews = async (storeId: string) => {
+    if (reviews.length > 0) return
+    setReviewsLoading(true)
+    try {
+      const res = await fetch(`/api/store/${storeId}/reviews`)
+      const data = await res.json()
+      if (data.success) setReviews(data.reviews || [])
+    } catch {}
+    setReviewsLoading(false)
+  }
+
+  const checkCanReview = async (storeId: string) => {
+    if (!user) return
+    try {
+      const res = await fetch(`/api/store/${storeId}/can-review`, { credentials: 'include' })
+      const data = await res.json()
+      if (data.canReview) {
+        setCanReview(true)
+        setReviewOrderId(data.orderId || '')
+      }
+    } catch {}
+  }
+
+  const submitReview = async (storeId: string) => {
+    if (!reviewOrderId || reviewRating < 1) return
+    setReviewSubmitting(true)
+    try {
+      const res = await fetch(`/api/store/${storeId}/reviews`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: reviewOrderId, rating: reviewRating, comment: reviewComment }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setReviews(prev => [data.review, ...prev])
+        setCanReview(false)
+        setReviewComment('')
+        notification.success('Review submitted', 'Thank you for your feedback!')
+      } else {
+        notification.error('Error', data.error || 'Failed to submit review')
+      }
+    } catch {
+      notification.error('Error', 'Failed to submit review')
+    }
+    setReviewSubmitting(false)
+  }
+
   // Check if user is following the store
   const checkFollowStatus = async (storeId: string, customerId: string) => {
     try {
@@ -492,7 +550,8 @@ export default function StorePage() {
       image: product?.images?.[0] || '',
       maxStock: Number(product?.stock || 100),
       vendorId: String(product?.vendorId || ""),
-      vendorName: product?.vendorName || product?.vendor?.name || 'Unknown Vendor'
+      vendorName: product?.vendorName || product?.vendor?.name || 'Unknown Vendor',
+      category: product?.category || '',
     })
     void trackFunnelEvent(String(product?.vendorId || ""), "cart_add", { productId: String(product?.id || ""), storeId })
     notification.success(
@@ -805,9 +864,10 @@ export default function StorePage() {
       {/* Store Content */}
       <div className="container mx-auto px-4 py-8 flex-1">
         {/* Store Navigation Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-          <TabsList className="grid w-full grid-cols-2">
+        <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); if (v === 'reviews' && store) { loadReviews(store.id); checkCanReview(store.id) } }} className="mb-6">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="products">Products ({products.length})</TabsTrigger>
+            <TabsTrigger value="reviews">Reviews ({reviews.length})</TabsTrigger>
             <TabsTrigger value="about">About Store</TabsTrigger>
           </TabsList>
           
@@ -982,10 +1042,17 @@ export default function StorePage() {
                             className="bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-110 active:scale-95 transition-all h-8 w-8 p-0 sm:h-9 sm:w-9"
                             onClick={(e) => {
                               e.stopPropagation()
-                              /* Add to wishlist */
+                              wishlist.toggle({
+                                productId: product.id,
+                                title: product.title || product.name || '',
+                                price: product.price,
+                                image: product.images?.[0] || '',
+                                vendorId: product.vendorId,
+                                category: product.category,
+                              })
                             }}
                           >
-                            <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-colors ${wishlist.isInWishlist(product.id) ? 'fill-red-500 text-red-500' : ''}`} />
                           </Button>
                         </div>
                       </div>
@@ -1113,6 +1180,79 @@ export default function StorePage() {
             )}
           </TabsContent>
           
+          <TabsContent value="reviews">
+            <div className="space-y-4">
+              {/* Write a review */}
+              {canReview && (
+                <Card className="border-accent/30">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Rate your experience</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {/* Star picker */}
+                    <div className="flex gap-1">
+                      {[1,2,3,4,5].map(n => (
+                        <button key={n} type="button" onClick={() => setReviewRating(n)}>
+                          <svg className={`w-7 h-7 ${n <= reviewRating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 fill-gray-200'}`} viewBox="0 0 24 24"><path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/></svg>
+                        </button>
+                      ))}
+                    </div>
+                    <textarea
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-accent"
+                      rows={3}
+                      placeholder="Share your experience with this store (optional)…"
+                      value={reviewComment}
+                      onChange={e => setReviewComment(e.target.value)}
+                    />
+                    <Button
+                      size="sm"
+                      disabled={reviewSubmitting}
+                      onClick={() => store && submitReview(store.id)}
+                    >
+                      {reviewSubmitting ? 'Submitting…' : 'Submit Review'}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Review list */}
+              {reviewsLoading ? (
+                <div className="py-12 text-center text-muted-foreground text-sm">Loading reviews…</div>
+              ) : reviews.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground text-sm">No reviews yet. Be the first to review this store after your order is delivered.</div>
+              ) : (
+                reviews.map((r: any) => (
+                  <Card key={r._id} className="border-0 shadow-sm">
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center text-accent font-bold text-sm">
+                            {(r.customerName || 'C')[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold">{r.customerName || 'Customer'}</p>
+                            <p className="text-xs text-muted-foreground">{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ''}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-0.5">
+                          {[1,2,3,4,5].map(n => (
+                            <svg key={n} className={`w-4 h-4 ${n <= r.rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200 fill-gray-200'}`} viewBox="0 0 24 24"><path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/></svg>
+                          ))}
+                        </div>
+                      </div>
+                      {r.comment && <p className="text-sm text-foreground/80">{r.comment}</p>}
+                      {r.reply && (
+                        <div className="bg-muted/50 rounded-lg px-3 py-2 text-xs text-muted-foreground">
+                          <span className="font-semibold text-accent">Store reply: </span>{r.reply}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </TabsContent>
+
           <TabsContent value="about">
             <Card className="border-0 shadow-sm">
               <CardHeader className="pb-4">

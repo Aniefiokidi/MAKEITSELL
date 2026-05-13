@@ -6,13 +6,14 @@ import { useAuth } from "./AuthContext"
 export interface CartItem {
   id: string
   productId: string
-  title: string // Added missing title property
+  title: string
   price: number
   quantity: number
   image: string
   vendorId: string
   vendorName: string
   maxStock: number
+  category?: string
 }
 
 

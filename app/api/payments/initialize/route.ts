@@ -11,6 +11,28 @@ import { calculatePaystackCheckoutAmounts } from '@/lib/paystack-charges'
 import { estimateShippingFee } from '@/lib/aco-logistics-rates'
 import { getCanonicalAppBaseUrl } from '@/lib/app-url'
 import { sendOrderPlacementNotifications } from '@/lib/order-notifications'
+import { Product } from '@/lib/models/Product'
+
+async function deductStock(orderId: string) {
+  try {
+    const order = await getOrderById(orderId)
+    if (!order) return
+    const allItems = (order as any).vendors?.flatMap((v: any) => v.items || []) || []
+    for (const item of allItems) {
+      if (!item.productId || !item.quantity) continue
+      await Product.updateOne(
+        { _id: item.productId, stock: { $gt: 0, $ne: 9999 } },
+        { $inc: { stock: -Math.abs(item.quantity) } }
+      )
+      await Product.updateOne(
+        { _id: item.productId, stock: { $lte: 0 } },
+        { $set: { status: 'out_of_stock' } }
+      )
+    }
+  } catch (err) {
+    console.error('[deductStock]', err)
+  }
+}
 
 const OBJECT_ID_REGEX = /^[a-fA-F0-9]{24}$/
 
@@ -360,6 +382,7 @@ export async function POST(request: NextRequest) {
       })
 
       console.log('[WALLET] Order updated to confirmed')
+      await deductStock(orderId)
 
       const paidOrder = await getOrderById(orderId)
       if (paidOrder) {
