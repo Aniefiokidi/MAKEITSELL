@@ -133,6 +133,7 @@ export const signIn = async (email: string, password: string) => {
           postalCode: result.user.postalCode,
           vendorType: result.user.role === 'vendor' ? safeVendorType : undefined,
           walletBalance: typeof result.user.walletBalance === 'number' ? result.user.walletBalance : 0,
+          mustChangePassword: !!result.user.mustChangePassword,
           createdAt: new Date(),
           updatedAt: new Date()
         }

@@ -36,7 +36,9 @@ export default function VendorDashboardPage() {
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
   const [activeTab, setActiveTab] = useState<"goods" | "services">("goods");
-  const [setupPopupType, setSetupPopupType] = useState<"missing-store-image" | null>(null);
+  const [setupPopupType, setSetupPopupType] = useState<"missing-store-image" | "missing-fulfillment-time" | null>(null);
+  const [fulfillmentTime, setFulfillmentTime] = useState('same_day');
+  const [fulfillmentSaving, setFulfillmentSaving] = useState(false);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [phoneInput, setPhoneInput] = useState('');
   const [phoneSaving, setPhoneSaving] = useState(false);
@@ -124,9 +126,6 @@ export default function VendorDashboardPage() {
           return;
         }
 
-        const hasAtLeastOneStoreCardImage = stores.some((store: any) => hasStoreCardImage(store));
-        const shouldShowMissingImagePopup = !hasAtLeastOneStoreCardImage;
-
         let snoozedToday = false;
         if (typeof window !== "undefined") {
           try {
@@ -137,7 +136,17 @@ export default function VendorDashboardPage() {
           }
         }
 
-        const shouldShow = shouldShowMissingImagePopup && !snoozedToday;
+        // Priority 1: missing fulfillment time (never set)
+        const hasFulfillmentTime = stores.some((store: any) => store?.fulfillmentTime && store.fulfillmentTime !== '');
+        if (!hasFulfillmentTime && !snoozedToday) {
+          setShowSetupPopup(true);
+          setSetupPopupType("missing-fulfillment-time");
+          return;
+        }
+
+        // Priority 2: missing store card image
+        const hasAtLeastOneStoreCardImage = stores.some((store: any) => hasStoreCardImage(store));
+        const shouldShow = !hasAtLeastOneStoreCardImage && !snoozedToday;
         setShowSetupPopup(shouldShow);
         setSetupPopupType(shouldShow ? "missing-store-image" : null);
       } catch (error) {
@@ -288,33 +297,82 @@ export default function VendorDashboardPage() {
 
   return (
     <VendorLayout>
-      {/* Setup popup for vendors missing store-card image/logo */}
+      {/* Setup popup */}
       {showSetupPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white/80 dark:bg-gray-900/80 rounded-xl shadow-2xl p-8 max-w-sm mx-auto flex flex-col items-center justify-center border border-accent" style={{backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)'}}>
-            <h2 className="text-xl font-bold mb-2 text-center">Quick Store Setup Needed</h2>
-            <p className="mb-4 text-center text-muted-foreground">
-              Your store card is missing logo/image setup. Complete a quick setup so your store ranks better in For You.
-            </p>
-
-            {setupPopupType === "missing-store-image" ? (
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-7 max-w-sm w-full mx-4 border border-accent">
+            {setupPopupType === "missing-fulfillment-time" ? (
               <>
-                <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg border border-accent outline-accent outline-2 outline" variant="default" onClick={() => setShowSetupPopup(false)}>
-                  <Link href="/vendor/setup-wizard">
-                    Quick Store Setup
-                  </Link>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="rounded-full bg-orange-100 p-2"><Clock className="h-5 w-5 text-orange-500" /></div>
+                  <h2 className="text-lg font-bold">How long to fulfil orders?</h2>
+                </div>
+                <p className="text-sm text-muted-foreground mb-5">
+                  Let customers know how long it takes you to get an order ready for pickup or dispatch.
+                </p>
+                <div className="grid grid-cols-2 gap-2 mb-5">
+                  {[
+                    { value: 'same_day', label: 'Same Day' },
+                    { value: '24_hours', label: '24 Hours' },
+                    { value: '48_hours', label: '48 Hours' },
+                    { value: '1_week', label: '1 Week' },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setFulfillmentTime(opt.value)}
+                      className={`py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                        fulfillmentTime === opt.value
+                          ? 'border-accent bg-accent text-white'
+                          : 'border-border hover:border-accent/50'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <Button
+                  className="w-full mb-2"
+                  disabled={fulfillmentSaving}
+                  onClick={async () => {
+                    if (!storeData) return;
+                    setFulfillmentSaving(true);
+                    try {
+                      await fetch(`/api/database/stores/${storeData._id || storeData.id}`, {
+                        method: 'PATCH',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fulfillmentTime }),
+                      });
+                      setShowSetupPopup(false);
+                    } finally {
+                      setFulfillmentSaving(false);
+                    }
+                  }}
+                >
+                  {fulfillmentSaving ? 'Saving…' : 'Save & Continue'}
                 </Button>
-                <Button asChild className="w-full mb-2 font-semibold text-base shadow-lg border-accent outline-accent outline-2 outline text-accent hover:bg-accent hover:text-white" variant="outline" onClick={() => setShowSetupPopup(false)}>
-                  <Link href="/vendor/products/new">
-                    Add First Product
-                  </Link>
+                <Button variant="ghost" className="w-full text-xs text-muted-foreground" onClick={dismissSetupPopupForToday}>
+                  Remind me later
                 </Button>
               </>
-            ) : null}
-
-            <Button variant="ghost" className="w-full mt-1 text-xs border border-accent/20 hover:bg-accent/10" onClick={dismissSetupPopupForToday}>
-              Don't remind me today
-            </Button>
+            ) : (
+              <>
+                <h2 className="text-xl font-bold mb-2 text-center">Quick Store Setup Needed</h2>
+                <p className="mb-4 text-center text-muted-foreground text-sm">
+                  Your store card is missing a logo/image. Complete a quick setup so your store ranks better.
+                </p>
+                <Button asChild className="w-full mb-2 font-semibold" variant="default" onClick={() => setShowSetupPopup(false)}>
+                  <Link href="/vendor/setup-wizard">Quick Store Setup</Link>
+                </Button>
+                <Button asChild className="w-full mb-2" variant="outline" onClick={() => setShowSetupPopup(false)}>
+                  <Link href="/vendor/products/new">Add First Product</Link>
+                </Button>
+                <Button variant="ghost" className="w-full mt-1 text-xs" onClick={dismissSetupPopupForToday}>
+                  Don't remind me today
+                </Button>
+              </>
+            )}
           </div>
         </div>
       )}
