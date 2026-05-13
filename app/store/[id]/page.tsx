@@ -55,6 +55,7 @@ interface Store {
   vendorId: string
   isOpen: boolean
   deliveryTime?: string
+  fulfillmentTime?: string
   address?: string
   location?: string
   city?: string
@@ -832,6 +833,18 @@ export default function StorePage() {
                     <MessageCircle className="w-4 h-4 shrink-0" />
                     <span>Responds within {store.responseTime || '1 hour'}</span>
                   </div>
+
+                  {store.fulfillmentTime && (
+                    <>
+                      <div className="hidden sm:block">
+                        <Separator orientation="vertical" className="h-4 bg-white/20" />
+                      </div>
+                      <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-yellow-300">
+                        <Clock className="w-4 h-4 shrink-0" />
+                        <span>Ready in: {store.fulfillmentTime === 'same_day' ? 'Same Day' : store.fulfillmentTime === '24_hours' ? '24 Hours' : store.fulfillmentTime === '48_hours' ? '48 Hours' : '1 Week'}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
               
@@ -1312,8 +1325,10 @@ export default function StorePage() {
                     <div className="flex gap-3 items-start pb-3 border-b border-border/50">
                       <Clock className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
                       <div>
-                        <p className="text-xs text-muted-foreground mb-1">Estimated Delivery</p>
-                        <span className="text-sm font-medium">{store.shippingInfo?.estimatedDelivery || store.deliveryTime || '1-3 days'}</span>
+                        <p className="text-xs text-muted-foreground mb-1">Order Ready In</p>
+                        <span className="text-sm font-medium">
+                          {store.fulfillmentTime === 'same_day' ? 'Same Day' : store.fulfillmentTime === '24_hours' ? '24 Hours' : store.fulfillmentTime === '48_hours' ? '48 Hours' : store.fulfillmentTime === '1_week' ? '1 Week' : store.shippingInfo?.estimatedDelivery || store.deliveryTime || '1-3 days'}
+                        </span>
                       </div>
                     </div>
                     <div className="flex gap-3 items-start">

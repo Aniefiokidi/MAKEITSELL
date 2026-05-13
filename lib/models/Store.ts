@@ -19,6 +19,7 @@ const StoreSchema = new Schema({
   reviewCount: { type: Number, default: 0 },
   isOpen: { type: Boolean, default: true },
   deliveryTime: { type: String },
+  fulfillmentTime: { type: String, default: 'same_day' },
   deliveryFee: { type: Number },
   minimumOrder: { type: Number },
   phone: { type: String },

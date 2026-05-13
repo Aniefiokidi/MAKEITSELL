@@ -15,6 +15,7 @@ export default function CustomerOrdersPage() {
   const [loading, setLoading] = useState(true)
   const [productDetails, setProductDetails] = useState<Record<string, any>>({})
   const [storeNames, setStoreNames] = useState<{ [vendorId: string]: string }>({})
+  const [storeFulfillment, setStoreFulfillment] = useState<{ [vendorId: string]: string }>({})
   const [reviewingKey, setReviewingKey] = useState<string | null>(null)
   const [reviewRatings, setReviewRatings] = useState<Record<string, number>>({})
   const [reviewComments, setReviewComments] = useState<Record<string, string>>({})
@@ -70,12 +71,14 @@ export default function CustomerOrdersPage() {
           setProductDetails(productDetailsObj)
           // Fetch all store names by vendorId
           const storeNamesObj: { [vendorId: string]: string } = {}
+          const storeFulfillmentObj: { [vendorId: string]: string } = {}
           await Promise.all(Array.from(vendorIds).map(async (vendorId) => {
             try {
               const res = await fetch(`/api/database/stores?vendorId=${vendorId}`)
               const json = await res.json()
               if (json.success && Array.isArray(json.data) && json.data.length > 0) {
                 storeNamesObj[vendorId] = json.data[0].storeName || json.data[0].name || 'Store'
+                storeFulfillmentObj[vendorId] = json.data[0].fulfillmentTime || ''
               } else {
                 storeNamesObj[vendorId] = 'Store'
               }
@@ -84,6 +87,7 @@ export default function CustomerOrdersPage() {
             }
           }))
           setStoreNames(storeNamesObj)
+          setStoreFulfillment(storeFulfillmentObj)
         } catch (error) {
           // handle error if needed
         } finally {
@@ -228,6 +232,11 @@ export default function CustomerOrdersPage() {
                         <div className="font-bold text-lg leading-tight">Order #{order._parentOrderId?.substring(0, 8).toUpperCase()}</div>
                         <div className="text-base font-semibold leading-tight">{productName}</div>
                         <div className="text-sm text-muted-foreground leading-tight">by {storeName}</div>
+                        {storeFulfillment[vendorId] && (
+                          <div className="text-xs mt-0.5 text-orange-600 font-medium">
+                            ⏱ Ready in: {storeFulfillment[vendorId] === 'same_day' ? 'Same Day' : storeFulfillment[vendorId] === '24_hours' ? '24 Hours' : storeFulfillment[vendorId] === '48_hours' ? '48 Hours' : '1 Week'}
+                          </div>
+                        )}
                         <div className="text-muted-foreground text-xs mt-0.5">Placed: {order.createdAt ? (typeof order.createdAt === 'string' ? new Date(order.createdAt).toLocaleDateString() : order.createdAt?.toLocaleDateString?.()) : 'date unknown'}</div>
                       </div>
                     </div>

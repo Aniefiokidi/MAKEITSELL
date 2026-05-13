@@ -42,6 +42,7 @@ type StoreType = {
   address?: string;
   category?: string;
   deliveryTime?: string;
+  fulfillmentTime?: string;
   deliveryFee?: number;
   minimumOrder?: number;
   returnPolicy?: string;
@@ -94,6 +95,7 @@ export default function VendorStoreSettingsPage() {
     businessAddress: "",
     storeCategory: "",
     deliveryTime: "",
+    fulfillmentTime: "same_day",
     deliveryFee: 500,
     minimumOrder: 2000,
     returnPolicy: "",
@@ -164,6 +166,7 @@ export default function VendorStoreSettingsPage() {
             businessAddress: "",
             storeCategory: "",
             deliveryTime: "30-60 min",
+            fulfillmentTime: "same_day",
             deliveryFee: 500,
             minimumOrder: 2000,
           }))
@@ -189,6 +192,7 @@ export default function VendorStoreSettingsPage() {
             businessAddress: userStore.address || "",
             storeCategory: userStore.category || "",
             deliveryTime: userStore.deliveryTime || "30-60 min",
+            fulfillmentTime: userStore.fulfillmentTime || "same_day",
             deliveryFee: userStore.deliveryFee || 500,
             minimumOrder: userStore.minimumOrder || 2000,
             bankCode: userStore.bankCode || "",
@@ -396,6 +400,7 @@ export default function VendorStoreSettingsPage() {
         address: settings.businessAddress,
         category: settings.storeCategory || "electronics",
         deliveryTime: settings.deliveryTime,
+        fulfillmentTime: settings.fulfillmentTime || 'same_day',
         deliveryFee: settings.deliveryFee,
         minimumOrder: settings.minimumOrder,
         returnPolicy: settings.returnPolicy,
@@ -545,6 +550,21 @@ export default function VendorStoreSettingsPage() {
                 <div>
                   <Label htmlFor="minimumOrder">Minimum Order</Label>
                   <Input id="minimumOrder" type="number" value={settings.minimumOrder} onChange={e => handleInputChange("minimumOrder", Number(e.target.value))} />
+                </div>
+                <div>
+                  <Label htmlFor="fulfillmentTime">Order Fulfillment Time</Label>
+                  <p className="text-xs text-muted-foreground mb-2">How long does it take you to get an order ready for pickup / dispatch?</p>
+                  <Select value={settings.fulfillmentTime || 'same_day'} onValueChange={val => handleInputChange("fulfillmentTime", val)}>
+                    <SelectTrigger id="fulfillmentTime">
+                      <SelectValue placeholder="Select fulfillment time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="same_day">Same Day</SelectItem>
+                      <SelectItem value="24_hours">24 Hours</SelectItem>
+                      <SelectItem value="48_hours">48 Hours</SelectItem>
+                      <SelectItem value="1_week">1 Week</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardContent>
             </Card>
