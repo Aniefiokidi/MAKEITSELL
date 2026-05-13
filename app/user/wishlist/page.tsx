@@ -30,7 +30,6 @@ export default function WishlistPage() {
       image: item.image,
       vendorId: item.vendorId,
       vendorName: '',
-      quantity: 1,
       maxStock: 100,
     })
   }
