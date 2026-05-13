@@ -6,10 +6,11 @@ import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { storeId: string } }
+  { params }: { params: Promise<{ storeId: string }> }
 ) {
+  const { storeId } = await params
   await connectToDatabase()
-  const reviews = await Review.find({ storeId: params.storeId })
+  const reviews = await Review.find({ storeId })
     .sort({ createdAt: -1 })
     .limit(50)
     .lean()
@@ -18,8 +19,9 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { storeId: string } }
+  { params }: { params: Promise<{ storeId: string }> }
 ) {
+  const { storeId } = await params
   const sessionUser = await getSessionUserFromRequest(request)
   if (!sessionUser) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
@@ -41,7 +43,7 @@ export async function POST(
   const order = await Order.findOne({
     orderId,
     customerId: sessionUser.id,
-    storeIds: params.storeId,
+    storeIds: storeId,
     status: { $in: ['delivered', 'received'] },
   }).lean()
 
@@ -53,7 +55,7 @@ export async function POST(
   }
 
   // Prevent duplicate review for same order+store
-  const existing = await Review.findOne({ orderId, storeId: params.storeId }).lean()
+  const existing = await Review.findOne({ orderId, storeId }).lean()
   if (existing) {
     return NextResponse.json(
       { success: false, error: 'You have already reviewed this order' },
@@ -62,8 +64,8 @@ export async function POST(
   }
 
   const review = await Review.create({
-    storeId:      params.storeId,
-    vendorId:     String((order as any).vendors?.[0]?.vendorId || params.storeId),
+    storeId,
+    vendorId:     String((order as any).vendors?.[0]?.vendorId || storeId),
     customerId:   sessionUser.id,
     customerName: sessionUser.name || 'Customer',
     orderId,
