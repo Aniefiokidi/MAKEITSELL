@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 /**
  * Send security notice emails to users about the password reset.
+ * Generates a fresh temp password per user, saves it to DB, and includes it in the email.
  *
  * Usage:
  *   node scripts/send-security-notice.js            ← test mode (2 addresses only)
  *   node scripts/send-security-notice.js --live     ← send to ALL users with mustChangePassword:true
  */
 
-const fs   = require('fs')
-const path = require('path')
-const dns  = require('dns')
+const fs     = require('fs')
+const path   = require('path')
+const dns    = require('dns')
+const crypto = require('crypto')
 const { MongoClient } = require('mongodb')
 
 // ── Load .env / .env.local ────────────────────────────────────────────────────
@@ -40,17 +42,33 @@ const LOGO           = 'https://res.cloudinary.com/dgqxt06km/image/upload/q_auto
 const ACCENT         = '#7f1d1d'
 
 const IS_LIVE        = process.argv.includes('--live')
-const TEST_ADDRESSES = ['abiolak135@gmail.com', 'arnoldeee123@gmail.com']
 
 if (!RESEND_API_KEY) { console.error('ERROR: RESEND_API_KEY not set in .env.local'); process.exit(1) }
 if (!MONGO_URI)      { console.error('ERROR: MONGODB_URI not set in .env.local');    process.exit(1) }
 
+// ── Password helpers ──────────────────────────────────────────────────────────
+function generateTempPassword() {
+  return `MIS-${crypto.randomBytes(4).toString('hex').toUpperCase()}`
+}
+
+function hashPassword(password) {
+  // scrypt — matches lib/password.ts
+  const salt = crypto.randomBytes(16).toString('hex')
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex')
+  return `scrypt:${salt}:${hash}`
+}
+
 // ── Resend sender ─────────────────────────────────────────────────────────────
-async function sendEmail({ to, subject, html }) {
+async function sendEmail({ to, subject, html, text }) {
+  const body = { from: FROM, to: [to], subject, html }
+  if (text) body.text = text
+  // Reply-To helps deliverability
+  body.reply_to = SUPPORT_EMAIL
+
   const res = await fetch('https://api.resend.com/emails', {
     method:  'POST',
     headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ from: FROM, to: [to], subject, html }),
+    body:    JSON.stringify(body),
   })
   const payload = await res.json().catch(() => ({}))
   if (!res.ok || !payload?.id)
@@ -59,24 +77,33 @@ async function sendEmail({ to, subject, html }) {
 }
 
 // ── Email template ────────────────────────────────────────────────────────────
-function buildHtml(name) {
+function buildHtml(name, tempPassword) {
   const displayName = (name || 'Valued Customer').trim()
   return `
 <!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:40px 0;">
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="x-apple-disable-message-reformatting">
+  <title>Make It Sell — Account Security Update</title>
+</head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:40px 0;">
   <tr><td align="center">
-  <table width="100%" style="max-width:580px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+  <table role="presentation" width="100%" style="max-width:580px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
 
-    <!-- Header -->
-    <tr><td style="background:${ACCENT};padding:32px 24px;text-align:center;">
-      <img src="${LOGO}" alt="Make It Sell" style="height:52px;width:auto;display:block;margin:0 auto 14px;" />
-      <h1 style="margin:0;color:#ffffff;font-size:20px;font-weight:700;letter-spacing:0.3px;">
+    <!-- Logo header: white background -->
+    <tr><td style="background:#ffffff;padding:24px;text-align:center;border-bottom:3px solid ${ACCENT};">
+      <img src="${LOGO}" alt="Make It Sell" style="height:56px;width:auto;display:block;margin:0 auto;" />
+    </td></tr>
+
+    <!-- Dark band -->
+    <tr><td style="background:${ACCENT};padding:20px 24px;text-align:center;">
+      <h1 style="margin:0;color:#ffffff;font-size:19px;font-weight:700;letter-spacing:0.3px;">
         Important Account Notice
       </h1>
-      <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">
+      <p style="margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">
         Security &amp; Quality Control Update
       </p>
     </td></tr>
@@ -87,77 +114,62 @@ function buildHtml(name) {
         Hi <strong>${displayName}</strong>,
       </p>
       <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.75;">
-        As part of our scheduled <strong>security review and quality control process</strong>, we have performed a platform-wide account verification upgrade. As a standard precaution during this process, your account password was temporarily reset.
+        As part of our scheduled <strong>security review and quality control process</strong>, we have performed a platform-wide account verification upgrade. As a standard precaution, your account password was temporarily reset.
       </p>
       <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.75;">
-        We sent you a temporary password — please follow the steps below to regain full access to your account.
+        Use the temporary password below to sign in and set a new password of your choice — it only takes a moment.
       </p>
 
+      <!-- Temp password box -->
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+        <tr><td style="background:#fdf8f8;border:2px dashed ${ACCENT};border-radius:10px;padding:20px;text-align:center;">
+          <p style="margin:0 0 8px;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:1.5px;font-weight:600;">Your Temporary Password</p>
+          <p style="margin:0;font-size:28px;font-weight:700;letter-spacing:5px;color:${ACCENT};font-family:Courier New,Courier,monospace;">${tempPassword}</p>
+        </td></tr>
+      </table>
+
       <!-- Steps -->
-      <table width="100%" cellpadding="0" cellspacing="0"
-        style="background:#fdf8f8;border:1px solid #fcd5d5;border-radius:10px;padding:24px;margin-bottom:24px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+        style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:20px 24px;margin-bottom:24px;">
         <tr><td>
           <p style="margin:0 0 14px;font-size:14px;font-weight:700;color:${ACCENT};">
             Steps to restore your account access:
           </p>
 
-          <!-- Step 1 -->
-          <table cellpadding="0" cellspacing="0" style="margin-bottom:14px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
             <tr>
               <td style="width:32px;vertical-align:top;padding-top:1px;">
                 <span style="display:inline-block;width:24px;height:24px;background:${ACCENT};color:#fff;border-radius:50%;text-align:center;line-height:24px;font-size:12px;font-weight:700;">1</span>
               </td>
               <td style="padding-left:10px;">
                 <p style="margin:0;font-size:13px;color:#1f2937;line-height:1.65;">
-                  <strong>Check your email inbox</strong> for a recent email from Make It Sell with the subject
-                  <em>"Temporary Password"</em> or <em>"Account Password Reset"</em>.
-                  It contains a code starting with <strong>MIS-</strong>.
+                  Copy the temporary password shown above.
                 </p>
               </td>
             </tr>
           </table>
 
-          <!-- Step 2 -->
-          <table cellpadding="0" cellspacing="0" style="margin-bottom:14px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
             <tr>
               <td style="width:32px;vertical-align:top;padding-top:1px;">
                 <span style="display:inline-block;width:24px;height:24px;background:${ACCENT};color:#fff;border-radius:50%;text-align:center;line-height:24px;font-size:12px;font-weight:700;">2</span>
               </td>
               <td style="padding-left:10px;">
                 <p style="margin:0;font-size:13px;color:#1f2937;line-height:1.65;">
-                  <strong>Can't find it?</strong> Check your <strong>Spam</strong> or <strong>Junk</strong> folder.
-                  Email filters sometimes move automated messages there automatically.
-                  Look for any email from <em>makeitsell.ng</em> or <em>makeitsell.org</em>.
+                  Go to <strong>makeitsell.org/login</strong> and sign in using your email address and the temporary password above.
                 </p>
               </td>
             </tr>
           </table>
 
-          <!-- Step 3 -->
-          <table cellpadding="0" cellspacing="0" style="margin-bottom:14px;">
+          <table role="presentation" cellpadding="0" cellspacing="0">
             <tr>
               <td style="width:32px;vertical-align:top;padding-top:1px;">
                 <span style="display:inline-block;width:24px;height:24px;background:${ACCENT};color:#fff;border-radius:50%;text-align:center;line-height:24px;font-size:12px;font-weight:700;">3</span>
               </td>
               <td style="padding-left:10px;">
                 <p style="margin:0;font-size:13px;color:#1f2937;line-height:1.65;">
-                  <strong>Sign in at Make It Sell</strong> using your email address and the temporary password
-                  (the <strong>MIS-XXXX</strong> code from the email).
-                </p>
-              </td>
-            </tr>
-          </table>
-
-          <!-- Step 4 -->
-          <table cellpadding="0" cellspacing="0">
-            <tr>
-              <td style="width:32px;vertical-align:top;padding-top:1px;">
-                <span style="display:inline-block;width:24px;height:24px;background:${ACCENT};color:#fff;border-radius:50%;text-align:center;line-height:24px;font-size:12px;font-weight:700;">4</span>
-              </td>
-              <td style="padding-left:10px;">
-                <p style="margin:0;font-size:13px;color:#1f2937;line-height:1.65;">
-                  You will be <strong>prompted to set a new password</strong> of your choice.
-                  Once done, you are back in and your account is fully secured.
+                  You will be <strong>prompted to set a new permanent password</strong> of your choice. Once done, your account is fully secured.
                 </p>
               </td>
             </tr>
@@ -167,7 +179,7 @@ function buildHtml(name) {
       </table>
 
       <!-- CTA -->
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
         <tr><td align="center">
           <a href="${APP_URL}/login"
             style="display:inline-block;background:${ACCENT};color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:13px 36px;border-radius:8px;letter-spacing:0.2px;">
@@ -177,15 +189,15 @@ function buildHtml(name) {
       </table>
 
       <!-- Support note -->
-      <table width="100%" cellpadding="0" cellspacing="0"
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
         style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px 20px;margin-bottom:8px;">
         <tr><td>
           <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#374151;">
-            Still can't access your account?
+            Having trouble signing in?
           </p>
           <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.65;">
-            If you have followed the steps above and still cannot log in, please contact our support team
-            at <a href="mailto:${SUPPORT_EMAIL}" style="color:${ACCENT};font-weight:600;">${SUPPORT_EMAIL}</a>
+            If you cannot log in after following the steps above, please contact us at
+            <a href="mailto:${SUPPORT_EMAIL}" style="color:${ACCENT};font-weight:600;">${SUPPORT_EMAIL}</a>
             and we will assist you promptly.
           </p>
         </td></tr>
@@ -199,8 +211,9 @@ function buildHtml(name) {
     <!-- Footer -->
     <tr><td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:18px 24px;text-align:center;">
       <p style="margin:0;font-size:12px;color:#9ca3af;">
-        © Make It Sell ·
+        &copy; Make It Sell &middot;
         <a href="${APP_URL}" style="color:${ACCENT};text-decoration:none;">makeitsell.org</a>
+        &middot; 14 Admiralty Way, Lekki Phase 1, Lagos
       </p>
     </td></tr>
 
@@ -209,6 +222,29 @@ function buildHtml(name) {
 </table>
 </body>
 </html>`.trim()
+}
+
+function buildText(name, tempPassword) {
+  const displayName = (name || 'Valued Customer').trim()
+  return `Make It Sell — Account Security Update
+
+Hi ${displayName},
+
+As part of our scheduled security review and quality control process, we have performed a platform-wide account verification upgrade. As a standard precaution, your account password was temporarily reset.
+
+Your temporary password: ${tempPassword}
+
+Steps to restore access:
+1. Copy the temporary password above.
+2. Go to ${APP_URL}/login and sign in with your email and the temporary password.
+3. You will be prompted to set a new permanent password.
+
+Having trouble? Contact us at ${SUPPORT_EMAIL}.
+
+We apologise for any inconvenience. Thank you for being part of Make It Sell.
+
+© Make It Sell · makeitsell.org · 14 Admiralty Way, Lekki Phase 1, Lagos
+`.trim()
 }
 
 // ── MongoDB ───────────────────────────────────────────────────────────────────
@@ -231,26 +267,74 @@ async function main() {
   const db     = client.db()
 
   try {
-    let recipients // array of { email, name }
+    let recipients // array of { email, name, tempPassword }
 
     if (IS_LIVE) {
       const users = await db.collection('users')
         .find({ mustChangePassword: true, email: { $exists: true, $ne: '' } })
-        .project({ email: 1, name: 1, displayName: 1 })
+        .project({ _id: 1, email: 1, name: 1, displayName: 1, passwordHash: 1 })
         .toArray()
 
-      recipients = users.map(u => ({
-        email : String(u.email || '').trim().toLowerCase(),
-        name  : u.name || u.displayName || '',
-      })).filter(r => r.email)
+      console.log(`Found ${users.length} users with mustChangePassword: true\n`)
 
-      console.log(`Found ${recipients.length} users with mustChangePassword: true\n`)
+      recipients = []
+      for (const u of users) {
+        const email = String(u.email || '').trim().toLowerCase()
+        if (!email) continue
+        const tempPassword = generateTempPassword()
+        const oldHash = String(u.passwordHash || '')
+        await db.collection('users').updateOne(
+          { _id: u._id },
+          {
+            $set: {
+              passwordHash: hashPassword(tempPassword),
+              ...(oldHash ? { previousPasswordHash: oldHash } : {}),
+              mustChangePassword: true,
+              temporaryPasswordIssuedAt: new Date(),
+              updatedAt: new Date(),
+            },
+          }
+        )
+        recipients.push({ email, name: u.name || u.displayName || '', tempPassword })
+      }
+
     } else {
+      // Test mode: get Arnold's record, generate fresh temp password for him
+      const arnoldEmail  = 'arnoldeee123@gmail.com'
+      const biolaEmail   = 'abiolak135@gmail.com'
+
+      const arnoldUser = await db.collection('users').findOne(
+        { email: { $regex: new RegExp(`^${arnoldEmail}$`, 'i') } },
+        { projection: { _id: 1, name: 1, passwordHash: 1 } }
+      )
+
+      const sharedTempPassword = generateTempPassword()
+
+      if (arnoldUser) {
+        const oldHash = String(arnoldUser.passwordHash || '')
+        await db.collection('users').updateOne(
+          { _id: arnoldUser._id },
+          {
+            $set: {
+              passwordHash: hashPassword(sharedTempPassword),
+              ...(oldHash ? { previousPasswordHash: oldHash } : {}),
+              mustChangePassword: true,
+              temporaryPasswordIssuedAt: new Date(),
+              updatedAt: new Date(),
+            },
+          }
+        )
+        console.log(`  Arnold DB updated with new temp password.\n`)
+      } else {
+        console.log(`  Arnold not found in DB — will still send test email.\n`)
+      }
+
       recipients = [
-        { email: 'abiolak135@gmail.com', name: 'Test User' },
-        { email: 'arnoldeee123@gmail.com', name: 'Arnold' },
+        { email: biolaEmail,  name: 'Abiola',  tempPassword: sharedTempPassword },
+        { email: arnoldEmail, name: 'Arnold',  tempPassword: sharedTempPassword },
       ]
-      console.log(`TEST MODE — sending only to: ${recipients.map(r => r.email).join(', ')}\n`)
+      console.log(`TEST MODE — sending to: ${recipients.map(r => r.email).join(', ')}`)
+      console.log(`Temp password used: ${sharedTempPassword}\n`)
     }
 
     if (recipients.length === 0) {
@@ -265,8 +349,9 @@ async function main() {
       try {
         await sendEmail({
           to      : r.email,
-          subject : 'Important: Make It Sell Account Security Update',
-          html    : buildHtml(r.name),
+          subject : 'Action Required: Make It Sell Account Security Update',
+          html    : buildHtml(r.name, r.tempPassword),
+          text    : buildText(r.name, r.tempPassword),
         })
         console.log('✓ SENT')
         sent++
@@ -274,8 +359,7 @@ async function main() {
         console.log(`✗ FAILED: ${err.message}`)
         failed++
       }
-      // Small delay to respect rate limits
-      await new Promise(r => setTimeout(r, 250))
+      await new Promise(res => setTimeout(res, 300))
     }
 
     console.log(`\n────────────────────────────────────────────────────────────────`)
