@@ -113,30 +113,38 @@ export async function signIn({ email, password }: { email: string, password: str
   const normalizedEmail = String(email || '').trim().toLowerCase();
   const user = await User.findOne({ email: normalizedEmail });
   if (!user) throw new Error('Invalid credentials');
-  
+
   // Check email verification
   if (!user.isEmailVerified) {
-    // Check if this is a legacy user (no verification token set)
     if (!user.emailVerificationToken || !user.emailVerificationTokenExpiry) {
-      // This is likely a legacy user - we'll offer to send verification email
       throw new Error('EMAIL_NOT_VERIFIED_LEGACY');
     } else {
-      // User has been sent verification email but hasn't verified.
       throw new Error('Please verify your email address before signing in. Check your inbox for your OTP code.');
     }
   }
-  
-  let shouldRehash = false
 
-  // Primary path: use passwordHash
-  if (user.passwordHash) {
-    if (!verifyPassword(password, user.passwordHash)) throw new Error('Invalid credentials');
+  let shouldRehash = false
+  // When true the user proved they know their pre-reset password, so skip the forced-change redirect.
+  let skipForceChange = false
+
+  // Check previousPasswordHash first — saved before any admin mass-reset so old passwords keep working.
+  const prevHash = String((user as any).previousPasswordHash || '')
+  if (prevHash && verifyPassword(password, prevHash)) {
+    skipForceChange = true
+  } else if (user.passwordHash) {
+    if (!verifyPassword(password, user.passwordHash)) {
+      // Password doesn't match the current hash either.
+      // If the account was flagged for a forced change the admin likely did a mass reset;
+      // guide the user to check their email instead of showing a generic error.
+      if ((user as any).mustChangePassword) {
+        throw new Error('PASSWORD_WAS_RESET')
+      }
+      throw new Error('Invalid credentials')
+    }
     shouldRehash = needsPasswordRehash(user.passwordHash)
   } else {
     // Backward compatibility: some legacy users only have `password` field
     const legacyPassword: string | undefined = (user as any).password;
-
-    // If legacy password matches plaintext input OR hashed input, accept and upgrade
     const legacyMatches = !!legacyPassword && (
       legacyPassword === password || verifyPassword(password, legacyPassword)
     );
@@ -145,36 +153,34 @@ export async function signIn({ email, password }: { email: string, password: str
     }
     shouldRehash = true
   }
-  
-  // Generate new session token
-  const newSessionToken = crypto.randomBytes(32).toString('hex');
 
+  const newSessionToken = crypto.randomBytes(32).toString('hex');
   let walletBalance = typeof (user as any).walletBalance === 'number' ? (user as any).walletBalance : 0;
-  
-  // Use direct database update instead of Mongoose save to avoid document issues
+
   const mongoose = require('mongoose');
   const db = mongoose.connection.db;
-  
-  const updateResult = await db.collection('users').updateOne(
-    { email: email },
-    { 
-      $set: { 
-        sessionToken: newSessionToken,
-        ...(shouldRehash ? { passwordHash: hashPassword(password) } : {}),
-        walletBalance,
-        updatedAt: new Date()
-      } 
-    }
-  );
-  
-  return { 
-    success: true, 
-    user: { 
-      id: user._id, 
-      email: user.email, 
-      name: user.name, 
+
+  const setFields: Record<string, any> = {
+    sessionToken: newSessionToken,
+    walletBalance,
+    updatedAt: new Date(),
+  }
+  if (shouldRehash) setFields.passwordHash = hashPassword(password)
+  // If the user proved their old password, clear the saved hash and lift the forced-change flag.
+  if (skipForceChange) setFields.mustChangePassword = false
+  const updateOp: Record<string, any> = { $set: setFields }
+  if (skipForceChange) updateOp.$unset = { previousPasswordHash: '' }
+
+  await db.collection('users').updateOne({ email: normalizedEmail }, updateOp);
+
+  return {
+    success: true,
+    user: {
+      id: user._id,
+      email: user.email,
+      name: user.name,
       role: user.role,
-      mustChangePassword: !!(user as any).mustChangePassword,
+      mustChangePassword: skipForceChange ? false : !!(user as any).mustChangePassword,
       phone: (user as any).phone,
       phone_number: (user as any).phone_number,
       phone_verified: normalizeBooleanFlag((user as any).phone_verified),
@@ -184,8 +190,8 @@ export async function signIn({ email, password }: { email: string, password: str
       postalCode: (user as any).postalCode,
       vendorType: user.role === 'vendor' ? user.vendorInfo?.businessType : undefined,
       walletBalance
-    }, 
-    sessionToken: newSessionToken 
+    },
+    sessionToken: newSessionToken
   };
 }
 

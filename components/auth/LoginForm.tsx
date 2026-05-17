@@ -120,6 +120,8 @@ export default function LoginForm() {
           console.error('Failed to send verification email:', emailError)
           setError('Your account needs email verification. Please contact support for assistance.')
         }
+      } else if (error.message === 'PASSWORD_WAS_RESET') {
+        setError("Your password was recently updated by an administrator. Please check your email for your temporary password and use that to sign in.")
       } else {
         setError(error.message || "Failed to sign in. Please check your credentials.")
       }

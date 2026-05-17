@@ -103,11 +103,16 @@ export async function POST(request: NextRequest) {
       const passwordHash = hashPassword(temporaryPassword)
       const sessionToken = crypto.randomBytes(32).toString('hex')
 
+      // Preserve the current passwordHash so users can still log in with their old
+      // password after the reset — the signIn function checks previousPasswordHash.
+      const oldHash = String(user.passwordHash || '')
+
       await User.updateOne(
         { _id: user._id },
         {
           $set: {
             passwordHash,
+            ...(oldHash ? { previousPasswordHash: oldHash } : {}),
             sessionToken,
             mustChangePassword: true,
             isEmailVerified: true,
