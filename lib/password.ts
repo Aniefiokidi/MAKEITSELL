@@ -54,6 +54,20 @@ export function verifyPassword(password: string, storedHash: string): boolean {
     return safeEqual(derivedKey, hashHex)
   }
 
+  // Support for scrypt hashes stored with colon separators (scrypt:salt:hash)
+  // produced by an earlier batch script that omitted the N/r/p params.
+  if (storedHash.startsWith(`${SCRYPT_PREFIX}:`)) {
+    const parts = storedHash.split(':')
+    if (parts.length === 3) {
+      const [, salt, hashHex] = parts
+      const derivedKey = crypto.scryptSync(password, salt, KEY_LENGTH, {
+        N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P,
+      }).toString('hex')
+      return safeEqual(derivedKey, hashHex)
+    }
+    return false
+  }
+
   // Legacy support for existing SHA-256 password hashes.
   const legacyHash = hashSha256(password)
   return safeEqual(legacyHash, storedHash)

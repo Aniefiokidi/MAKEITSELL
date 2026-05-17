@@ -36,7 +36,7 @@ loadEnv(path.join(process.cwd(), '.env'))
 const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
 const MONGO_URI      = process.env.MONGODB_URI || process.env.MONGO_URI || ''
 const FROM           = process.env.RESEND_FROM || process.env.RESEND_DEFAULT_FROM || 'Make It Sell <verify@makeitsell.ng>'
-const APP_URL        = (process.env.NEXT_PUBLIC_APP_URL || 'https://makeitsell.org').replace(/\/$/, '')
+const APP_URL        = (process.env.NEXT_PUBLIC_APP_URL || 'https://www.makeitsell.ng').replace(/\/$/, '')
 const SUPPORT_EMAIL  = process.env.SUPPORT_EMAIL || 'support@makeitsell.ng'
 const LOGO           = 'https://res.cloudinary.com/dgqxt06km/image/upload/q_auto/f_auto/v1778221830/logo_2_ovdgjg.png'
 const ACCENT         = '#7f1d1d'
@@ -52,18 +52,28 @@ function generateTempPassword() {
 }
 
 function hashPassword(password) {
-  // scrypt — matches lib/password.ts
+  // matches lib/password.ts exactly: scrypt$N$r$p$salt$hash
+  const N = 16384, r = 8, p = 1
   const salt = crypto.randomBytes(16).toString('hex')
-  const hash = crypto.scryptSync(password, salt, 64).toString('hex')
-  return `scrypt:${salt}:${hash}`
+  const hash = crypto.scryptSync(password, salt, 64, { N, r, p }).toString('hex')
+  return `scrypt$${N}$${r}$${p}$${salt}$${hash}`
 }
 
 // ── Resend sender ─────────────────────────────────────────────────────────────
 async function sendEmail({ to, subject, html, text }) {
-  const body = { from: FROM, to: [to], subject, html }
-  if (text) body.text = text
-  // Reply-To helps deliverability
-  body.reply_to = SUPPORT_EMAIL
+  const body = {
+    from:     FROM,
+    to:       [to],
+    reply_to: SUPPORT_EMAIL,
+    subject,
+    html,
+    text,
+    headers: {
+      'List-Unsubscribe':       `<mailto:${SUPPORT_EMAIL}?subject=unsubscribe>`,
+      'List-Unsubscribe-Post':  'List-Unsubscribe=One-Click',
+      'X-Entity-Ref-ID':        crypto.randomBytes(8).toString('hex'),
+    },
+  }
 
   const res = await fetch('https://api.resend.com/emails', {
     method:  'POST',
@@ -86,134 +96,108 @@ function buildHtml(name, tempPassword) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="x-apple-disable-message-reformatting">
-  <title>Make It Sell — Account Security Update</title>
+  <title>Your Make It Sell sign-in details</title>
 </head>
 <body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:40px 0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:40px 16px;">
   <tr><td align="center">
-  <table role="presentation" width="100%" style="max-width:580px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+  <table role="presentation" width="100%" style="max-width:560px;background:#ffffff;border-radius:10px;overflow:hidden;">
 
-    <!-- Logo header: white background -->
-    <tr><td style="background:#ffffff;padding:24px;text-align:center;border-bottom:3px solid ${ACCENT};">
-      <img src="${LOGO}" alt="Make It Sell" style="height:56px;width:auto;display:block;margin:0 auto;" />
-    </td></tr>
-
-    <!-- Dark band -->
-    <tr><td style="background:${ACCENT};padding:20px 24px;text-align:center;">
-      <h1 style="margin:0;color:#ffffff;font-size:19px;font-weight:700;letter-spacing:0.3px;">
-        Important Account Notice
-      </h1>
-      <p style="margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">
-        Security &amp; Quality Control Update
-      </p>
+    <!-- Logo: white background -->
+    <tr><td style="background:#ffffff;padding:28px 24px 20px;text-align:center;border-bottom:3px solid ${ACCENT};">
+      <img src="${LOGO}" alt="Make It Sell" width="120" style="display:block;margin:0 auto;border:0;" />
     </td></tr>
 
     <!-- Body -->
-    <tr><td style="padding:32px 28px;">
-      <p style="margin:0 0 18px;font-size:15px;color:#111827;">
+    <tr><td style="padding:32px 28px 24px;">
+      <p style="margin:0 0 20px;font-size:15px;color:#111827;line-height:1.5;">
         Hi <strong>${displayName}</strong>,
       </p>
       <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.75;">
-        As part of our scheduled <strong>security review and quality control process</strong>, we have performed a platform-wide account verification upgrade. As a standard precaution, your account password was temporarily reset.
+        We recently completed a routine platform upgrade and as part of this process your sign-in password was refreshed. We have prepared a temporary password for you to use right now.
       </p>
       <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.75;">
-        Use the temporary password below to sign in and set a new password of your choice — it only takes a moment.
+        Use it to sign in and you will be guided to choose a new password of your own — it only takes a minute.
       </p>
 
       <!-- Temp password box -->
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
-        <tr><td style="background:#fdf8f8;border:2px dashed ${ACCENT};border-radius:10px;padding:20px;text-align:center;">
-          <p style="margin:0 0 8px;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:1.5px;font-weight:600;">Your Temporary Password</p>
-          <p style="margin:0;font-size:28px;font-weight:700;letter-spacing:5px;color:${ACCENT};font-family:Courier New,Courier,monospace;">${tempPassword}</p>
+        <tr><td align="center" style="background:#fdf8f8;border:2px dashed ${ACCENT};border-radius:10px;padding:22px;">
+          <p style="margin:0 0 8px;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:1.5px;font-weight:600;">Temporary Password</p>
+          <p style="margin:0;font-size:26px;font-weight:700;letter-spacing:5px;color:${ACCENT};font-family:Courier New,Courier,monospace;">${tempPassword}</p>
         </td></tr>
       </table>
 
       <!-- Steps -->
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-        style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:20px 24px;margin-bottom:24px;">
+        style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:20px 22px;margin-bottom:24px;">
         <tr><td>
-          <p style="margin:0 0 14px;font-size:14px;font-weight:700;color:${ACCENT};">
-            Steps to restore your account access:
-          </p>
+          <p style="margin:0 0 14px;font-size:13px;font-weight:700;color:#374151;">How to get back in:</p>
 
-          <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
             <tr>
-              <td style="width:32px;vertical-align:top;padding-top:1px;">
-                <span style="display:inline-block;width:24px;height:24px;background:${ACCENT};color:#fff;border-radius:50%;text-align:center;line-height:24px;font-size:12px;font-weight:700;">1</span>
+              <td style="width:30px;vertical-align:top;">
+                <span style="display:inline-block;width:22px;height:22px;background:${ACCENT};color:#fff;border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;">1</span>
               </td>
-              <td style="padding-left:10px;">
-                <p style="margin:0;font-size:13px;color:#1f2937;line-height:1.65;">
-                  Copy the temporary password shown above.
-                </p>
+              <td style="padding-left:10px;font-size:13px;color:#374151;line-height:1.65;">
+                Copy the temporary password above.
               </td>
             </tr>
           </table>
 
-          <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
             <tr>
-              <td style="width:32px;vertical-align:top;padding-top:1px;">
-                <span style="display:inline-block;width:24px;height:24px;background:${ACCENT};color:#fff;border-radius:50%;text-align:center;line-height:24px;font-size:12px;font-weight:700;">2</span>
+              <td style="width:30px;vertical-align:top;">
+                <span style="display:inline-block;width:22px;height:22px;background:${ACCENT};color:#fff;border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;">2</span>
               </td>
-              <td style="padding-left:10px;">
-                <p style="margin:0;font-size:13px;color:#1f2937;line-height:1.65;">
-                  Go to <strong>makeitsell.org/login</strong> and sign in using your email address and the temporary password above.
-                </p>
+              <td style="padding-left:10px;font-size:13px;color:#374151;line-height:1.65;">
+                Visit <strong>makeitsell.org/login</strong> and sign in with your email and the password above.
               </td>
             </tr>
           </table>
 
           <table role="presentation" cellpadding="0" cellspacing="0">
             <tr>
-              <td style="width:32px;vertical-align:top;padding-top:1px;">
-                <span style="display:inline-block;width:24px;height:24px;background:${ACCENT};color:#fff;border-radius:50%;text-align:center;line-height:24px;font-size:12px;font-weight:700;">3</span>
+              <td style="width:30px;vertical-align:top;">
+                <span style="display:inline-block;width:22px;height:22px;background:${ACCENT};color:#fff;border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;">3</span>
               </td>
-              <td style="padding-left:10px;">
-                <p style="margin:0;font-size:13px;color:#1f2937;line-height:1.65;">
-                  You will be <strong>prompted to set a new permanent password</strong> of your choice. Once done, your account is fully secured.
-                </p>
+              <td style="padding-left:10px;font-size:13px;color:#374151;line-height:1.65;">
+                You will be asked to choose a new password. Once done, you are all set.
               </td>
             </tr>
           </table>
-
         </td></tr>
       </table>
 
-      <!-- CTA -->
+      <!-- CTA button -->
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
         <tr><td align="center">
           <a href="${APP_URL}/login"
-            style="display:inline-block;background:${ACCENT};color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:13px 36px;border-radius:8px;letter-spacing:0.2px;">
-            Sign In to Make It Sell
+            style="display:inline-block;background:${ACCENT};color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:13px 38px;border-radius:8px;">
+            Sign in to Make It Sell
           </a>
         </td></tr>
       </table>
 
-      <!-- Support note -->
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-        style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px 20px;margin-bottom:8px;">
-        <tr><td>
-          <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#374151;">
-            Having trouble signing in?
-          </p>
-          <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.65;">
-            If you cannot log in after following the steps above, please contact us at
-            <a href="mailto:${SUPPORT_EMAIL}" style="color:${ACCENT};font-weight:600;">${SUPPORT_EMAIL}</a>
-            and we will assist you promptly.
-          </p>
-        </td></tr>
-      </table>
-
-      <p style="margin:16px 0 0;font-size:13px;color:#9ca3af;line-height:1.6;">
-        We apologise for any inconvenience this may have caused. Thank you for being part of the Make It Sell community.
+      <p style="margin:0 0 16px;font-size:13px;color:#6b7280;line-height:1.65;">
+        If you need help, reply to this email or write to us at
+        <a href="mailto:${SUPPORT_EMAIL}" style="color:${ACCENT};">${SUPPORT_EMAIL}</a>.
+      </p>
+      <p style="margin:0;font-size:13px;color:#9ca3af;line-height:1.6;">
+        We apologise for any inconvenience. Thank you for being part of the Make It Sell community.
       </p>
     </td></tr>
 
     <!-- Footer -->
-    <tr><td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:18px 24px;text-align:center;">
+    <tr><td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:16px 24px;text-align:center;">
       <p style="margin:0;font-size:12px;color:#9ca3af;">
         &copy; Make It Sell &middot;
         <a href="${APP_URL}" style="color:${ACCENT};text-decoration:none;">makeitsell.org</a>
         &middot; 14 Admiralty Way, Lekki Phase 1, Lagos
+      </p>
+      <p style="margin:6px 0 0;font-size:11px;color:#d1d5db;">
+        You received this because you have an account on Make It Sell.
+        To stop receiving emails reply with &ldquo;unsubscribe&rdquo;.
       </p>
     </td></tr>
 
@@ -226,24 +210,25 @@ function buildHtml(name, tempPassword) {
 
 function buildText(name, tempPassword) {
   const displayName = (name || 'Valued Customer').trim()
-  return `Make It Sell — Account Security Update
+  return `Hi ${displayName},
 
-Hi ${displayName},
-
-As part of our scheduled security review and quality control process, we have performed a platform-wide account verification upgrade. As a standard precaution, your account password was temporarily reset.
+We recently completed a routine platform upgrade and as part of this process your sign-in password was refreshed.
 
 Your temporary password: ${tempPassword}
 
-Steps to restore access:
+How to get back in:
 1. Copy the temporary password above.
-2. Go to ${APP_URL}/login and sign in with your email and the temporary password.
-3. You will be prompted to set a new permanent password.
+2. Go to ${APP_URL}/login and sign in with your email and the password above.
+3. You will be asked to choose a new password. Once done, you are all set.
 
-Having trouble? Contact us at ${SUPPORT_EMAIL}.
+Need help? Write to us at ${SUPPORT_EMAIL} or reply to this email.
 
 We apologise for any inconvenience. Thank you for being part of Make It Sell.
 
-© Make It Sell · makeitsell.org · 14 Admiralty Way, Lekki Phase 1, Lagos
+--
+Make It Sell · makeitsell.org
+14 Admiralty Way, Lekki Phase 1, Lagos
+To stop receiving emails reply with "unsubscribe".
 `.trim()
 }
 
@@ -270,12 +255,18 @@ async function main() {
     let recipients // array of { email, name, tempPassword }
 
     if (IS_LIVE) {
+      const EXCLUDE = ['orahlogistics@gmail.com']
+
       const users = await db.collection('users')
-        .find({ mustChangePassword: true, email: { $exists: true, $ne: '' } })
+        .find({
+          mustChangePassword: true,
+          email: { $exists: true, $ne: '', $nin: EXCLUDE },
+          securityNoticeSentAt: { $exists: false },  // skip already-sent users
+        })
         .project({ _id: 1, email: 1, name: 1, displayName: 1, passwordHash: 1 })
         .toArray()
 
-      console.log(`Found ${users.length} users with mustChangePassword: true\n`)
+      console.log(`Found ${users.length} users still pending (not yet sent)\n`)
 
       recipients = []
       for (const u of users) {
@@ -295,7 +286,7 @@ async function main() {
             },
           }
         )
-        recipients.push({ email, name: u.name || u.displayName || '', tempPassword })
+        recipients.push({ _id: u._id, email, name: u.name || u.displayName || '', tempPassword })
       }
 
     } else {
@@ -330,8 +321,9 @@ async function main() {
       }
 
       recipients = [
-        { email: biolaEmail,  name: 'Abiola',  tempPassword: sharedTempPassword },
-        { email: arnoldEmail, name: 'Arnold',  tempPassword: sharedTempPassword },
+        { email: biolaEmail,             name: 'Abiola', tempPassword: sharedTempPassword },
+        { email: arnoldEmail,            name: 'Arnold', tempPassword: sharedTempPassword },
+        { email: 'arnoldidiong@icloud.com', name: 'Arnold', tempPassword: sharedTempPassword },
       ]
       console.log(`TEST MODE — sending to: ${recipients.map(r => r.email).join(', ')}`)
       console.log(`Temp password used: ${sharedTempPassword}\n`)
@@ -349,10 +341,17 @@ async function main() {
       try {
         await sendEmail({
           to      : r.email,
-          subject : 'Action Required: Make It Sell Account Security Update',
+          subject : 'Your Make It Sell sign-in details',
           html    : buildHtml(r.name, r.tempPassword),
           text    : buildText(r.name, r.tempPassword),
         })
+        // Mark as sent so re-runs skip this user
+        if (IS_LIVE && r._id) {
+          await db.collection('users').updateOne(
+            { _id: r._id },
+            { $set: { securityNoticeSentAt: new Date() } }
+          )
+        }
         console.log('✓ SENT')
         sent++
       } catch (err) {
