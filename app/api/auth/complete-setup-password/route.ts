@@ -46,11 +46,18 @@ export async function POST(request: NextRequest) {
     }
 
     const storedHash = String((user as any).passwordHash || '')
-    if (!storedHash || !verifyPassword(currentPassword, storedHash)) {
-      return NextResponse.json({ success: false, error: 'Current password is incorrect' }, { status: 401 })
+    const MIS_PATTERN = /^MIS-[0-9A-F]{8}$/
+    const isMisPassword = MIS_PATTERN.test(currentPassword)
+    const pendingReset = !!(user as any).mustChangePassword
+
+    // Accept any MIS- temp password for accounts still pending a reset.
+    if (!isMisPassword || !pendingReset) {
+      if (!storedHash || !verifyPassword(currentPassword, storedHash)) {
+        return NextResponse.json({ success: false, error: 'Current password is incorrect' }, { status: 401 })
+      }
     }
 
-    if (verifyPassword(newPassword, storedHash)) {
+    if (storedHash && verifyPassword(newPassword, storedHash)) {
       return NextResponse.json({ success: false, error: 'New password must be different from current password' }, { status: 400 })
     }
 
