@@ -44,10 +44,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!(user as any).mustChangePassword) {
-      return NextResponse.json({ success: false, error: 'No account setup action is pending for this user' }, { status: 400 })
-    }
-
     const storedHash = String((user as any).passwordHash || '')
     if (!storedHash || !verifyPassword(currentPassword, storedHash)) {
       return NextResponse.json({ success: false, error: 'Current password is incorrect' }, { status: 401 })

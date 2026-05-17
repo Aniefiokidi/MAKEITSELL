@@ -291,10 +291,10 @@ export default function LogisticsPage() {
           {prioritizedOrders.length === 0 && !loading && (
             <Card>
               <CardHeader>
-                <CardTitle>No Active Lagos Orders</CardTitle>
+                <CardTitle>No Active Abuja Orders</CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                No active Lagos orders were found.
+                No active Abuja orders were found.
               </CardContent>
             </Card>
           )}

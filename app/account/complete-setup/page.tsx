@@ -94,8 +94,14 @@ export default function CompleteSetupPage() {
 
       setSuccess('Password updated. Redirecting...')
       const finalRole = result.role || chosenRole || userProfile?.role || 'customer'
+      const logisticsRoutes: Record<string, string> = {
+        'a&co@makeitselll.org': '/logistics',
+        'orahlogistics@gmail.com': '/logistics/abuja',
+      }
+      const logisticsRoute = logisticsRoutes[email.toLowerCase()]
       setTimeout(() => {
-        if (finalRole === 'vendor') router.push('/vendor/dashboard')
+        if (logisticsRoute) router.push(logisticsRoute)
+        else if (finalRole === 'vendor') router.push('/vendor/dashboard')
         else if (finalRole === 'admin') router.push('/admin/dashboard')
         else if (finalRole === 'csa') router.push('/logistics')
         else router.push('/')
