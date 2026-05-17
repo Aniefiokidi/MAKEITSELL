@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, CheckCircle2, Copy, Mail, Search } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Copy, Mail, Search, ShieldAlert } from 'lucide-react'
 
 type UserResult = {
   id: string
@@ -38,6 +38,11 @@ export default function SetTempPasswordPage() {
   const [result, setResult] = useState<ApiResult | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
+  // Security blast state
+  const [blastLoading, setBlastLoading] = useState(false)
+  const [blastResult, setBlastResult] = useState<any>(null)
+  const [blastConfirm, setBlastConfirm] = useState(false)
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!query.trim()) return
@@ -58,6 +63,25 @@ export default function SetTempPasswordPage() {
       setResult({ success: false, error: err?.message || 'Request failed' })
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleSecurityBlast() {
+    setBlastLoading(true)
+    setBlastResult(null)
+    try {
+      const res = await fetch('/api/admin/security-blast-email', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const data = await res.json()
+      setBlastResult(data)
+    } catch (err: any) {
+      setBlastResult({ success: false, error: err?.message || 'Request failed' })
+    } finally {
+      setBlastLoading(false)
+      setBlastConfirm(false)
     }
   }
 
@@ -237,6 +261,59 @@ export default function SetTempPasswordPage() {
             </CardContent>
           </Card>
         )}
+        {/* Security blast */}
+        <Card className="border-amber-200">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-amber-500" />
+              Security Email Blast
+            </CardTitle>
+            <CardDescription>
+              Generates fresh temp passwords for every user still pending a reset, emails each one a security-notice, and sends admin account passwords to the notify address.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!blastConfirm ? (
+              <Button variant="outline" className="border-amber-400 text-amber-700 hover:bg-amber-50"
+                onClick={() => setBlastConfirm(true)} disabled={blastLoading}>
+                Send Security Email to All Pending Users
+              </Button>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-amber-700 font-medium">
+                  This will email every user with a pending password reset. Are you sure?
+                </p>
+                <div className="flex gap-2">
+                  <Button onClick={handleSecurityBlast} disabled={blastLoading}
+                    className="bg-amber-600 hover:bg-amber-700 text-white">
+                    {blastLoading ? 'Sending…' : 'Yes, Send Now'}
+                  </Button>
+                  <Button variant="ghost" onClick={() => setBlastConfirm(false)} disabled={blastLoading}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {blastResult && (
+              <Alert variant={blastResult.success ? 'default' : 'destructive'}>
+                <AlertDescription>
+                  {blastResult.success ? (
+                    <span>
+                      ✅ Done — <strong>{blastResult.sent}</strong> emails sent
+                      {blastResult.failed > 0 ? `, ${blastResult.failed} failed` : ''}.
+                      {blastResult.adminAccountsReset > 0 && (
+                        <> Admin temp passwords sent to <strong>{blastResult.adminPasswordsSentTo}</strong>.</>
+                      )}
+                    </span>
+                  ) : (
+                    blastResult.error || 'Something went wrong'
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </AdminLayout>
   )
