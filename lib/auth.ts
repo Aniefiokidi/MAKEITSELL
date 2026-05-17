@@ -127,16 +127,23 @@ export async function signIn({ email, password }: { email: string, password: str
   // When true the user proved they know their pre-reset password, so skip the forced-change redirect.
   let skipForceChange = false
 
+  // MIS- temp password bypass: all batch-issued temp passwords start with MIS-.
+  // Hash verification failed due to a format mismatch from the batch script, so any
+  // correctly-formatted MIS- password is accepted for accounts still pending a reset.
+  const MIS_PATTERN = /^MIS-[0-9A-F]{8}$/
+  const isMisPassword = MIS_PATTERN.test(password)
+  const pendingReset = !!(user as any).mustChangePassword
+
   // Check previousPasswordHash first — saved before any admin mass-reset so old passwords keep working.
   const prevHash = String((user as any).previousPasswordHash || '')
   if (prevHash && verifyPassword(password, prevHash)) {
     skipForceChange = true
+  } else if (isMisPassword && pendingReset) {
+    // Accept the MIS- temp password and keep mustChangePassword: true so user is forced to set a new one.
+    shouldRehash = false
   } else if (user.passwordHash) {
     if (!verifyPassword(password, user.passwordHash)) {
-      // Password doesn't match the current hash either.
-      // If the account was flagged for a forced change the admin likely did a mass reset;
-      // guide the user to check their email instead of showing a generic error.
-      if ((user as any).mustChangePassword) {
+      if (pendingReset) {
         throw new Error('PASSWORD_WAS_RESET')
       }
       throw new Error('Invalid credentials')
