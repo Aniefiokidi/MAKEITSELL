@@ -13,7 +13,7 @@ import { useAuth } from '@/contexts/AuthContext'
 
 export default function CompleteSetupPage() {
   const router = useRouter()
-  const { user, userProfile } = useAuth()
+  const { user, userProfile, refreshProfile } = useAuth()
 
   const [email, setEmail] = useState('')
   const [currentPassword, setCurrentPassword] = useState('')
@@ -92,7 +92,8 @@ export default function CompleteSetupPage() {
         return
       }
 
-      setSuccess('Password updated. Redirecting...')
+      setSuccess('Password updated. Signing you in...')
+      await refreshProfile()
       const finalRole = result.role || chosenRole || userProfile?.role || 'customer'
       const logisticsRoutes: Record<string, string> = {
         'a&co@makeitselll.org': '/logistics',
@@ -105,7 +106,7 @@ export default function CompleteSetupPage() {
         else if (finalRole === 'admin') router.push('/admin/dashboard')
         else if (finalRole === 'csa') router.push('/logistics')
         else router.push('/')
-      }, 1000)
+      }, 800)
     } catch (err: any) {
       setError(err?.message || 'Failed to update password')
     } finally {

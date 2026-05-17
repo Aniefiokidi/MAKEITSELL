@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { serialize } from 'cookie'
 import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 import { getUserBySessionToken } from '@/lib/auth'
@@ -75,7 +76,32 @@ export async function POST(request: NextRequest) {
     )
 
     const finalRole = (chosenRole && allowedRoles.includes(chosenRole)) ? chosenRole : String(user.role || 'customer')
-    return NextResponse.json({ success: true, message: 'Password updated successfully', role: finalRole })
+
+    const sessionCookie = serialize('sessionToken', newSessionToken, {
+      httpOnly: true,
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    })
+
+    return new NextResponse(
+      JSON.stringify({
+        success: true,
+        message: 'Password updated successfully',
+        role: finalRole,
+        user: {
+          id: String(user._id),
+          email: user.email,
+          name: user.name,
+          role: finalRole,
+        },
+      }),
+      {
+        status: 200,
+        headers: { 'Set-Cookie': sessionCookie, 'Content-Type': 'application/json' },
+      }
+    )
   } catch (error: any) {
     console.error('[auth/complete-setup-password] Error:', error)
     return NextResponse.json(
