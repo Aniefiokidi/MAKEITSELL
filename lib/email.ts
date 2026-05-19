@@ -656,8 +656,13 @@ class EmailService {
         : Math.max(0, Number(data.total || 0) - productSubtotal)
       const total = productSubtotal + deliveryFee
 
+      const logoUrl = 'https://res.cloudinary.com/dgqxt06km/image/upload/q_auto/f_auto/v1778221830/logo_2_ovdgjg.png'
+
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; background: #ffffff; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
+          <div style="background: #ffffff; padding: 20px; text-align: center; border-bottom: 3px solid #7f1d1d;">
+            <img src="${logoUrl}" alt="Make It Sell" style="height: 44px; width: auto; display: block; margin: 0 auto;" />
+          </div>
           <div style="background: #7f1d1d; color: #fff; padding: 20px;">
             <h1 style="margin: 0; font-size: 24px;">Order Status Update</h1>
             <p style="margin: 8px 0 0 0; opacity: 0.92;">${data.statusLabel}</p>
@@ -898,8 +903,10 @@ class EmailService {
     const shortOrderId = orderData.orderId.substring(0, 8).toUpperCase();
     const vendorEmailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f7f7f8; border: 1px solid #ececf0; border-radius: 14px; overflow: hidden;">
-        <div style="background: #7f1d1d; padding: 24px 20px; text-align: center;">
-          <img src="${logoUrl}" alt="Make It Sell" style="height: 40px; width: auto; margin: 0 auto 12px auto; display: block;" />
+        <div style="background: #ffffff; padding: 20px; text-align: center; border-bottom: 3px solid #7f1d1d;">
+          <img src="${logoUrl}" alt="Make It Sell" style="height: 44px; width: auto; display: block; margin: 0 auto;" />
+        </div>
+        <div style="background: #7f1d1d; padding: 20px; text-align: center;">
           <h1 style="color: white; margin: 0; font-size: 26px; line-height: 1.2;">New Order Received</h1>
           <p style="color: rgba(255,255,255,0.92); margin: 8px 0 0 0;">You have a new order to process</p>
         </div>
