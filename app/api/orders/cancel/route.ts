@@ -5,6 +5,7 @@ import { Order } from '@/lib/models/Order'
 import { User } from '@/lib/models/User'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { getUserBySessionToken } from '@/lib/auth'
+import { sendOrderStatusChangeNotifications } from '@/lib/order-notifications'
 import crypto from 'crypto'
 import mongoose from 'mongoose'
 
@@ -101,6 +102,16 @@ export async function POST(request: NextRequest) {
         { orderId },
         { $set: { status: 'cancelled', cancelledAt: new Date(), updatedAt: new Date() } }
       )
+    }
+
+    // Send cancellation emails to customer and all vendors
+    try {
+      const updatedOrder = await Order.findOne({ orderId }).lean()
+      if (updatedOrder) {
+        await sendOrderStatusChangeNotifications(orderId, updatedOrder as any, 'cancelled')
+      }
+    } catch (notifyErr) {
+      console.error('[orders/cancel] Email notification failed:', notifyErr)
     }
 
     return NextResponse.json({
