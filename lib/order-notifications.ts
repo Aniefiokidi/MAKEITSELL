@@ -51,13 +51,16 @@ export async function sendOrderStatusChangeNotifications(orderId: string, order:
       try {
         const stores = await getStores({ vendorId: vendor.vendorId, limitCount: 5 })
         const preferredStore = (stores || []).find((store: any) => String(store?._id || '') === String(vendor.storeId || '')) || stores?.[0]
-        const store = preferredStore
-        if (!vendorEmail) {
-          vendorEmail = String(store?.email || '').trim()
-        }
+        if (!vendorEmail) vendorEmail = String(preferredStore?.email || '').trim()
       } catch (error) {
         console.error('[order-notifications] Failed to load store contact:', error)
       }
+    }
+    if (!vendorEmail && vendor.vendorId) {
+      try {
+        const vendorUser = await User.findById(vendor.vendorId).select('email').lean() as any
+        if (vendorUser?.email) vendorEmail = String(vendorUser.email).trim()
+      } catch { /* ignore */ }
     }
     if (vendorEmail) {
       await emailService.sendOrderStatusUpdateEmail({
@@ -81,6 +84,7 @@ import { emailService } from '@/lib/email'
 import { getStores } from '@/lib/mongodb-operations'
 import { sendOrderConfirmationSms } from '@/lib/sms'
 import { detectLogisticsRegionFromAddress } from '@/lib/logistics-access'
+import { User } from '@/lib/models/User'
 
 type OrderLike = any
 
@@ -234,6 +238,16 @@ export async function sendOrderPlacementNotifications(orderId: string, order: Or
         storeName = String(store?.storeName || vendor.vendorName).trim()
       } catch (error) {
         console.error('[order-notifications] Failed to load store contact:', error)
+      }
+    }
+
+    // Final fallback: use the vendor user account email
+    if (!vendorEmail && vendor.vendorId) {
+      try {
+        const vendorUser = await User.findById(vendor.vendorId).select('email').lean() as any
+        if (vendorUser?.email) vendorEmail = String(vendorUser.email).trim()
+      } catch {
+        // ignore
       }
     }
 
