@@ -21,6 +21,8 @@ export default function CustomerOrdersPage() {
   const [reviewComments, setReviewComments] = useState<Record<string, string>>({})
   const [reviewSubmitting, setReviewSubmitting] = useState<string | null>(null)
   const [reviewedKeys, setReviewedKeys] = useState<Set<string>>(new Set())
+  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null)
+  const [cancellingId, setCancellingId] = useState<string | null>(null)
 
   const [tab, setTab] = useState<'ongoing' | 'completed' | 'cancelled'>('ongoing')
   // Format currency with commas
@@ -313,6 +315,65 @@ export default function CustomerOrdersPage() {
                       </Badge>
                     </div>
                   </div>
+                  {/* Cancel Order */}
+                  {!['out_for_delivery','delivered','received','cancelled','refunded','completed'].includes(order.status) && (
+                    <div className="mt-3">
+                      {confirmCancelId === (order._parentOrderId || order.orderId || order.id) ? (
+                        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 space-y-2">
+                          <p className="text-xs font-semibold text-destructive">Cancel this order?</p>
+                          <p className="text-xs text-muted-foreground">
+                            {['escrow','completed','paid'].includes(order.paymentStatus)
+                              ? `Your payment of ₦${formatCurrency(Number(order.totalAmount || 0))} will be refunded to your wallet immediately.`
+                              : 'This action cannot be undone.'}
+                          </p>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="destructive" disabled={cancellingId === (order._parentOrderId || order.orderId || order.id)}
+                              onClick={async () => {
+                                const oid = order._parentOrderId || order.orderId || order.id
+                                setCancellingId(oid)
+                                try {
+                                  const res = await fetch('/api/orders/cancel', {
+                                    method: 'POST',
+                                    credentials: 'include',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ orderId: oid }),
+                                  })
+                                  const json = await res.json()
+                                  if (json.success) {
+                                    setOrders(prev => prev.map(o =>
+                                      (o.orderId || o.id) === oid
+                                        ? { ...o, status: 'cancelled', cancelledAt: new Date().toISOString() }
+                                        : o
+                                    ))
+                                    success('Order cancelled', json.message)
+                                  } else {
+                                    notifyError(json.error || 'Failed to cancel order')
+                                  }
+                                } catch (e: any) {
+                                  notifyError(e?.message || 'Failed to cancel order')
+                                } finally {
+                                  setCancellingId(null)
+                                  setConfirmCancelId(null)
+                                }
+                              }}>
+                              {cancellingId === (order._parentOrderId || order.orderId || order.id) ? 'Cancelling…' : 'Yes, Cancel'}
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => setConfirmCancelId(null)}>
+                              Keep Order
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex justify-end">
+                          <Button size="sm" variant="outline" className="border-destructive/50 text-destructive hover:bg-destructive hover:text-white"
+                            onClick={() => setConfirmCancelId(order._parentOrderId || order.orderId || order.id)}>
+                            Cancel Order
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Customer Acknowledgment */}
                   {order.status === 'delivered' && (
                     <div className="mt-4 flex justify-end">
