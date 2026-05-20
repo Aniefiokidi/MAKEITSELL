@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     await connectToDatabase()
 
-    const ordersRaw = await Order.find({})
+    const ordersRaw = await Order.find({ status: { $ne: 'cancelled' } })
       .sort({ createdAt: -1 })
       .lean()
 
