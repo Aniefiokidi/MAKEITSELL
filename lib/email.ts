@@ -1869,6 +1869,97 @@ class EmailService {
       replyTo: supportEmail,
     })
   }
+
+  async sendEscrowRefundEmail({
+    to,
+    customerName,
+    orderId,
+    refundAmount,
+  }: {
+    to: string
+    customerName: string
+    orderId: string
+    refundAmount: number
+  }): Promise<boolean> {
+    const logoUrl = 'https://res.cloudinary.com/dgqxt06km/image/upload/q_auto/f_auto/v1778221830/logo_2_ovdgjg.png'
+    const accent = '#7f1d1d'
+    const appBase = this.getAppBaseUrl()
+    const supportEmail = this.getEnv('SUPPORT_EMAIL') || 'support@makeitsell.ng'
+    const shortId = orderId.substring(0, 8).toUpperCase()
+    const formatted = `₦${Number(refundAmount || 0).toLocaleString('en-NG')}`
+
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:40px 16px;">
+<tr><td align="center">
+<table role="presentation" width="100%" style="max-width:560px;background:#ffffff;border-radius:10px;overflow:hidden;">
+
+  <tr><td style="background:#ffffff;padding:24px 20px;text-align:center;border-bottom:3px solid ${accent};">
+    <img src="${logoUrl}" alt="Make It Sell" style="height:44px;width:auto;display:block;margin:0 auto;" />
+  </td></tr>
+
+  <tr><td style="background:${accent};color:#fff;padding:20px;text-align:center;">
+    <h1 style="margin:0;font-size:22px;">Refund Processed</h1>
+    <p style="margin:8px 0 0;opacity:0.9;font-size:14px;">Order #${shortId}</p>
+  </td></tr>
+
+  <tr><td style="padding:28px 24px;">
+    <p style="margin:0 0 16px;font-size:15px;color:#111827;">Hi <strong>${this.escapeHtml(customerName)}</strong>,</p>
+    <p style="font-size:14px;color:#374151;line-height:1.75;margin:0 0 20px;">
+      Your order <strong>#${shortId}</strong> was not completed within the required timeframe, so we have automatically refunded the full payment to your Make It Sell wallet.
+    </p>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+      <tr><td align="center" style="background:#f0fdf4;border:2px solid #16a34a;border-radius:10px;padding:20px;">
+        <p style="margin:0 0 6px;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:1.5px;font-weight:600;">Amount Refunded</p>
+        <p style="margin:0;font-size:28px;font-weight:700;color:#15803d;">${formatted}</p>
+        <p style="margin:8px 0 0;font-size:12px;color:#6b7280;">Added to your wallet balance</p>
+      </td></tr>
+    </table>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px 18px;margin:0 0 24px;">
+      <tr><td>
+        <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#374151;">Refund details</p>
+        <p style="margin:0 0 4px;font-size:13px;color:#6b7280;">Order ID: <strong style="color:#374151;">#${shortId}</strong></p>
+        <p style="margin:0 0 4px;font-size:13px;color:#6b7280;">Amount: <strong style="color:#374151;">${formatted}</strong></p>
+        <p style="margin:0;font-size:13px;color:#6b7280;">Destination: <strong style="color:#374151;">Make It Sell Wallet</strong></p>
+      </td></tr>
+    </table>
+
+    <p style="font-size:14px;color:#374151;line-height:1.75;margin:0 0 20px;">
+      You can use your wallet balance on any future purchase on Make It Sell.
+    </p>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+      <tr><td align="center">
+        <a href="${appBase}/wallet" style="display:inline-block;background:${accent};color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:13px 38px;border-radius:8px;">View My Wallet</a>
+      </td></tr>
+    </table>
+
+    <p style="font-size:13px;color:#6b7280;line-height:1.65;margin:0;">
+      Questions? Reply to this email or contact us at <a href="mailto:${supportEmail}" style="color:${accent};">${supportEmail}</a>.
+    </p>
+  </td></tr>
+
+  <tr><td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:16px 24px;text-align:center;">
+    <p style="margin:0;font-size:12px;color:#9ca3af;">&copy; Make It Sell &middot; <a href="${appBase}" style="color:${accent};text-decoration:none;">makeitsell.ng</a></p>
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body></html>`
+
+    return this.sendEmail({
+      to,
+      subject: `Refund of ${formatted} for Order #${shortId} — Make It Sell`,
+      html,
+      text: `Hi ${customerName},\n\nYour order #${shortId} was not completed within the required timeframe. A refund of ${formatted} has been added to your Make It Sell wallet.\n\nView your wallet: ${appBase}/wallet\n\nQuestions? Email ${supportEmail}`,
+    })
+  }
 }
 
 export const emailService = new EmailService()

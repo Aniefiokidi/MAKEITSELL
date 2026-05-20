@@ -12,6 +12,7 @@ const WalletTransactionSchema = new Schema({
       'booking_cancellation_fee',
       'bid_security_hold',
       'bid_security_release',
+      'escrow_refund',
     ],
     required: true,
   },
