@@ -697,6 +697,12 @@ export default function CheckoutPage() {
                         ))}
                       </div>
 
+                      {items.some(item => (item.vendorName || '').toLowerCase().includes('munch')) && (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+                          <span className="font-semibold">Note:</span> Munch typically takes <span className="font-semibold">3–4 hours</span> to prepare orders. Please plan your delivery time accordingly.
+                        </div>
+                      )}
+
                       <Separator />
 
                       <div className="space-y-2">

@@ -127,6 +127,12 @@ export default function CartSidebar() {
                 <span>Total</span>
                 <span>₦{totalPrice.toFixed(2)}</span>
               </div>
+              {(items.some(item => (item.vendorName || '').toLowerCase().includes('munch')) ||
+                Object.values(storeNames).some((name: any) => String(name || '').toLowerCase().includes('munch'))) && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  <span className="font-semibold">Note:</span> Munch takes <span className="font-semibold">3–4 hours</span> to prepare orders. Plan accordingly.
+                </div>
+              )}
               <div className="space-y-2">
                 <Button asChild className="w-full border border-accent/40 bg-white text-accent hover:bg-accent hover:text-white transition-all" onClick={() => setIsOpen(false)}>
                   <Link href="/checkout">Proceed to Checkout</Link>
