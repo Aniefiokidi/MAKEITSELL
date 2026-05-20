@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
     const sortBy = searchParams.get('sortBy') || undefined
     const minPrice = searchParams.get('minPrice')
     const maxPrice = searchParams.get('maxPrice')
+    const city = searchParams.get('city') || undefined
 
     const parsedLimit = Number.parseInt(limit || '24', 10)
     const safeLimit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 100) : 24
@@ -72,6 +73,15 @@ export async function GET(request: NextRequest) {
     filters.limitCount = safeLimit
     filters.skipCount = skipCount
 
+    let cityVendorIds: string[] | null = null
+    if (city && city !== 'all') {
+      const { Store } = await import('@/lib/models/Store')
+      const cityStores = await Store.find({ city: { $regex: new RegExp(city.trim(), 'i') } }).select('vendorId').lean()
+      cityVendorIds = [...new Set((cityStores as any[]).map((s: any) => String(s.vendorId || '')).filter(Boolean))]
+      if (cityVendorIds.length > 0) filters.vendorIds = cityVendorIds
+      else filters.vendorIds = ['__no_match__']
+    }
+
     const listCacheKey = JSON.stringify({
       category: category || null,
       vendorId: vendorId || null,
@@ -80,6 +90,7 @@ export async function GET(request: NextRequest) {
       sortBy: sortBy || null,
       minPrice: minPrice !== null ? Number(minPrice) : null,
       maxPrice: maxPrice !== null ? Number(maxPrice) : null,
+      city: city || null,
       page: safePage,
       limit: safeLimit,
     })

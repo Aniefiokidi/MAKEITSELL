@@ -994,6 +994,7 @@ const buildProductQuery = (filters?: any) => {
   const query: any = {};
   if (filters?.category) query.category = new RegExp(`^${filters.category}$`, 'i');
   if (filters?.vendorId) query.vendorId = filters.vendorId;
+  if (Array.isArray(filters?.vendorIds) && filters.vendorIds.length > 0) query.vendorId = { $in: filters.vendorIds };
   if (filters?.featured !== undefined) query.featured = filters.featured;
   if (filters?.status) query.status = filters.status;
 
