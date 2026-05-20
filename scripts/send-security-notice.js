@@ -8,10 +8,11 @@
  *   node scripts/send-security-notice.js --live     ← send to ALL users with mustChangePassword:true
  */
 
-const fs     = require('fs')
-const path   = require('path')
-const dns    = require('dns')
-const crypto = require('crypto')
+const fs       = require('fs')
+const path     = require('path')
+const dns      = require('dns')
+const crypto   = require('crypto')
+const nodemailer = require('nodemailer')
 const { MongoClient } = require('mongodb')
 
 // ── Load .env / .env.local ────────────────────────────────────────────────────
@@ -59,8 +60,37 @@ function hashPassword(password) {
   return `scrypt$${N}$${r}$${p}$${salt}$${hash}`
 }
 
+// ── SMTP sender (fallback) ────────────────────────────────────────────────────
+const smtpTransport = nodemailer.createTransport({
+  host:   process.env.EMAIL_HOST  || 'smtp.privateemail.com',
+  port:   Number(process.env.EMAIL_PORT || 587),
+  secure: false,
+  auth: {
+    user: process.env.EMAIL_USER || process.env.SMTP_USER || 'support@makeitsell.ng',
+    pass: process.env.EMAIL_PASS || process.env.SMTP_PASS || '',
+  },
+})
+
+async function sendEmailSmtp({ to, subject, html, text }) {
+  const fromAddr = process.env.EMAIL_FROM || process.env.SMTP_FROM_EMAIL || 'Make It Sell <support@makeitsell.ng>'
+  await smtpTransport.sendMail({
+    from:    fromAddr,
+    to,
+    replyTo: SUPPORT_EMAIL,
+    subject,
+    html,
+    text,
+    headers: {
+      'List-Unsubscribe':      `<mailto:${SUPPORT_EMAIL}?subject=unsubscribe>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      'X-Entity-Ref-ID':       crypto.randomBytes(8).toString('hex'),
+    },
+  })
+  return 'smtp-ok'
+}
+
 // ── Resend sender ─────────────────────────────────────────────────────────────
-async function sendEmail({ to, subject, html, text }) {
+async function sendEmailResend({ to, subject, html, text }) {
   const body = {
     from:     FROM,
     to:       [to],
@@ -84,6 +114,19 @@ async function sendEmail({ to, subject, html, text }) {
   if (!res.ok || !payload?.id)
     throw new Error(payload?.message || payload?.error || `HTTP ${res.status}`)
   return payload.id
+}
+
+async function sendEmail(opts) {
+  try {
+    return await sendEmailResend(opts)
+  } catch (resendErr) {
+    const msg = String(resendErr.message || '')
+    if (msg.includes('not verified') || msg.includes('403') || msg.includes('domain')) {
+      // Domain not verified in Resend — fall back to SMTP
+      return await sendEmailSmtp(opts)
+    }
+    throw resendErr
+  }
 }
 
 // ── Email template ────────────────────────────────────────────────────────────
