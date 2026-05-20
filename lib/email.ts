@@ -503,16 +503,6 @@ class EmailService {
     return { min: Math.min(min, 5), max: Math.min(max, 5) }
   }
 
-  private formatDeliveryDate(days: number): string {
-    const date = new Date()
-    date.setDate(date.getDate() + days)
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    })
-  }
 
   async sendEmail(emailData: EmailData): Promise<boolean> {
     this.lastDeliveryError = null
@@ -865,7 +855,6 @@ class EmailService {
   }
 
   private async sendVendorOrderNotification(orderData: OrderEmailData): Promise<boolean> {
-    const deliveryEstimate = orderData.deliveryEstimate || this.calculateDeliveryEstimate()
     const orderDate = orderData.orderDate || new Date()
     
     const itemsList = orderData.items.map(item => {
@@ -958,13 +947,10 @@ class EmailService {
             </p>
           </div>
           
-          <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
-            <p style="margin: 0; color: #856404;">
-              <strong>📦 Delivery Target:</strong><br>
-              Please ensure items are shipped within ${deliveryEstimate.min === deliveryEstimate.max 
-                ? `${deliveryEstimate.min} day${deliveryEstimate.min > 1 ? 's' : ''}` 
-                : `${deliveryEstimate.min}-${deliveryEstimate.max} days`} to meet customer expectations.<br>
-              <small>Expected delivery: ${this.formatDeliveryDate(deliveryEstimate.min)} - ${this.formatDeliveryDate(deliveryEstimate.max)}</small>
+          <div style="background: #f0fdf4; padding: 16px 18px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #16a34a;">
+            <p style="margin: 0; color: #15803d; font-size: 15px;">
+              <strong>🛵 Rider Pickup</strong><br>
+              A rider will contact you shortly to come and pick up this order. Please have the item(s) ready for collection.
             </p>
           </div>
           
