@@ -40,11 +40,16 @@ export async function POST(
   await connectToDatabase()
 
   // Verify order belongs to this customer, includes this store, and was delivered/received
+  // storeId param may be either an actual store ObjectId (in storeIds[]) or a vendorId
   const order = await Order.findOne({
     orderId,
     customerId: sessionUser.id,
-    storeIds: storeId,
-    status: { $in: ['delivered', 'received'] },
+    status: { $in: ['delivered', 'received', 'completed'] },
+    $or: [
+      { storeIds: storeId },
+      { 'vendors.vendorId': storeId },
+      { 'vendors.storeId': storeId },
+    ],
   }).lean()
 
   if (!order) {
