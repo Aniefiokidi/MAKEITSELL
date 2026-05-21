@@ -4,6 +4,7 @@ import { getUserBySessionToken } from '@/lib/auth'
 import { connectToDatabase } from '@/lib/mongodb'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { User } from '@/lib/models/User'
+import { Order } from '@/lib/models/Order'
 import { paystackService } from '@/lib/payment'
 import mongoose from 'mongoose'
 
@@ -267,6 +268,16 @@ export async function GET(request: NextRequest) {
 
     const userBalance = typeof currentUser.walletBalance === 'number' ? currentUser.walletBalance : 0
 
+    // Sum totalAmount for escrow-held orders involving this vendor
+    const escrowOrders = await Order.find({
+      paymentStatus: 'escrow',
+      'vendors.vendorId': String(currentUser.id),
+    }).select('totalAmount').lean()
+    const escrowBalance = (escrowOrders as any[]).reduce(
+      (sum, o) => sum + Number(o.totalAmount || 0),
+      0
+    )
+
     const data = transactions.map((tx: any) => {
       const isManualReview =
         tx?.type === 'withdrawal'
@@ -295,6 +306,7 @@ export async function GET(request: NextRequest) {
       success: true,
       transactions: data,
       walletBalance: userBalance,
+      escrowBalance,
     })
   } catch (error: any) {
     return NextResponse.json(

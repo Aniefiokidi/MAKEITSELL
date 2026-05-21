@@ -31,6 +31,8 @@ export default function VendorWalletTransactionsPage() {
   const [loading, setLoading] = useState(true)
   const [typeFilter, setTypeFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [walletBalance, setWalletBalance] = useState<number | null>(null)
+  const [escrowBalance, setEscrowBalance] = useState<number | null>(null)
 
   const currencyFormatter = new Intl.NumberFormat('en-NG', {
     style: 'currency',
@@ -57,6 +59,8 @@ export default function VendorWalletTransactionsPage() {
       const result = await response.json()
       if (response.ok && result?.success && Array.isArray(result.transactions)) {
         setTransactions(result.transactions)
+        if (typeof result.walletBalance === 'number') setWalletBalance(result.walletBalance)
+        if (typeof result.escrowBalance === 'number') setEscrowBalance(result.escrowBalance)
       }
     } catch (error) {
       console.error('Failed to fetch transactions:', error)
@@ -124,6 +128,30 @@ export default function VendorWalletTransactionsPage() {
                 </div>
               </div>
             </div>
+
+            {(walletBalance !== null || escrowBalance !== null) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <Card>
+                  <CardContent className="p-5">
+                    <p className="text-sm text-muted-foreground mb-1">Available to Withdraw</p>
+                    <p className="text-2xl font-bold">
+                      {currencyFormatter.format(walletBalance ?? 0)}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-5">
+                    <p className="text-sm text-muted-foreground mb-1">Held in Escrow</p>
+                    <p className="text-2xl font-bold text-amber-600">
+                      {currencyFormatter.format(escrowBalance ?? 0)}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Released to you once an order is marked as completed
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
             <Card className="mb-6">
               <CardHeader>

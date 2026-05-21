@@ -749,6 +749,10 @@ export default function CheckoutPage() {
                         </div>
                       </div>
 
+                      <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2.5 text-xs text-blue-800">
+                        <span className="font-semibold">Estimated Delivery:</span> Same state — <span className="font-semibold">1–2 business days</span> &nbsp;·&nbsp; Inter-state — <span className="font-semibold">3–5 business days</span>
+                      </div>
+
                       <div className="pt-4 hidden md:block">
                         <Button type="submit" className="w-full border border-accent/40 bg-white text-accent hover:bg-accent hover:text-white hover:scale-105 transition-all hover:shadow-lg" size="lg" disabled={loading}>
                           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

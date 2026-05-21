@@ -688,7 +688,6 @@ class EmailService {
   }
 
   private async sendCustomerOrderConfirmation(orderData: OrderEmailData): Promise<boolean> {
-    const deliveryEstimate = orderData.deliveryEstimate || this.calculateDeliveryEstimate()
     const orderDate = orderData.orderDate || new Date()
     const accent = '#7f1d1d'
     const appBase = this.getAppBaseUrl()
@@ -817,9 +816,7 @@ class EmailService {
           <div style="margin-top: 18px; background: rgba(255,255,255,0.1); border-radius: 10px; border: 1px solid rgba(255,255,255,0.18); padding: 16px;">
             <h3 style="margin: 0 0 12px 0; color: #ffffff; font-size: 17px;">Delivery Information</h3>
             <p style="margin: 0 0 8px 0; color: rgba(255,255,255,0.92); font-size: 14px;">
-              Estimated delivery: <strong style="color: #ffffff;">${deliveryEstimate.min === deliveryEstimate.max 
-                ? `${deliveryEstimate.min} day${deliveryEstimate.min > 1 ? 's' : ''}` 
-                : `${deliveryEstimate.min}-${deliveryEstimate.max} days`}</strong>
+              Estimated delivery: <strong style="color: #ffffff;">1–2 business days</strong> (same state) &nbsp;|&nbsp; <strong style="color: #ffffff;">3–5 business days</strong> (inter-state)
             </p>
             <p style="margin: 0; color: rgba(255,255,255,0.92); font-size: 14px; line-height: 1.5;">
               ${orderData.shippingAddress.firstName} ${orderData.shippingAddress.lastName}<br>

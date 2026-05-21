@@ -35,6 +35,7 @@ export default function VendorDashboardPage() {
   const [storeData, setStoreData] = useState<any>(null);
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [escrowBalance, setEscrowBalance] = useState(0);
   const [activeTab, setActiveTab] = useState<"goods" | "services">("goods");
   const [setupPopupType, setSetupPopupType] = useState<"missing-store-image" | "missing-fulfillment-time" | null>(null);
   const [fulfillmentTime, setFulfillmentTime] = useState('same_day');
@@ -174,6 +175,7 @@ export default function VendorDashboardPage() {
       const result = await response.json()
       if (response.ok && result?.success && typeof result.walletBalance === 'number') {
         setWalletBalance(result.walletBalance)
+        if (typeof result.escrowBalance === 'number') setEscrowBalance(result.escrowBalance)
       }
     } catch {
       // keep last known wallet balance
@@ -585,8 +587,11 @@ export default function VendorDashboardPage() {
               <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                   <p className="text-lg lg:text-xl font-bold truncate">₦{formatCurrency(walletBalance)}</p>
-                  <p className="text-xs text-gray-600">Wallet Balance</p>
-                  <p className="text-xs text-blue-600">Click to manage</p>
+                  <p className="text-xs text-gray-600">Available to Withdraw</p>
+                  {escrowBalance > 0 && (
+                    <p className="text-xs text-amber-600 mt-0.5">₦{formatCurrency(escrowBalance)} in escrow</p>
+                  )}
+                  <p className="text-xs text-blue-600 mt-0.5">Click to manage</p>
                 </div>
                 <CreditCard className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow shrink-0" style={{ animationDelay: '0.5s' }} />
               </div>
