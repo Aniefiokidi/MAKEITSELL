@@ -5,6 +5,8 @@
  */
 import { MongoClient } from 'mongodb'
 import dotenv from 'dotenv'
+import dns from 'dns'
+dns.setDefaultResultOrder('ipv4first')
 dotenv.config({ path: '.env.local' })
 
 const uri = process.env.MONGODB_URI
@@ -36,7 +38,7 @@ function getDeliveryFeeFromOrder(order) {
   return null
 }
 
-const client = new MongoClient(uri)
+const client = new MongoClient(uri, { family: 4, serverSelectionTimeoutMS: 15000 })
 
 async function main() {
   await client.connect()
