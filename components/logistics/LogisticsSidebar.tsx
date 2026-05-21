@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Truck, ClipboardList, Archive } from "lucide-react"
+import { Truck, ClipboardList, Archive, Wallet } from "lucide-react"
 import type { LogisticsRegionConfig } from "@/lib/logistics-access"
 
 type LogisticsSidebarProps = {
@@ -43,6 +43,17 @@ export default function LogisticsSidebar({ region }: LogisticsSidebarProps) {
         >
           <Archive className="h-4 w-4" />
           Received Reference
+        </Link>
+        <Link
+          href={`${region.basePath}/wallet`}
+          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+            pathname === `${region.basePath}/wallet`
+              ? "bg-accent text-accent-foreground"
+              : "hover:bg-accent/10"
+          }`}
+        >
+          <Wallet className="h-4 w-4" />
+          Wallet
         </Link>
         <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground">
           <Truck className="h-4 w-4" />

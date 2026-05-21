@@ -13,6 +13,7 @@ const WalletTransactionSchema = new Schema({
       'bid_security_hold',
       'bid_security_release',
       'escrow_refund',
+      'logistics_delivery_credit',
     ],
     required: true,
   },

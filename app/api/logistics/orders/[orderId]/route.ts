@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import connectToDatabase from '@/lib/mongodb'
 import { Order } from '@/lib/models/Order'
 import { Store } from '@/lib/models/Store'
+import { User } from '@/lib/models/User'
+import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { releaseEscrowForOrder, updateOrder, getOrderById } from '@/lib/mongodb-operations'
 import { sendOrderStatusChangeNotifications } from '@/lib/order-notifications'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { logisticsEmailAllowedForRegion, resolveLogisticsRegion, storeMatchesLogisticsRegion } from '@/lib/logistics-access'
+import { estimateShippingFee } from '@/lib/aco-logistics-rates'
 
 export async function PATCH(request: NextRequest, context: { params: Promise<{ orderId: string }> }) {
   try {
@@ -144,6 +147,68 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ o
       await sendOrderStatusChangeNotifications(orderId, updatedOrder, requestedStatus)
     } catch (notifyErr) {
       console.error('[order-status-notification] Failed:', notifyErr)
+    }
+
+    // Credit logistics wallet when order is marked delivered
+    if (requestedStatus === 'delivered') {
+      try {
+        const order: any = existingOrder
+        const pickupLocation = targetStore?.address || ''
+        const dropoffLocation = [
+          order?.shippingInfo?.address,
+          order?.shippingInfo?.city,
+          order?.shippingInfo?.state,
+        ].filter(Boolean).join(', ')
+
+        const fee = estimateShippingFee({
+          pickupAddress: pickupLocation,
+          dropoffAddress: dropoffLocation,
+          pickupCity: String(targetStore?.city || ''),
+          pickupState: String(targetStore?.state || ''),
+          dropoffCity: String(order?.shippingInfo?.city || ''),
+          dropoffState: String(order?.shippingInfo?.state || ''),
+        })
+
+        if (fee && fee > 0) {
+          const logisticsUser = await User.findOne({
+            email: { $regex: new RegExp(`^${region.email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+          }).lean()
+
+          if (logisticsUser) {
+            const logisticsUserId = String((logisticsUser as any)._id)
+            const creditReference = `LOGISTICS-DELIVERY-${orderId}`
+
+            const tx = await WalletTransaction.updateOne(
+              { reference: creditReference },
+              {
+                $setOnInsert: {
+                  userId: logisticsUserId,
+                  type: 'logistics_delivery_credit',
+                  amount: fee,
+                  status: 'completed',
+                  reference: creditReference,
+                  provider: 'platform',
+                  note: `Delivery credit for order #${orderId}`,
+                  metadata: { source: 'logistics_delivery', orderId, region: region.key },
+                  orderId,
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                },
+              },
+              { upsert: true }
+            )
+
+            if ((tx as any).upsertedCount > 0) {
+              await User.updateOne(
+                { _id: (logisticsUser as any)._id },
+                { $inc: { walletBalance: fee }, $set: { updatedAt: new Date() } }
+              )
+            }
+          }
+        }
+      } catch (walletErr) {
+        console.error('[logistics-wallet] Credit failed for order:', orderId, walletErr)
+      }
     }
 
     if (requestedStatus === 'received') {
