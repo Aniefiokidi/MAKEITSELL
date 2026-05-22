@@ -204,9 +204,12 @@ export default function AdminOrdersPage() {
                     <SelectItem value="all">All Status</SelectItem>
                     <SelectItem value="pending">Pending</SelectItem>
                     <SelectItem value="processing">Processing</SelectItem>
+                    <SelectItem value="confirmed">Confirmed</SelectItem>
                     <SelectItem value="shipped">Shipped</SelectItem>
+                    <SelectItem value="out_for_delivery">Out for Delivery</SelectItem>
                     <SelectItem value="delivered">Delivered</SelectItem>
                     <SelectItem value="received">Received</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
                     <SelectItem value="cancelled">Cancelled</SelectItem>
                   </SelectContent>
                 </Select>
@@ -288,9 +291,12 @@ export default function AdminOrdersPage() {
                               <SelectContent>
                                 <SelectItem value="pending">Pending</SelectItem>
                                 <SelectItem value="processing">Processing</SelectItem>
+                                <SelectItem value="confirmed">Confirmed</SelectItem>
                                 <SelectItem value="shipped">Shipped</SelectItem>
+                                <SelectItem value="out_for_delivery">Out for Delivery</SelectItem>
                                 <SelectItem value="delivered">Delivered</SelectItem>
                                 <SelectItem value="received">Received</SelectItem>
+                                <SelectItem value="completed">Completed</SelectItem>
                                 <SelectItem value="cancelled">Cancelled</SelectItem>
                               </SelectContent>
                             </Select>
@@ -362,9 +368,12 @@ export default function AdminOrdersPage() {
                               <SelectContent>
                                 <SelectItem value="pending">Pending</SelectItem>
                                 <SelectItem value="processing">Processing</SelectItem>
+                                <SelectItem value="confirmed">Confirmed</SelectItem>
                                 <SelectItem value="shipped">Shipped</SelectItem>
+                                <SelectItem value="out_for_delivery">Out for Delivery</SelectItem>
                                 <SelectItem value="delivered">Delivered</SelectItem>
                                 <SelectItem value="received">Received</SelectItem>
+                                <SelectItem value="completed">Completed</SelectItem>
                                 <SelectItem value="cancelled">Cancelled</SelectItem>
                               </SelectContent>
                             </Select>
