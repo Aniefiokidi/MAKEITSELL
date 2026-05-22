@@ -644,7 +644,8 @@ class EmailService {
       const deliveryFee = Number.isFinite(Number(data.deliveryFee))
         ? Number(data.deliveryFee)
         : Math.max(0, Number(data.total || 0) - productSubtotal)
-      const total = productSubtotal + deliveryFee
+      const vat = Math.round(productSubtotal * 0.075 * 100) / 100
+      const total = productSubtotal + deliveryFee + vat
 
       const logoUrl = 'https://res.cloudinary.com/dgqxt06km/image/upload/q_auto/f_auto/v1778221830/logo_2_ovdgjg.png'
 
@@ -665,6 +666,7 @@ class EmailService {
               <p style="margin: 0 0 6px 0;"><strong>Order ID:</strong> ${shortOrderId}</p>
               <p style="margin: 0 0 6px 0;"><strong>Product subtotal:</strong> ₦${productSubtotal.toLocaleString('en-NG')}</p>
               <p style="margin: 0 0 6px 0;"><strong>Delivery fee:</strong> ${deliveryFee > 0 ? `₦${deliveryFee.toLocaleString('en-NG')}` : 'FREE'}</p>
+              <p style="margin: 0 0 6px 0;"><strong>VAT (7.5%):</strong> ₦${vat.toLocaleString('en-NG')}</p>
               <p style="margin: 0;"><strong>Total:</strong> ₦${total.toLocaleString('en-NG')}</p>
             </div>
             <div style="margin-top: 16px;">
@@ -723,7 +725,8 @@ class EmailService {
     const deliveryFee: number = Number.isFinite(Number(orderData.deliveryFee))
       ? Number(orderData.deliveryFee)
       : Math.max(0, Number(orderData.total || 0) - subtotal)
-    const total = subtotal + deliveryFee
+    const vat = Math.round(subtotal * 0.075 * 100) / 100
+    const total = subtotal + deliveryFee + vat
 
     const customerEmailHtml = `
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 640px; margin: 0 auto; background: ${accent}; color: #ffffff; border-radius: 14px; overflow: hidden;">
@@ -805,6 +808,10 @@ class EmailService {
                   <td colspan="3" style="padding: 10px; text-align: right; font-size: 14px; color: rgba(255,255,255,0.88);">Delivery Fee:</td>
                   <td style="padding: 10px; text-align: right; font-size: 14px; font-weight: 700; color: #ffffff;">${deliveryFee === 0 ? 'FREE' : '₦' + deliveryFee.toLocaleString()}</td>
                 </tr>
+                <tr>
+                  <td colspan="3" style="padding: 10px; text-align: right; font-size: 14px; color: rgba(255,255,255,0.88);">VAT (7.5%):</td>
+                  <td style="padding: 10px; text-align: right; font-size: 14px; font-weight: 700; color: #ffffff;">₦${vat.toLocaleString()}</td>
+                </tr>
                 <tr style="border-top: 1px solid rgba(255,255,255,0.3);">
                   <td colspan="3" style="padding: 14px 10px; text-align: right; font-size: 17px; font-weight: 700; color: #ffffff;">Total Amount:</td>
                   <td style="padding: 14px 10px; text-align: right; font-size: 20px; font-weight: 800; color: #ffffff;">₦${total.toLocaleString()}</td>
@@ -885,6 +892,7 @@ class EmailService {
     const deliveryFee = Number.isFinite(Number(orderData.deliveryFee))
       ? Number(orderData.deliveryFee)
       : Math.max(0, Number(orderData.total || 0) - productSubtotal)
+    const vat = Math.round(productSubtotal * 0.075 * 100) / 100
 
     const shortOrderId = orderData.orderId.substring(0, 8).toUpperCase();
     const vendorEmailHtml = `
@@ -929,7 +937,8 @@ class EmailService {
           <div style="background: #f8f9fa; border: 1px solid #ececec; border-radius: 8px; padding: 12px; margin: 14px 0 18px 0;">
             <p style="margin: 0 0 6px 0; color: #333;"><strong>Order ID:</strong> ${shortOrderId}</p>
             <p style="margin: 0 0 6px 0; color: #333;"><strong>Product subtotal:</strong> ₦${productSubtotal.toLocaleString()}</p>
-            <p style="margin: 0; color: #333;"><strong>Delivery fee:</strong> ${deliveryFee > 0 ? `₦${deliveryFee.toLocaleString()}` : 'FREE'}</p>
+            <p style="margin: 0 0 6px 0; color: #333;"><strong>Delivery fee:</strong> ${deliveryFee > 0 ? `₦${deliveryFee.toLocaleString()}` : 'FREE'}</p>
+            <p style="margin: 0; color: #333;"><strong>VAT (7.5%):</strong> ₦${vat.toLocaleString()}</p>
           </div>
           
           <h3 style="color: #333;">Shipping Address</h3>
