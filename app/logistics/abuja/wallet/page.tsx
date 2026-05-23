@@ -111,7 +111,12 @@ export default function LogisticsAbujaWalletPage() {
     setAccountName("")
     setAccountVerified(false)
     try {
-      const res = await fetch(`/api/vendor/verify-account?accountNumber=${accountNumber}&bankCode=${bankCode}`, { credentials: "include" })
+      const res = await fetch("/api/vendor/resolve-account", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bankCode, accountNumber, bankName }),
+      })
       const data = await res.json()
       if (data.success && data.accountName) {
         setAccountName(data.accountName)
