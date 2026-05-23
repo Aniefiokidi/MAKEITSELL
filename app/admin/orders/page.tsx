@@ -105,6 +105,30 @@ export default function AdminOrdersPage() {
   }, [orders, search, statusFilter, dateFrom, dateTo])
 
   // Pagination
+  const completedSummary = useMemo(() => {
+    const completedStatuses = new Set(['delivered', 'received', 'completed'])
+    const completedPayments = new Set(['released', 'paid', 'completed', 'successful'])
+    const uniqueOrders = Array.from(new Map(orders.map(o => [o.orderId || o.id, o])).values())
+      .filter(o =>
+        completedStatuses.has(String(o.status || '').toLowerCase()) ||
+        completedPayments.has(String(o.paymentStatus || '').toLowerCase())
+      )
+    let goodsTotal = 0
+    let deliveryTotal = 0
+    for (const order of uniqueOrders) {
+      const items = Array.isArray(order.items) ? order.items : []
+      const itemsSubtotal = items.reduce((s: number, item: any) =>
+        s + Number(item.price || 0) * Number(item.quantity || 1), 0)
+      const orderTotal = Number(order.totalAmount || 0)
+      const goods = itemsSubtotal > 0 ? itemsSubtotal : orderTotal
+      const delivery = itemsSubtotal > 0 ? Math.max(0, orderTotal - itemsSubtotal) : 0
+      goodsTotal += goods
+      deliveryTotal += delivery
+    }
+    const vat = Math.round(goodsTotal * 0.075 * 100) / 100
+    return { count: uniqueOrders.length, goodsTotal, deliveryTotal, vat, grandTotal: goodsTotal + deliveryTotal + vat }
+  }, [orders])
+
   const totalPages = Math.ceil(filtered.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
@@ -170,6 +194,32 @@ export default function AdminOrdersPage() {
           <h1 className="text-2xl lg:text-3xl font-bold">Orders Management</h1>
           <p className="text-muted-foreground text-sm lg:text-base">Track and review all customer orders</p>
         </div>
+
+        <Card className="border-green-200 bg-green-50">
+          <CardContent className="p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <p className="text-xs font-medium text-green-700 uppercase tracking-wide mb-1">Completed Orders — Grand Total</p>
+                <p className="text-3xl font-extrabold text-green-900">₦{completedSummary.grandTotal.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</p>
+                <p className="text-xs text-green-700 mt-1">{completedSummary.count} completed order{completedSummary.count !== 1 ? 's' : ''}</p>
+              </div>
+              <div className="flex flex-wrap gap-4 text-sm">
+                <div className="text-center">
+                  <p className="text-xs text-green-700">Goods</p>
+                  <p className="font-bold text-green-900">₦{completedSummary.goodsTotal.toLocaleString('en-NG')}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-green-700">Delivery</p>
+                  <p className="font-bold text-green-900">₦{completedSummary.deliveryTotal.toLocaleString('en-NG')}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-green-700">VAT (7.5%)</p>
+                  <p className="font-bold text-green-900">₦{completedSummary.vat.toLocaleString('en-NG')}</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
