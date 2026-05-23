@@ -16,8 +16,10 @@ export default function AdminDashboard() {
   const [disputedEscrowOrders, setDisputedEscrowOrders] = useState<any[]>([])
   const [escrowSummary, setEscrowSummary] = useState({
     waitingReleaseCount: 0,
+    escrowTotalValue: 0,
     remindersSentTodayCount: 0,
     releasedTodayCount: 0,
+    autoRefundDueCount: 0,
   })
   const [claimingOrderId, setClaimingOrderId] = useState('')
   const [refundingOrderId, setRefundingOrderId] = useState('')
@@ -54,8 +56,10 @@ export default function AdminDashboard() {
         if (escrowSummaryJson.success) {
           setEscrowSummary({
             waitingReleaseCount: Number(escrowSummaryJson?.summary?.waitingReleaseCount || 0),
+            escrowTotalValue: Number(escrowSummaryJson?.summary?.escrowTotalValue || 0),
             remindersSentTodayCount: Number(escrowSummaryJson?.summary?.remindersSentTodayCount || 0),
             releasedTodayCount: Number(escrowSummaryJson?.summary?.releasedTodayCount || 0),
+            autoRefundDueCount: Number(escrowSummaryJson?.summary?.autoRefundDueCount || 0),
           })
         }
       } catch (error) {
@@ -241,18 +245,26 @@ export default function AdminDashboard() {
               <TrendingUp className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                 <div className="rounded-md border border-blue-200 bg-white p-3">
                   <p className="text-xs text-blue-700">Waiting Release</p>
                   <p className="text-xl font-bold text-blue-900">{escrowSummary.waitingReleaseCount}</p>
                 </div>
                 <div className="rounded-md border border-blue-200 bg-white p-3">
+                  <p className="text-xs text-blue-700">Total in Escrow</p>
+                  <p className="text-xl font-bold text-blue-900">₦{escrowSummary.escrowTotalValue.toLocaleString()}</p>
+                </div>
+                <div className="rounded-md border border-orange-200 bg-orange-50 p-3">
+                  <p className="text-xs text-orange-700">Auto-refund Due</p>
+                  <p className="text-xl font-bold text-orange-900">{escrowSummary.autoRefundDueCount}</p>
+                </div>
+                <div className="rounded-md border border-blue-200 bg-white p-3">
                   <p className="text-xs text-blue-700">Reminders Sent Today</p>
                   <p className="text-xl font-bold text-blue-900">{escrowSummary.remindersSentTodayCount}</p>
                 </div>
-                <div className="rounded-md border border-blue-200 bg-white p-3">
-                  <p className="text-xs text-blue-700">Released Today</p>
-                  <p className="text-xl font-bold text-blue-900">{escrowSummary.releasedTodayCount}</p>
+                <div className="rounded-md border border-green-200 bg-green-50 p-3">
+                  <p className="text-xs text-green-700">Released Today</p>
+                  <p className="text-xl font-bold text-green-900">{escrowSummary.releasedTodayCount}</p>
                 </div>
               </div>
             </CardContent>

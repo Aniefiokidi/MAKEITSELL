@@ -19,7 +19,8 @@ export const getOrderById = async (orderId: string) => {
 export const updateOrder = async (orderId: string, data: any) => {
   await connectToDatabase();
   // orderId is a UUID string, not MongoDB's _id (ObjectId)
-  const order = await OrderModel.findOneAndUpdate({ orderId }, data, { new: true }).lean();
+  const update = data && typeof data === 'object' && !Object.keys(data).some(k => k.startsWith('$')) ? { $set: data } : data
+  const order = await OrderModel.findOneAndUpdate({ orderId }, update, { new: true }).lean();
   if (!order) return null;
   const { _id, ...rest } = order as any;
   return { ...rest, id: _id.toString() };
