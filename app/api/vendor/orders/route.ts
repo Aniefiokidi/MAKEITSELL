@@ -6,14 +6,45 @@ import { User } from "@/lib/models/User";
 import { getSessionUserFromRequest } from "@/lib/server-route-auth";
 import { resolveLogisticsRegion, logisticsEmailAllowedForRegion } from "@/lib/logistics-access";
 
+const VENDOR_VISIBLE_PAYMENT_STATUSES = new Set([
+  'escrow',
+  'released',
+  'disputed',
+  'refunded',
+  'paid',
+  'successful',
+  'success',
+  'completed',
+  'confirmed',
+])
+
 export async function GET(req: NextRequest) {
   try {
+    const sessionUser = await getSessionUserFromRequest(req)
+    if (!sessionUser) {
+      return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const vendorId = searchParams.get("vendorId");
     if (!vendorId) {
       return new Response(JSON.stringify({ success: false, error: "Missing vendorId" }), { status: 400 });
     }
+
+    const isAdmin = sessionUser.role === 'admin'
+    const isLogistics = logisticsEmailAllowedForRegion(sessionUser.email, resolveLogisticsRegion('lagos'))
+      || logisticsEmailAllowedForRegion(sessionUser.email, resolveLogisticsRegion('abuja'))
+    const isSameVendor = String(sessionUser.id || '') === String(vendorId || '')
+
+    if (!isAdmin && !isLogistics && !isSameVendor) {
+      return new Response(JSON.stringify({ success: false, error: "Forbidden" }), { status: 403 });
+    }
+
     const orders = await getOrdersByVendor(vendorId);
+    const paidOrders = (orders || []).filter((order: any) => {
+      const paymentStatus = String(order?.paymentStatus || '').trim().toLowerCase()
+      return VENDOR_VISIBLE_PAYMENT_STATUSES.has(paymentStatus)
+    })
 
     await connectToDatabase();
     const db = mongoose.connection.db;
@@ -21,7 +52,7 @@ export async function GET(req: NextRequest) {
     if (db) {
       const customerIds = Array.from(
         new Set(
-          orders
+          paidOrders
             .map((order: any) => String(order.customerId || '').trim())
             .filter(Boolean)
         )
@@ -36,7 +67,7 @@ export async function GET(req: NextRequest) {
         customerById.set(String(customer?._id || ''), customer);
       }
 
-      for (const order of orders) {
+      for (const order of paidOrders) {
         const vendorData = order.vendors?.find((v: any) => v.vendorId === vendorId);
         const items = vendorData?.items || order.items || [];
 
@@ -81,7 +112,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return new Response(JSON.stringify({ success: true, orders }), { status: 200 });
+    return new Response(JSON.stringify({ success: true, orders: paidOrders }), { status: 200 });
   } catch (error: any) {
     return new Response(JSON.stringify({ success: false, error: error?.message || "Unknown error" }), { status: 500 });
   }
