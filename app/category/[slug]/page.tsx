@@ -934,7 +934,7 @@ export default function CategoryPage() {
                   </div>
                   {/* Frosted Glass Bubble Content */}
                   <div className="absolute bottom-0 left-0 right-0 p-2.5 sm:p-3 backdrop-blur-xl bg-white/20 dark:bg-black/20 border-t border-white/30 rounded-t-3xl z-30 space-y-1.5">
-                    <Link href={`/product/${product.id}`} onClick={() => addToRecentlyViewed(product)}>
+                    <Link href={`/products/${product.id}`} onClick={() => addToRecentlyViewed(product)}>
                       <h3 className="font-semibold text-xs sm:text-sm line-clamp-1 text-white drop-shadow-lg cursor-pointer hover:text-blue-200 transition-colors">
                         {product.name}
                       </h3>

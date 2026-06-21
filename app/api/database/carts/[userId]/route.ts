@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserCart, setUserCart } from '@/lib/mongodb-operations'
+import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
+    const sessionUser = await getSessionUserFromRequest(request)
+    if (!sessionUser) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { userId } = await params
 
     if (!userId) {
@@ -15,8 +21,12 @@ export async function GET(
       )
     }
 
+    if (sessionUser.role !== 'admin' && sessionUser.id !== userId) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+    }
+
     const cart = await getUserCart(userId)
-    
+
     return NextResponse.json({
       success: true,
       data: cart
@@ -35,6 +45,11 @@ export async function PUT(
   { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
+    const sessionUser = await getSessionUserFromRequest(request)
+    if (!sessionUser) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { userId } = await params
     const body = await request.json()
     const { items } = body
@@ -46,6 +61,10 @@ export async function PUT(
       )
     }
 
+    if (sessionUser.role !== 'admin' && sessionUser.id !== userId) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+    }
+
     if (!Array.isArray(items)) {
       return NextResponse.json(
         { success: false, error: 'Items must be an array' },
@@ -54,7 +73,7 @@ export async function PUT(
     }
 
     await setUserCart(userId, items)
-    
+
     return NextResponse.json({
       success: true,
       message: 'Cart updated successfully'
@@ -73,7 +92,17 @@ export async function PATCH(
   { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
+    const sessionUser = await getSessionUserFromRequest(request)
+    if (!sessionUser) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { userId } = await params
+
+    if (sessionUser.role !== 'admin' && sessionUser.id !== userId) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+    }
+
     const body = await request.json()
     await setUserCart(userId, body.items || [])
     return NextResponse.json({ success: true, message: 'Cart updated successfully' })

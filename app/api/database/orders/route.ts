@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getOrdersByVendor, getOrders } from "@/lib/mongodb-operations"
+import { requireRoles } from "@/lib/server-route-auth"
 
 export async function GET(request: NextRequest) {
+  const { user, response } = await requireRoles(request, ['admin'])
+  if (response) return response
+
   try {
     const { searchParams } = new URL(request.url)
     const vendorId = searchParams.get('vendorId')

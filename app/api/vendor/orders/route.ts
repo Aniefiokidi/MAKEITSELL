@@ -8,11 +8,23 @@ import { resolveLogisticsRegion, logisticsEmailAllowedForRegion } from "@/lib/lo
 
 export async function GET(req: NextRequest) {
   try {
+    const sessionUser = await getSessionUserFromRequest(req);
+    if (!sessionUser) {
+      return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const vendorId = searchParams.get("vendorId");
     if (!vendorId) {
       return new Response(JSON.stringify({ success: false, error: "Missing vendorId" }), { status: 400 });
     }
+
+    const isAdmin = sessionUser.role === 'admin';
+    const isOwner = sessionUser.id === vendorId;
+    if (!isAdmin && !isOwner) {
+      return new Response(JSON.stringify({ success: false, error: "Forbidden" }), { status: 403 });
+    }
+
     const orders = await getOrdersByVendor(vendorId);
 
     await connectToDatabase();

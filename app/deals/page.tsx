@@ -194,7 +194,7 @@ export default function DealsPage() {
                   )}
 
                   <div className="relative mb-4 mt-6 overflow-hidden rounded-lg">
-                    <Link href={`/product/${product.id}`}>
+                    <Link href={`/products/${product.id}`}>
                       <img
                         src={product.image || "/placeholder.svg"}
                         alt={product.name}
@@ -211,7 +211,7 @@ export default function DealsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Link href={`/product/${product.id}`}>
+                    <Link href={`/products/${product.id}`}>
                       <h3 className="font-semibold hover:text-primary cursor-pointer line-clamp-2">
                         {product.name}
                       </h3>

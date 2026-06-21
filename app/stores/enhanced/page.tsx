@@ -263,7 +263,7 @@ export default function EnhancedShopPage() {
                   : "grid-cols-1"
               }`}>
                 {mockProducts.map((product) => (
-                  <Link key={product.id} href={`/product/${product.id}`}>
+                  <Link key={product.id} href={`/products/${product.id}`}>
                     <Card className="group hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
                       <CardContent className="p-0">
                         {viewMode === "grid" ? (
