@@ -631,7 +631,7 @@ export default function CheckoutPage() {
                           >
                             <CreditCard className="h-5 w-5 mb-1 text-accent" />
                             <span className="font-medium text-sm">Card / Bank</span>
-                            <span className="text-xs text-muted-foreground mt-0.5 text-center leading-tight">Pay via Paystack</span>
+                            <span className="text-xs text-muted-foreground mt-0.5 text-center leading-tight">Naira (₦) only</span>
                           </button>
                           <button
                             type="button"
@@ -642,9 +642,12 @@ export default function CheckoutPage() {
                           >
                             <CreditCard className="h-5 w-5 mb-1 text-accent" />
                             <span className="font-medium text-sm">Bach</span>
-                            <span className="text-xs text-muted-foreground mt-0.5 text-center leading-tight">Card, bank & crypto</span>
+                            <span className="text-xs text-muted-foreground mt-0.5 text-center leading-tight">USD, EUR & more</span>
                           </button>
                         </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Paying in Naira? Use <span className="font-medium text-foreground">Card / Bank</span>. Paying in USD, EUR, GBP or another currency? Use <span className="font-medium text-foreground">Bach</span> — it supports international cards, bank transfers, and crypto.
+                        </p>
                       </div>
                       {paymentMethod === 'wallet' && (
                         <div className="rounded-lg border border-accent/35 p-3 bg-accent/10 text-sm">
@@ -669,22 +672,22 @@ export default function CheckoutPage() {
                       {paymentMethod === 'checkout' && (
                         <div className="rounded-lg border border-accent/35 p-3 bg-accent/10 text-sm">
                           <div className="flex items-center justify-between gap-2">
-                            <p className="font-medium text-foreground">Pay with Card/Bank</p>
+                            <p className="font-medium text-foreground">Pay with Card / Bank — Naira (₦) only</p>
                             <CreditCard className="h-4 w-4 text-accent" />
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
-                            You will be redirected to a secure Paystack payment page to complete your order.
+                            For Nigerian Naira payments. You will be redirected to Paystack to complete your order securely.
                           </p>
                         </div>
                       )}
                       {paymentMethod === 'bach' && (
                         <div className="rounded-lg border border-accent/35 p-3 bg-accent/10 text-sm">
                           <div className="flex items-center justify-between gap-2">
-                            <p className="font-medium text-foreground">Pay with Bach</p>
+                            <p className="font-medium text-foreground">Pay with Bach — International currencies</p>
                             <CreditCard className="h-4 w-4 text-accent" />
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
-                            You will be redirected to Bach's secure checkout. Supports card, bank transfer, and crypto.
+                            For USD, EUR, GBP and other currencies. Supports international cards, bank transfer, and crypto. You will be redirected to Bach's secure checkout.
                           </p>
                         </div>
                       )}
