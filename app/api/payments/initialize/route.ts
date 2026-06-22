@@ -282,6 +282,36 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (normalizedPaymentMethod === 'bach') {
+      const { bachService } = await import('@/lib/bach')
+      const appBaseUrl = getCanonicalAppBaseUrl()
+      const returnUrl = `${appBaseUrl}/api/payments/bach-callback`
+
+      const bachResult = await bachService.initializeCheckout({
+        amount: computedTotalAmount,
+        email: shippingInfo.email,
+        name: `${String(shippingInfo.firstName || '').trim()} ${String(shippingInfo.lastName || '').trim()}`.trim() || shippingInfo.email,
+        phoneNumber: shippingInfo.phone,
+        orderId,
+        customerId,
+        returnUrl,
+      })
+
+      if (bachResult.success) {
+        return NextResponse.json({
+          success: true,
+          orderId,
+          authorization_url: bachResult.checkoutUrl,
+          checkoutId: bachResult.checkoutId,
+        })
+      }
+
+      return NextResponse.json(
+        { success: false, error: bachResult.error || 'Bach payment initialization failed' },
+        { status: 400 }
+      )
+    }
+
     if (normalizedPaymentMethod === 'wallet') {
       console.log('[WALLET] Processing wallet payment for order:', orderId)
       console.log('[WALLET] Customer ID:', customerId)

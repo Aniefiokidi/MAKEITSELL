@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { paystackService } from '@/lib/payment'
 import { xoroPayService } from '@/lib/xoro-pay'
+import { bachService } from '@/lib/bach'
 import { updateOrder, getOrderById } from '@/lib/mongodb-operations'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { Order } from '@/lib/models/Order'
@@ -345,6 +346,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true })
     }
 
+    const bachTimestamp = request.headers.get('x-bachs-timestamp') || ''
+    const bachSignature = request.headers.get('x-bachs-signature') || ''
+
+    if (bachTimestamp && bachSignature) {
+      const isValidBach = bachService.verifyWebhook(body, bachTimestamp, bachSignature)
+      if (!isValidBach) {
+        console.error('Invalid Bach webhook signature')
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+      }
+
+      await handleBachWebhook(payload)
+      return NextResponse.json({ success: true })
+    }
+
     return NextResponse.json({ error: 'Missing webhook signature' }, { status: 400 })
 
   } catch (error) {
@@ -654,6 +669,23 @@ async function handleTransferSuccess(data: any) {
   } catch (error) {
     console.error('Error handling transfer success:', error)
   }
+}
+
+async function handleBachWebhook(payload: any) {
+  const type = String(payload?.type || payload?.event || '').toLowerCase()
+  const data = asObject(payload?.data || payload)
+
+  if (type === 'collection.succeeded') {
+    await handleSuccessfulPayment(data)
+    return
+  }
+
+  if (type === 'collection.abandoned' || type === 'collection.failed') {
+    await handleFailedPayment(data)
+    return
+  }
+
+  console.log(`[BACH WEBHOOK] Unhandled event type: ${type}`)
 }
 
 async function handleTransferFailure(data: any) {

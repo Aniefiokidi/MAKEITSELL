@@ -53,7 +53,7 @@ export default function CheckoutPage() {
   const [shippingLoading, setShippingLoading] = useState(false)
   const [error, setError] = useState("")
   const [shippingEstimate, setShippingEstimate] = useState<{ cost: number; hasTbd?: boolean; source?: string } | null>(null)
-  const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'checkout'>("wallet")
+  const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'checkout' | 'bach'>("wallet")
   const [checkoutTracked, setCheckoutTracked] = useState(false)
   const [showWalletTopupPrompt, setShowWalletTopupPrompt] = useState(false)
   const [quickTopupAmount, setQuickTopupAmount] = useState("")
@@ -610,28 +610,39 @@ export default function CheckoutPage() {
                     <CardContent className="space-y-4">
                       <div className="mb-2">
                         <Label className="block mb-2 font-semibold text-base">Choose payment method</Label>
-                        <div className="flex gap-4">
+                        <div className="grid grid-cols-3 gap-3">
                           <button
                             type="button"
-                            className={`flex-1 border rounded-lg p-4 flex flex-col items-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/60 focus:border-accent/60 shadow-sm
+                            className={`border rounded-lg p-3 flex flex-col items-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/60 focus:border-accent/60 shadow-sm
                               ${paymentMethod === 'wallet' ? 'border-accent bg-accent/10 ring-2 ring-accent/60' : 'border-muted bg-white hover:border-accent/40'}`}
                             onClick={() => setPaymentMethod('wallet')}
                             aria-pressed={paymentMethod === 'wallet'}
                           >
-                            <Shield className="h-6 w-6 mb-1 text-accent" />
-                            <span className="font-medium">Wallet</span>
-                            <span className="text-xs text-muted-foreground mt-1">Pay instantly from your wallet balance</span>
+                            <Shield className="h-5 w-5 mb-1 text-accent" />
+                            <span className="font-medium text-sm">Wallet</span>
+                            <span className="text-xs text-muted-foreground mt-0.5 text-center leading-tight">From wallet balance</span>
                           </button>
                           <button
                             type="button"
-                            className={`flex-1 border rounded-lg p-4 flex flex-col items-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/60 focus:border-accent/60 shadow-sm
+                            className={`border rounded-lg p-3 flex flex-col items-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/60 focus:border-accent/60 shadow-sm
                               ${paymentMethod === 'checkout' ? 'border-accent bg-accent/10 ring-2 ring-accent/60' : 'border-muted bg-white hover:border-accent/40'}`}
                             onClick={() => setPaymentMethod('checkout')}
                             aria-pressed={paymentMethod === 'checkout'}
                           >
-                            <CreditCard className="h-6 w-6 mb-1 text-accent" />
-                            <span className="font-medium">Card / Bank</span>
-                            <span className="text-xs text-muted-foreground mt-1">Pay securely with card or bank</span>
+                            <CreditCard className="h-5 w-5 mb-1 text-accent" />
+                            <span className="font-medium text-sm">Card / Bank</span>
+                            <span className="text-xs text-muted-foreground mt-0.5 text-center leading-tight">Pay via Paystack</span>
+                          </button>
+                          <button
+                            type="button"
+                            className={`border rounded-lg p-3 flex flex-col items-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/60 focus:border-accent/60 shadow-sm
+                              ${paymentMethod === 'bach' ? 'border-accent bg-accent/10 ring-2 ring-accent/60' : 'border-muted bg-white hover:border-accent/40'}`}
+                            onClick={() => setPaymentMethod('bach')}
+                            aria-pressed={paymentMethod === 'bach'}
+                          >
+                            <CreditCard className="h-5 w-5 mb-1 text-accent" />
+                            <span className="font-medium text-sm">Bach</span>
+                            <span className="text-xs text-muted-foreground mt-0.5 text-center leading-tight">Card, bank & crypto</span>
                           </button>
                         </div>
                       </div>
@@ -662,7 +673,18 @@ export default function CheckoutPage() {
                             <CreditCard className="h-4 w-4 text-accent" />
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
-                            You will be redirected to a secure payment page to complete your order.
+                            You will be redirected to a secure Paystack payment page to complete your order.
+                          </p>
+                        </div>
+                      )}
+                      {paymentMethod === 'bach' && (
+                        <div className="rounded-lg border border-accent/35 p-3 bg-accent/10 text-sm">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-medium text-foreground">Pay with Bach</p>
+                            <CreditCard className="h-4 w-4 text-accent" />
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            You will be redirected to Bach's secure checkout. Supports card, bank transfer, and crypto.
                           </p>
                         </div>
                       )}
@@ -760,7 +782,9 @@ export default function CheckoutPage() {
                             ? "Processing..."
                             : paymentMethod === 'wallet'
                               ? `Pay with Wallet - ₦${formatCurrency(total)}`
-                              : `Pay with Card/Bank - ₦${formatCurrency(total)}`}
+                              : paymentMethod === 'bach'
+                                ? `Pay with Bach - ₦${formatCurrency(total)}`
+                                : `Pay with Card/Bank - ₦${formatCurrency(total)}`}
                         </Button>
                       </div>
 
@@ -778,14 +802,18 @@ export default function CheckoutPage() {
                   <div className="min-w-0">
                     <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Payable now</p>
                     <p className="text-base font-bold text-neutral-900">₦{formatCurrency(total)}</p>
-                    <p className="text-[10px] text-muted-foreground">Wallet checkout</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {paymentMethod === 'wallet' ? 'Wallet checkout' : paymentMethod === 'bach' ? 'Bach checkout' : 'Card/bank checkout'}
+                    </p>
                   </div>
                   <Button type="submit" className="h-10 px-4 shrink-0 shadow-sm" disabled={loading}>
                     {loading
                       ? "Processing..."
                       : paymentMethod === 'wallet'
                         ? `Pay with Wallet - ₦${formatCurrency(total)}`
-                        : `Pay with Card/Bank - ₦${formatCurrency(total)}`}
+                        : paymentMethod === 'bach'
+                          ? `Pay with Bach - ₦${formatCurrency(total)}`
+                          : `Pay with Card/Bank - ₦${formatCurrency(total)}`}
                   </Button>
                 </div>
               </div>
