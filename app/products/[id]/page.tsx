@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState } from "react";
-import { notFound } from "next/navigation";
+import { notFound, useParams } from "next/navigation";
 import { useEffect } from "react";
 import Image from "next/image";
 import { trackFunnelEvent } from "@/lib/funnel-tracker";
@@ -9,13 +9,16 @@ import { trackProductQuickView } from "@/lib/personalization";
 
 async function getProduct(id: string) {
   if (!id) return null;
-  const res = await fetch(`/api/database/products?id=${id}`, { cache: 'force-cache' });
+  const res = await fetch(`/api/database/products?id=${id}`);
   const data = await res.json();
   if (!data.success || !data.data || !data.data.length) return null;
   return data.data[0];
 }
 
-export default function ProductPage({ params }: { params: { id: string } }) {
+export default function ProductPage() {
+  const params = useParams();
+  const productId = String(params.id || "");
+
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [selectedColor, setSelectedColor] = useState<string>("");
@@ -25,7 +28,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     async function fetchProduct() {
-      const prod = await getProduct(params.id);
+      const prod = await getProduct(productId);
       if (prod) {
         setProduct(prod);
         setMainImage(prod.images?.[0] || "/placeholder.png");
@@ -33,20 +36,20 @@ export default function ProductPage({ params }: { params: { id: string } }) {
       setLoading(false);
     }
     fetchProduct();
-  }, [params.id]);
+  }, [productId]);
 
   useEffect(() => {
     if (!product?.vendorId || viewTracked) return;
     trackProductQuickView({
-      id: product.id || params.id,
+      id: product.id || productId,
       category: product.category,
       title: product.title || product.name,
       vendorName: product.vendorName,
       storeName: product.storeName,
     });
     setViewTracked(true);
-    void trackFunnelEvent(product.vendorId, "product_view", { productId: product.id || params.id });
-  }, [product, params.id, viewTracked]);
+    void trackFunnelEvent(product.vendorId, "product_view", { productId: product.id || productId });
+  }, [product, productId, viewTracked]);
 
   if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   if (!product) return notFound();
