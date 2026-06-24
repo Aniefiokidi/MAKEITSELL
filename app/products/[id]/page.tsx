@@ -4,8 +4,10 @@ import React, { useState } from "react";
 import { notFound, useParams } from "next/navigation";
 import { useEffect } from "react";
 import Image from "next/image";
+import { Heart } from "lucide-react";
 import { trackFunnelEvent } from "@/lib/funnel-tracker";
 import { trackProductQuickView } from "@/lib/personalization";
+import { useWishlist } from "@/contexts/WishlistContext";
 
 async function getProduct(id: string) {
   if (!id) return null;
@@ -19,6 +21,7 @@ export default function ProductPage() {
   const params = useParams();
   const productId = String(params.id || "");
 
+  const wishlist = useWishlist();
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [selectedColor, setSelectedColor] = useState<string>("");
@@ -46,6 +49,8 @@ export default function ProductPage() {
       title: product.title || product.name,
       vendorName: product.vendorName,
       storeName: product.storeName,
+      price: Number(product.price || 0),
+      image: product.images?.[0] || '',
     });
     setViewTracked(true);
     void trackFunnelEvent(product.vendorId, "product_view", { productId: product.id || productId });
@@ -106,7 +111,16 @@ export default function ProductPage() {
 
           {/* Product Details */}
           <div className="flex flex-col">
-            <h1 className="text-2xl md:text-3xl font-bold mb-2">{product.title || product.name}</h1>
+            <div className="flex items-start justify-between gap-3 mb-2">
+              <h1 className="text-2xl md:text-3xl font-bold">{product.title || product.name}</h1>
+              <button
+                onClick={() => wishlist.toggle({ productId: String(product.id || productId), title: product.title || product.name, price: Number(product.price || 0), image: product.images?.[0] || '', vendorId: String(product.vendorId || ''), category: product.category || '' })}
+                className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center border border-gray-200 hover:border-red-300 hover:bg-red-50 transition-all"
+                title={wishlist.isInWishlist(String(product.id || productId)) ? "Remove from wishlist" : "Save to wishlist"}
+              >
+                <Heart className={`w-5 h-5 transition-colors ${wishlist.isInWishlist(String(product.id || productId)) ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+              </button>
+            </div>
             <div className="mb-4 text-accent font-bold text-2xl">₦{product.price?.toLocaleString?.() || product.price}</div>
             
             {/* Stock Status */}

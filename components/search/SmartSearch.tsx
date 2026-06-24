@@ -1,341 +1,277 @@
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback } from "react"
-import { Search, Clock, TrendingUp, X, Loader2 } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Search, Clock, TrendingUp, X, Loader2, Package } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 
-interface SearchSuggestion {
+interface Suggestion {
   id: string
   text: string
-  type: "product" | "brand" | "category" | "tag"
-  category?: string
-  icon?: React.ReactNode
-}
-
-interface RecentSearch {
-  id: string
-  query: string
-  timestamp: Date
+  category?: string | null
+  price?: number | null
+  image?: string | null
 }
 
 interface SmartSearchProps {
-  onSearch?: (query: string, filters?: SearchFilters) => void
+  onSearch?: (query: string) => void
   placeholder?: string
   className?: string
 }
 
-interface SearchFilters {
-  category?: string
-  priceRange?: [number, number]
-  brands?: string[]
-  tags?: string[]
-}
-
-// Mock data - replace with real API calls
-const mockSuggestions: SearchSuggestion[] = [
-  { id: "1", text: "iPhone 15 Pro", type: "product", category: "Electronics" },
-  { id: "2", text: "Samsung Galaxy", type: "product", category: "Electronics" },
-  { id: "3", text: "Apple", type: "brand", icon: <TrendingUp className="h-4 w-4" /> },
-  { id: "4", text: "Electronics", type: "category" },
-  { id: "5", text: "Smartphones", type: "tag" },
-  { id: "6", text: "Nike Air Max", type: "product", category: "Fashion" },
-  { id: "7", text: "Nike", type: "brand", icon: <TrendingUp className="h-4 w-4" /> },
-  { id: "8", text: "Fashion", type: "category" },
-  { id: "9", text: "Sneakers", type: "tag" },
-  { id: "10", text: "Wireless Headphones", type: "product", category: "Electronics" },
+const CATEGORIES = [
+  "Electronics", "Fashion", "Beauty", "Food & Beverages",
+  "Home & Garden", "Sports", "Books", "Services",
 ]
 
-const trendingSearches = [
-  "iPhone 15", "Samsung Galaxy S24", "MacBook Pro", "Nike Air Jordan",
-  "Gaming Laptop", "Wireless Earbuds", "Smart Watch", "PS5 Games"
+const TRENDING = [
+  "Phones", "Sneakers", "Hair products", "Laptops", "Bags", "Perfume", "Watches", "Shoes",
 ]
 
-export default function SmartSearch({ onSearch, placeholder = "Search for products, brands, or categories...", className }: SmartSearchProps) {
+const RECENT_KEY = "mis:recent-searches"
+
+export default function SmartSearch({ onSearch, placeholder = "Search products...", className }: SmartSearchProps) {
+  const router = useRouter()
   const [query, setQuery] = useState("")
-  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([])
-  const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([])
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
+  const [suggestedCategories, setSuggestedCategories] = useState<string[]>([])
+  const [activeCategory, setActiveCategory] = useState<string | null>(null)
+  const [recentSearches, setRecentSearches] = useState<string[]>([])
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [selectedIndex, setSelectedIndex] = useState(-1)
-
-  const searchRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Load recent searches from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem("makeitsell-recent-searches")
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        setRecentSearches(parsed.map((item: any) => ({
-          ...item,
-          timestamp: new Date(item.timestamp)
-        })))
-      } catch (error) {
-        console.error("Error loading recent searches:", error)
-      }
-    }
+    try {
+      const saved = localStorage.getItem(RECENT_KEY)
+      if (saved) setRecentSearches(JSON.parse(saved))
+    } catch {}
   }, [])
 
-  // Save recent searches to localStorage
-  const saveRecentSearch = useCallback((searchQuery: string) => {
-    const newSearch: RecentSearch = {
-      id: Date.now().toString(),
-      query: searchQuery,
-      timestamp: new Date()
-    }
-
-    const updated = [newSearch, ...recentSearches.filter(s => s.query !== searchQuery)].slice(0, 10)
-    setRecentSearches(updated)
-    localStorage.setItem("makeitsell-recent-searches", JSON.stringify(updated))
-  }, [recentSearches])
-
-  // Simulate API search with debouncing
-  const performSearch = useCallback(async (searchQuery: string) => {
-    if (searchQuery.length < 2) {
+  const fetchSuggestions = useCallback(async (q: string) => {
+    if (q.length < 2) {
       setSuggestions([])
+      setSuggestedCategories([])
       return
     }
-
     setIsLoading(true)
-    
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 300))
-    
-    // Filter mock suggestions based on query
-    const filtered = mockSuggestions.filter(suggestion =>
-      suggestion.text.toLowerCase().includes(searchQuery.toLowerCase())
-    ).slice(0, 8)
-    
-    setSuggestions(filtered)
-    setIsLoading(false)
+    try {
+      const res = await fetch(`/api/search/suggestions?q=${encodeURIComponent(q)}&limit=6`)
+      if (!res.ok) throw new Error("fetch failed")
+      const data = await res.json()
+      setSuggestions(data.suggestions || [])
+      setSuggestedCategories(data.categories || [])
+    } catch {
+      setSuggestions([])
+      setSuggestedCategories([])
+    } finally {
+      setIsLoading(false)
+    }
   }, [])
 
-  // Debounced search
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      performSearch(query)
-    }, 200)
+    const t = setTimeout(() => fetchSuggestions(query), 200)
+    return () => clearTimeout(t)
+  }, [query, fetchSuggestions])
 
-    return () => clearTimeout(timeoutId)
-  }, [query, performSearch])
-
-  // Handle search submission
-  const handleSearch = (searchQuery: string) => {
-    if (searchQuery.trim()) {
-      saveRecentSearch(searchQuery.trim())
-      onSearch?.(searchQuery.trim())
-      setQuery(searchQuery)
-      setIsOpen(false)
-      inputRef.current?.blur()
-    }
+  const commitSearch = (q: string, category?: string | null) => {
+    const term = q.trim()
+    if (!term) return
+    const updated = [term, ...recentSearches.filter((r) => r !== term)].slice(0, 8)
+    setRecentSearches(updated)
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(updated)) } catch {}
+    setIsOpen(false)
+    setQuery(term)
+    onSearch?.(term)
+    const params = new URLSearchParams({ query: term })
+    const cat = category ?? activeCategory
+    if (cat) params.set("category", cat)
+    router.push(`/search?${params.toString()}`)
   }
 
-  // Handle keyboard navigation
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!isOpen) return
-
-    const totalItems = suggestions.length + recentSearches.length + trendingSearches.length
-    
-    switch (e.key) {
-      case "ArrowDown":
-        e.preventDefault()
-        setSelectedIndex(prev => (prev + 1) % totalItems)
-        break
-      case "ArrowUp":
-        e.preventDefault()
-        setSelectedIndex(prev => (prev - 1 + totalItems) % totalItems)
-        break
-      case "Enter":
-        e.preventDefault()
-        if (selectedIndex >= 0) {
-          const allItems = [
-            ...suggestions.map(s => s.text),
-            ...recentSearches.map(r => r.query),
-            ...trendingSearches
-          ]
-          handleSearch(allItems[selectedIndex])
-        } else {
-          handleSearch(query)
-        }
-        break
-      case "Escape":
-        setIsOpen(false)
-        setSelectedIndex(-1)
-        break
-    }
-  }
-
-  // Clear recent searches
-  const clearRecentSearches = () => {
-    setRecentSearches([])
-    localStorage.removeItem("makeitsell-recent-searches")
-  }
-
-  // Click outside handler
+  // Close on outside click
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false)
-        setSelectedIndex(-1)
       }
     }
-
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
   }, [])
 
+  const showDropdown = isOpen
+  const hasQuery = query.length >= 2
+  const hasResults = suggestions.length > 0
+
   return (
-    <div ref={searchRef} className={cn("relative w-full max-w-2xl", className)}>
-      {/* Search Input */}
+    <div ref={containerRef} className={cn("relative w-full", className)}>
+      {/* Input */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <input
           ref={inputRef}
           type="text"
           placeholder={placeholder}
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          autoComplete="off"
+          onChange={(e) => { setQuery(e.target.value); setIsOpen(true) }}
           onFocus={() => setIsOpen(true)}
-          onKeyDown={handleKeyDown}
-          className="pl-10 pr-10 h-12 text-base"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { e.preventDefault(); commitSearch(query) }
+            if (e.key === "Escape") { setIsOpen(false); inputRef.current?.blur() }
+          }}
+          className="w-full rounded-full border border-gray-200 bg-white pl-9 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all"
         />
         {query && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setQuery("")}
-            className="absolute right-2 top-1/2 h-6 w-6 p-0 -translate-y-1/2"
+          <button
+            onClick={() => { setQuery(""); setSuggestions([]); setSuggestedCategories([]); inputRef.current?.focus() }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
           >
-            <X className="h-4 w-4" />
-          </Button>
+            <X className="h-3.5 w-3.5" />
+          </button>
         )}
       </div>
 
-      {/* Search Dropdown */}
-      {isOpen && (
-        <Card className="absolute top-full left-0 right-0 z-50 mt-2 max-h-96 overflow-y-auto shadow-lg">
-          <div className="p-4 space-y-4">
-            
-            {/* Loading State */}
+      {/* Dropdown */}
+      {showDropdown && (
+        <div className="absolute top-full left-0 right-0 z-9999 mt-2 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl">
+          {/* Category filter pills */}
+          <div className="flex gap-1.5 overflow-x-auto px-3 pt-2.5 pb-1" style={{ scrollbarWidth: "none" }}>
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
+                className={cn(
+                  "shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors",
+                  activeCategory === cat
+                    ? "border-accent bg-accent text-white"
+                    : "border-gray-200 bg-white text-gray-500 hover:border-accent/40 hover:text-accent"
+                )}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          <div className="max-h-80 overflow-y-auto">
+            {/* Loading */}
             {isLoading && (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                <span className="ml-2 text-sm text-muted-foreground">Searching...</span>
+              <div className="flex items-center gap-2 px-4 py-3 text-sm text-gray-400">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Searching…
               </div>
             )}
 
-            {/* Search Suggestions */}
-            {suggestions.length > 0 && (
-              <div>
-                <h4 className="text-sm font-medium text-muted-foreground mb-2">Suggestions</h4>
-                <div className="space-y-1">
-                  {suggestions.map((suggestion, index) => (
-                    <button
-                      key={suggestion.id}
-                      onClick={() => handleSearch(suggestion.text)}
-                      className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2 text-left rounded-md hover:bg-accent transition-colors",
-                        selectedIndex === index && "bg-accent"
-                      )}
-                    >
-                      <Search className="h-4 w-4 text-muted-foreground" />
-                      <span className="flex-1">{suggestion.text}</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {suggestion.type}
-                      </Badge>
-                      {suggestion.category && (
-                        <span className="text-xs text-muted-foreground">
-                          in {suggestion.category}
-                        </span>
-                      )}
+            {/* Live results */}
+            {!isLoading && hasQuery && (
+              <>
+                {/* Category quick-filters from API */}
+                {suggestedCategories.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 px-4 py-2 border-b border-gray-50">
+                    {suggestedCategories.map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => commitSearch(query, cat)}
+                        className="rounded-full bg-accent/10 px-2.5 py-0.5 text-[11px] font-medium text-accent hover:bg-accent/20 transition-colors"
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {hasResults ? (
+                  <div className="py-1">
+                    {suggestions.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => commitSearch(s.text)}
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-gray-50"
+                      >
+                        <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                          {s.image ? (
+                            <img src={s.image} alt={s.text} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center">
+                              <Package className="h-4 w-4 text-gray-300" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-gray-800">{s.text}</p>
+                          {s.category && <p className="text-xs text-gray-400">{s.category}</p>}
+                        </div>
+                        {s.price != null && s.price > 0 && (
+                          <p className="shrink-0 text-xs font-semibold text-accent">
+                            ₦{Number(s.price).toLocaleString("en-NG")}
+                          </p>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-4 py-3">
+                    <p className="text-sm text-gray-400">No results for &ldquo;{query}&rdquo;</p>
+                    <button onClick={() => commitSearch(query)} className="mt-1 text-sm text-accent hover:underline">
+                      Search anyway →
                     </button>
-                  ))}
-                </div>
-              </div>
+                  </div>
+                )}
+              </>
             )}
 
-            {/* Recent Searches */}
-            {recentSearches.length > 0 && query.length === 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-medium text-muted-foreground">Recent Searches</h4>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearRecentSearches}
-                    className="text-xs h-6 px-2"
+            {/* Recent searches */}
+            {!hasQuery && recentSearches.length > 0 && (
+              <div className="py-1">
+                <div className="flex items-center justify-between px-4 py-1.5">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Recent</span>
+                  <button
+                    onClick={() => {
+                      setRecentSearches([])
+                      try { localStorage.removeItem(RECENT_KEY) } catch {}
+                    }}
+                    className="text-[11px] text-gray-400 hover:text-gray-600"
                   >
                     Clear
-                  </Button>
+                  </button>
                 </div>
-                <div className="space-y-1">
-                  {recentSearches.slice(0, 5).map((recent, index) => (
-                    <button
-                      key={recent.id}
-                      onClick={() => handleSearch(recent.query)}
-                      className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2 text-left rounded-md hover:bg-accent transition-colors",
-                        selectedIndex === suggestions.length + index && "bg-accent"
-                      )}
-                    >
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span className="flex-1">{recent.query}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {recent.timestamp.toLocaleDateString()}
-                      </span>
-                    </button>
-                  ))}
-                </div>
+                {recentSearches.slice(0, 5).map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => commitSearch(r)}
+                    className="flex w-full items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-gray-50"
+                  >
+                    <Clock className="h-4 w-4 shrink-0 text-gray-300" />
+                    <span className="text-sm text-gray-700">{r}</span>
+                  </button>
+                ))}
               </div>
             )}
 
-            {/* Trending Searches */}
-            {query.length === 0 && (
-              <div>
-                <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4" />
-                  Trending Now
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {trendingSearches.map((trend, index) => (
+            {/* Trending */}
+            {!hasQuery && (
+              <div className="border-t border-gray-50 px-4 py-3">
+                <div className="mb-2 flex items-center gap-1.5">
+                  <TrendingUp className="h-3.5 w-3.5 text-accent" />
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Trending</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {TRENDING.map((t) => (
                     <button
-                      key={trend}
-                      onClick={() => handleSearch(trend)}
-                      className={cn(
-                        "px-3 py-1 text-sm rounded-full border hover:bg-accent transition-colors",
-                        selectedIndex === suggestions.length + recentSearches.length + index && "bg-accent"
-                      )}
+                      key={t}
+                      onClick={() => commitSearch(t)}
+                      className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600 transition-colors hover:bg-accent/10 hover:text-accent"
                     >
-                      {trend}
+                      {t}
                     </button>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {/* No Results */}
-            {query.length >= 2 && suggestions.length === 0 && !isLoading && (
-              <div className="text-center py-4">
-                <p className="text-sm text-muted-foreground">
-                  No suggestions found for "{query}"
-                </p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleSearch(query)}
-                  className="mt-2"
-                >
-                  Search anyway
-                </Button>
               </div>
             )}
           </div>
-        </Card>
+        </div>
       )}
     </div>
   )

@@ -44,6 +44,21 @@ export async function sendOrderStatusChangeNotifications(orderId: string, order:
     })
   }
 
+  // Push to customer
+  const statusCustomerId = String((order as any)?.customerId || (order as any)?.userId || '').trim()
+  if (statusCustomerId) {
+    const statusEmoji: Record<string, string> = {
+      confirmed: '✅', shipped: '📦', out_for_delivery: '🚚', delivered: '🎉',
+      cancelled: '❌', processing: '⏳', completed: '🎉',
+    }
+    void pushToUser(statusCustomerId, {
+      title: `${statusEmoji[newStatus] ?? '📋'} ${statusLabel}`,
+      body: `Order #${orderId.slice(-6).toUpperCase()} — ${statusLabel.toLowerCase()}.`,
+      url: `/orders/${orderId}`,
+      tag: `order-status-${orderId}`,
+    })
+  }
+
   // Notify each vendor
   for (const vendor of vendors) {
     let vendorEmail = vendor.vendorEmail
@@ -85,6 +100,7 @@ import { getStores } from '@/lib/mongodb-operations'
 import { sendOrderConfirmationSms } from '@/lib/sms'
 import { detectLogisticsRegionFromAddress } from '@/lib/logistics-access'
 import { User } from '@/lib/models/User'
+import { pushToUser } from '@/lib/push-notifications'
 
 type OrderLike = any
 
@@ -204,6 +220,17 @@ export async function sendOrderPlacementNotifications(orderId: string, order: Or
     })
   }
 
+  // Push notification to customer
+  const customerId = String(order?.customerId || order?.userId || '').trim()
+  if (customerId) {
+    void pushToUser(customerId, {
+      title: 'Order confirmed ✅',
+      body: `Your order #${orderId.slice(-6).toUpperCase()} has been placed. We'll keep you updated!`,
+      url: `/order-confirmation?orderId=${orderId}`,
+      tag: `order-placed-${orderId}`,
+    })
+  }
+
   if (customerPhone) {
     try {
       await sendOrderConfirmationSms({
@@ -273,6 +300,16 @@ export async function sendOrderPlacementNotifications(orderId: string, order: Or
         shippingAddress: shippingInfo,
         sendCustomerCopy: false,
         sendVendorCopy: true,
+      })
+    }
+
+    // Push notification to vendor
+    if (vendor.vendorId) {
+      void pushToUser(vendor.vendorId, {
+        title: 'New order received 🛒',
+        body: `${customerName} just placed an order. Tap to view.`,
+        url: `/vendor/orders`,
+        tag: `new-order-${orderId}-${vendor.vendorId}`,
       })
     }
 

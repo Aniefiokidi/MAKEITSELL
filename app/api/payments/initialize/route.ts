@@ -12,6 +12,7 @@ import { estimateShippingFee } from '@/lib/aco-logistics-rates'
 import { getCanonicalAppBaseUrl } from '@/lib/app-url'
 import { sendOrderPlacementNotifications } from '@/lib/order-notifications'
 import { Product } from '@/lib/models/Product'
+import { maybeSendLowStockAlert } from '@/lib/stock-alerts'
 
 async function deductStock(orderId: string) {
   try {
@@ -20,14 +21,16 @@ async function deductStock(orderId: string) {
     const allItems = (order as any).vendors?.flatMap((v: any) => v.items || []) || []
     for (const item of allItems) {
       if (!item.productId || !item.quantity) continue
-      await Product.updateOne(
-        { _id: item.productId, stock: { $gt: 0, $ne: 9999 } },
-        { $inc: { stock: -Math.abs(item.quantity) } }
-      )
-      await Product.updateOne(
-        { _id: item.productId, stock: { $lte: 0 } },
-        { $set: { status: 'out_of_stock' } }
-      )
+      const current = await Product.findOne({ _id: item.productId }).lean() as any
+      if (!current || current.stock === 9999) continue
+      const oldStock = current.stock || 0
+      const deduction = Math.min(Math.abs(item.quantity), oldStock)
+      if (deduction > 0) {
+        await Product.updateOne({ _id: item.productId }, { $inc: { stock: -deduction } })
+        const newStock = oldStock - deduction
+        if (newStock <= 0) await Product.updateOne({ _id: item.productId }, { $set: { status: 'out_of_stock' } })
+        void maybeSendLowStockAlert(current, oldStock, newStock)
+      }
     }
   } catch (err) {
     console.error('[deductStock]', err)

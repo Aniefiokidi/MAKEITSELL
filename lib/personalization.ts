@@ -9,6 +9,8 @@ type ActivityProductQuickView = {
   category?: string
   title?: string
   storeName?: string
+  price?: number
+  image?: string
   ts: number
 }
 
@@ -327,6 +329,8 @@ export const trackProductQuickView = (product: {
   name?: string
   storeName?: string
   vendorName?: string
+  price?: number
+  image?: string
 }) => {
   const id = toId(product.id || product._id)
   if (!id) return
@@ -341,6 +345,8 @@ export const trackProductQuickView = (product: {
         category: normalizeText(product.category),
         title: product.title || product.name,
         storeName: normalizeText(product.storeName || product.vendorName),
+        price: Number(product.price || 0),
+        image: product.image || '',
         ts: now,
       },
       ...activity.productQuickViews,

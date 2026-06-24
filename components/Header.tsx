@@ -5,7 +5,8 @@ import React, { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion } from "framer-motion"
-import { Wallet, Menu, X, Eye, EyeOff, ArrowDownCircle, ArrowUpCircle, Sparkles, Store, UtensilsCrossed, Wrench, Info, HelpCircle, Gavel, ChevronRight, LogIn, UserPlus } from "lucide-react"
+import { Wallet, Menu, X, Eye, EyeOff, ArrowDownCircle, ArrowUpCircle, Sparkles, Store, UtensilsCrossed, Wrench, Info, HelpCircle, Gavel, ChevronRight, LogIn, UserPlus, Heart, Search } from "lucide-react"
+import { useWishlist } from "@/contexts/WishlistContext"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -50,6 +51,7 @@ const FALLBACK_BANKS: Array<{ name: string; code: string }> = [
 
 export default function Header({ homeBg = false }: { homeBg?: boolean }) {
   const { user, userProfile, loading } = useAuth()
+  const wishlist = useWishlist()
   const notification = useNotification()
   const pathname = usePathname()
   const headerRef = useRef<HTMLElement | null>(null)
@@ -635,6 +637,15 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
             </span>
           </Link>
 
+          {/* Desktop search bar */}
+          <div className="hidden xl:flex flex-1 max-w-sm mx-4">
+            <SmartSearch
+              placeholder="Search products…"
+              className="w-full"
+              onSearch={handleSearch}
+            />
+          </div>
+
           {/* Centralized Desktop Nav */}
           <nav className="hidden xl:flex flex-1 justify-center items-center space-x-2 uppercase">
             {[
@@ -708,6 +719,25 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                 <span>{formattedWalletBalance}</span>
               </button>
             )}
+
+            {/* Mobile search icon */}
+            <button
+              className="xl:hidden p-1.5 rounded-full hover:bg-accent/10 transition-colors"
+              onClick={() => setIsSearchOpen((v) => !v)}
+              title="Search"
+            >
+              <Search className="h-5 w-5 text-gray-600" />
+            </button>
+
+            {/* Wishlist */}
+            <Link href="/user/wishlist" className="relative p-1.5 rounded-full hover:bg-accent/10 transition-colors" title="Wishlist">
+              <Heart className={`h-5 w-5 ${wishlist.items.length > 0 ? 'text-accent' : 'text-gray-500'}`} />
+              {wishlist.items.length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] bg-accent text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
+                  {wishlist.items.length > 9 ? '9+' : wishlist.items.length}
+                </span>
+              )}
+            </Link>
 
             {/* Cart */}
             <CartSidebar />
@@ -1161,6 +1191,20 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
       />
 
     </header>
+
+    {/* Mobile search slide-down */}
+    {isSearchOpen && (
+      <div
+        className="fixed xl:hidden bg-white/95 backdrop-blur-lg border-b border-gray-200 px-4 py-3 shadow-lg"
+        style={{ top: headerHeight, left: 0, right: 0, zIndex: 999 }}
+      >
+        <SmartSearch
+          placeholder="Search products…"
+          className="w-full"
+          onSearch={(q) => { handleSearch(q); setIsSearchOpen(false) }}
+        />
+      </div>
+    )}
 
     {/* Overlay — outside header so it's in the root stacking context and captures all taps */}
     {isMenuOpen && (

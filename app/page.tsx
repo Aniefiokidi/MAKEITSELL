@@ -28,7 +28,7 @@ import Link from "next/link"
 import Header from "@/components/Header"
 import HeroShuffleCarousel from "@/components/HeroShuffleCarousel"
 import Footer from "@/components/Footer"
-import { Shield, Users, Truck, Sparkles, ArrowRight, Smartphone, ShoppingBag, Sparkles as Beauty, HomeIcon, Settings, CarFront, UserCheck, Coffee, Verified, Clock, Banknote, Camera, Briefcase, Wrench, Palette, Dumbbell, GraduationCap, Scissors, Laptop } from "lucide-react"
+import { Shield, Users, Truck, Sparkles, ArrowRight, Smartphone, ShoppingBag, Sparkles as Beauty, HomeIcon, Settings, CarFront, UserCheck, Coffee, Verified, Clock, Banknote, Camera, Briefcase, Wrench, Palette, Dumbbell, GraduationCap, Scissors, Laptop, Package, Heart } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle2 } from "lucide-react"
 import { buildPublicServicePath } from "@/lib/public-links"
@@ -38,7 +38,6 @@ function TrendingProducts() {
   const [products, setProducts] = useState<any[]>([])
   const [services, setServices] = useState<any[]>([])
   const [recentlyViewedProducts, setRecentlyViewedProducts] = useState<any[]>([])
-  const [recentlyViewedServices, setRecentlyViewedServices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null)
   const [quickViewOpen, setQuickViewOpen] = useState(false)
@@ -98,59 +97,29 @@ function TrendingProducts() {
   const recommendedProducts = personalizeProducts(products).slice(0, 4)
   const recommendedServices = personalizeServices(services).slice(0, 2)
 
+  // Load recently viewed directly from localStorage — no dependency on trending products,
+  // so any product you've ever viewed will appear (not just ones currently trending).
   useEffect(() => {
     if (typeof window === "undefined") return
-
     try {
       const raw = localStorage.getItem("mis:user-activity:v1")
-      if (!raw) {
-        setRecentlyViewedProducts([])
-        setRecentlyViewedServices([])
-        return
-      }
-
+      if (!raw) return
       const parsed = JSON.parse(raw)
       const productViews = Array.isArray(parsed?.productQuickViews) ? parsed.productQuickViews : []
-      const serviceViews = Array.isArray(parsed?.serviceViews) ? parsed.serviceViews : []
-
-      const productMap = new Map(
-        (products || []).map((item: any) => [String(item?.id || item?._id || ""), item])
-      )
-      const serviceMap = new Map(
-        (services || []).map((item: any) => [String(item?.id || item?._id || ""), item])
-      )
-
-      const resolvedProducts: any[] = []
-      const seenProductIds = new Set<string>()
+      const resolved: any[] = []
+      const seen = new Set<string>()
       for (const entry of [...productViews].sort((a: any, b: any) => Number(b?.ts || 0) - Number(a?.ts || 0))) {
         const id = String(entry?.id || "")
-        if (!id || seenProductIds.has(id)) continue
-        const matched = productMap.get(id)
-        if (!matched) continue
-        seenProductIds.add(id)
-        resolvedProducts.push(matched)
-        if (resolvedProducts.length >= 4) break
+        if (!id || seen.has(id) || !entry.title) continue
+        seen.add(id)
+        resolved.push({ id, _id: id, title: entry.title, name: entry.title, price: entry.price || 0, images: entry.image ? [entry.image] : [], category: entry.category })
+        if (resolved.length >= 8) break
       }
-
-      const resolvedServices: any[] = []
-      const seenServiceIds = new Set<string>()
-      for (const entry of [...serviceViews].sort((a: any, b: any) => Number(b?.ts || 0) - Number(a?.ts || 0))) {
-        const id = String(entry?.id || "")
-        if (!id || seenServiceIds.has(id)) continue
-        const matched = serviceMap.get(id)
-        if (!matched) continue
-        seenServiceIds.add(id)
-        resolvedServices.push(matched)
-        if (resolvedServices.length >= 4) break
-      }
-
-      setRecentlyViewedProducts(resolvedProducts)
-      setRecentlyViewedServices(resolvedServices)
+      setRecentlyViewedProducts(resolved)
     } catch {
       setRecentlyViewedProducts([])
-      setRecentlyViewedServices([])
     }
-  }, [products, services])
+  }, [])
 
   if (loading) {
     return (
@@ -292,86 +261,40 @@ function TrendingProducts() {
           </div>
         </div>
 
-        {(recentlyViewedProducts.length > 0 || recentlyViewedServices.length > 0) && (
-          <div className="rounded-3xl border border-neutral-200 bg-white p-4 sm:p-6 shadow-sm">
-            <div className="flex items-center justify-between gap-2 mb-4">
-              <h3 className="text-lg sm:text-xl font-semibold text-neutral-900">Recently Viewed</h3>
-              <Badge variant="outline" className="text-xs">Quick return</Badge>
+        {recentlyViewedProducts.length > 0 && (
+          <div className="rounded-2xl border border-neutral-100 bg-white px-4 sm:px-5 py-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-accent" />
+                <h3 className="text-sm font-semibold text-neutral-800">Recently Viewed</h3>
+              </div>
+              <Link href="/products" className="text-xs text-accent hover:underline font-medium">Browse all</Link>
             </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 stagger-grid">
+            <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
               {recentlyViewedProducts.map((product: any) => (
-                <Card
-                  key={`recent-product-${String(product?.id || product?._id || "")}`}
-                  className="overflow-hidden border border-neutral-200 hover:border-accent/40 hover:shadow-md transition-all cursor-pointer card-lift"
-                  onClick={() => {
-                    setSelectedProduct(product)
-                    setQuickViewOpen(true)
-                  }}
+                <Link
+                  key={`rv-${String(product?.id || product?._id)}`}
+                  href={`/products/${product.id || product._id}`}
+                  className="shrink-0 w-28 sm:w-32 group"
                 >
-                  <div className="aspect-square bg-muted overflow-hidden">
-                    <img
-                      src={getProductImage(product)}
-                      alt={product.title || product.name || "Product image"}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-full object-cover"
-                    />
+                  <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200 group-hover:border-accent/50 transition-colors mb-1.5">
+                    {(product.images?.[0]) ? (
+                      <img
+                        src={product.images[0]}
+                        alt={product.title || product.name}
+                        loading="lazy"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Package className="h-7 w-7 text-gray-300" />
+                      </div>
+                    )}
                   </div>
-                  <div className="p-2 space-y-1">
-                    <p className="text-xs font-semibold line-clamp-2">{product.title || product.name}</p>
-                    <p className="text-[11px] text-accent font-semibold">{formatCurrency(Number(product.price || 0))}</p>
-                  </div>
-                </Card>
+                  <p className="text-[11px] font-medium text-gray-800 line-clamp-2 leading-snug">{product.title || product.name}</p>
+                  <p className="text-[11px] text-accent font-semibold mt-0.5">{formatCurrency(Number(product.price || 0))}</p>
+                </Link>
               ))}
-
-              {recentlyViewedServices.map((service: any) => {
-                const serviceId = String(service?.id || service?._id || "")
-                const serviceName = service.title || service.name || "Service"
-                return (
-                  <Card
-                    key={`recent-service-${serviceId}`}
-                    className="overflow-hidden border border-neutral-200 hover:border-accent/40 hover:shadow-md transition-all cursor-pointer card-lift"
-                    onClick={() => {
-                      if (!serviceId) return
-                      window.dispatchEvent(new CustomEvent('slideOutNavigate', { detail: { target: buildPublicServicePath(service) } }))
-                    }}
-                  >
-                    <div className="aspect-square bg-muted overflow-hidden">
-                      {service.images && service.images.length > 0 && service.images[0] ? (
-                        <img
-                          src={service.images[0]}
-                          alt={serviceName}
-                          loading="lazy"
-                          decoding="async"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex items-center justify-center h-full bg-linear-to-br from-accent/15 to-accent/5">
-                          <Settings className="h-10 w-10 text-accent/70" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-2 space-y-1">
-                      <p className="text-xs font-semibold line-clamp-2">{serviceName}</p>
-                      <p className="text-[11px] text-muted-foreground line-clamp-1">{service.providerName || service.vendorName || "Provider"}</p>
-                      <p className="text-[11px] text-accent font-semibold">{getServiceDisplayPrice(service)}</p>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 px-2 text-[11px]"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          if (!serviceId) return
-                          window.dispatchEvent(new CustomEvent('slideOutNavigate', { detail: { target: buildPublicServicePath(service) } }))
-                        }}
-                      >
-                        Open service
-                      </Button>
-                    </div>
-                  </Card>
-                )
-              })}
             </div>
           </div>
         )}

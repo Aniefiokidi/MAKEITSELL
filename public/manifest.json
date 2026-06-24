@@ -1,0 +1,79 @@
+{
+  "name": "MakeItSell",
+  "short_name": "MIS",
+  "description": "Nigeria's Smart Marketplace — buy products, book services, order food",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#3d1218",
+  "lang": "en-NG",
+  "scope": "/",
+  "categories": ["shopping", "food", "lifestyle"],
+  "icons": [
+    {
+      "src": "/images/mis-icon.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/mis-icon.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/mis-icon.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/mis-icon.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/mis-icon.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/mis-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/images/mis-icon.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/mis-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Browse Stores",
+      "short_name": "Stores",
+      "description": "Browse all stores",
+      "url": "/stores",
+      "icons": [{ "src": "/images/mis-icon.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Order Food",
+      "short_name": "Food",
+      "description": "Order from local restaurants",
+      "url": "/food",
+      "icons": [{ "src": "/images/mis-icon.png", "sizes": "96x96" }]
+    }
+  ]
+}

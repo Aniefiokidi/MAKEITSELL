@@ -6,6 +6,7 @@ import connectToDatabase from '@/lib/mongodb'
 import mongoose from 'mongoose'
 import { getCanonicalAppBaseUrl } from '@/lib/app-url'
 import { sendOrderPlacementNotifications } from '@/lib/order-notifications'
+import { maybeSendLowStockAlert } from '@/lib/stock-alerts'
 
 type NormalizedVerification = {
   success: boolean
@@ -205,7 +206,7 @@ export async function GET(request: NextRequest) {
             const currentProduct = await db.collection('products').findOne({ $or: filters })
             const currentStock = currentProduct?.stock || 0
             const stockDeduction = Math.min(qty, currentStock) // Don't deduct more than available stock
-            
+
             if (stockDeduction > 0) {
               const result = await db.collection('products').updateOne(
                 { $or: filters },
@@ -217,6 +218,7 @@ export async function GET(request: NextRequest) {
                 }
               )
               console.log(`Updated product ${item.productId}: deducted ${stockDeduction} stock (requested ${qty}), added ${qty} sales; matched ${result?.matchedCount}`)
+              void maybeSendLowStockAlert(currentProduct, currentStock, currentStock - stockDeduction)
             } else {
               // Still record the sale even if no stock to deduct
               const result = await db.collection('products').updateOne(
@@ -337,7 +339,7 @@ export async function POST(request: NextRequest) {
               }
               const currentStock = currentProduct?.stock || 0
               const stockDeduction = Math.min(qty, currentStock) // Don't deduct more than available stock
-              
+
               if (stockDeduction > 0) {
                 const result = await db.collection('products').updateOne(
                   { $or: filters },
@@ -349,6 +351,7 @@ export async function POST(request: NextRequest) {
                   }
                 )
                 console.log(`Updated product ${item.productId}: deducted ${stockDeduction} stock (requested ${qty}), added ${qty} sales; matched ${result?.matchedCount}`)
+                void maybeSendLowStockAlert(currentProduct, currentStock, currentStock - stockDeduction)
               } else {
                 // Still record the sale even if no stock to deduct
                 const result = await db.collection('products').updateOne(

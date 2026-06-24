@@ -5,6 +5,7 @@ import { getCanonicalAppBaseUrl } from '@/lib/app-url'
 import { sendOrderPlacementNotifications } from '@/lib/order-notifications'
 import connectToDatabase from '@/lib/mongodb'
 import mongoose from 'mongoose'
+import { maybeSendLowStockAlert } from '@/lib/stock-alerts'
 
 const BACH_PAID_STATUSES = new Set(['PAID', 'COMPLETE', 'COMPLETED', 'SUCCESS', 'SUCCEEDED'])
 
@@ -71,11 +72,15 @@ export async function GET(request: NextRequest) {
               await db.collection('products').updateOne({ $or: filters }, { $inc: { sales: qty } })
               continue
             }
-            const stockDeduction = Math.min(qty, currentProduct?.stock || 0)
+            const currentStock = currentProduct?.stock || 0
+            const stockDeduction = Math.min(qty, currentStock)
             await db.collection('products').updateOne(
               { $or: filters },
               { $inc: { stock: -stockDeduction, sales: qty } }
             )
+            if (stockDeduction > 0) {
+              void maybeSendLowStockAlert(currentProduct, currentStock, currentStock - stockDeduction)
+            }
           }
         }
       } catch (err) {

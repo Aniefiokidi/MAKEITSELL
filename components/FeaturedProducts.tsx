@@ -248,7 +248,7 @@ export default function FeaturedProducts() {
                   </div>
                 )}
                 <button
-                  className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:scale-110 active:scale-95 z-10"
+                  className={`absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow transition-all duration-200 hover:scale-110 active:scale-95 z-10 ${wishlist.isInWishlist(String(product.id)) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                   onClick={(e) => { e.preventDefault(); wishlist.toggle({ productId: String(product.id), title: product.title, price: Number(product.price), image: product.images?.[0] || '', vendorId: String((product as any).vendorId || ''), category: product.category || '' }) }}
                 >
                   <Heart className={`w-4 h-4 ${wishlist.isInWishlist(String(product.id)) ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
