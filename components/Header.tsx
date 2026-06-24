@@ -652,6 +652,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
           <nav className="hidden xl:flex flex-1 justify-center items-center space-x-2 uppercase">
             {[
               { label: "Stores", href: "/stores" },
+              { label: "Food", href: "/food" },
               { label: "Services", href: "/services" },
               { label: "About", href: "/about" },
               { label: "Help", href: "/contact" },
@@ -1220,6 +1221,15 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                 >
                   <div className="bg-[oklch(0.21_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
                     Stores
+                  </div>
+                </Link>
+                <Link
+                  href="/food"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="block w-full"
+                >
+                  <div className="bg-orange-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
+                    Food & Restaurants
                   </div>
                 </Link>
                 <Link

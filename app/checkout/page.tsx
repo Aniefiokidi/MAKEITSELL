@@ -33,6 +33,38 @@ const COUNTRY_CODES = [
   { code: "+91", label: "IN (+91)" },
 ]
 
+const FOOD_SLOTS = [
+  { start: 9,  end: 11, label: "9:00 AM – 11:00 AM" },
+  { start: 11, end: 13, label: "11:00 AM – 1:00 PM" },
+  { start: 13, end: 15, label: "1:00 PM – 3:00 PM" },
+  { start: 15, end: 17, label: "3:00 PM – 5:00 PM" },
+  { start: 17, end: 19, label: "5:00 PM – 7:00 PM" },
+  { start: 19, end: 21, label: "7:00 PM – 9:00 PM" },
+]
+
+function getAvailableFoodSlots() {
+  const now = new Date()
+  const MIN_LEAD_HOURS = 4
+  const result: { value: string; label: string; group: string }[] = []
+
+  for (let dayOffset = 0; dayOffset <= 1; dayOffset++) {
+    const day = new Date(now)
+    day.setDate(day.getDate() + dayOffset)
+    const group = dayOffset === 0 ? "Today" : day.toLocaleDateString("en-NG", { weekday: "long", month: "short", day: "numeric" })
+
+    for (const slot of FOOD_SLOTS) {
+      const slotStart = new Date(day)
+      slotStart.setHours(slot.start, 0, 0, 0)
+      const hoursUntil = (slotStart.getTime() - now.getTime()) / 3_600_000
+      if (hoursUntil >= MIN_LEAD_HOURS) {
+        result.push({ value: `${group}, ${slot.label}`, label: slot.label, group })
+      }
+    }
+  }
+
+  return result
+}
+
 function formatPhoneWithCountryCode(countryCode: string, phoneInput: string): string {
   const raw = String(phoneInput || "").trim()
   if (!raw) return ""
@@ -577,25 +609,62 @@ export default function CheckoutPage() {
                         </p>
                       </div>
 
-                      {hasFoodItems && (
-                        <div className="space-y-2 rounded-lg border border-orange-200 bg-orange-50 p-3">
-                          <Label htmlFor="preferredDeliveryTime" className="text-orange-800 font-semibold">
-                            🍽 Preferred Delivery Time
-                          </Label>
-                          <Input
-                            id="preferredDeliveryTime"
-                            type="datetime-local"
-                            value={shippingInfo.preferredDeliveryTime}
-                            onChange={(e) => handleInputChange("preferredDeliveryTime", e.target.value)}
-                            disabled={loading}
-                            min={new Date(Date.now() + 30 * 60 * 1000).toISOString().slice(0, 16)}
-                            className="bg-white"
-                          />
-                          <p className="text-xs text-orange-700">
-                            Your cart contains food items. Let the vendor know your preferred delivery time (optional).
-                          </p>
-                        </div>
-                      )}
+                      {hasFoodItems && (() => {
+                        const slots = getAvailableFoodSlots()
+                        const groups = Array.from(new Set(slots.map(s => s.group)))
+                        return (
+                          <div className="space-y-3 rounded-lg border border-orange-200 bg-orange-50 p-3">
+                            <div>
+                              <Label className="text-orange-800 font-semibold">🍽 Choose a Delivery Slot</Label>
+                              <p className="text-xs text-orange-700 mt-0.5">
+                                Food is made fresh — please allow <span className="font-semibold">3–4 hours</span> preparation time. Slots available from 4 hrs ahead.
+                              </p>
+                            </div>
+                            {slots.length === 0 ? (
+                              <p className="text-sm text-orange-800 font-medium">No slots available today. Tomorrow&apos;s slots will appear shortly.</p>
+                            ) : (
+                              <div className="space-y-2">
+                                {groups.map(group => (
+                                  <div key={group}>
+                                    <p className="text-xs font-semibold text-orange-800 mb-1">{group}</p>
+                                    <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                                      {slots.filter(s => s.group === group).map(slot => (
+                                        <button
+                                          key={slot.value}
+                                          type="button"
+                                          disabled={loading}
+                                          onClick={() => handleInputChange("preferredDeliveryTime", slot.value)}
+                                          className={`text-xs px-2 py-2 rounded-md border font-medium transition-all ${
+                                            shippingInfo.preferredDeliveryTime === slot.value
+                                              ? "bg-orange-600 text-white border-orange-600 shadow-sm"
+                                              : "bg-white border-orange-200 text-orange-800 hover:border-orange-400 hover:bg-orange-50"
+                                          }`}
+                                        >
+                                          {slot.label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                                {shippingInfo.preferredDeliveryTime && (
+                                  <div className="flex items-center justify-between pt-1">
+                                    <span className="text-xs text-orange-700">
+                                      Selected: <span className="font-semibold">{shippingInfo.preferredDeliveryTime}</span>
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleInputChange("preferredDeliveryTime", "")}
+                                      className="text-xs text-orange-500 hover:text-orange-700 underline"
+                                    >
+                                      Clear
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
                     </CardContent>
                   </Card>
 
@@ -724,7 +793,7 @@ export default function CheckoutPage() {
 
                       {items.some(item => (item.vendorName || '').toLowerCase().includes('munch')) && (
                         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
-                          <span className="font-semibold">Note:</span> Munch typically takes <span className="font-semibold">3–4 hours</span> to prepare orders. Please plan your delivery time accordingly.
+                          <span className="font-semibold">Munch:</span> All meals are made to order. Your selected delivery slot above ensures your food is ready on time.
                         </div>
                       )}
 
