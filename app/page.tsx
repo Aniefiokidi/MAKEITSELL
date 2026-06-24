@@ -690,9 +690,9 @@ export default function HomePage() {
           {/* HERO SECTION */}
           <section className="relative flex items-start md:min-h-screen md:items-center justify-center pt-1 sm:pt-2 md:pt-12 lg:pt-0 mt-0 lg:-mt-20 overflow-hidden">
             <div className="container mx-auto px-4 sm:px-8 max-w-[1600px]">
-              <div className="flex flex-col-reverse items-center justify-center text-center gap-1 sm:gap-4 md:flex-row md:text-left md:items-center md:gap-0">
+              <div className="flex flex-col-reverse items-center justify-center text-center gap-4 md:flex-row md:text-left md:items-center md:gap-0">
                 {/* Left: Texts */}
-                <div className="w-full md:w-[40%] flex flex-col justify-center md:justify-center md:items-start md:text-left gap-4 sm:gap-6 mt-1 sm:mt-0 md:mt-0">
+                <div className="w-full md:w-[40%] flex flex-col justify-center md:justify-center md:items-start md:text-left gap-4 sm:gap-6">
                   <span className="text-accent font-bold text-[clamp(1rem,4vw,1.25rem)] tracking-wide">
                     WHERE EVERYTHING SELLS!
                   </span>
@@ -730,14 +730,9 @@ export default function HomePage() {
                     </button>
                   </form>
                   <HeroButtons isLoggedIn={!!user} />
-
-                  {/* Mobile: show carousel after CTA buttons */}
-                  <div className="md:hidden w-full flex items-center justify-center pt-1">
-                    <HeroShuffleCarousel />
-                  </div>
                 </div>
-                {/* Right: Image */}
-                <div className="hidden md:flex w-full md:w-[60%] items-center justify-center md:justify-start md:items-center">
+                {/* Carousel — visual top on mobile (flex-col-reverse), right column on desktop */}
+                <div className="flex w-full md:w-[60%] items-center justify-center md:justify-start md:items-center">
                   <HeroShuffleCarousel />
                 </div> 
               </div>
