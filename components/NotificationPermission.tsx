@@ -26,9 +26,12 @@ async function getOrCreateSubscription(): Promise<PushSubscription | null> {
 
 export default function NotificationPermission() {
   const { user } = useAuth()
+  const [mounted, setMounted] = useState(false)
   const [permission, setPermission] = useState<NotificationPermission>("default")
   const [showBanner, setShowBanner] = useState(false)
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
     if (!("Notification" in window)) return
@@ -105,8 +108,8 @@ export default function NotificationPermission() {
     }
   }
 
-  // Not supported
-  if (!("Notification" in window) || !("serviceWorker" in navigator)) return null
+  // Not mounted yet (SSR) or not supported
+  if (!mounted || !("Notification" in window) || !("serviceWorker" in navigator)) return null
 
   // Already granted — show a small quiet bell icon in the corner
   if (permission === "granted") {
