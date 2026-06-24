@@ -1,4 +1,4 @@
-const CACHE_NAME = 'makeitsell-v4'
+const CACHE_NAME = 'makeitsell-v5'
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -34,15 +34,9 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET and cross-origin requests
   if (request.method !== 'GET' || url.origin !== self.location.origin) return
 
-  // API routes: network-first, no caching
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      fetch(request).catch(() => new Response(JSON.stringify({ error: 'offline' }), {
-        headers: { 'Content-Type': 'application/json' },
-      }))
-    )
-    return
-  }
+  // API routes: don't intercept — let browser handle natively so
+  // fetch errors surface correctly and SW cache never masks real data
+  if (url.pathname.startsWith('/api/')) return
 
   // Images: cache-first
   if (request.destination === 'image') {
