@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
       )
       .toArray()
 
-    const suggestions = products.map((p) => ({
+    const suggestions = products.map((p: any) => ({
       id: String(p._id),
       text: String(p.title || p.name || ''),
       category: p.category || null,
