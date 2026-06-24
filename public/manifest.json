@@ -1,6 +1,6 @@
 {
-  "name": "MakeItSell",
-  "short_name": "MIS",
+  "name": "Make It Sell",
+  "short_name": "Make It Sell",
   "description": "Nigeria's Smart Marketplace — buy products, book services, order food",
   "start_url": "/",
   "display": "standalone",
