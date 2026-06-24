@@ -138,7 +138,7 @@ export default function RootLayout({
       <body
         className={`font-sans ${GeistSans.variable} ${GeistMono.variable} min-h-screen text-foreground`}
         suppressHydrationWarning={true}
-        style={{ paddingTop: 'env(safe-area-inset-top)' }}
+        style={{}}
       >
         <ThemeProvider>
           <Suspense fallback={null}>

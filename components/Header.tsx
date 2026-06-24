@@ -606,13 +606,13 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
     <header
       ref={headerRef}
       className={
-        `fixed inset-x-0 top-0 z-1000 w-full pt-[clamp(0.2rem,1vw,0.375rem)] pb-[clamp(0.35rem,1.4vw,0.5rem)] transition-colors duration-300 ${homeBg && !isScrolled && !isMenuOpen
+        `fixed inset-x-0 top-0 z-1000 w-full pb-[clamp(0.35rem,1.4vw,0.5rem)] transition-colors duration-300 ${homeBg && !isScrolled && !isMenuOpen
           ? 'bg-transparent border-b border-transparent backdrop-blur-0 shadow-none'
           : 'bg-white/55 supports-backdrop-filter:bg-white/40 backdrop-blur-xl backdrop-saturate-150 border-b border-white/40 shadow-sm'}
         `
-        
+
       }
-      style={{ zIndex: 1000 }}
+      style={{ zIndex: 1000, paddingTop: 'calc(env(safe-area-inset-top) + clamp(0.2rem, 1vw, 0.375rem))' }}
     >
       <div className="w-full px-[clamp(0.625rem,2.8vw,1rem)] sm:px-4 lg:px-10">
         <div className="flex h-[clamp(2.5rem,10vw,3.25rem)] md:h-14 lg:h-16 items-center justify-between gap-1">
