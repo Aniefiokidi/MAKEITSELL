@@ -61,7 +61,7 @@ export async function pushToUser(userId: string, payload: PushPayload) {
 
   const expired: string[] = []
   await Promise.all(
-    subs.map(async (sub) => {
+    subs.map(async (sub: any) => {
       const ok = await sendToSubscription(sub, payload)
       if (!ok) expired.push(String(sub._id))
     })
@@ -86,7 +86,7 @@ export async function pushBroadcast(payload: PushPayload, batchSize = 200) {
     const batch = await db.collection('push_subscriptions').find({}).skip(skip).limit(batchSize).toArray()
     if (!batch.length) break
     await Promise.all(
-      batch.map(async (sub) => {
+      batch.map(async (sub: any) => {
         const ok = await sendToSubscription(sub, payload)
         if (!ok) expired.push(String(sub._id))
       })
