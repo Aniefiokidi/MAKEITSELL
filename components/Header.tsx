@@ -1,11 +1,11 @@
 "use client"
 
 
-import { useEffect, useRef, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion } from "framer-motion"
-import { Wallet, Menu, X, Eye, EyeOff, ArrowDownCircle, ArrowUpCircle, Sparkles } from "lucide-react"
+import { Wallet, Menu, X, Eye, EyeOff, ArrowDownCircle, ArrowUpCircle, Sparkles, Store, UtensilsCrossed, Wrench, Info, HelpCircle, Gavel, ChevronRight, LogIn, UserPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -83,7 +83,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
   const [showWithdrawalPin, setShowWithdrawalPin] = useState(false)
   const [walletTransactions, setWalletTransactions] = useState<WalletTx[]>([])
   const [walletTxLoading, setWalletTxLoading] = useState(false)
-  const [mobileDrawerWidth, setMobileDrawerWidth] = useState("85vw")
+  const [mobileDrawerWidth] = useState("min(320px, 88vw)")
   const [isScrolled, setIsScrolled] = useState(false)
   const [vendorPhonePromptOpen, setVendorPhonePromptOpen] = useState(false)
   const contentTopGap = homeBg ? 0 : 14
@@ -549,23 +549,10 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
     }
   }, [isMenuOpen])
 
-  // Use a slightly narrower drawer on very small phones for smoother UX.
   useEffect(() => {
-    const updateDrawerWidth = () => {
-      setMobileDrawerWidth(window.innerWidth <= 380 ? "80vw" : "85vw")
-
-      // Ensure mobile drawer never remains open after switching to desktop.
-      if (window.innerWidth >= 1280) {
-        setIsMenuOpen(false)
-      }
-    }
-
-    updateDrawerWidth()
-    window.addEventListener("resize", updateDrawerWidth)
-
-    return () => {
-      window.removeEventListener("resize", updateDrawerWidth)
-    }
+    const onResize = () => { if (window.innerWidth >= 1280) setIsMenuOpen(false) }
+    window.addEventListener("resize", onResize)
+    return () => window.removeEventListener("resize", onResize)
   }, [])
 
   // Close mobile drawer on route change to avoid stale open state.
@@ -1183,7 +1170,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
 
       {/* Drawer Panel */}
       <div
-        className={`fixed top-0 right-0 h-screen max-w-xs transform-gpu bg-linear-to-br from-gray-50 to-gray-100 shadow-xl z-1002 flex flex-col overflow-hidden xl:hidden transition-transform duration-300 pointer-events-auto ${
+        className={`fixed top-0 right-0 flex flex-col overflow-hidden xl:hidden z-1002 pointer-events-auto bg-white border-l border-gray-100 shadow-2xl transition-transform duration-300 ${
           isMenuOpen ? "translate-x-0" : "translate-x-full"
         }`}
         style={{
@@ -1192,124 +1179,136 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
           willChange: "transform",
           contain: "paint",
           backfaceVisibility: "hidden",
-          transitionTimingFunction: "cubic-bezier(0.34, 1.56, 0.64, 1)",
+          transitionTimingFunction: "cubic-bezier(0.32, 0.72, 0, 1)",
         }}
       >
-              {/* Header */}
-              <div className="flex items-center justify-between p-3 sm:p-6 border-b border-gray-200">
-                <img
-                  src="/images/logo (2).png"
-                  alt="Make It Sell"
-                  className="h-4 sm:h-6 w-auto object-contain"
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="hover:bg-gray-200 rounded-full h-8 w-8"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+        {/* Brand accent bar */}
+        <div className="h-1 w-full bg-linear-to-r from-accent via-orange-500 to-red-600 shrink-0" />
+
+        {/* Drawer header */}
+        <div className="flex items-center justify-between px-5 py-4 shrink-0">
+          <img src="/images/logo (2).png" alt="Make It Sell" className="h-5 w-auto object-contain" />
+          <button
+            onClick={() => setIsMenuOpen(false)}
+            aria-label="Close menu"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Logged-in user card */}
+        {!loading && user && userProfile && (
+          <div className="mx-4 mb-1 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 px-4 py-3 flex items-center gap-3 shrink-0">
+            <div className="w-10 h-10 rounded-full bg-accent/10 border-2 border-accent/20 flex items-center justify-center shrink-0">
+              <span className="text-accent font-bold text-sm select-none">
+                {(userProfile.displayName || userProfile.email || "U").charAt(0).toUpperCase()}
+              </span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-gray-900 text-sm truncate leading-tight">
+                {userProfile.displayName || userProfile.email}
+              </p>
+              <div className="flex items-center gap-2 mt-1">
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize tracking-wide ${
+                  userProfile.role === "vendor" ? "bg-blue-50 text-blue-600" : "bg-emerald-50 text-emerald-600"
+                }`}>
+                  {userProfile.role}
+                </span>
+                {formattedWalletBalance && (
+                  <span className="text-[10px] text-gray-400 font-medium truncate">{formattedWalletBalance}</span>
+                )}
               </div>
+            </div>
+          </div>
+        )}
 
-              {/* Navigation Links - Oval Buttons */}
-              <div className="px-3 sm:px-6 pt-6 sm:pt-8 pb-4 sm:pb-6 space-y-2 sm:space-y-4 flex-1 overflow-y-auto">
-                <Link
-                  href="/stores"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="block w-full"
-                >
-                  <div className="bg-[oklch(0.21_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
-                    Stores
-                  </div>
-                </Link>
-                <Link
-                  href="/food"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="block w-full"
-                >
-                  <div className="bg-orange-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
-                    Food & Restaurants
-                  </div>
-                </Link>
-                <Link
-                  href="/services"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="block w-full"
-                >
-                  <div className="bg-[oklch(0.21_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
-                    Services
-                  </div>
-                </Link>
-                <Link
-                  href="/about"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="block w-full"
-                >
-                  <div className="bg-[oklch(0.21_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
-                    About Us
-                  </div>
-                </Link>
-                <Link
-                  href="/contact"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="block w-full"
-                >
-                  <div className="bg-[oklch(0.21_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
-                    Help
-                  </div>
-                </Link>
-                <Link
-                  href="/bidding"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="block w-full"
-                >
-                  <div className="bg-[oklch(0.21_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
-                    Bidding
-                  </div>
-                </Link>
+        {/* Loading skeleton */}
+        {loading && (
+          <div className="mx-4 mb-1 rounded-2xl bg-gray-50 border border-gray-100 px-4 py-3 flex items-center gap-3 shrink-0">
+            <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse shrink-0" />
+            <div className="flex-1 space-y-2">
+              <div className="h-3 bg-gray-200 rounded-full animate-pulse w-2/3" />
+              <div className="h-2.5 bg-gray-100 rounded-full animate-pulse w-1/2" />
+            </div>
+          </div>
+        )}
 
-                {/* Auth Buttons or User Profile */}
-                {loading ? (
-                  <div className="flex items-center justify-center py-4">
-                    <div className="w-8 h-8 rounded-full bg-gray-300 animate-pulse"></div>
-                  </div>
-                ) : !(user && userProfile) ? (
-                  <>
-                    <Link
-                      href="/login"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="block w-full"
-                    >
-                      <div className="bg-[oklch(0.21_0.194_29.234)] text-white px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg">
-                        Sign in
-                      </div>
-                    </Link>
-                    <Link
-                      href="/signup"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="block w-full"
-                    >
-                      <div className="bg-white text-[oklch(0.21_0.194_29.234)] border-2 border-[oklch(0.21_0.194_29.234)] px-4 sm:px-6 py-2 sm:py-3 rounded-full text-xs sm:text-sm text-center font-medium hover:bg-[oklch(0.21_0.194_29.234)] hover:text-white transition-all shadow-md hover:shadow-lg">
-                        Join Us
-                      </div>
-                    </Link>
-                  </>
-                ) : null}
-              </div>
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto px-3 py-3">
+          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-[0.12em] px-3 mb-2">Menu</p>
 
-              {/* Footer Section */}
-              {!(user && userProfile) && (
-                <div className="px-3 sm:px-6 py-3 sm:py-6 bg-white border-t border-gray-200">
-                  <h3 className="text-xs font-semibold text-gray-900 mb-1">Get early access</h3>
-                  <p className="text-[10px] text-gray-600 mb-2">
-                    Become a Make It Sell member to buy smarter, sell faster, and grow with the community.
-                  </p>
-                  <p className="text-[9px] text-gray-500">
-                    (c) 2026 Make It Sell. All rights reserved.
-                  </p>
+          {(
+            [
+              { label: "Stores",            href: "/stores",   icon: Store },
+              { label: "Food & Restaurants",href: "/food",     icon: UtensilsCrossed, food: true },
+              { label: "Services",          href: "/services", icon: Wrench },
+              { label: "About Us",          href: "/about",    icon: Info },
+              { label: "Help",              href: "/contact",  icon: HelpCircle },
+              { label: "Bidding",           href: "/bidding",  icon: Gavel },
+            ] as { label: string; href: string; icon: React.ElementType; food?: boolean }[]
+          ).map(({ label, href, icon: Icon, food }) => {
+            const isActive = pathname === href || (href === "/contact" && (pathname === "/contact" || pathname === "/support"))
+            return (
+              <Link
+                key={href}
+                href={href}
+                onClick={() => setIsMenuOpen(false)}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl mb-0.5 transition-all duration-150 group ${
+                  isActive
+                    ? food ? "bg-orange-50" : "bg-accent/10"
+                    : "hover:bg-gray-50 active:bg-gray-100"
+                }`}
+              >
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                  isActive
+                    ? food ? "bg-orange-500 text-white shadow-sm" : "bg-accent text-white shadow-sm shadow-accent/30"
+                    : food ? "bg-orange-100 text-orange-500 group-hover:bg-orange-200" : "bg-gray-100 text-gray-500 group-hover:bg-gray-200"
+                }`}>
+                  <Icon className="h-4 w-4" />
                 </div>
-              )}
+                <span className={`flex-1 text-sm font-medium leading-none ${
+                  isActive ? food ? "text-orange-700" : "text-accent" : "text-gray-700"
+                }`}>
+                  {label}
+                </span>
+                <ChevronRight className={`h-3.5 w-3.5 shrink-0 transition-transform duration-150 group-hover:translate-x-0.5 ${
+                  isActive ? food ? "text-orange-400" : "text-accent/50" : "text-gray-300"
+                }`} />
+              </Link>
+            )
+          })}
+
+          {/* Auth section */}
+          {!loading && !(user && userProfile) && (
+            <div className="mt-4 space-y-2 px-1">
+              <div className="h-px bg-gray-100 mb-4" />
+              <Link
+                href="/login"
+                onClick={() => setIsMenuOpen(false)}
+                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:border-accent hover:text-accent hover:bg-accent/5 transition-all duration-150"
+              >
+                <LogIn className="h-4 w-4" />
+                Sign in
+              </Link>
+              <Link
+                href="/signup"
+                onClick={() => setIsMenuOpen(false)}
+                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-accent text-white text-sm font-medium hover:bg-accent/90 active:scale-[0.98] transition-all duration-150 shadow-sm shadow-accent/20"
+              >
+                <UserPlus className="h-4 w-4" />
+                Join Free
+              </Link>
+            </div>
+          )}
+        </nav>
+
+        {/* Footer */}
+        <div className="px-5 py-4 border-t border-gray-100 shrink-0">
+          <p className="text-[10px] text-gray-400 text-center tracking-wide">
+            © 2026 Make It Sell · All rights reserved
+          </p>
+        </div>
       </div>
     </header>
     <div aria-hidden="true" style={{ height: headerHeight + contentTopGap }} />
