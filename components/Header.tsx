@@ -1160,13 +1160,15 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
         onBalanceUpdated={setVendorWalletBalance}
       />
 
-      {/* Background overlay */}
-      <div
-        className={`fixed inset-0 bg-black/50 z-1001 xl:hidden transition-opacity duration-200 ${
-          isMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-        }`}
-        onClick={() => setIsMenuOpen(false)}
-      />
+      {/* Background overlay — only rendered when open so pointer events are never ambiguous */}
+      {isMenuOpen && (
+        <div
+          className="fixed inset-0 xl:hidden bg-black/50 cursor-pointer"
+          style={{ zIndex: 1001 }}
+          aria-hidden="true"
+          onClick={() => setIsMenuOpen(false)}
+        />
+      )}
 
       {/* Drawer Panel */}
       <div
@@ -1176,15 +1178,13 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
         style={{
           width: mobileDrawerWidth,
           height: "100dvh",
+          zIndex: 1002,
           willChange: "transform",
           contain: "paint",
           backfaceVisibility: "hidden",
           transitionTimingFunction: "cubic-bezier(0.32, 0.72, 0, 1)",
         }}
       >
-        {/* Brand accent bar */}
-        <div className="h-1 w-full bg-linear-to-r from-accent via-orange-500 to-red-600 shrink-0" />
-
         {/* Drawer header */}
         <div className="flex items-center justify-between px-5 py-4 shrink-0">
           <img src="/images/logo (2).png" alt="Make It Sell" className="h-5 w-auto object-contain" />
