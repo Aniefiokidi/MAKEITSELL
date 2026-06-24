@@ -218,7 +218,7 @@ export async function GET(request: NextRequest) {
                 }
               )
               console.log(`Updated product ${item.productId}: deducted ${stockDeduction} stock (requested ${qty}), added ${qty} sales; matched ${result?.matchedCount}`)
-              void maybeSendLowStockAlert(currentProduct, currentStock, currentStock - stockDeduction)
+              if (currentProduct) void maybeSendLowStockAlert(currentProduct, currentStock, currentStock - stockDeduction)
             } else {
               // Still record the sale even if no stock to deduct
               const result = await db.collection('products').updateOne(
@@ -351,7 +351,7 @@ export async function POST(request: NextRequest) {
                   }
                 )
                 console.log(`Updated product ${item.productId}: deducted ${stockDeduction} stock (requested ${qty}), added ${qty} sales; matched ${result?.matchedCount}`)
-                void maybeSendLowStockAlert(currentProduct, currentStock, currentStock - stockDeduction)
+                if (currentProduct) void maybeSendLowStockAlert(currentProduct, currentStock, currentStock - stockDeduction)
               } else {
                 // Still record the sale even if no stock to deduct
                 const result = await db.collection('products').updateOne(

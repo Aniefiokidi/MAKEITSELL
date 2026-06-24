@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
               { $or: filters },
               { $inc: { stock: -stockDeduction, sales: qty } }
             )
-            if (stockDeduction > 0) {
+            if (stockDeduction > 0 && currentProduct) {
               void maybeSendLowStockAlert(currentProduct, currentStock, currentStock - stockDeduction)
             }
           }
