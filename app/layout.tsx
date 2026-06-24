@@ -8,7 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext"
 import { CartProvider } from "@/contexts/CartContext"
 import { WishlistProvider } from "@/contexts/WishlistContext"
 import GlobalClientProviders from "@/components/GlobalClientProviders"
-import NotificationPermission from "@/components/NotificationPermission"
+const NotificationPermission = dynamic(() => import("@/components/NotificationPermission"), { ssr: false })
 import { Suspense } from "react"
 import Footer from "@/components/Footer"
 import "./globals.css"
