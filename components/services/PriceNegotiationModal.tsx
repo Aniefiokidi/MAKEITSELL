@@ -206,6 +206,12 @@ export default function PriceNegotiationModal({
 
   const messages = negotiation?.messages || []
   const lastMsg = messages[messages.length - 1]
+
+  // Don't rely solely on DB status — MongoDB TTL index has a ~minute delay at boundaries
+  const clientExpired =
+    negotiation?.status === "open" && new Date(negotiation.expiresAt) < new Date()
+  const effectiveStatus = clientExpired ? "expired" : negotiation?.status
+
   const isAwaitingProvider = lastMsg?.senderRole === "customer"
   const providerJustMoved =
     lastMsg?.senderRole === "provider" &&
@@ -292,7 +298,7 @@ export default function PriceNegotiationModal({
         {!loading && negotiation && (
           <>
             {/* Status banner */}
-            {negotiation.status === "agreed" && (
+            {effectiveStatus === "agreed" && (
               <div className="flex items-center gap-2.5 bg-green-50 border-b border-green-200 px-5 py-3 shrink-0">
                 <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
                 <div>
@@ -301,7 +307,7 @@ export default function PriceNegotiationModal({
                 </div>
               </div>
             )}
-            {negotiation.status === "rejected" && (
+            {effectiveStatus === "rejected" && (
               <div className="flex items-center gap-2.5 bg-red-50 border-b border-red-200 px-5 py-3 shrink-0">
                 <XCircle className="h-4 w-4 text-red-500 shrink-0" />
                 <div>
@@ -310,7 +316,7 @@ export default function PriceNegotiationModal({
                 </div>
               </div>
             )}
-            {negotiation.status === "expired" && (
+            {effectiveStatus === "expired" && (
               <div className="flex items-center gap-2.5 bg-amber-50 border-b border-amber-200 px-5 py-3 shrink-0">
                 <Clock className="h-4 w-4 text-amber-600 shrink-0" />
                 <div>
@@ -387,7 +393,7 @@ export default function PriceNegotiationModal({
               })}
 
               {/* Typing / waiting indicator */}
-              {negotiation.status === "open" && isAwaitingProvider && (
+              {effectiveStatus === "open" && isAwaitingProvider && (
                 <div className="flex justify-start pl-8">
                   <div className="bg-white border border-border/60 rounded-2xl rounded-bl-sm px-4 py-2.5 flex items-center gap-1.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:0ms]" />
@@ -405,7 +411,7 @@ export default function PriceNegotiationModal({
             <div className="border-t bg-background px-5 py-4 space-y-3 shrink-0">
 
               {/* Agreed: proceed to booking */}
-              {negotiation.status === "agreed" && (
+              {effectiveStatus === "agreed" && (
                 <Button
                   className="w-full bg-green-600 hover:bg-green-700 text-white"
                   size="lg"
@@ -417,14 +423,14 @@ export default function PriceNegotiationModal({
               )}
 
               {/* Ended / expired: start fresh */}
-              {(negotiation.status === "rejected" || negotiation.status === "expired") && (
+              {(effectiveStatus === "rejected" || effectiveStatus === "expired") && (
                 <Button variant="outline" className="w-full" onClick={() => setNegotiation(null)}>
                   Start a New Negotiation
                 </Button>
               )}
 
               {/* Open, provider moved: accept / decline / counter */}
-              {negotiation.status === "open" && providerJustMoved && !showCounterForm && (
+              {effectiveStatus === "open" && providerJustMoved && !showCounterForm && (
                 <div className="space-y-2.5">
                   <p className="text-xs text-center text-muted-foreground">
                     {negotiation.providerName} is offering <strong className="text-foreground">{fmt(lastMsg.amount)}</strong>
@@ -463,7 +469,7 @@ export default function PriceNegotiationModal({
               )}
 
               {/* Counter form */}
-              {negotiation.status === "open" && providerJustMoved && showCounterForm && (
+              {effectiveStatus === "open" && providerJustMoved && showCounterForm && (
                 <div className="space-y-2.5">
                   <p className="text-xs font-medium text-muted-foreground">Your counter-offer</p>
                   <AmountInput

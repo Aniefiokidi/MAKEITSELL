@@ -59,7 +59,7 @@ function actionEmail({
 }
 
 // POST /api/services/negotiate/[id]/action
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await getSessionUserFromRequest(req)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -70,9 +70,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: 'Invalid action type' }, { status: 400 })
   }
 
+  const { id } = await params
   await connectToDatabase()
 
-  const negotiation = await PriceNegotiation.findById(params.id)
+  const negotiation = await PriceNegotiation.findById(id)
   if (!negotiation) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   if (negotiation.customerId !== user.id && negotiation.providerId !== user.id) {
