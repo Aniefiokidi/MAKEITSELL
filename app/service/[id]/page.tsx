@@ -14,8 +14,9 @@ import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/
 // import { getServiceById, Service, createConversation, getConversations } from "@/lib/database"
 import type { Service } from "@/lib/database-client"
 import { useAuth } from "@/contexts/AuthContext"
-import { ArrowLeft, MapPin, Clock, DollarSign, Calendar, MessageCircle, CheckCircle, X, ChevronLeft, ChevronRight, Star, Hotel, Building2, Truck, Music2, Camera, Briefcase } from "lucide-react"
+import { ArrowLeft, MapPin, Clock, DollarSign, Calendar, MessageCircle, CheckCircle, X, ChevronLeft, ChevronRight, Star, Hotel, Building2, Truck, Music2, Camera, Briefcase, ArrowLeftRight } from "lucide-react"
 import BookingModal from "@/components/services/BookingModal"
+import PriceNegotiationModal from "@/components/services/PriceNegotiationModal"
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 import { buildPublicServicePath, extractEntityIdFromParam } from "@/lib/public-links"
 
@@ -39,6 +40,8 @@ export default function ServiceDetailPage() {
   const [service, setService] = useState<Service | null>(null)
   const [loading, setLoading] = useState(true)
   const [showBookingModal, setShowBookingModal] = useState(false)
+  const [showNegotiationModal, setShowNegotiationModal] = useState(false)
+  const [negotiatedPrice, setNegotiatedPrice] = useState<number | undefined>(undefined)
   const [selectedImage, setSelectedImage] = useState(0)
   const [messagingProvider, setMessagingProvider] = useState(false)
   const [showMessageModal, setShowMessageModal] = useState(false)
@@ -1139,9 +1142,25 @@ export default function ServiceDetailPage() {
                     {isHospitalityService ? (isApartmentStay ? "Reserve Apartment" : "Book Stay") : "Book Appointment"}
                   </Button>
 
-                  <Button 
-                    variant="outline" 
-                    className="w-full hover:bg-accent/10 hover:text-accent transition-all" 
+                  <Button
+                    variant="outline"
+                    className="w-full hover:bg-accent/10 hover:text-accent transition-all"
+                    size="lg"
+                    onClick={() => {
+                      if (!user) {
+                        router.push("/login")
+                      } else {
+                        setShowNegotiationModal(true)
+                      }
+                    }}
+                  >
+                    <ArrowLeftRight className="h-4 w-4 mr-2" />
+                    Negotiate Price
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    className="w-full hover:bg-accent/10 hover:text-accent transition-all"
                     size="lg"
                     onClick={handleMessageProvider}
                   >
@@ -1203,6 +1222,22 @@ export default function ServiceDetailPage() {
           }))}
           isOpen={showBookingModal}
           onClose={() => setShowBookingModal(false)}
+          overridePrice={negotiatedPrice}
+        />
+      )}
+
+      {service && (
+        <PriceNegotiationModal
+          serviceId={serviceId}
+          serviceName={service.title || ""}
+          basePrice={Number(service.price || 0)}
+          open={showNegotiationModal}
+          onClose={() => setShowNegotiationModal(false)}
+          onProceedToBooking={(agreedPrice) => {
+            setNegotiatedPrice(agreedPrice)
+            setShowNegotiationModal(false)
+            setShowBookingModal(true)
+          }}
         />
       )}
 

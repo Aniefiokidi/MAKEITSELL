@@ -34,9 +34,10 @@ interface BookingModalProps {
   }>
   isOpen: boolean
   onClose: () => void
+  overridePrice?: number
 }
 
-export default function BookingModal({ service, selectedPackage, selectedAddOns = [], isOpen, onClose }: BookingModalProps) {
+export default function BookingModal({ service, selectedPackage, selectedAddOns = [], isOpen, onClose, overridePrice }: BookingModalProps) {
   const { user, userProfile } = useAuth()
   const { toast } = useToast()
   const notification = useNotification()
@@ -93,7 +94,9 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
   const tripDistanceFee = distanceRatePerMile > 0 && Number.isFinite(parsedTripDistanceMiles) && parsedTripDistanceMiles > 0
     ? parsedTripDistanceMiles * distanceRatePerMile
     : 0
-  const estimatedTotal = Math.max(0, Math.round(basePackagePrice + addOnTotal + tripDistanceFee))
+  const estimatedTotal = overridePrice != null
+    ? overridePrice
+    : Math.max(0, Math.round(basePackagePrice + addOnTotal + tripDistanceFee))
   const locationType = service.locationType === "store"
     ? "store"
     : service.locationType === "home-service"
@@ -565,7 +568,7 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
               <p>Package: {selectedPackage?.name || "Standard"}</p>
               <p>Duration: {isHospitalityService ? `${nightlyNights} night(s)` : `${selectedPackage?.duration || service.duration || "Variable"} minutes`}</p>
               <p>
-                {service.requiresQuote ? "Estimated Total" : "Total"}: ₦{computedTotal.toLocaleString('en-NG')}
+                {overridePrice != null ? "Negotiated price" : service.requiresQuote ? "Estimated Total" : "Total"}: ₦{computedTotal.toLocaleString('en-NG')}
               </p>
               <p className="capitalize">Location: {service.locationType.replace("-", " ")}</p>
             </div>
