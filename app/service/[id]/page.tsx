@@ -1142,9 +1142,15 @@ export default function ServiceDetailPage() {
                     {isHospitalityService ? (isApartmentStay ? "Reserve Apartment" : "Book Stay") : "Book Appointment"}
                   </Button>
 
+                  <div className="flex items-center gap-3 py-0.5">
+                    <div className="flex-1 border-t border-dashed border-border/60" />
+                    <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">or</span>
+                    <div className="flex-1 border-t border-dashed border-border/60" />
+                  </div>
+
                   <Button
                     variant="outline"
-                    className="w-full hover:bg-accent/10 hover:text-accent transition-all"
+                    className="w-full border-accent/40 text-accent hover:bg-accent/5 hover:border-accent transition-all"
                     size="lg"
                     onClick={() => {
                       if (!user) {
@@ -1159,9 +1165,9 @@ export default function ServiceDetailPage() {
                   </Button>
 
                   <Button
-                    variant="outline"
-                    className="w-full hover:bg-accent/10 hover:text-accent transition-all"
-                    size="lg"
+                    variant="ghost"
+                    className="w-full text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all"
+                    size="sm"
                     onClick={handleMessageProvider}
                   >
                     <MessageCircle className="h-4 w-4 mr-2" />

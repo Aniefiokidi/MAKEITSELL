@@ -3,10 +3,8 @@
 import { useEffect, useRef, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import { Loader2, CheckCircle2, XCircle, ArrowLeftRight, Send, Clock } from "lucide-react"
+import { Loader2, CheckCircle2, XCircle, ArrowLeftRight, Send, Clock, Info } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { format } from "date-fns"
 
@@ -41,16 +39,46 @@ interface PriceNegotiationModalProps {
   onProceedToBooking?: (agreedPrice: number) => void
 }
 
-function fmt(n: number | null) {
+function fmt(n: number | null | undefined) {
   if (!n) return "—"
   return `₦${Number(n).toLocaleString("en-NG")}`
 }
 
 function typeLabel(type: NegotiationMessage["type"]) {
-  return type === "offer" ? "Opening offer" :
-    type === "counter" ? "Counter-offer" :
-    type === "accept" ? "Accepted" :
-    type === "reject" ? "Declined" : ""
+  if (type === "offer") return "Opening offer"
+  if (type === "counter") return "Counter-offer"
+  if (type === "accept") return "Accepted ✓"
+  if (type === "reject") return "Declined"
+  return ""
+}
+
+function AmountInput({
+  value,
+  onChange,
+  placeholder = "0",
+  autoFocus = false,
+}: {
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+  autoFocus?: boolean
+}) {
+  return (
+    <div className="flex rounded-md overflow-hidden border border-input bg-background focus-within:ring-2 focus-within:ring-ring/30 focus-within:border-ring transition-all">
+      <span className="flex items-center bg-muted/60 px-3 text-sm font-semibold text-muted-foreground border-r border-input select-none">
+        ₦
+      </span>
+      <input
+        type="number"
+        min={1}
+        placeholder={placeholder}
+        value={value}
+        autoFocus={autoFocus}
+        onChange={(e) => onChange(e.target.value)}
+        className="flex-1 px-3 py-2 text-sm bg-transparent focus:outline-none"
+      />
+    </div>
+  )
 }
 
 export default function PriceNegotiationModal({
@@ -68,14 +96,13 @@ export default function PriceNegotiationModal({
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
-  // Form state
   const [offerAmount, setOfferAmount] = useState("")
   const [offerNote, setOfferNote] = useState("")
   const [counterAmount, setCounterAmount] = useState("")
   const [counterNote, setCounterNote] = useState("")
   const [showCounterForm, setShowCounterForm] = useState(false)
 
-  // Fetch existing negotiation on open
+  // Fetch existing negotiation when modal opens
   useEffect(() => {
     if (!open) return
     let cancelled = false
@@ -96,7 +123,7 @@ export default function PriceNegotiationModal({
     return () => { cancelled = true }
   }, [open, serviceId])
 
-  // Poll every 8s when negotiation is open
+  // Poll every 8 s while negotiation is open
   useEffect(() => {
     if (!open || !negotiation || negotiation.status !== "open") return
 
@@ -113,15 +140,15 @@ export default function PriceNegotiationModal({
     return () => clearInterval(interval)
   }, [open, negotiation])
 
-  // Scroll chat to bottom on new messages
+  // Scroll to bottom when messages change
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [negotiation?.messages])
+  }, [negotiation?.messages?.length])
 
   async function startNegotiation() {
     const amt = parseFloat(offerAmount.replace(/[^0-9.]/g, ""))
     if (!amt || amt <= 0) {
-      toast({ title: "Enter a valid amount", variant: "destructive" })
+      toast({ title: "Please enter a valid amount", variant: "destructive" })
       return
     }
     setSubmitting(true)
@@ -134,7 +161,6 @@ export default function PriceNegotiationModal({
       const data = await res.json()
       if (!res.ok) {
         if (res.status === 409 && data.negotiationId) {
-          // Already has open negotiation — load it
           const r2 = await fetch(`/api/services/negotiate/${data.negotiationId}`)
           const d2 = await r2.json()
           setNegotiation(d2.negotiation)
@@ -153,7 +179,7 @@ export default function PriceNegotiationModal({
     }
   }
 
-  async function sendAction(type: "accept" | "reject" | "counter" | "note", amount?: number, text?: string) {
+  async function sendAction(type: "accept" | "reject" | "counter", amount?: number, text?: string) {
     if (!negotiation) return
     setSubmitting(true)
     try {
@@ -178,7 +204,6 @@ export default function PriceNegotiationModal({
     }
   }
 
-  // Determine context from the perspective of the currently logged-in user (customer)
   const messages = negotiation?.messages || []
   const lastMsg = messages[messages.length - 1]
   const isAwaitingProvider = lastMsg?.senderRole === "customer"
@@ -188,183 +213,247 @@ export default function PriceNegotiationModal({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="max-w-lg w-full p-0 overflow-hidden flex flex-col max-h-[90vh]">
-        <DialogHeader className="px-5 pt-5 pb-3 border-b shrink-0">
-          <DialogTitle className="text-base font-semibold">Negotiate Price</DialogTitle>
-          <p className="text-sm text-muted-foreground mt-0.5 leading-snug">
-            {serviceName}
-            {" · "}
-            <span className="font-medium text-foreground">Listed: {fmt(basePrice)}</span>
-          </p>
+      <DialogContent className="max-w-lg w-full p-0 gap-0 overflow-hidden flex flex-col max-h-[92vh]">
+
+        {/* ── Header ── */}
+        <DialogHeader className="px-5 pt-5 pb-4 border-b shrink-0">
+          <div className="flex items-center gap-2.5 mb-0.5">
+            <div className="h-8 w-8 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
+              <ArrowLeftRight className="h-4 w-4 text-accent" />
+            </div>
+            <div className="min-w-0">
+              <DialogTitle className="text-base font-semibold leading-tight">Negotiate Price</DialogTitle>
+              <p className="text-xs text-muted-foreground truncate mt-0.5">{serviceName}</p>
+            </div>
+            <div className="ml-auto text-right shrink-0">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Listed at</p>
+              <p className="text-sm font-bold text-foreground">{fmt(basePrice)}</p>
+            </div>
+          </div>
         </DialogHeader>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-16">
+        {/* ── Loading ── */}
+        {loading && (
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Loading…</p>
           </div>
-        ) : !negotiation ? (
-          /* ── No active negotiation: show opening offer form ── */
-          <div className="p-5 space-y-4 flex-1 overflow-y-auto">
-            <div className="rounded-lg bg-accent/5 border border-accent/20 p-4 text-sm text-muted-foreground leading-relaxed">
-              Propose a price to the provider. They'll receive a notification and can accept, counter, or decline.
-              Negotiations expire after 48 hours.
+        )}
+
+        {/* ── No active negotiation: opening offer form ── */}
+        {!loading && !negotiation && (
+          <div className="flex-1 overflow-y-auto p-5 space-y-5">
+            <div className="flex gap-2.5 rounded-lg bg-blue-50 border border-blue-100 px-4 py-3">
+              <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+              <p className="text-sm text-blue-700 leading-relaxed">
+                Propose a price directly to the provider. They'll be notified and can accept, counter, or decline. Negotiations expire after 48 hours.
+              </p>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-1.5">
               <label className="text-sm font-medium">Your proposed price</label>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-muted-foreground">₦</span>
-                <Input
-                  type="number"
-                  min={1}
-                  placeholder="e.g. 45000"
-                  value={offerAmount}
-                  onChange={(e) => setOfferAmount(e.target.value)}
-                  className="flex-1"
-                />
-              </div>
+              <AmountInput
+                value={offerAmount}
+                onChange={setOfferAmount}
+                placeholder="e.g. 45000"
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">Provider's listed price: {fmt(basePrice)}</p>
+            </div>
 
-              <label className="text-sm font-medium">Message to provider <span className="text-muted-foreground font-normal">(optional)</span></label>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">
+                Message <span className="font-normal text-muted-foreground">(optional)</span>
+              </label>
               <Textarea
                 rows={3}
-                placeholder="e.g. I can only budget this amount for now..."
+                placeholder="e.g. I have a budget of ₦45,000 for this project..."
                 value={offerNote}
                 onChange={(e) => setOfferNote(e.target.value)}
-                className="resize-none"
+                className="resize-none text-sm"
               />
             </div>
 
             <Button
               className="w-full"
+              size="lg"
               onClick={startNegotiation}
               disabled={submitting || !offerAmount}
             >
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+              {submitting
+                ? <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                : <Send className="h-4 w-4 mr-2" />}
               Send Offer
             </Button>
           </div>
-        ) : (
-          /* ── Active negotiation: chat view ── */
+        )}
+
+        {/* ── Active negotiation: chat view ── */}
+        {!loading && negotiation && (
           <>
             {/* Status banner */}
             {negotiation.status === "agreed" && (
-              <div className="flex items-center gap-2 bg-green-50 border-b border-green-200 px-5 py-3 shrink-0">
+              <div className="flex items-center gap-2.5 bg-green-50 border-b border-green-200 px-5 py-3 shrink-0">
                 <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-                <p className="text-sm font-semibold text-green-800">
-                  Price agreed at <span className="text-green-700">{fmt(negotiation.agreedPrice)}</span>
-                </p>
+                <div>
+                  <p className="text-sm font-semibold text-green-800">Price agreed!</p>
+                  <p className="text-xs text-green-700">Both parties agreed on {fmt(negotiation.agreedPrice)}</p>
+                </div>
               </div>
             )}
             {negotiation.status === "rejected" && (
-              <div className="flex items-center gap-2 bg-red-50 border-b border-red-200 px-5 py-3 shrink-0">
+              <div className="flex items-center gap-2.5 bg-red-50 border-b border-red-200 px-5 py-3 shrink-0">
                 <XCircle className="h-4 w-4 text-red-500 shrink-0" />
-                <p className="text-sm font-semibold text-red-700">Negotiation ended</p>
+                <div>
+                  <p className="text-sm font-semibold text-red-700">Negotiation ended</p>
+                  <p className="text-xs text-red-600">This negotiation was declined</p>
+                </div>
               </div>
             )}
             {negotiation.status === "expired" && (
-              <div className="flex items-center gap-2 bg-yellow-50 border-b border-yellow-200 px-5 py-3 shrink-0">
-                <Clock className="h-4 w-4 text-yellow-600 shrink-0" />
-                <p className="text-sm font-semibold text-yellow-800">This negotiation has expired</p>
+              <div className="flex items-center gap-2.5 bg-amber-50 border-b border-amber-200 px-5 py-3 shrink-0">
+                <Clock className="h-4 w-4 text-amber-600 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-800">Negotiation expired</p>
+                  <p className="text-xs text-amber-700">The 48-hour window has passed</p>
+                </div>
               </div>
             )}
 
-            {/* Chat messages */}
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 min-h-0">
+            {/* Chat area */}
+            <div className="flex-1 overflow-y-auto min-h-0 bg-muted/30 px-4 py-4 space-y-2.5">
+              {/* Service context pill */}
+              <div className="flex justify-center mb-1">
+                <span className="text-[11px] text-muted-foreground bg-background border rounded-full px-3 py-1">
+                  Started negotiation · Listed at {fmt(negotiation.basePrice)}
+                </span>
+              </div>
+
               {messages.map((msg) => {
                 const isMe = msg.senderRole === "customer"
+                const isStatus = msg.type === "accept" || msg.type === "reject"
+
+                if (isStatus) {
+                  return (
+                    <div key={msg.id} className="flex justify-center">
+                      <span className={`text-[11px] rounded-full px-3 py-1 ${
+                        msg.type === "accept"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-red-100 text-red-700"
+                      }`}>
+                        {msg.senderName} {msg.type === "accept" ? `accepted ${fmt(msg.amount)}` : "declined"} · {format(new Date(msg.createdAt), "d MMM, h:mm a")}
+                      </span>
+                    </div>
+                  )
+                }
+
                 return (
                   <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                    {!isMe && (
+                      <div className="h-7 w-7 rounded-full bg-accent/20 flex items-center justify-center text-[11px] font-semibold text-accent mr-1.5 shrink-0 self-end mb-1">
+                        {msg.senderName.charAt(0).toUpperCase()}
+                      </div>
+                    )}
                     <div
-                      className={`max-w-[78%] rounded-2xl px-4 py-3 shadow-sm ${
+                      className={`max-w-[75%] rounded-2xl px-4 py-2.5 shadow-xs ${
                         isMe
                           ? "bg-accent text-white rounded-br-sm"
-                          : "bg-muted rounded-bl-sm"
+                          : "bg-white border border-border/60 rounded-bl-sm"
                       }`}
                     >
                       {msg.type !== "note" && (
-                        <p className={`text-[10px] font-semibold uppercase tracking-wide mb-1 ${isMe ? "text-white/70" : "text-muted-foreground"}`}>
+                        <p className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${
+                          isMe ? "text-white/60" : "text-muted-foreground"
+                        }`}>
                           {typeLabel(msg.type)}
                         </p>
                       )}
                       {msg.amount != null && (
-                        <p className={`text-lg font-bold leading-tight ${isMe ? "text-white" : "text-foreground"}`}>
+                        <p className={`text-xl font-bold leading-tight ${isMe ? "text-white" : "text-foreground"}`}>
                           {fmt(msg.amount)}
                         </p>
                       )}
                       {msg.text && (
-                        <p className={`text-sm mt-0.5 leading-snug ${isMe ? "text-white/90" : "text-foreground/80"}`}>
+                        <p className={`text-sm mt-1 leading-snug ${isMe ? "text-white/90" : "text-foreground/80"}`}>
                           {msg.text}
                         </p>
                       )}
                       <p className={`text-[10px] mt-1.5 ${isMe ? "text-white/50" : "text-muted-foreground"}`}>
-                        {msg.senderName} · {format(new Date(msg.createdAt), "d MMM, h:mm a")}
+                        {format(new Date(msg.createdAt), "d MMM, h:mm a")}
                       </p>
                     </div>
                   </div>
                 )
               })}
-              <div ref={chatEndRef} />
-            </div>
 
-            {/* Footer actions */}
-            <div className="border-t px-5 py-4 space-y-3 shrink-0">
-              {negotiation.status === "agreed" && (
-                <Button
-                  className="w-full"
-                  onClick={() => onProceedToBooking?.(negotiation.agreedPrice!)}
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Proceed to Booking at {fmt(negotiation.agreedPrice)}
-                </Button>
-              )}
-
-              {negotiation.status === "rejected" && (
-                <Button variant="outline" className="w-full" onClick={() => setNegotiation(null)}>
-                  Start a New Negotiation
-                </Button>
-              )}
-
-              {negotiation.status === "expired" && (
-                <Button variant="outline" className="w-full" onClick={() => setNegotiation(null)}>
-                  Start a New Negotiation
-                </Button>
-              )}
-
+              {/* Typing / waiting indicator */}
               {negotiation.status === "open" && isAwaitingProvider && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
-                  Waiting for {negotiation.providerName} to respond…
+                <div className="flex justify-start pl-8">
+                  <div className="bg-white border border-border/60 rounded-2xl rounded-bl-sm px-4 py-2.5 flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:0ms]" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:150ms]" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:300ms]" />
+                    <span className="text-[11px] text-muted-foreground ml-1">Waiting for {negotiation.providerName}…</span>
+                  </div>
                 </div>
               )}
 
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* Footer */}
+            <div className="border-t bg-background px-5 py-4 space-y-3 shrink-0">
+
+              {/* Agreed: proceed to booking */}
+              {negotiation.status === "agreed" && (
+                <Button
+                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  size="lg"
+                  onClick={() => onProceedToBooking?.(negotiation.agreedPrice!)}
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Book at Agreed Price · {fmt(negotiation.agreedPrice)}
+                </Button>
+              )}
+
+              {/* Ended / expired: start fresh */}
+              {(negotiation.status === "rejected" || negotiation.status === "expired") && (
+                <Button variant="outline" className="w-full" onClick={() => setNegotiation(null)}>
+                  Start a New Negotiation
+                </Button>
+              )}
+
+              {/* Open, provider moved: accept / decline / counter */}
               {negotiation.status === "open" && providerJustMoved && !showCounterForm && (
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground">
-                    {negotiation.providerName} offered <strong>{fmt(lastMsg.amount)}</strong>. How would you like to respond?
+                <div className="space-y-2.5">
+                  <p className="text-xs text-center text-muted-foreground">
+                    {negotiation.providerName} is offering <strong className="text-foreground">{fmt(lastMsg.amount)}</strong>
                   </p>
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <Button
-                      className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                      className="bg-green-600 hover:bg-green-700 text-white"
                       disabled={submitting}
                       onClick={() => sendAction("accept", lastMsg.amount ?? undefined)}
                     >
-                      {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
+                      {submitting
+                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                        : <CheckCircle2 className="h-4 w-4 mr-1.5" />}
                       Accept {fmt(lastMsg.amount)}
                     </Button>
                     <Button
                       variant="outline"
-                      className="flex-1 border-destructive text-destructive hover:bg-destructive/10"
+                      className="border-destructive/60 text-destructive hover:bg-destructive/5"
                       disabled={submitting}
                       onClick={() => sendAction("reject")}
                     >
-                      <XCircle className="h-4 w-4 mr-1" />
+                      <XCircle className="h-4 w-4 mr-1.5" />
                       Decline
                     </Button>
                   </div>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="w-full text-muted-foreground"
+                    className="w-full text-muted-foreground hover:text-foreground text-xs"
                     onClick={() => setShowCounterForm(true)}
                   >
                     <ArrowLeftRight className="h-3.5 w-3.5 mr-1.5" />
@@ -373,46 +462,42 @@ export default function PriceNegotiationModal({
                 </div>
               )}
 
-              {negotiation.status === "open" && (providerJustMoved && showCounterForm || isAwaitingProvider) && (
-                <div className="space-y-2">
-                  {showCounterForm && (
-                    <>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground shrink-0">₦</span>
-                        <Input
-                          type="number"
-                          min={1}
-                          placeholder="Your counter amount"
-                          value={counterAmount}
-                          onChange={(e) => setCounterAmount(e.target.value)}
-                        />
-                      </div>
-                      <Textarea
-                        rows={2}
-                        placeholder="Add a note (optional)"
-                        value={counterNote}
-                        onChange={(e) => setCounterNote(e.target.value)}
-                        className="resize-none text-sm"
-                      />
-                      <div className="flex gap-2">
-                        <Button
-                          className="flex-1"
-                          disabled={submitting || !counterAmount}
-                          onClick={() => {
-                            const amt = parseFloat(counterAmount.replace(/[^0-9.]/g, ""))
-                            if (!amt) return
-                            sendAction("counter", amt, counterNote.trim() || undefined)
-                          }}
-                        >
-                          {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
-                          Send Counter-offer
-                        </Button>
-                        <Button variant="ghost" onClick={() => setShowCounterForm(false)} disabled={submitting}>
-                          Cancel
-                        </Button>
-                      </div>
-                    </>
-                  )}
+              {/* Counter form */}
+              {negotiation.status === "open" && providerJustMoved && showCounterForm && (
+                <div className="space-y-2.5">
+                  <p className="text-xs font-medium text-muted-foreground">Your counter-offer</p>
+                  <AmountInput
+                    value={counterAmount}
+                    onChange={setCounterAmount}
+                    placeholder="Your counter amount"
+                    autoFocus
+                  />
+                  <Textarea
+                    rows={2}
+                    placeholder="Add a note (optional)"
+                    value={counterNote}
+                    onChange={(e) => setCounterNote(e.target.value)}
+                    className="resize-none text-sm"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      className="flex-1"
+                      disabled={submitting || !counterAmount}
+                      onClick={() => {
+                        const amt = parseFloat(counterAmount.replace(/[^0-9.]/g, ""))
+                        if (!amt) return
+                        sendAction("counter", amt, counterNote.trim() || undefined)
+                      }}
+                    >
+                      {submitting
+                        ? <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        : <Send className="h-4 w-4 mr-2" />}
+                      Send Counter-offer
+                    </Button>
+                    <Button variant="ghost" onClick={() => setShowCounterForm(false)} disabled={submitting}>
+                      Back
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
