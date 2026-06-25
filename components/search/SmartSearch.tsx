@@ -17,6 +17,7 @@ interface SmartSearchProps {
   onSearch?: (query: string) => void
   placeholder?: string
   className?: string
+  scope?: "products" | "services"
 }
 
 const CATEGORIES = [
@@ -30,7 +31,7 @@ const TRENDING = [
 
 const RECENT_KEY = "mis:recent-searches"
 
-export default function SmartSearch({ onSearch, placeholder = "Search products...", className }: SmartSearchProps) {
+export default function SmartSearch({ onSearch, placeholder = "Search products...", className, scope }: SmartSearchProps) {
   const router = useRouter()
   const [query, setQuery] = useState("")
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
@@ -57,7 +58,9 @@ export default function SmartSearch({ onSearch, placeholder = "Search products..
     }
     setIsLoading(true)
     try {
-      const res = await fetch(`/api/search/suggestions?q=${encodeURIComponent(q)}&limit=6`)
+      const params = new URLSearchParams({ q, limit: "6" })
+      if (scope) params.set("scope", scope)
+      const res = await fetch(`/api/search/suggestions?${params}`)
       if (!res.ok) throw new Error("fetch failed")
       const data = await res.json()
       setSuggestions(data.suggestions || [])
@@ -68,7 +71,7 @@ export default function SmartSearch({ onSearch, placeholder = "Search products..
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [scope])
 
   useEffect(() => {
     const t = setTimeout(() => fetchSuggestions(query), 200)
@@ -84,6 +87,10 @@ export default function SmartSearch({ onSearch, placeholder = "Search products..
     setIsOpen(false)
     setQuery(term)
     onSearch?.(term)
+    if (scope === "services") {
+      router.push(`/services?search=${encodeURIComponent(term)}`)
+      return
+    }
     const params = new URLSearchParams({ query: term })
     const cat = category ?? activeCategory
     if (cat) params.set("category", cat)

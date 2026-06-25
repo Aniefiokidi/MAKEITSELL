@@ -640,7 +640,8 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
           {/* Desktop search bar */}
           <div className="hidden xl:flex flex-1 max-w-sm mx-4">
             <SmartSearch
-              placeholder="Search products…"
+              placeholder={pathname.startsWith("/services") ? "Search services…" : "Search products…"}
+              scope={pathname.startsWith("/services") ? "services" : "products"}
               className="w-full"
               onSearch={handleSearch}
             />
@@ -1199,7 +1200,8 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
         style={{ top: headerHeight, left: 0, right: 0, zIndex: 999 }}
       >
         <SmartSearch
-          placeholder="Search products…"
+          placeholder={pathname.startsWith("/services") ? "Search services…" : "Search products…"}
+          scope={pathname.startsWith("/services") ? "services" : "products"}
           className="w-full"
           onSearch={(q) => { handleSearch(q); setIsSearchOpen(false) }}
         />

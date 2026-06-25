@@ -234,10 +234,12 @@ export default function ServicesPage() {
   useEffect(() => {
     const requestedCategory = normalizeServiceCategory(searchParams.get("category"))
     const nextCategory = VALID_SERVICE_CATEGORIES.has(requestedCategory) ? requestedCategory : "all"
-
     setSelectedCategory((currentCategory) =>
       currentCategory === nextCategory ? currentCategory : nextCategory
     )
+
+    const requestedSearch = searchParams.get("search") || ""
+    if (requestedSearch) setSearchQuery(requestedSearch)
   }, [searchParams])
 
   useEffect(() => {
@@ -837,13 +839,13 @@ export default function ServicesPage() {
                       </div>
 
                       {/* Stats */}
-                      <div className="flex items-center justify-between gap-3 text-[10px] sm:text-[11px] font-medium text-white/80 tracking-wide">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
+                      <div className="flex items-center justify-between gap-3 tracking-wide">
+                        <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-medium text-white/70">
+                          <Clock className="h-3 w-3 shrink-0" />
                           <span>{getServiceDisplayDuration(service)}</span>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Banknote className="h-3 w-3" />
+                        <div className="flex items-center gap-1 text-[11px] sm:text-sm font-bold text-white">
+                          <Banknote className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
                           <span>{getServiceDisplayPrice(service)}</span>
                         </div>
                       </div>

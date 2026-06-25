@@ -794,10 +794,17 @@ export default function ServiceDetailPage() {
                   <p className="text-xs text-muted-foreground">Response time</p>
                   <p className="font-semibold">Within {responseHours} hour(s)</p>
                 </div>
-                <div className="rounded-md border p-3 bg-muted/20">
-                  <p className="text-xs text-muted-foreground">Completed jobs</p>
-                  <p className="font-semibold">{completedJobs > 0 ? completedJobs.toLocaleString("en-NG") : "Not published"}</p>
-                </div>
+                {completedJobs > 0 ? (
+                  <div className="rounded-md border p-3 bg-muted/20">
+                    <p className="text-xs text-muted-foreground">Completed jobs</p>
+                    <p className="font-semibold">{completedJobs.toLocaleString("en-NG")}</p>
+                  </div>
+                ) : (
+                  <div className="rounded-md border p-3 bg-green-50 border-green-300">
+                    <p className="text-xs text-green-700">Provider status</p>
+                    <p className="font-semibold text-green-700">New Provider</p>
+                  </div>
+                )}
                 <div className="rounded-md border p-3 bg-muted/20">
                   <p className="text-xs text-muted-foreground">Last updated</p>
                   <p className="font-semibold">{lastUpdatedLabel}</p>

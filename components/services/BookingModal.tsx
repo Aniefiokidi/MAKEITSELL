@@ -503,9 +503,10 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
 
   // Filter dates to only show available days
   const isDateAvailable = (date: Date) => {
+    if (!service?.availability) return true
     const dayName = format(date, "EEEE").toLowerCase()
     const daySchedule = service.availability[dayName as keyof typeof service.availability]
-    return daySchedule?.available || false
+    return daySchedule?.available ?? false
   }
 
   const handleDateSelect = (date?: Date) => {
@@ -723,7 +724,7 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
             <Input
               id="phone"
               type="tel"
-              placeholder="+1 (555) 123-4567"
+              placeholder="+234 801 234 5678"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
             />
