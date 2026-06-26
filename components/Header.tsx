@@ -669,7 +669,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                   className={`relative px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm rounded-full font-medium transition-all duration-300 ${
                     isActive
                       ? "bg-white/20 backdrop-blur-md border border-white/30 text-[oklch(0.21_0.194_29.234)] shadow-lg shadow-accent/10"
-                      : "text-gray-700 hover:text-[oklch(0.21_0.194_29.234)] group"
+                      : "text-foreground hover:text-accent group"
                   }`}
                 >
                   {isActive && (
@@ -739,12 +739,12 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
               onClick={() => setIsSearchOpen((v) => !v)}
               title="Search"
             >
-              <Search className="h-5 w-5 text-gray-600" />
+              <Search className="h-5 w-5 text-muted-foreground" />
             </button>
 
             {/* Wishlist */}
             <Link href="/user/wishlist" className="relative p-1.5 rounded-full hover:bg-accent/10 transition-colors" title="Wishlist">
-              <Heart className={`h-5 w-5 ${wishlist.items.length > 0 ? 'text-accent' : 'text-gray-500'}`} />
+              <Heart className={`h-5 w-5 ${wishlist.items.length > 0 ? 'text-accent' : 'text-muted-foreground'}`} />
               {wishlist.items.length > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] bg-accent text-white text-[9px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
                   {wishlist.items.length > 9 ? '9+' : wishlist.items.length}
@@ -764,7 +764,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
               <div className="hidden xl:flex items-center gap-3">
                 {loading ? (
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse"></div>
+                    <div className="w-8 h-8 rounded-full bg-muted animate-pulse"></div>
                   </div>
                 ) : (
                   <>
@@ -1208,7 +1208,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
     {/* Mobile search slide-down */}
     {isSearchOpen && (
       <div
-        className="fixed xl:hidden bg-white/95 backdrop-blur-lg border-b border-gray-200 px-4 py-3 shadow-lg"
+        className="fixed xl:hidden bg-card/95 backdrop-blur-lg border-b border-border px-4 py-3 shadow-lg"
         style={{ top: headerHeight, left: 0, right: 0, zIndex: 999 }}
       >
         <SmartSearch
@@ -1232,7 +1232,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
 
     {/* Drawer Panel — also in root stacking context */}
     <div
-      className={`fixed top-0 right-0 flex flex-col overflow-hidden xl:hidden bg-white border-l border-gray-100 shadow-2xl transition-transform duration-300 ${
+      className={`fixed top-0 right-0 flex flex-col overflow-hidden xl:hidden bg-card border-l border-border shadow-2xl transition-transform duration-300 ${
         isMenuOpen ? "translate-x-0" : "translate-x-full"
       }`}
       style={{
@@ -1245,12 +1245,12 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
       }}
     >
       {/* Drawer header */}
-      <div className="flex items-center justify-between px-5 py-4 shrink-0 border-b border-gray-100">
+      <div className="flex items-center justify-between px-5 py-4 shrink-0 border-b border-border">
         <img src="/images/logo (2).png" alt="Make It Sell" className="h-5 w-auto object-contain" />
         <button
           onClick={() => setIsMenuOpen(false)}
           aria-label="Close menu"
-          className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+          className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
         >
           <X className="h-4 w-4" />
         </button>
@@ -1258,14 +1258,14 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
 
       {/* Logged-in user card */}
       {!loading && user && userProfile && (
-        <div className="mx-4 mt-3 mb-1 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 px-4 py-3 flex items-center gap-3 shrink-0">
+        <div className="mx-4 mt-3 mb-1 rounded-2xl bg-muted/50 border border-border px-4 py-3 flex items-center gap-3 shrink-0">
           <div className="w-10 h-10 rounded-full bg-accent/10 border-2 border-accent/20 flex items-center justify-center shrink-0">
             <span className="text-accent font-bold text-sm select-none">
               {(userProfile.displayName || userProfile.email || "U").charAt(0).toUpperCase()}
             </span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-gray-900 text-sm truncate leading-tight">
+            <p className="font-semibold text-foreground text-sm truncate leading-tight">
               {userProfile.displayName || userProfile.email}
             </p>
             <div className="flex items-center gap-2 mt-1">
@@ -1275,7 +1275,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
                 {userProfile.role}
               </span>
               {formattedWalletBalance && (
-                <span className="text-[10px] text-gray-400 font-medium truncate">{formattedWalletBalance}</span>
+                <span className="text-[10px] text-muted-foreground font-medium truncate">{formattedWalletBalance}</span>
               )}
             </div>
           </div>
@@ -1284,18 +1284,18 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
 
       {/* Loading skeleton */}
       {loading && (
-        <div className="mx-4 mt-3 mb-1 rounded-2xl bg-gray-50 border border-gray-100 px-4 py-3 flex items-center gap-3 shrink-0">
-          <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse shrink-0" />
+        <div className="mx-4 mt-3 mb-1 rounded-2xl bg-muted/30 border border-border px-4 py-3 flex items-center gap-3 shrink-0">
+          <div className="w-10 h-10 rounded-full bg-muted animate-pulse shrink-0" />
           <div className="flex-1 space-y-2">
-            <div className="h-3 bg-gray-200 rounded-full animate-pulse w-2/3" />
-            <div className="h-2.5 bg-gray-100 rounded-full animate-pulse w-1/2" />
+            <div className="h-3 bg-muted rounded-full animate-pulse w-2/3" />
+            <div className="h-2.5 bg-muted/70 rounded-full animate-pulse w-1/2" />
           </div>
         </div>
       )}
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-3">
-        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-[0.12em] px-3 mb-2">Menu</p>
+        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-[0.12em] px-3 mb-2">Menu</p>
 
         {(
           [
@@ -1316,23 +1316,23 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl mb-0.5 transition-all duration-150 group ${
                 isActive
                   ? food ? "bg-orange-50" : "bg-accent/10"
-                  : "hover:bg-gray-50 active:bg-gray-100"
+                  : "hover:bg-muted/30 active:bg-muted/50"
               }`}
             >
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                 isActive
                   ? food ? "bg-orange-500 text-white shadow-sm" : "bg-accent text-white shadow-sm shadow-accent/30"
-                  : food ? "bg-orange-100 text-orange-500 group-hover:bg-orange-200" : "bg-gray-100 text-gray-500 group-hover:bg-gray-200"
+                  : food ? "bg-orange-100 text-orange-500 group-hover:bg-orange-200" : "bg-muted text-muted-foreground group-hover:bg-muted/80"
               }`}>
                 <Icon className="h-4 w-4" />
               </div>
               <span className={`flex-1 text-sm font-medium leading-none ${
-                isActive ? food ? "text-orange-700" : "text-accent" : "text-gray-700"
+                isActive ? food ? "text-orange-700" : "text-accent" : "text-foreground"
               }`}>
                 {label}
               </span>
               <ChevronRight className={`h-3.5 w-3.5 shrink-0 transition-transform duration-150 group-hover:translate-x-0.5 ${
-                isActive ? food ? "text-orange-400" : "text-accent/50" : "text-gray-300"
+                isActive ? food ? "text-orange-400" : "text-accent/50" : "text-muted-foreground/40"
               }`} />
             </Link>
           )
@@ -1341,11 +1341,11 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
         {/* Auth section */}
         {!loading && !(user && userProfile) && (
           <div className="mt-4 space-y-2 px-1">
-            <div className="h-px bg-gray-100 mb-4" />
+            <div className="h-px bg-border mb-4" />
             <Link
               href="/login"
               onClick={() => setIsMenuOpen(false)}
-              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:border-accent hover:text-accent hover:bg-accent/5 transition-all duration-150"
+              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-border text-sm font-medium text-foreground hover:border-accent hover:text-accent hover:bg-accent/5 transition-all duration-150"
             >
               <LogIn className="h-4 w-4" />
               Sign in
@@ -1363,8 +1363,8 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
       </nav>
 
       {/* Footer */}
-      <div className="px-5 py-4 border-t border-gray-100 shrink-0">
-        <p className="text-[10px] text-gray-400 text-center tracking-wide">
+      <div className="px-5 py-4 border-t border-border shrink-0">
+        <p className="text-[10px] text-muted-foreground text-center tracking-wide">
           © 2026 Make It Sell · All rights reserved
         </p>
       </div>

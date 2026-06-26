@@ -117,7 +117,7 @@ export default function NotificationPermission() {
       <button
         onClick={handleDisable}
         disabled={loading}
-        className="fixed bottom-20 right-4 z-50 w-10 h-10 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-colors"
+        className="fixed bottom-20 right-4 z-50 w-10 h-10 rounded-full bg-card shadow-lg border border-border flex items-center justify-center hover:bg-destructive/5 hover:border-destructive/30 transition-colors"
         title="Turn off notifications"
       >
         <Bell className="h-4 w-4 text-accent" />
@@ -133,10 +133,10 @@ export default function NotificationPermission() {
 
   return (
     <div className="fixed bottom-4 left-4 right-4 z-50 max-w-sm mx-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-4">
+      <div className="bg-card rounded-2xl shadow-2xl border border-border p-4">
         <button
           onClick={handleDismiss}
-          className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+          className="absolute top-3 right-3 text-muted-foreground hover:text-foreground"
         >
           <X className="h-4 w-4" />
         </button>
@@ -146,8 +146,8 @@ export default function NotificationPermission() {
             <Bell className="h-5 w-5 text-accent" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-900">Stay in the loop</p>
-            <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+            <p className="text-sm font-semibold text-foreground">Stay in the loop</p>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
               Get notified about your orders, delivery updates, and deals — even when the app is closed.
             </p>
           </div>
@@ -163,7 +163,7 @@ export default function NotificationPermission() {
           </button>
           <button
             onClick={handleDismiss}
-            className="px-4 text-sm text-gray-500 hover:text-gray-700"
+            className="px-4 text-sm text-muted-foreground hover:text-foreground"
           >
             Later
           </button>

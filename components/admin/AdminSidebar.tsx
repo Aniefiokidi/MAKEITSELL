@@ -139,7 +139,7 @@ export default function AdminSidebar({ onNavigate }: { onNavigate?: () => void }
     <div className="flex h-full w-full lg:w-64 flex-col bg-card border-r">
       <div className="flex h-16 items-center border-b px-4 lg:px-6">
         <div className="flex items-center gap-2">
-          <Shield className="h-6 w-6 text-primary" />
+          <Shield className="h-6 w-6 text-accent" />
           <span className="font-bold text-sm lg:text-base">Admin Panel</span>
         </div>
       </div>

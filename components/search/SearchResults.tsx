@@ -281,7 +281,7 @@ export default function SearchResults({ query }: { query: string }) {
                       <Badge variant="destructive" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">Only {product.stock} left</Badge>
                     )}
                     {product.stock === 0 && product.category !== 'Food & Beverages' && (
-                      <Badge variant="secondary" className="bg-gray-600 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">Out of Stock</Badge>
+                      <Badge variant="secondary" className="bg-muted-foreground text-background text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">Out of Stock</Badge>
                     )}
                   </div>
                   <button

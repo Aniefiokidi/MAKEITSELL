@@ -59,8 +59,8 @@ export default function UserMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 sm:h-9 sm:w-9 lg:h-10 lg:w-10 rounded-full p-0 hover:scale-105 transition-transform duration-200">
-          <div className="h-7 w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200">
-            <User className="h-3 w-3 sm:h-4 sm:w-4 lg:h-5 lg:w-5 text-gray-600" />
+          <div className="h-7 w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 rounded-full bg-muted hover:bg-muted/80 flex items-center justify-center shadow-sm hover:shadow-md transition-all duration-200 border border-border">
+            <User className="h-3 w-3 sm:h-4 sm:w-4 lg:h-5 lg:w-5 text-muted-foreground" />
           </div>
         </Button>
       </DropdownMenuTrigger>
