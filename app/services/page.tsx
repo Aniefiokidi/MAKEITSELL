@@ -756,7 +756,7 @@ export default function ServicesPage() {
                         src={service.images[0]}
                         alt={serviceName}
                         fill
-                        unoptimized
+                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 280px"
                         onError={(event) => {
                           event.currentTarget.src = "/placeholder.svg"
                         }}
@@ -783,7 +783,7 @@ export default function ServicesPage() {
                               src={avatarImage}
                               alt={`${service.providerName || serviceName} logo`}
                               fill
-                              unoptimized
+                              sizes="64px"
                               onError={(event) => {
                                 event.currentTarget.src = "/placeholder.svg"
                               }}

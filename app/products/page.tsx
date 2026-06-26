@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback } from "react"
+import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -102,10 +103,12 @@ const ImageCycler = React.memo(({ product }: { product: Product }) => {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <img
+      <Image
         src={src}
         alt={(product.title || product.name || 'Product') as string}
-        className={`absolute inset-0 w-full h-full ${
+        fill
+        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 300px"
+        className={`${
           isElectronics ? 'object-contain bg-white' : 'object-cover'
         } group-hover:scale-110 transition-transform duration-500 ${isOos ? 'grayscale' : ''}`}
         loading="lazy"
@@ -134,7 +137,10 @@ const ProductCard = React.memo(({
   isInWishlist,
 }: ProductCardProps) => {
   return (
-    <Card className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100 group card-lift">
+    <Card
+      className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100 group card-lift cursor-pointer"
+      onClick={() => onQuickView(product)}
+    >
       <div className="absolute inset-0 overflow-hidden">
         <ImageCycler product={product} />
 

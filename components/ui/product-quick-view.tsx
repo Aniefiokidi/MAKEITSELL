@@ -253,6 +253,7 @@ export function ProductQuickView({
                 ${className ?? ""}
               `}
           style={{ maxHeight: "92vh" }}
+          onInteractOutside={onClose}
         >
           <style>{`
             @media (min-width: 1024px) {
