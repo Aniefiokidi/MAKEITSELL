@@ -194,15 +194,14 @@ export default function HeroShuffleCarousel() {
 
       // Fetch fresh data (first load, or background revalidation after stale hit).
       try {
-        const results = await Promise.allSettled([
-          fetchJsonWithTimeout("/api/database/products?limit=8", controller.signal, 6000),
-          fetchJsonWithTimeout("/api/database/services?limit=8", controller.signal, 6000),
-          fetchJsonWithTimeout("/api/database/stores?limit=8&sortBy=for-you", controller.signal, 6000),
-        ])
+        const json = await fetchJsonWithTimeout("/api/home/carousel", controller.signal, 6000)
 
         if (controller.signal.aborted) return
 
-        const [p, s, st] = results.map((r) => (r.status === "fulfilled" ? r.value : null))
+        const carouselData = json?.data ?? {}
+        const p = { data: carouselData.products ?? [] }
+        const s = { data: carouselData.services ?? [] }
+        const st = { data: carouselData.stores ?? [] }
         const freshSlides = buildSlides(p, s, st)
 
         setSlides(freshSlides)

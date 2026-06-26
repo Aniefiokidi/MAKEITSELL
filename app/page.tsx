@@ -39,6 +39,8 @@ function TrendingProducts() {
   const [services, setServices] = useState<any[]>([])
   const [recentlyViewedProducts, setRecentlyViewedProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [visible, setVisible] = useState(false)
+  const sectionRef = useRef<HTMLDivElement>(null)
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null)
   const [quickViewOpen, setQuickViewOpen] = useState(false)
   const { addItem } = useCart ? useCart() : { addItem: () => {} }
@@ -70,7 +72,21 @@ function TrendingProducts() {
     return formatCurrency(minPrice)
   }
 
+  // Reveal when the section scrolls into view so it doesn't compete with the
+  // hero carousel fetch on initial page load.
   useEffect(() => {
+    const el = sectionRef.current
+    if (!el) { setVisible(true); return }
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); observer.disconnect() } },
+      { rootMargin: "200px" }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (!visible) return
     async function fetchTrending() {
       try {
         const response = await fetch("/api/home/trending")
@@ -92,7 +108,7 @@ function TrendingProducts() {
       }
     }
     fetchTrending()
-  }, [])
+  }, [visible])
 
   const recommendedProducts = personalizeProducts(products).slice(0, 4)
   const recommendedServices = personalizeServices(services).slice(0, 2)
@@ -123,7 +139,7 @@ function TrendingProducts() {
 
   if (loading) {
     return (
-      <div className="space-y-6 sm:space-y-8">
+      <div ref={sectionRef} className="space-y-6 sm:space-y-8">
         <div className="rounded-3xl border border-accent/15 bg-white p-4 sm:p-6 shadow-sm">
           <div className="h-6 w-48 bg-neutral-200 rounded-md animate-pulse mb-4" />
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
