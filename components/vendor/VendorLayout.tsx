@@ -175,7 +175,7 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
       <div className={`fixed inset-y-0 left-0 z-50 w-64 flex flex-col bg-card border-r transform ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       } transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}>
-        <div className="flex h-16 items-center border-b px-6">
+        <div className="flex items-center border-b px-6" style={{ minHeight: '4rem', paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="flex items-center gap-2">
             <Store className="h-6 w-6 text-black" />
             <span className="font-bold">Vendor Panel</span>
