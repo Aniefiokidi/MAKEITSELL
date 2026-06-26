@@ -1,5 +1,4 @@
-import LoginForm from "@/components/auth/LoginForm"
-import Footer from "@/components/Footer"
+﻿import LoginForm from "@/components/auth/LoginForm"
 
 export default function LoginPage() {
   return (
@@ -9,7 +8,6 @@ export default function LoginPage() {
           <LoginForm />
         </div>
       </div>
-      <Footer />
     </div>
   )
 }

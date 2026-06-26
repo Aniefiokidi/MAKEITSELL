@@ -9,7 +9,6 @@ import { trackFunnelEvent } from "@/lib/funnel-tracker"
 import { trackProductQuickView } from "@/lib/personalization"
 import { useWishlist } from "@/contexts/WishlistContext"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 
 async function getProduct(id: string) {
   if (!id) return null
@@ -76,7 +75,6 @@ export default function ProductPage() {
             </div>
           </div>
         </main>
-        <Footer />
       </div>
     )
   }
@@ -283,7 +281,6 @@ export default function ProductPage() {
           </div>
         </div>
       </main>
-      <Footer />
     </div>
   )
 }

@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import type React from "react"
 
@@ -19,7 +19,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import Image from "next/image"
 import Link from "next/link"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 import ProtectedRoute from "@/components/auth/ProtectedRoute"
 import { trackFunnelEvent } from "@/lib/funnel-tracker"
 import { NIGERIA_STATE_CITY_OPTIONS, NIGERIA_STATES } from "@/lib/nigeria-locations"
@@ -401,7 +400,6 @@ export default function CheckoutPage() {
               </Button>
             </div>
           </main>
-          <Footer />
         </div>
       </ProtectedRoute>
     )
@@ -895,7 +893,6 @@ export default function CheckoutPage() {
           </div>
         </main>
 
-        <Footer />
 
         <Dialog open={showWalletTopupPrompt} onOpenChange={setShowWalletTopupPrompt}>
           <DialogContent className="sm:max-w-md">

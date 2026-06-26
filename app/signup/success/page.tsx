@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import { CheckCircle2, ArrowRight, Store } from 'lucide-react'
 import Link from 'next/link'
 import Header from '@/components/Header'
-import Footer from '@/components/Footer'
 
 function SignupSuccessContent() {
   const searchParams = useSearchParams()
@@ -243,7 +242,6 @@ function SignupSuccessContent() {
         </div>
       </main>
 
-      <Footer />
     </div>
   )
 }

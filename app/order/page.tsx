@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 import React from "react"
 import { useEffect, useState } from "react"
 import Image from "next/image"
@@ -6,7 +6,6 @@ import { useAuth } from "@/contexts/AuthContext"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 import { useNotification } from "@/contexts/NotificationContext"
 import { Package, Truck, CheckCircle2, Clock, ShieldCheck } from "lucide-react"
 
@@ -550,7 +549,6 @@ export default function CustomerOrdersPage() {
             </div>
           )}
         </main>
-      <Footer />
     </div>
   )
 }

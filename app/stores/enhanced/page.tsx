@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Grid, List, Heart, Clock, Truck, Star, MapPin } from "lucide-react"
 import Link from "next/link"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 import SmartSearch from "@/components/search/SmartSearch"
 import AdvancedFilters from "@/components/search/AdvancedFilters"
 
@@ -423,7 +422,6 @@ export default function EnhancedShopPage() {
         </section>
 
       </main>
-      <Footer />
     </div>
   )
 }

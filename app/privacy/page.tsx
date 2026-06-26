@@ -1,8 +1,7 @@
-import Link from "next/link"
+﻿import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Shield, Eye, Lock, UserCheck, Database, Globe } from "lucide-react"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 
 export default function PrivacyPage() {
   return (
@@ -311,7 +310,6 @@ export default function PrivacyPage() {
           </Card>
         </div>
       </main>
-      <Footer />
     </div>
   )
 }

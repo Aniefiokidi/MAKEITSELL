@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useCart } from "@/contexts/CartContext"
 import { Button } from "@/components/ui/button"
@@ -7,7 +7,6 @@ import { ShoppingCart, Plus, Minus, Trash2, ArrowLeft, Loader2, ShoppingBag } fr
 import Image from "next/image"
 import Link from "next/link"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 import { useState, useEffect, useCallback } from "react"
 
 export default function CartPage() {
@@ -55,7 +54,6 @@ export default function CartPage() {
             <p className="text-muted-foreground text-sm">Loading your cart…</p>
           </div>
         </main>
-        <Footer />
       </div>
     )
   }
@@ -80,7 +78,6 @@ export default function CartPage() {
             </Button>
           </div>
         </main>
-        <Footer />
       </div>
     )
   }
@@ -225,7 +222,6 @@ export default function CartPage() {
 
         </div>
       </main>
-      <Footer />
     </div>
   )
 }

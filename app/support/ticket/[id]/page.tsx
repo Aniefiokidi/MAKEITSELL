@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 // ...existing code...
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -95,7 +94,6 @@ export default function SupportTicketDetailPage() {
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         </main>
-        <Footer />
       </>
     )
   }
@@ -112,7 +110,6 @@ export default function SupportTicketDetailPage() {
             </Button>
           </div>
         </main>
-        <Footer />
       </>
     )
   }
@@ -253,7 +250,6 @@ export default function SupportTicketDetailPage() {
           )}
         </div>
       </main>
-      <Footer />
     </>
   )
 }

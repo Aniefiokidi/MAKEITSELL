@@ -1,5 +1,4 @@
-import SignupForm from "@/components/auth/SignupForm"
-import Footer from "@/components/Footer"
+﻿import SignupForm from "@/components/auth/SignupForm"
 
 export default function SignupPage() {
   return (
@@ -9,7 +8,6 @@ export default function SignupPage() {
           <SignupForm />
         </div>
       </div>
-      <Footer />
     </div>
   )
 }

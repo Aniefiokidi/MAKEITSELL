@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle, Package, Truck, CreditCard } from "lucide-react"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 import { useCart } from "@/contexts/CartContext"
 
 export default function OrderConfirmationPage() {
@@ -95,7 +94,6 @@ export default function OrderConfirmationPage() {
           </div>
         </div>
       </main>
-      <Footer />
     </div>
   )
 }

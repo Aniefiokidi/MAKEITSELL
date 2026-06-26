@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import React, { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge"
 import { Search, Store, RefreshCw, MapPin, Clock, Users, Package, Wrench, ArrowRight, ExternalLink } from "lucide-react"
 import Link from "next/link"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 import { Skeleton } from "@/components/ui/skeleton"
 import Image from "next/image"
 import { useRouter } from "next/navigation"

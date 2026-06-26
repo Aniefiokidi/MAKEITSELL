@@ -71,7 +71,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       </div>
 
       <div className="flex flex-1 flex-col">
-        <header className="flex h-16 items-center justify-between border-b bg-card px-4 lg:px-6 gap-2">
+        <header className="flex items-center justify-between border-b bg-card px-4 lg:px-6 gap-2" style={{ minHeight: '4rem', paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="flex items-center gap-2 lg:gap-0 flex-1">
             {/* Mobile Sidebar */}
             <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>

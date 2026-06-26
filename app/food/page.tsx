@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import React, { useState, useEffect, useCallback } from "react"
 import { Input } from "@/components/ui/input"
@@ -8,7 +8,6 @@ import { Search, Clock, MapPin, UtensilsCrossed, ArrowRight } from "lucide-react
 import Link from "next/link"
 import Image from "next/image"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 import { buildPublicStorePath } from "@/lib/public-links"
 
 function resolveImg(src?: string) {
@@ -214,7 +213,6 @@ export default function FoodPage() {
           </>
         )}
       </main>
-      <Footer />
     </div>
   )
 }

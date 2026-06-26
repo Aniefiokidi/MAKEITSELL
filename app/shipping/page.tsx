@@ -1,9 +1,8 @@
-import Link from "next/link"
+﻿import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Truck, Package, MapPin, Info, AlertCircle, CheckCircle } from "lucide-react"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 
 export default function ShippingPage() {
   return (
@@ -279,7 +278,6 @@ export default function ShippingPage() {
           </div>
         </div>
       </main>
-      <Footer />
     </div>
   )
 }

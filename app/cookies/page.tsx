@@ -1,10 +1,9 @@
-import Link from "next/link"
+﻿import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Cookie, Settings, Shield, Eye, ToggleLeft } from "lucide-react"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 
 export default function CookiesPage() {
   return (
@@ -386,7 +385,6 @@ export default function CookiesPage() {
           </Card>
         </div>
       </main>
-      <Footer />
     </div>
   )
 }

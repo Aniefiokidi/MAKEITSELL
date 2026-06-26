@@ -1,10 +1,9 @@
-"use client"
+﻿"use client"
 
 import { useWishlist } from '@/contexts/WishlistContext'
 import { useCart } from '@/contexts/CartContext'
 import { useAuth } from '@/contexts/AuthContext'
 import Header from '@/components/Header'
-import Footer from '@/components/Footer'
 import { Button } from '@/components/ui/button'
 import { Heart, ShoppingCart, Trash2, ArrowLeft } from 'lucide-react'
 import Image from 'next/image'
@@ -105,7 +104,6 @@ export default function WishlistPage() {
           </div>
         )}
       </main>
-      <Footer />
     </div>
   )
 }

@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
@@ -6,7 +6,6 @@ import Image from "next/image"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 import { 
   Smartphone, 
   Shirt, 
@@ -737,7 +736,6 @@ export default function CategoriesPage() {
           </div>
         </div>
       </div>
-      <Footer />
     </>
   )
 }

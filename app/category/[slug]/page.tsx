@@ -18,7 +18,6 @@ import { useWishlist } from "@/contexts/WishlistContext"
 import { ProductQuickView } from "@/components/ui/product-quick-view"
 import Link from "next/link"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 import { buildPublicServicePath, buildPublicStorePath } from "@/lib/public-links"
 // import { getProducts } from "@/lib/firestore"
 
@@ -1301,7 +1300,6 @@ export default function CategoryPage() {
           ) : null;
         })()}
       </div>
-      <Footer />
       <ProductQuickView
         product={selectedProduct}
         open={quickViewOpen}

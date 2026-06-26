@@ -214,7 +214,7 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
 
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-16 items-center justify-between border-b bg-card px-4 lg:px-6">
+        <header className="flex items-center justify-between border-b bg-card px-4 lg:px-6" style={{ minHeight: '4rem', paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="lg:hidden">
             <Button
               variant="ghost"

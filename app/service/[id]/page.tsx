@@ -4,7 +4,6 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -493,7 +492,6 @@ export default function ServiceDetailPage() {
             </div>
           </div>
         </main>
-        <Footer />
       </div>
     )
   }
@@ -506,7 +504,6 @@ export default function ServiceDetailPage() {
           <h1 className="text-2xl font-bold mb-4">Service not found</h1>
           <Button onClick={() => router.push("/services")} className="hover:bg-accent/80 hover:scale-105 transition-all hover:shadow-lg">Browse Services</Button>
         </main>
-        <Footer />
       </div>
     )
   }

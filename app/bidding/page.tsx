@@ -1,9 +1,8 @@
-"use client"
+﻿"use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -352,7 +351,6 @@ export default function BiddingPage() {
           </div>
         )}
       </main>
-      <Footer />
     </div>
   )
 }

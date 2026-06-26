@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Clock, ShoppingCart, Heart, Zap } from "lucide-react"
 import { useCart } from "@/contexts/CartContext"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 // All product fetching must be done via API route only. Do not import getProducts or any database logic directly in client components.
 
 export default function DealsPage() {
@@ -276,7 +275,6 @@ export default function DealsPage() {
             </div>
           )}
       </main>
-      <Footer />
     </div>
   )
 }

@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node scripts/send-campaign-test.js)",
+      "Bash(git commit -m ' *)",
+      "Bash(node scripts/send-campaign-live.js)",
+      "Bash(node scripts/export-stores.js)",
+      "Bash(node -e ' *)",
+      "Bash(node scripts/migrate-food-products-stock.js)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\USER\\\\Desktop\\\\MakeItSell\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(git commit -m 'Fix Next.js 15 async params in reviews route handler *)",
+      "Bash(git commit -m 'Fix product title type error in wishlist toggle call *)",
+      "Bash(git commit -m 'Fix wishlist addItem call: remove quantity \\(excluded from type\\) *)",
+      "Bash(git commit -m 'Fix wishlist addItem: add required id field *)",
+      "Bash(git commit -m 'Replace order filters with Ongoing / Completed / Cancelled tab toggle *)",
+      "Bash(git commit -m 'Add fulfillmentTime to stores: vendor setting, store banner, order cards *)",
+      "Bash(node scripts/send-security-notice.js)",
+      "Bash(node scripts/send-security-notice.js --live)",
+      "Bash(node -e \"require\\('nodemailer'\\); console.log\\('nodemailer OK'\\)\")",
+      "Bash(node scripts/send-aco-notice.js)",
+      "Bash(npx tsc *)",
+      "Bash(node --experimental-vm-modules scripts/update-munch-address.js)",
+      "Bash(node scripts/update-munch-address.js)",
+      "Bash(grep -rn \"wallet\" app/logistics/ app/api/logistics/ --include=\"*.ts\" --include=\"*.tsx\" -l)",
+      "Bash(grep -rn \"wallet\" components/logistics/ --include=\"*.ts\" --include=\"*.tsx\" -l)",
+      "Bash(node scripts/backfill-aco-wallet.js)",
+      "Bash(node -e \"import\\('./scripts/update-munch-address.js'\\)\")",
+      "Bash(git commit *)",
+      "Bash(curl -s -X GET \"https://makeitsell.ng/api/admin/backfill-aco-wallet\" -H \"Authorization: Bearer arnold\")",
+      "Bash(curl -s -L -X GET \"https://makeitsell.ng/api/admin/backfill-aco-wallet\" -H \"Authorization: Bearer arnold\")",
+      "Bash(curl -s -L -X GET \"https://makeitsell.ng/api/admin/backfill-aco-wallet\" -H \"Authorization: Bearer \\\\\"arnold\\\\\"\")",
+      "Bash(curl -s -L --location-trusted -X GET \"https://makeitsell.ng/api/admin/backfill-aco-wallet\" -H \"Authorization: Bearer arnold\")",
+      "Bash(curl -s \"https://makeitsell.ng/api/logistics/wallet?region=lagos\" -H \"Cookie: $\\(cat .env.local)",
+      "Bash(curl -s \"https://makeitsell.ng/api/admin/backfill-aco-wallet\" -H \"Authorization: Bearer arnold\" --location-trusted)",
+      "Bash(python -m json.tool)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\USER\\.claude\\projects\\c--Users-USER-Desktop-MakeItSell\\memory"
+    ]
+  }
+}

@@ -1,9 +1,8 @@
-import Link from "next/link"
+﻿import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AlertCircle, ShieldAlert, Package, Info } from "lucide-react"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 
 export default function ReturnsPage() {
   return (
@@ -217,7 +216,6 @@ export default function ReturnsPage() {
           </div>
         </div>
       </main>
-      <Footer />
     </div>
   )
 }

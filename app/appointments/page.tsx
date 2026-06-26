@@ -1,9 +1,8 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import Header from "@/components/Header"
-import Footer from "@/components/Footer"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -718,7 +717,6 @@ export default function AppointmentsPage() {
         </DialogContent>
       </Dialog>
 
-      <Footer />
     </div>
   )
 }
