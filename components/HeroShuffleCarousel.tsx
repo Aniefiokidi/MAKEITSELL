@@ -18,7 +18,8 @@ type CarouselSlide = {
 }
 
 const INVALID_IMAGE_PATTERN = /(placeholder|default|no[-_ ]?image|avatar-default|image-not-found)/i
-const HERO_CAROUSEL_CACHE_KEY = "mis:hero-carousel:v1"
+const HERO_CAROUSEL_CACHE_KEY = "mis:hero-carousel:v2"
+const CACHE_TTL_MS = 30 * 60 * 1000
 const FALLBACK_IMAGE = "/MISHG.png"
 const X_PX_BY_OFFSET: Record<number, number> = { [-2]: -250, [-1]: -135, [0]: 0, [1]: 135, [2]: 250 }
 const Y_BY_OFFSET: Record<number, number> = { [-2]: -46, [-1]: -48, [0]: -50, [1]: -48, [2]: -46 }
@@ -70,42 +71,29 @@ function isCarouselSlide(value: any): value is CarouselSlide {
   )
 }
 
-function readCachedSlides(): CarouselSlide[] {
-  if (typeof window === "undefined") return []
+function readCachedSlides(): { slides: CarouselSlide[]; stale: boolean } {
+  if (typeof window === "undefined") return { slides: [], stale: true }
 
   try {
-    const raw = window.sessionStorage.getItem(HERO_CAROUSEL_CACHE_KEY)
-    if (!raw) return []
+    const raw = window.localStorage.getItem(HERO_CAROUSEL_CACHE_KEY)
+    if (!raw) return { slides: [], stale: true }
     const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-    return parsed.filter(isCarouselSlide)
+    if (!Array.isArray(parsed?.slides)) return { slides: [], stale: true }
+    const slides = parsed.slides.filter(isCarouselSlide)
+    const stale = !parsed.ts || Date.now() - parsed.ts > CACHE_TTL_MS
+    return { slides, stale }
   } catch {
-    return []
+    return { slides: [], stale: true }
   }
 }
 
-async function verifyImageLoad(src: string, timeoutMs = 7000): Promise<boolean> {
-  return new Promise((resolve) => {
-    const img = new Image()
-    let settled = false
-
-    const done = (ok: boolean) => {
-      if (settled) return
-      settled = true
-      resolve(ok)
-    }
-
-    const timeout = window.setTimeout(() => done(false), timeoutMs)
-    img.onload = () => {
-      window.clearTimeout(timeout)
-      done(true)
-    }
-    img.onerror = () => {
-      window.clearTimeout(timeout)
-      done(false)
-    }
-    img.src = src
-  })
+function writeCachedSlides(slides: CarouselSlide[]) {
+  if (typeof window === "undefined") return
+  try {
+    window.localStorage.setItem(HERO_CAROUSEL_CACHE_KEY, JSON.stringify({ slides, ts: Date.now() }))
+  } catch {
+    // localStorage full or blocked — not fatal
+  }
 }
 
 async function fetchJsonWithTimeout(url: string, signal: AbortSignal, timeoutMs = 12000) {
@@ -127,9 +115,9 @@ async function fetchJsonWithTimeout(url: string, signal: AbortSignal, timeoutMs 
 }
 
 export default function HeroShuffleCarousel() {
-  const [slides, setSlides] = useState<CarouselSlide[]>(() => readCachedSlides())
+  const [slides, setSlides] = useState<CarouselSlide[]>(() => readCachedSlides().slides)
   const [activeIndex, setActiveIndex] = useState(0)
-  const [loading, setLoading] = useState(() => readCachedSlides().length === 0)
+  const [loading, setLoading] = useState(() => readCachedSlides().slides.length === 0)
   const [lightImageMap, setLightImageMap] = useState<Record<string, boolean>>({})
   const warmedImagesRef = useRef<Set<string>>(new Set())
 
@@ -150,126 +138,79 @@ export default function HeroShuffleCarousel() {
   useEffect(() => {
     const controller = new AbortController()
 
+    const buildSlides = (productsJson: any, servicesJson: any, storesJson: any): CarouselSlide[] => {
+      const products = Array.isArray(productsJson?.data) ? productsJson.data : []
+      const services = Array.isArray(servicesJson?.data) ? servicesJson.data : []
+      const stores = Array.isArray(storesJson?.data) ? storesJson.data : []
+
+      const productSlides: CarouselSlide[] = products
+        .map((product: any) => {
+          const image = firstValidImage([product?.images, product?.image, product?.imageUrl, product?.thumbnail])
+          if (!image) return null
+          const id = String(product?.id || product?._id || "").trim()
+          if (!id) return null
+          return { id: `product-${id}`, kind: "product" as const, title: String(product?.title || product?.name || "Featured Product"), subtitle: String(product?.category || product?.storeName || "Top Product"), image, href: `/products/${id}` }
+        })
+        .filter(Boolean) as CarouselSlide[]
+
+      const serviceSlides: CarouselSlide[] = services
+        .map((service: any) => {
+          const image = firstValidImage([service?.images, service?.image, service?.imageUrl, service?.thumbnail])
+          if (!image) return null
+          const id = String(service?.id || service?._id || "").trim()
+          if (!id) return null
+          return { id: `service-${id}`, kind: "service" as const, title: String(service?.title || service?.name || "Featured Service"), subtitle: String(service?.category || service?.providerName || "Top Service"), image, href: buildPublicServicePath(service) }
+        })
+        .filter(Boolean) as CarouselSlide[]
+
+      const storeSlides: CarouselSlide[] = stores
+        .map((store: any) => {
+          const hasLogoOrProfileCard = hasValidImage(store?.logoImage) || hasValidImage(store?.profileImage) || hasValidImage(store?.storeImage) || hasValidImage(store?.logo)
+          if (!hasLogoOrProfileCard) return null
+          const image = firstValidImage([store?.bannerImage, store?.profileImage, store?.logoImage, store?.storeImage, store?.logo, store?.bannerImages])
+          if (!image) return null
+          const id = String(store?.id || store?._id || "").trim()
+          if (!id) return null
+          return { id: `store-${id}`, kind: "store" as const, title: String(store?.name || store?.storeName || "Featured Store"), subtitle: String(store?.city || store?.state || "Top Store"), image, href: buildPublicStorePath(store) }
+        })
+        .filter(Boolean) as CarouselSlide[]
+
+      const mixed = shuffle([...storeSlides, ...productSlides, ...serviceSlides]).slice(0, 24)
+      return mixed.length > 0
+        ? mixed
+        : [{ id: "fallback-hero", kind: "store" as const, title: "Make It Sell", subtitle: "Discover products, services and stores", image: FALLBACK_IMAGE, href: "/stores" }]
+    }
+
     const loadSlides = async () => {
+      const { slides: cached, stale } = readCachedSlides()
+
+      // Show cached slides immediately — even if stale — and skip the skeleton.
+      if (cached.length > 0) {
+        setSlides(cached)
+        setLoading(false)
+        cached.slice(0, 5).forEach((slide) => warmImage(slide.image))
+        if (!stale) return // Cache is fresh; no need to re-fetch.
+      }
+
+      // Fetch fresh data (first load, or background revalidation after stale hit).
       try {
-        const [productsJson, servicesJson, storesJson] = await Promise.all([
-          fetchJsonWithTimeout("/api/database/products?limit=18", controller.signal),
-          fetchJsonWithTimeout("/api/database/services?limit=18", controller.signal),
-          fetchJsonWithTimeout("/api/database/stores?limit=18&sortBy=for-you", controller.signal),
+        const results = await Promise.allSettled([
+          fetchJsonWithTimeout("/api/database/products?limit=8", controller.signal, 6000),
+          fetchJsonWithTimeout("/api/database/services?limit=8", controller.signal, 6000),
+          fetchJsonWithTimeout("/api/database/stores?limit=8&sortBy=for-you", controller.signal, 6000),
         ])
 
-        const products = Array.isArray(productsJson?.data) ? productsJson.data : []
-        const services = Array.isArray(servicesJson?.data) ? servicesJson.data : []
-        const stores = Array.isArray(storesJson?.data) ? storesJson.data : []
+        if (controller.signal.aborted) return
 
-        const productSlides: CarouselSlide[] = products
-          .map((product: any) => {
-            const image = firstValidImage([
-              product?.images,
-              product?.image,
-              product?.imageUrl,
-              product?.thumbnail,
-            ])
+        const [p, s, st] = results.map((r) => (r.status === "fulfilled" ? r.value : null))
+        const freshSlides = buildSlides(p, s, st)
 
-            if (!image) return null
-
-            const id = String(product?.id || product?._id || "").trim()
-            if (!id) return null
-
-            return {
-              id: `product-${id}`,
-              kind: "product" as const,
-              title: String(product?.title || product?.name || "Featured Product"),
-              subtitle: String(product?.category || product?.storeName || "Top Product"),
-              image,
-              href: `/products/${id}`,
-            }
-          })
-          .filter(Boolean) as CarouselSlide[]
-
-        const serviceSlides: CarouselSlide[] = services
-          .map((service: any) => {
-            const image = firstValidImage([
-              service?.images,
-              service?.image,
-              service?.imageUrl,
-              service?.thumbnail,
-            ])
-
-            if (!image) return null
-
-            const id = String(service?.id || service?._id || "").trim()
-            if (!id) return null
-
-            return {
-              id: `service-${id}`,
-              kind: "service" as const,
-              title: String(service?.title || service?.name || "Featured Service"),
-              subtitle: String(service?.category || service?.providerName || "Top Service"),
-              image,
-              href: buildPublicServicePath(service),
-            }
-          })
-          .filter(Boolean) as CarouselSlide[]
-
-        const storeSlides: CarouselSlide[] = stores
-          .map((store: any) => {
-            const hasLogoOrProfileCard =
-              hasValidImage(store?.logoImage) ||
-              hasValidImage(store?.profileImage) ||
-              hasValidImage(store?.storeImage) ||
-              hasValidImage(store?.logo)
-
-            if (!hasLogoOrProfileCard) return null
-
-            const image = firstValidImage([
-              store?.bannerImage,
-              store?.profileImage,
-              store?.logoImage,
-              store?.storeImage,
-              store?.logo,
-              store?.bannerImages,
-            ])
-
-            if (!image) return null
-
-            const id = String(store?.id || store?._id || "").trim()
-            if (!id) return null
-
-            return {
-              id: `store-${id}`,
-              kind: "store" as const,
-              title: String(store?.name || store?.storeName || "Featured Store"),
-              subtitle: String(store?.city || store?.state || "Top Store"),
-              image,
-              href: buildPublicStorePath(store),
-            }
-          })
-          .filter(Boolean) as CarouselSlide[]
-
-        const mixed = shuffle([...storeSlides, ...productSlides, ...serviceSlides]).slice(0, 24)
-
-        const finalSlides =
-          mixed.length > 0
-            ? mixed
-            : [
-                {
-                  id: "fallback-hero",
-                  kind: "store" as const,
-                  title: "Make It Sell",
-                  subtitle: "Discover products, services and stores",
-                  image: FALLBACK_IMAGE,
-                  href: "/stores",
-                },
-              ]
-
-        setSlides(finalSlides)
-        finalSlides.slice(0, 10).forEach((slide) => warmImage(slide.image))
-        if (typeof window !== "undefined") {
-          window.sessionStorage.setItem(HERO_CAROUSEL_CACHE_KEY, JSON.stringify(finalSlides))
-        }
+        setSlides(freshSlides)
+        freshSlides.slice(0, 10).forEach((slide) => warmImage(slide.image))
+        writeCachedSlides(freshSlides)
       } catch {
-        setSlides([])
+        // Network error on revalidation — keep showing cached slides if we have them.
+        if (cached.length === 0) setSlides([])
       } finally {
         setLoading(false)
       }
