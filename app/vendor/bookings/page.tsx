@@ -664,7 +664,7 @@ export default function VendorBookingsPage() {
                           setSelectedDate(day)
                           setCurrentMonth(startOfMonth(day))
                         }}
-                        className={`min-w-[74px] rounded-2xl border px-3 py-2 text-left transition ${selected ? "bg-primary text-primary-foreground border-primary" : "bg-card"}`}
+                        className={`min-w-[74px] rounded-2xl border px-3 py-2 text-left transition ${selected ? "bg-accent text-white border-accent" : "bg-card"}`}
                       >
                         <p className="text-[10px] uppercase tracking-wide opacity-80">{format(day, "EEE")}</p>
                         <p className="text-lg font-semibold leading-none mt-1">{format(day, "d")}</p>
@@ -710,7 +710,7 @@ export default function VendorBookingsPage() {
                         <p className="text-sm font-semibold">{format(day, "d")}</p>
                         <div className="mt-1 space-y-1">
                           {dayBookings.slice(0, 2).map((booking) => (
-                            <p key={booking.id} className="text-[11px] truncate rounded bg-primary/10 px-1.5 py-0.5">
+                            <p key={booking.id} className="text-[11px] truncate rounded bg-accent/10 px-1.5 py-0.5">
                               {booking.customerName || "Customer"}
                             </p>
                           ))}

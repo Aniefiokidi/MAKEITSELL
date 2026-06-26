@@ -3,17 +3,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Truck, Package, MapPin, Info, AlertCircle, CheckCircle } from "lucide-react"
 import Header from "@/components/Header"
+import Footer from "@/components/Footer"
 
 export default function ShippingPage() {
   return (
-    <>
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <div className="min-h-screen bg-background">
+      <main className="flex-1">
         <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8">
           {/* Header */}
           <div className="mb-6 sm:mb-8">
             <nav className="text-[9px] xs:text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4">
-              <Link href="/" className="hover:text-primary">Home</Link>
+              <Link href="/" className="hover:text-accent">Home</Link>
               <span className="mx-1.5 sm:mx-2">/</span>
               <span>Shipping Information</span>
             </nav>
@@ -52,28 +53,28 @@ export default function ShippingPage() {
               <CardContent className="p-3 sm:p-6">
                 <div className="space-y-4">
                   <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">1</div>
+                    <div className="flex-shrink-0 w-6 h-6 bg-accent text-white rounded-full flex items-center justify-center text-sm font-bold">1</div>
                     <div>
                       <h5 className="font-medium text-sm sm:text-base">Shop from Vendors</h5>
                       <p className="text-xs sm:text-sm text-muted-foreground">Browse products from different vendors on our marketplace</p>
                     </div>
                   </div>
                   <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">2</div>
+                    <div className="flex-shrink-0 w-6 h-6 bg-accent text-white rounded-full flex items-center justify-center text-sm font-bold">2</div>
                     <div>
                       <h5 className="font-medium text-sm sm:text-base">Check Shipping Details</h5>
                       <p className="text-xs sm:text-sm text-muted-foreground">Each product shows vendor-specific shipping costs and estimated delivery</p>
                     </div>
                   </div>
                   <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">3</div>
+                    <div className="flex-shrink-0 w-6 h-6 bg-accent text-white rounded-full flex items-center justify-center text-sm font-bold">3</div>
                     <div>
                       <h5 className="font-medium text-sm sm:text-base">Vendor Ships Your Order</h5>
                       <p className="text-xs sm:text-sm text-muted-foreground">The vendor processes and ships your order using their preferred carrier</p>
                     </div>
                   </div>
                   <div className="flex gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">4</div>
+                    <div className="flex-shrink-0 w-6 h-6 bg-accent text-white rounded-full flex items-center justify-center text-sm font-bold">4</div>
                     <div>
                       <h5 className="font-medium text-sm sm:text-base">We Track Everything</h5>
                       <p className="text-xs sm:text-sm text-muted-foreground">Make It Sell monitors shipment status and keeps you updated</p>
@@ -173,7 +174,7 @@ export default function ShippingPage() {
               <div className="mt-6 p-4 bg-muted/50 rounded-lg">
                 <p className="text-xs sm:text-sm text-center">
                   <strong>Track your orders:</strong> View real-time updates in your{" "}
-                  <Link href="/order" className="text-primary hover:underline">Order History</Link>
+                  <Link href="/order" className="text-accent hover:underline">Order History</Link>
                 </p>
               </div>
             </CardContent>
@@ -265,7 +266,7 @@ export default function ShippingPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link href="/support">
-                <button className="bg-primary text-primary-foreground px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors text-sm">
+                <button className="bg-accent text-white px-6 py-2 rounded-lg hover:bg-accent/90 transition-colors text-sm">
                   Contact Support
                 </button>
               </Link>
@@ -277,7 +278,8 @@ export default function ShippingPage() {
             </div>
           </div>
         </div>
-      </div>
-    </>
+      </main>
+      <Footer />
+    </div>
   )
 }

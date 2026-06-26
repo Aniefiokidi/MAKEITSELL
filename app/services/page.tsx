@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import dynamic from "next/dynamic"
 import Header from "@/components/Header"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -338,23 +338,19 @@ export default function ServicesPage() {
         const cacheIsFresh = (now - parseInt(cacheTimestamp)) < 300000
         if (cacheIsFresh && Array.isArray(parsedServices) && parsedServices.length > 0) {
           setServices(personalizeServices(parsedServices))
-          console.log(`Loaded ${parsedServices.length} services from cache`)
           setLoading(false)
           return
         }
       }
-      
-      // Fetch real services from Firestore only
+
       const firestoreServices = await getServices()
-      
-      // Cache the results
+
       if (firestoreServices.length > 0) {
         sessionStorage.setItem('marketplace-services', JSON.stringify(firestoreServices))
         sessionStorage.setItem('marketplace-services-timestamp', now.toString())
       }
-      
+
       setServices(personalizeServices(firestoreServices))
-      console.log(`Loaded ${firestoreServices.length} real services from registered providers`)
     } catch (error) {
       console.error("Error loading services:", error)
       setServices([])
@@ -381,7 +377,6 @@ export default function ServicesPage() {
       }
       
       setServices(personalizeServices(firestoreServices))
-      console.log(`Refreshed: ${firestoreServices.length} real services from registered providers`)
     } catch (error) {
       console.error("Error refreshing services:", error)
     }
@@ -528,6 +523,11 @@ export default function ServicesPage() {
       <Header />
       
       <main className="flex-1 container mx-auto px-2 sm:px-4 pt-5 sm:pt-7 pb-3 sm:pb-4">
+        <div className="mb-4 sm:mb-5">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 tracking-tight">Browse Services</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Book services from verified providers across Nigeria</p>
+        </div>
+
         {/* Unified Header Bar - Mobile Optimized */}
         <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
           <div className="flex items-center gap-1 rounded-full border border-accent/25 bg-white/90 p-1 w-fit shadow-sm">
@@ -686,16 +686,9 @@ export default function ServicesPage() {
         {/* Services Grid */}
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 md:gap-4 stagger-grid">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Card key={i} className="animate-pulse border border-neutral-200 rounded-2xl shadow-sm">
-                <div className="h-32 sm:h-48 bg-muted rounded-t-lg" />
-                <CardHeader className="p-2 sm:p-4">
-                  <div className="h-4 sm:h-6 bg-muted rounded w-3/4" />
-                  <div className="h-3 sm:h-4 bg-muted rounded w-1/2 mt-1 sm:mt-2" />
-                </CardHeader>
-                <CardContent className="p-2 sm:p-4">
-                  <div className="h-12 sm:h-20 bg-muted rounded" />
-                </CardContent>
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
+              <Card key={i} className="border-0 rounded-2xl overflow-hidden shadow-md">
+                <div className="aspect-9/16 w-full bg-muted animate-pulse" />
               </Card>
             ))}
           </div>
@@ -703,7 +696,7 @@ export default function ServicesPage() {
           <div className="text-center py-12 sm:py-24">
             {services.length === 0 ? (
               <div className="space-y-2 sm:space-y-4">
-                <div className="inline-flex p-4 sm:p-8 bg-linear-to-br from-accent/20 to-orange-500/20 rounded-full mb-3 sm:mb-8 border-4 border-accent/20 shadow-2xl shadow-accent/20 animate-pulse">
+                <div className="inline-flex p-4 sm:p-8 bg-linear-to-br from-accent/20 to-accent/5 rounded-full mb-3 sm:mb-8 border-4 border-accent/20 shadow-2xl shadow-accent/20">
                   <svg className="h-12 w-12 sm:h-24 sm:w-24 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -713,7 +706,7 @@ export default function ServicesPage() {
                 <p className="text-muted-foreground text-sm sm:text-lg mb-4 sm:mb-8 max-w-md mx-auto px-4 sm:px-0">
                   Services will appear here as providers publish new offerings.
                 </p>
-                <Button onClick={refreshServices} disabled={refreshing} size="sm" className="bg-linear-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-semibold text-xs sm:text-base px-4 sm:px-8 py-2 sm:py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all">
+                <Button onClick={refreshServices} disabled={refreshing} size="sm" className="bg-accent hover:bg-accent/90 text-white font-semibold text-xs sm:text-base px-4 sm:px-8 py-2 sm:py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all">
                   <RefreshCw className="h-3 w-3 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Check for new services</span>
                   <span className="sm:hidden">Check new</span>
@@ -721,7 +714,7 @@ export default function ServicesPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="inline-flex p-8 bg-linear-to-br from-accent/20 to-orange-500/20 rounded-full mb-8 border-4 border-accent/20 shadow-2xl shadow-accent/20 animate-pulse">
+                <div className="inline-flex p-8 bg-linear-to-br from-accent/20 to-accent/5 rounded-full mb-8 border-4 border-accent/20 shadow-2xl shadow-accent/20">
                   <svg className="h-24 w-24 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
@@ -736,7 +729,7 @@ export default function ServicesPage() {
                   setServiceGroup("all")
                   setSelectedState("all")
                   setSelectedCity("all")
-                }} size="lg" className="bg-linear-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-semibold text-sm sm:text-base px-8 py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all">
+                }} size="lg" className="bg-accent hover:bg-accent/90 text-white font-semibold text-sm sm:text-base px-8 py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all">
                   Clear filters
                 </Button>
               </div>
@@ -770,8 +763,8 @@ export default function ServicesPage() {
                         className="object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                     ) : (
-                      <div className="flex items-center justify-center h-full bg-linear-to-br from-accent/90 via-orange-500/90 to-red-600/90">
-                        <svg className="h-12 w-12 sm:h-20 sm:w-20 text-white drop-shadow-lg animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center justify-center h-full bg-linear-to-br from-accent/90 via-accent/70 to-accent/50">
+                        <svg className="h-12 w-12 sm:h-20 sm:w-20 text-white drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>

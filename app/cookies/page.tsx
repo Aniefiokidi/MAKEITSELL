@@ -4,17 +4,18 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Cookie, Settings, Shield, Eye, ToggleLeft } from "lucide-react"
 import Header from "@/components/Header"
+import Footer from "@/components/Footer"
 
 export default function CookiesPage() {
   return (
-    <>
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <div className="min-h-screen bg-background">
+      <main className="flex-1">
         <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8 max-w-4xl">
           {/* Header */}
           <div className="mb-6 sm:mb-8">
             <nav className="text-[9px] xs:text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4">
-              <Link href="/" className="hover:text-primary">Home</Link>
+              <Link href="/" className="hover:text-accent">Home</Link>
               <span className="mx-1.5 sm:mx-2">/</span>
               <span>Cookie Policy</span>
             </nav>
@@ -25,10 +26,10 @@ export default function CookiesPage() {
           </div>
 
           {/* Cookie Overview */}
-          <Card className="mb-6 sm:mb-8 border-primary/20 bg-primary/5">
+          <Card className="mb-6 sm:mb-8 border-accent/20 bg-accent/5">
             <CardContent className="p-3 sm:p-6">
               <div className="flex items-start gap-2 sm:gap-4">
-                <Cookie className="w-5 h-5 sm:w-8 sm:h-8 text-primary mt-1 shrink-0" />
+                <Cookie className="w-5 h-5 sm:w-8 sm:h-8 text-accent mt-1 shrink-0" />
                 <div className="min-w-0">
                   <h2 className="text-sm sm:text-lg md:text-xl font-semibold mb-1 sm:mb-2">About Cookies</h2>
                   <p className="text-muted-foreground text-[10px] xs:text-xs sm:text-sm leading-relaxed">
@@ -47,7 +48,7 @@ export default function CookiesPage() {
             </CardHeader>
             <CardContent className="p-3 sm:p-6">
               <div className="flex flex-col xs:flex-row gap-2 sm:gap-4">
-                <Button className="flex-1 text-[9px] xs:text-[10px] sm:text-xs md:text-sm py-2 sm:py-3 h-8 sm:h-10">
+                <Button className="flex-1 text-[9px] xs:text-[10px] sm:text-xs md:text-sm py-2 sm:py-3 h-8 sm:h-10 bg-accent text-white hover:bg-accent/90">
                   <Settings className="w-3 h-3 xs:w-4 xs:h-4 mr-1 sm:mr-2" />
                   Manage Settings
                 </Button>
@@ -179,7 +180,7 @@ export default function CookiesPage() {
               <div className="border rounded-lg p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-semibold flex items-center gap-2">
-                    <span className="w-4 h-4 bg-orange-600 rounded-full"></span>
+                    <span className="w-4 h-4 bg-accent rounded-full"></span>
                     Marketing Cookies
                   </h4>
                   <Badge variant="outline">Optional</Badge>
@@ -300,16 +301,16 @@ export default function CookiesPage() {
                 You can opt out of certain types of cookies and tracking through these industry tools:
               </p>
               <div className="space-y-2 text-sm">
-                <Link href="#" className="block text-primary hover:underline">
+                <Link href="#" className="block text-accent hover:underline">
                   Digital Advertising Alliance (DAA) opt-out →
                 </Link>
-                <Link href="#" className="block text-primary hover:underline">
+                <Link href="#" className="block text-accent hover:underline">
                   Network Advertising Initiative (NAI) opt-out →
                 </Link>
-                <Link href="#" className="block text-primary hover:underline">
+                <Link href="#" className="block text-accent hover:underline">
                   Google Analytics opt-out →
                 </Link>
-                <Link href="#" className="block text-primary hover:underline">
+                <Link href="#" className="block text-accent hover:underline">
                   European Interactive Digital Advertising Alliance (EDAA) →
                 </Link>
               </div>
@@ -374,17 +375,18 @@ export default function CookiesPage() {
                 <p><strong>Subject:</strong> Cookie Policy Inquiry</p>
               </div>
               <div className="mt-4 flex gap-4">
-                <Link href="/privacy" className="text-primary hover:underline text-sm">
+                <Link href="/privacy" className="text-accent hover:underline text-sm">
                   View Privacy Policy →
                 </Link>
-                <Link href="/support" className="text-primary hover:underline text-sm">
+                <Link href="/support" className="text-accent hover:underline text-sm">
                   Contact Support →
                 </Link>
               </div>
             </CardContent>
           </Card>
         </div>
-      </div>
-    </>
+      </main>
+      <Footer />
+    </div>
   )
 }

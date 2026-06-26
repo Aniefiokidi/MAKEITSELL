@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Clock, ShoppingCart, Heart, Zap } from "lucide-react"
 import { useCart } from "@/contexts/CartContext"
 import Header from "@/components/Header"
+import Footer from "@/components/Footer"
 // All product fetching must be done via API route only. Do not import getProducts or any database logic directly in client components.
 
 export default function DealsPage() {
@@ -103,10 +104,9 @@ export default function DealsPage() {
   };
 
   return (
-    <>
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 py-8">
+      <main className="flex-1 container mx-auto px-4 py-8">
           {/* Header */}
           <div className="mb-8 animate-fade-in">
             <nav className="text-sm text-muted-foreground mb-4">
@@ -139,7 +139,7 @@ export default function DealsPage() {
           </div>
 
           {/* Flash Deals Banner */}
-          <div className="bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-lg p-4 sm:p-6 mb-8 animate-scale-in" style={{ animationDelay: '0.2s' }}>
+          <div className="bg-accent text-white rounded-lg p-4 sm:p-6 mb-8 animate-scale-in" style={{ animationDelay: '0.2s' }}>
             <div className="flex flex-col sm:flex-row items-center sm:justify-between gap-4 sm:gap-0">
               <div className="flex items-center space-x-3">
                 <Zap className="w-8 h-8 animate-pulse-glow" />
@@ -158,7 +158,7 @@ export default function DealsPage() {
           {/* Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
             <div className="bg-muted/50 rounded-lg p-4 text-center">
-              <p className="text-2xl font-bold text-primary">{filteredProducts.length}</p>
+              <p className="text-2xl font-bold text-accent">{filteredProducts.length}</p>
               <p className="text-sm text-muted-foreground">Active Deals</p>
             </div>
             <div className="bg-muted/50 rounded-lg p-4 text-center">
@@ -166,7 +166,7 @@ export default function DealsPage() {
               <p className="text-sm text-muted-foreground">Max Savings</p>
             </div>
             <div className="bg-muted/50 rounded-lg p-4 text-center">
-              <p className="text-2xl font-bold text-orange-600">{filteredProducts.filter(p => p.isFlashDeal).length}</p>
+              <p className="text-2xl font-bold text-accent">{filteredProducts.filter(p => p.isFlashDeal).length}</p>
               <p className="text-sm text-muted-foreground">Flash Deals</p>
             </div>
           </div>
@@ -186,7 +186,7 @@ export default function DealsPage() {
                   {/* Flash Deal Badge */}
                   {product.isFlashDeal && (
                     <div className="absolute top-2 right-2 z-20">
-                      <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-black">
+                      <Badge className="bg-accent text-white">
                         <Zap className="w-3 h-3 mr-1" />
                         Flash
                       </Badge>
@@ -204,7 +204,7 @@ export default function DealsPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white"
+                      className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-card"
                     >
                       <Heart className="w-4 h-4" />
                     </Button>
@@ -212,7 +212,7 @@ export default function DealsPage() {
 
                   <div className="space-y-2">
                     <Link href={`/products/${product.id}`}>
-                      <h3 className="font-semibold hover:text-primary cursor-pointer line-clamp-2">
+                      <h3 className="font-semibold hover:text-accent cursor-pointer line-clamp-2">
                         {product.name}
                       </h3>
                     </Link>
@@ -225,7 +225,7 @@ export default function DealsPage() {
                           <svg
                             key={i}
                             className={`w-4 h-4 ${
-                              i < Math.floor(product.rating) ? "text-yellow-400 fill-current" : "text-gray-300"
+                              i < Math.floor(product.rating) ? "text-yellow-400 fill-current" : "text-muted-foreground"
                             }`}
                             viewBox="0 0 20 20"
                           >
@@ -250,7 +250,7 @@ export default function DealsPage() {
                     </div>
 
                     {/* Time Left */}
-                    <div className="flex items-center text-sm text-orange-600">
+                    <div className="flex items-center text-sm text-accent">
                       <Clock className="w-4 h-4 mr-1" />
                       {formatTimeLeft(product.dealEnds)}
                     </div>
@@ -275,8 +275,8 @@ export default function DealsPage() {
               <p className="text-muted-foreground">Check back soon for amazing offers!</p>
             </div>
           )}
-        </div>
-      </div>
-    </>
+      </main>
+      <Footer />
+    </div>
   )
 }

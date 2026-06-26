@@ -702,23 +702,35 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
           </nav>
 
           {/* Right Icons */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             {formattedWalletBalance && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (userProfile?.role === "customer") {
-                    setWalletModalOpen(true)
-                  } else if (userProfile?.role === "vendor") {
-                    setVendorWalletModalOpen(true)
-                  }
-                }}
-                title={userProfile?.role === "vendor" ? "Click to manage vendor wallet" : "Open wallet"}
-                className="flex items-center gap-1 rounded-full border border-[oklch(0.21_0.194_29.234)]/25 bg-white/90 px-2 sm:px-3 py-1 text-[clamp(0.65rem,2.5vw,0.75rem)] sm:text-xs font-medium text-[oklch(0.21_0.194_29.234)] hover:bg-accent/10 transition-colors cursor-pointer"
-              >
-                <Wallet className="h-3.5 w-3.5" />
-                <span>{formattedWalletBalance}</span>
-              </button>
+              <>
+                {/* Mobile: wallet icon only */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (userProfile?.role === "customer") setWalletModalOpen(true)
+                    else if (userProfile?.role === "vendor") setVendorWalletModalOpen(true)
+                  }}
+                  title="Wallet"
+                  className="xl:hidden p-1.5 rounded-full hover:bg-accent/10 transition-colors text-[oklch(0.21_0.194_29.234)]"
+                >
+                  <Wallet className="h-5 w-5" />
+                </button>
+                {/* Desktop: full balance chip */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (userProfile?.role === "customer") setWalletModalOpen(true)
+                    else if (userProfile?.role === "vendor") setVendorWalletModalOpen(true)
+                  }}
+                  title={userProfile?.role === "vendor" ? "Click to manage vendor wallet" : "Open wallet"}
+                  className="hidden xl:flex items-center gap-1 rounded-full border border-[oklch(0.21_0.194_29.234)]/25 bg-white/90 px-3 py-1 text-xs font-medium text-[oklch(0.21_0.194_29.234)] hover:bg-accent/10 transition-colors cursor-pointer"
+                >
+                  <Wallet className="h-3.5 w-3.5" />
+                  <span>{formattedWalletBalance}</span>
+                </button>
+              </>
             )}
 
             {/* Mobile search icon */}

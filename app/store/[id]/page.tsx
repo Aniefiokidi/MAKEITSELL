@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
-import { Clock, Truck, MapPin, Search, Heart, ShoppingCart, ArrowLeft, Shield, Users, Package, MessageCircle, Verified, Store as StoreIcon, TrendingUp, Calendar, Eye, Filter, ExternalLink } from "lucide-react"
+import { Clock, Truck, MapPin, Search, Heart, ShoppingCart, ArrowLeft, Package, MessageCircle, Verified, Store as StoreIcon, TrendingUp, Filter, ExternalLink } from "lucide-react"
 import Link from "next/link"
 import { useCart } from "@/contexts/CartContext"
 import { useAuth } from "@/contexts/AuthContext"
@@ -77,6 +77,64 @@ interface Store {
   }
 }
 
+// Defined at module level so React never creates a new component type on parent re-renders,
+// which would force every product card to unmount/remount on every state change.
+const ImageCycler = ({ product, store }: { product: Product; store: Store | null }) => {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [isHovered, setIsHovered] = useState(false)
+
+  useEffect(() => {
+    if (!isHovered || !product.images || product.images.length <= 1) return
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prev: number) => (prev + 1 >= product.images.length ? 0 : prev + 1))
+    }, 2000)
+    return () => clearInterval(interval)
+  }, [isHovered, product.images])
+
+  useEffect(() => {
+    if (!isHovered) setCurrentImageIndex(0)
+  }, [isHovered])
+
+  const isElectronics = store?.category?.toLowerCase() === 'electronics'
+  const isOos = product.stock === 0 && product.category !== 'Food & Beverages'
+  const objectFit = isElectronics ? 'object-contain bg-white' : 'object-cover'
+  const grayscale = isOos ? 'grayscale' : ''
+
+  if (!product.images || product.images.length === 0) {
+    return (
+      <img
+        src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"
+        alt={(product.title || (product as any).name || 'Product') as string}
+        loading="lazy"
+        decoding="async"
+        className={`absolute inset-0 w-full h-full ${objectFit} group-hover:scale-110 transition-transform duration-500 ${grayscale}`}
+      />
+    )
+  }
+
+  const activeImage = product.images[currentImageIndex] || product.images[0] ||
+    "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"
+
+  return (
+    <div
+      className="absolute inset-0 w-full h-full"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <img
+        key={`${product.id}-${currentImageIndex}`}
+        src={activeImage}
+        alt={(product.title || (product as any).name || 'Product') as string}
+        loading="lazy"
+        decoding="async"
+        fetchPriority="low"
+        className={`absolute inset-0 w-full h-full ${objectFit} group-hover:scale-110 transition-all duration-500 ${grayscale} opacity-100`}
+        style={{ transitionProperty: 'opacity, transform', transitionDuration: '450ms, 450ms', transitionTimingFunction: 'ease-in-out, ease-out' }}
+      />
+    </div>
+  )
+}
+
 export default function StorePage() {
   const [addedToCartId, setAddedToCartId] = useState<string | null>(null)
   const params = useParams()
@@ -108,7 +166,6 @@ export default function StorePage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
-  const [imageBrightness, setImageBrightness] = useState<{ [key: string]: 'light' | 'dark' }>({})
   const [storeVisitTracked, setStoreVisitTracked] = useState(false)
   const PRODUCTS_PER_PAGE = 12
   const slugify = (value?: string) => {
@@ -158,94 +215,6 @@ export default function StorePage() {
     }
 
     return filtered[filtered.length - 1] || ""
-  }
-
-  // Function to detect image brightness - focuses on bottom portion where frosted glass is
-  const detectImageBrightness = (imageUrl: string, productId: string) => {
-    const img = new Image()
-    img.crossOrigin = "Anonymous"
-    img.src = imageUrl
-    
-    img.onload = () => {
-      const canvas = document.createElement('canvas')
-      const ctx = canvas.getContext('2d')
-      if (!ctx) return
-      
-      canvas.width = img.width
-      canvas.height = img.height
-      ctx.drawImage(img, 0, 0)
-      
-      try {
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-        const data = imageData.data
-        const width = canvas.width
-        const height = canvas.height
-        
-        // Sample only the bottom 25% of the image where frosted glass sits
-        const bottomStartRow = Math.floor(height * 0.75)
-        const startPixelIndex = (bottomStartRow * width) * 4
-        const endPixelIndex = imageData.data.length
-        
-        let brightPixels = 0
-        let mediumBrightPixels = 0
-        let totalPixels = 0
-        let r = 0, g = 0, b = 0
-        
-        // Sample every 2nd pixel for better accuracy
-        for (let i = startPixelIndex; i < endPixelIndex; i += 8) {
-          r += data[i]
-          g += data[i + 1]
-          b += data[i + 2]
-          totalPixels++
-          
-          const pixelBrightness = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114)
-          
-          // Count very bright pixels (white/very light) - threshold 180
-          if (pixelBrightness > 180) {
-            brightPixels++
-          }
-          // Count medium-bright pixels (light colors) - threshold 140
-          if (pixelBrightness > 140) {
-            mediumBrightPixels++
-          }
-        }
-        
-        const avgR = r / totalPixels
-        const avgG = g / totalPixels
-        const avgB = b / totalPixels
-        
-        // Calculate average brightness
-        const avgBrightness = (avgR * 0.299 + avgG * 0.587 + avgB * 0.114)
-        
-        // Calculate percentages
-        const brightPixelPercentage = (brightPixels / totalPixels) * 100
-        const mediumBrightPercentage = (mediumBrightPixels / totalPixels) * 100
-        
-        // Consider it "light" if any of these conditions are true:
-        // 1. Average brightness is over 145
-        // 2. 15%+ of pixels are very bright (white)
-        // 3. 35%+ of pixels are medium-bright (light colors)
-        const isLight = avgBrightness > 145 || brightPixelPercentage > 15 || mediumBrightPercentage > 35
-        
-        setImageBrightness(prev => ({
-          ...prev,
-          [productId]: isLight ? 'light' : 'dark'
-        }))
-      } catch (e) {
-        // If CORS error or other issue, default to dark
-        setImageBrightness(prev => ({
-          ...prev,
-          [productId]: 'dark'
-        }))
-      }
-    }
-    
-    img.onerror = () => {
-      setImageBrightness(prev => ({
-        ...prev,
-        [productId]: 'dark'
-      }))
-    }
   }
 
   useEffect(() => {
@@ -628,73 +597,6 @@ export default function StorePage() {
     )
   }
 
-  // Image Cycler Component for Product Cards
-  const ImageCycler = ({ product, store }: { product: Product; store: Store | null }) => {
-    const [currentImageIndex, setCurrentImageIndex] = useState(0)
-    const [isHovered, setIsHovered] = useState(false)
-
-    useEffect(() => {
-      if (!isHovered || !product.images || product.images.length <= 1) {
-        return
-      }
-
-      const interval = setInterval(() => {
-        setCurrentImageIndex((prevIndex) => {
-          return prevIndex + 1 >= product.images.length ? 0 : prevIndex + 1
-        })
-      }, 2000) // Change image every 2 seconds
-
-      return () => clearInterval(interval)
-    }, [isHovered, product.images])
-
-    // Reset to first image when hover ends
-    useEffect(() => {
-      if (!isHovered) {
-        setCurrentImageIndex(0)
-      }
-    }, [isHovered])
-
-    if (!product.images || product.images.length === 0) {
-      return (
-        <img
-          src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"
-          alt={(product.title || (product as any).name || 'Product') as string}
-          loading="lazy"
-          decoding="async"
-          className={`absolute inset-0 w-full h-full ${store?.category?.toLowerCase() === 'electronics' ? 'object-contain bg-white' : 'object-cover'} group-hover:scale-110 transition-transform duration-500 ${product.stock === 0 && product.category !== 'Food & Beverages' ? 'grayscale' : ''}`}
-        />
-      )
-    }
-
-    const activeImage =
-      product.images[currentImageIndex] ||
-      product.images[0] ||
-      "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"
-
-    return (
-      <div 
-        className="absolute inset-0 w-full h-full"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-      >
-        <img
-          key={`${product.id}-${currentImageIndex}`}
-          src={activeImage}
-          alt={(product.title || (product as any).name || 'Product') as string}
-          loading="lazy"
-          decoding="async"
-          fetchPriority="low"
-          className={`absolute inset-0 w-full h-full ${store?.category?.toLowerCase() === 'electronics' ? 'object-contain bg-white' : 'object-cover'} group-hover:scale-110 transition-all duration-500 ${product.stock === 0 && product.category !== 'Food & Beverages' ? 'grayscale' : ''} opacity-100`}
-          style={{
-            transitionProperty: 'opacity, transform',
-            transitionDuration: '450ms, 450ms',
-            transitionTimingFunction: 'ease-in-out, ease-out'
-          }}
-        />
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <style jsx global>{`
@@ -813,7 +715,7 @@ export default function StorePage() {
                 <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-6 text-gray-300">
                   <div className="flex items-center gap-2 text-xs sm:text-sm">
                     <Package className="w-4 h-4 shrink-0" />
-                    <span>({store.totalProducts || products.length || 0} products)</span>
+                    <span>{store.totalProducts || products.length || 0} products</span>
                   </div>
                   
                   <div className="hidden sm:block">
@@ -1075,9 +977,7 @@ export default function StorePage() {
                         <Badge
                           variant="outline"
                           role="button"
-                          className={`inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow hover:opacity-90 transition min-h-5 sm:min-h-6 items-center justify-center text-center leading-tight ${
-                            imageBrightness[product.id] === 'light' ? 'bg-accent text-white' : 'bg-accent text-white'
-                          }`}
+                          className="inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow hover:opacity-90 transition min-h-5 sm:min-h-6 items-center justify-center text-center leading-tight bg-accent text-white"
                           style={{
                             whiteSpace: 'normal',
                             wordBreak: 'break-word',
@@ -1091,17 +991,13 @@ export default function StorePage() {
                         </Badge>
                         
                         <div className="flex items-center justify-between gap-1 sm:gap-2">
-                          <Badge variant="outline" className={`${(product.category || '').length > 12 ? 'text-[8px] sm:text-[9px] md:text-[10px]' : 'text-[9px] sm:text-[10px] md:text-xs'} backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 max-w-[58%] min-w-0 whitespace-nowrap overflow-hidden text-ellipsis ${
-                            imageBrightness[product.id] === 'light' ? 'text-white bg-accent' : 'text-white bg-accent'
-                          }`}>
+                          <Badge variant="outline" className={`${(product.category || '').length > 12 ? 'text-[8px] sm:text-[9px] md:text-[10px]' : 'text-[9px] sm:text-[10px] md:text-xs'} backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 max-w-[58%] min-w-0 whitespace-nowrap overflow-hidden text-ellipsis text-white bg-accent`}>
                             {product.category}
                           </Badge>
                           
                           <Badge
                             variant="outline"
-                            className={`text-[9px] sm:text-[10px] md:text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 backdrop-blur-sm ${
-                              imageBrightness[product.id] === 'light' ? 'bg-white/80 text-accent' : 'bg-white/70 text-accent'
-                            }`}
+                            className="text-[9px] sm:text-[10px] md:text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 backdrop-blur-sm bg-white/70 text-accent"
                           >
                             {formatCurrency(product.price)}
                           </Badge>
@@ -1114,9 +1010,7 @@ export default function StorePage() {
                               <Badge
                                 key={idx}
                                 variant="outline"
-                                className={`text-[8px] sm:text-[9px] md:text-[10px] px-1 sm:px-1.5 py-0 border-white/40 ${
-                                  imageBrightness[product.id] === 'light' ? 'bg-white/60 text-accent' : 'bg-white/50 text-accent'
-                                }`}
+                                className="text-[8px] sm:text-[9px] md:text-[10px] px-1 sm:px-1.5 py-0 border-white/40 bg-white/50 text-accent"
                               >
                                 {size}
                               </Badge>
@@ -1131,11 +1025,7 @@ export default function StorePage() {
                             handleAddToCart(product)
                           }}
                           disabled={(product.stock === 0 && product.category !== 'Food & Beverages') || addedToCartId === product.id}
-                          className={`w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 ${
-                            imageBrightness[product.id] === 'light' 
-                              ? 'bg-white/20 hover:bg-white/80 text-accent' 
-                              : 'bg-white/50 hover:bg-white text-black'
-                          } ${addedToCartId === product.id ? 'bg-green-100 text-green-800 border-green-300' : ''}`}
+                          className={`w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black ${addedToCartId === product.id ? 'bg-green-100 text-green-800 border-green-300' : ''}`}
                         >
                           <img src="/images/logo3.png" alt="Add" className="w-6 sm:w-7 md:w-8 h-6 sm:h-7 md:h-8 -mt-1 sm:-mt-2" />
                           <span className="leading-none text-accent">{addedToCartId === product.id ? 'Added to cart' : 'Add to cart'}</span>

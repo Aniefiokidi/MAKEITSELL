@@ -3,10 +3,10 @@
 import React, { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Search, Store, RefreshCw, Filter, MapPin, Clock, Users, Package, Wrench, ArrowRight, ExternalLink } from "lucide-react"
+import { Search, Store, RefreshCw, MapPin, Clock, Users, Package, Wrench, ArrowRight, ExternalLink } from "lucide-react"
 import Link from "next/link"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
@@ -345,8 +345,8 @@ export default function ShopPage() {
                 className="object-cover group-hover:scale-105 transition-transform duration-500"
               />
             ) : (
-              <div className="flex items-center justify-center h-full bg-linear-to-br from-accent/90 via-orange-500/90 to-red-600/90">
-                <Store className="h-20 w-20 text-white drop-shadow-lg animate-pulse" />
+              <div className="flex items-center justify-center h-full bg-linear-to-br from-accent/90 via-accent/70 to-accent/50">
+                <Store className="h-20 w-20 text-white drop-shadow-lg" />
               </div>
             )}
             {/* Dark overlay gradient at bottom for text readability */}
@@ -376,7 +376,7 @@ export default function ShopPage() {
                     className="object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full bg-linear-to-br from-accent to-orange-500 flex items-center justify-center">
+                  <div className="w-full h-full bg-accent flex items-center justify-center">
                     <Store className="h-8 w-8 text-white" />
                   </div>
                 )}
@@ -552,6 +552,11 @@ export default function ShopPage() {
       <Header  />
       
       <main className="flex-1 container mx-auto px-2 sm:px-4 pt-6 sm:pt-8 pb-4 sm:pb-6">
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 tracking-tight">Browse Stores</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Discover verified vendors across Nigeria</p>
+        </div>
+
         {/* Unified Header Bar */}
         <div className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
           {/* First Row - Products Button */}
@@ -711,22 +716,9 @@ export default function ShopPage() {
         {/* Stores Grid */}
         {loading ? (
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5 lg:gap-6 stagger-grid">
-            {[...Array(8)].map((_, i) => (
-              <Card key={i} className="h-full border border-neutral-200 rounded-2xl shadow-sm">
-                <Skeleton className="aspect-video rounded-t-lg" />
-                <CardHeader>
-                  <Skeleton className="h-6 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                  <Skeleton className="h-5 w-20" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-10 w-full mb-4" />
-                  <div className="flex justify-between mb-4">
-                    <Skeleton className="h-4 w-16" />
-                    <Skeleton className="h-4 w-16" />
-                  </div>
-                  <Skeleton className="h-10 w-full" />
-                </CardContent>
+            {[...Array(10)].map((_, i) => (
+              <Card key={i} className="border-0 rounded-2xl overflow-hidden shadow-md">
+                <Skeleton className="aspect-9/16 w-full" />
               </Card>
             ))}
           </div>
@@ -738,14 +730,14 @@ export default function ShopPage() {
           </div>
         ) : (
           <div className="text-center py-12 sm:py-24">
-            <div className="inline-flex p-4 sm:p-8 bg-linear-to-br from-accent/20 to-orange-500/20 rounded-full mb-4 sm:mb-8 border-4 border-accent/20 shadow-2xl shadow-accent/20 animate-pulse">
+            <div className="inline-flex p-4 sm:p-8 bg-linear-to-br from-accent/20 to-accent/5 rounded-full mb-4 sm:mb-8 border-4 border-accent/20 shadow-2xl shadow-accent/20">
               <Store className="h-12 w-12 sm:h-24 sm:w-24 text-accent" />
             </div>
             <h3 className="text-2xl sm:text-4xl md:text-5xl font-extrabold text-accent mb-2 sm:mb-4">No stores found</h3>
             <p className="text-muted-foreground text-sm sm:text-lg mb-4 sm:mb-8 max-w-md mx-auto px-4 sm:px-0">
               Try adjusting your filters or search terms to discover available stores.
             </p>
-            <Button onClick={handleRefresh} size="sm" className="bg-linear-to-r from-accent to-orange-600 hover:from-orange-600 hover:to-accent text-white font-semibold text-xs sm:text-base px-4 sm:px-8 py-2 sm:py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all">
+            <Button onClick={handleRefresh} size="sm" className="bg-accent hover:bg-accent/90 text-white font-semibold text-xs sm:text-base px-4 sm:px-8 py-2 sm:py-6 rounded-full shadow-2xl shadow-accent/30 hover:scale-105 transition-all">
               <RefreshCw className="h-3 w-3 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
               <span className="hidden sm:inline">Refresh stores</span>
               <span className="sm:hidden">Refresh</span>

@@ -43,7 +43,7 @@ export default function CartPage() {
 
   useEffect(() => {
     if (items.length > 0) fetchStoreNames()
-  }, [items])
+  }, [items, fetchStoreNames])
 
   if (isLoading) {
     return (
@@ -110,7 +110,7 @@ export default function CartPage() {
           {/* ── Cart items ── */}
           <div className="lg:col-span-2 space-y-3">
             {items.map((item) => (
-              <div key={item.productId} className="bg-white rounded-2xl shadow-sm border border-border/50 overflow-hidden">
+              <div key={item.productId} className="bg-card rounded-2xl shadow-sm border border-border/50 overflow-hidden">
                 <div className="p-4">
                   <div className="flex gap-3">
                     {/* Product image */}
@@ -181,7 +181,7 @@ export default function CartPage() {
 
           {/* ── Order summary ── */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl shadow-sm border border-border/50 p-5 lg:sticky lg:top-24">
+            <div className="bg-card rounded-2xl shadow-sm border border-border/50 p-5 lg:sticky lg:top-24">
               <h2 className="font-bold text-base mb-4">Order Summary</h2>
 
               <div className="space-y-3 text-sm">
@@ -214,10 +214,10 @@ export default function CartPage() {
                 </div>
               )}
 
-              <Button asChild className="w-full" size="lg">
+              <Button asChild className="w-full bg-accent hover:bg-accent/90 text-white" size="lg">
                 <Link href="/checkout">Proceed to Checkout</Link>
               </Button>
-              <Button variant="outline" asChild className="w-full mt-2">
+              <Button variant="outline" asChild className="w-full mt-2 border-accent/40 text-accent hover:bg-accent/10">
                 <Link href="/stores">Continue Shopping</Link>
               </Button>
             </div>

@@ -78,7 +78,7 @@ export default function AdminSupportPage() {
       case "resolved":
         return <CheckCircle className="h-4 w-4 text-green-500" />
       default:
-        return <AlertCircle className="h-4 w-4 text-gray-500" />
+        return <AlertCircle className="h-4 w-4 text-muted-foreground" />
     }
   }
 
@@ -274,7 +274,7 @@ export default function AdminSupportPage() {
                             {ticket.customerName} • {ticket.vendorName}
                           </p>
                         </div>
-                        <div className="flex flex-col gap-1 flex-shrink-0">
+                        <div className="flex flex-col gap-1 shrink-0">
                           {getStatusBadge(ticket.status)}
                           {getPriorityBadge(ticket.priority)}
                         </div>
@@ -368,7 +368,7 @@ export default function AdminSupportPage() {
                               <div
                                 className={`max-w-[80%] rounded-lg p-3 ${
                                   message.senderRole === "admin"
-                                    ? "bg-primary text-primary-foreground"
+                                    ? "bg-accent text-white"
                                     : message.senderRole === "ai"
                                       ? "bg-blue-100 text-blue-900"
                                       : message.senderRole === "vendor"

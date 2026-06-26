@@ -133,7 +133,7 @@ export default function OverseerDashboardPage() {
                   {(data?.topCustomers || []).slice(0, 5).map((c: any) => (
                     <div key={c.customerId} className="flex justify-between items-start gap-2 p-2 bg-muted/50 rounded text-xs">
                       <span className="text-muted-foreground truncate">{c.customerId}</span>
-                      <span className="font-semibold flex-shrink-0">₦{(c.spend || 0).toLocaleString('en-NG')}</span>
+                      <span className="font-semibold shrink-0">₦{(c.spend || 0).toLocaleString('en-NG')}</span>
                     </div>
                   ))}
                 </div>
@@ -177,7 +177,7 @@ export default function OverseerDashboardPage() {
                   {(data?.vendorsByTenure || []).map((s: any) => (
                     <li key={s.id} className="flex items-center justify-between gap-2">
                       <span className="truncate">{s.storeName || s.name || 'Store'}</span>
-                      <Badge variant="outline" className="text-xs flex-shrink-0">Since {s.createdAt ? new Date(s.createdAt).toLocaleDateString() : 'Unknown'}</Badge>
+                      <Badge variant="outline" className="text-xs shrink-0">Since {s.createdAt ? new Date(s.createdAt).toLocaleDateString() : 'Unknown'}</Badge>
                     </li>
                   ))}
                 </ul>
@@ -197,7 +197,7 @@ export default function OverseerDashboardPage() {
                     (data?.expiringSubscriptions || []).map((s: any) => (
                       <li key={s.vendorId} className="flex items-center justify-between gap-2">
                         <span className="truncate">{s.storeName}</span>
-                        <Badge variant="secondary" className="text-xs flex-shrink-0">{new Date(s.subscriptionExpiresAt).toLocaleDateString()}</Badge>
+                        <Badge variant="secondary" className="text-xs shrink-0">{new Date(s.subscriptionExpiresAt).toLocaleDateString()}</Badge>
                       </li>
                     ))
                   )}

@@ -394,7 +394,7 @@ export default function ServiceSetupWizardPage() {
               <span>{Math.round(((stepIndex + 1) / stepOrder.length) * 100)}%</span>
             </div>
             <div className="h-2 w-full rounded-full bg-muted">
-              <div className="h-2 rounded-full bg-primary transition-all" style={{ width: `${((stepIndex + 1) / stepOrder.length) * 100}%` }} />
+              <div className="h-2 rounded-full bg-accent transition-all" style={{ width: `${((stepIndex + 1) / stepOrder.length) * 100}%` }} />
             </div>
             <div className="mt-4 grid gap-2 md:grid-cols-5">
               {stepOrder.map((step, idx) => (
@@ -402,7 +402,7 @@ export default function ServiceSetupWizardPage() {
                   key={step.key}
                   type="button"
                   onClick={() => setStepIndex(idx)}
-                  className={`rounded border px-3 py-2 text-left text-xs transition ${idx === stepIndex ? "border-primary bg-primary/5" : "border-border"}`}
+                  className={`rounded border px-3 py-2 text-left text-xs transition ${idx === stepIndex ? "border-accent bg-accent/5" : "border-border"}`}
                 >
                   <p className="font-semibold">{idx + 1}. {step.title}</p>
                   <p className="text-muted-foreground">{step.description}</p>

@@ -246,11 +246,11 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                <div className="rounded-md border border-blue-200 bg-white p-3">
+                <div className="rounded-md border border-blue-200 bg-card p-3">
                   <p className="text-xs text-blue-700">Waiting Release</p>
                   <p className="text-xl font-bold text-blue-900">{escrowSummary.waitingReleaseCount}</p>
                 </div>
-                <div className="rounded-md border border-blue-200 bg-white p-3">
+                <div className="rounded-md border border-blue-200 bg-card p-3">
                   <p className="text-xs text-blue-700">Total in Escrow</p>
                   <p className="text-xl font-bold text-blue-900">₦{escrowSummary.escrowTotalValue.toLocaleString()}</p>
                 </div>
@@ -258,7 +258,7 @@ export default function AdminDashboard() {
                   <p className="text-xs text-orange-700">Auto-refund Due</p>
                   <p className="text-xl font-bold text-orange-900">{escrowSummary.autoRefundDueCount}</p>
                 </div>
-                <div className="rounded-md border border-blue-200 bg-white p-3">
+                <div className="rounded-md border border-blue-200 bg-card p-3">
                   <p className="text-xs text-blue-700">Reminders Sent Today</p>
                   <p className="text-xl font-bold text-blue-900">{escrowSummary.remindersSentTodayCount}</p>
                 </div>

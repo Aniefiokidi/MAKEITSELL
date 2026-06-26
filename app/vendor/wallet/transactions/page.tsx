@@ -96,10 +96,10 @@ export default function VendorWalletTransactionsPage() {
     const colors: Record<string, string> = {
       completed: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
       pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-      manual_review: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+      manual_review: 'bg-accent/10 text-accent',
       failed: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
     }
-    return colors[status] || 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+    return colors[status] || 'bg-muted text-muted-foreground'
   }
 
   const getStatusLabel = (status: string) => {

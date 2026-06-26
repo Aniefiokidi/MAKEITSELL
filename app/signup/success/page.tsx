@@ -109,17 +109,17 @@ function SignupSuccessContent() {
               <CheckCircle2 className="w-12 h-12 text-green-600" />
             </div>
             
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">
+            <h1 className="text-3xl font-bold text-foreground mb-4">
               {isVendor ? (
                 <span className="flex items-center gap-2">
-                  <svg className="w-6 h-6 text-green-500 animate-bounce" fill="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-6 h-6 text-green-500" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
                   </svg>
                   Welcome to Make It Sell!
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
-                  <svg className="w-6 h-6 text-green-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   Account Created Successfully!
@@ -127,7 +127,7 @@ function SignupSuccessContent() {
               )}
             </h1>
             
-            <p className="text-lg text-gray-600 mb-6">
+            <p className="text-lg text-muted-foreground mb-6">
               {isVendor 
                 ? 'Your vendor account has been created successfully. You can start setting up your store now.'
                 : 'Your account has been created successfully. Welcome to Make It Sell!'
@@ -181,8 +181,8 @@ function SignupSuccessContent() {
                         <span className="text-blue-600 text-sm font-semibold">1</span>
                       </div>
                       <div>
-                        <h4 className="font-semibold text-gray-900">Set up your store</h4>
-                        <p className="text-gray-600 text-sm">Complete your store profile and add your first products or services</p>
+                        <h4 className="font-semibold text-foreground">Set up your store</h4>
+                        <p className="text-muted-foreground text-sm">Complete your store profile and add your first products or services</p>
                       </div>
                     </div>
                     
@@ -191,8 +191,8 @@ function SignupSuccessContent() {
                         <span className="text-blue-600 text-sm font-semibold">2</span>
                       </div>
                       <div>
-                        <h4 className="font-semibold text-gray-900">Start selling</h4>
-                        <p className="text-gray-600 text-sm">Your store is now visible to customers on Make It Sell</p>
+                        <h4 className="font-semibold text-foreground">Start selling</h4>
+                        <p className="text-muted-foreground text-sm">Your store is now visible to customers on Make It Sell</p>
                       </div>
                     </div>
                     
@@ -201,8 +201,8 @@ function SignupSuccessContent() {
                         <span className="text-blue-600 text-sm font-semibold">3</span>
                       </div>
                       <div>
-                        <h4 className="font-semibold text-gray-900">Manage orders</h4>
-                        <p className="text-gray-600 text-sm">Use your dashboard to track orders and communicate with customers</p>
+                        <h4 className="font-semibold text-foreground">Manage orders</h4>
+                        <p className="text-muted-foreground text-sm">Use your dashboard to track orders and communicate with customers</p>
                       </div>
                     </div>
                   </div>
@@ -224,7 +224,7 @@ function SignupSuccessContent() {
               </div>
             </div>
             
-            <Button asChild size="lg" className="min-w-48">
+            <Button asChild size="lg" className="min-w-48 bg-accent text-white hover:bg-accent/90">
               <Link href={isVendor ? '/vendor/dashboard' : '/dashboard'}>
                 Go to {isVendor ? 'Vendor Dashboard' : 'Dashboard'}
                 <ArrowRight className="ml-2 w-4 h-4" />

@@ -1476,7 +1476,7 @@ export default function AdminBroadcastEmailPage() {
                     style={{ width: `${SIGNATURE_STAGE_WIDTH}px`, maxWidth: "100%", height: `${SIGNATURE_STAGE_HEIGHT}px` }}
                   >
                     <div
-                      className="absolute border-2 border-dashed border-orange-400 bg-orange-50/60 p-2 select-none"
+                      className="absolute border-2 border-dashed border-accent/50 bg-accent/10 p-2 select-none"
                       style={{
                         left: `${signatureXOffsetPx}px`,
                         top: `${signatureYOffsetPx}px`,
@@ -1499,7 +1499,7 @@ export default function AdminBroadcastEmailPage() {
                       ) : null}
 
                       <div
-                        className="absolute right-0 bottom-0 w-3 h-3 bg-orange-600 cursor-se-resize"
+                        className="absolute right-0 bottom-0 w-3 h-3 bg-accent cursor-se-resize"
                         onMouseDown={handleResizeMouseDown}
                         title="Resize"
                       />
@@ -1675,11 +1675,11 @@ export default function AdminBroadcastEmailPage() {
                 {loadingPreview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                 Preview Recipients
               </Button>
-              <Button onClick={runSend} disabled={loadingSend || loadingPreview || loadingSendAll || loadingResendAllFailed} className="bg-orange-600 hover:bg-orange-700">
+              <Button onClick={runSend} disabled={loadingSend || loadingPreview || loadingSendAll || loadingResendAllFailed} className="bg-accent text-white hover:bg-accent/90">
                 {loadingSend ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 Send This Batch
               </Button>
-              <Button onClick={runSendAllRemaining} disabled={loadingSendAll || loadingSend || loadingPreview || loadingResendFailed || loadingResendAllFailed} className="bg-orange-700 hover:bg-orange-800 text-white">
+              <Button onClick={runSendAllRemaining} disabled={loadingSendAll || loadingSend || loadingPreview || loadingResendFailed || loadingResendAllFailed} className="bg-accent text-white hover:bg-accent/90">
                 {loadingSendAll ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 Send All Remaining
               </Button>

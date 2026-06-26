@@ -37,6 +37,12 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
   const [isLoading, setIsLoading] = useState(false)
   const [isEscalated, setIsEscalated] = useState(false)
   const [messageCounter, setMessageCounter] = useState(0)
+  const [suggestedActions, setSuggestedActions] = useState<string[]>([
+    "Track my order",
+    "Book a service",
+    "Help with payment",
+    "Become a seller",
+  ])
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -82,8 +88,7 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
             id: "welcome",
             senderId: "ai",
             senderRole: "ai",
-            message:
-              `Hi ${userName}! 👋 I'm your AI assistant and I'm here to help you with anything you need. What specific issue can I help you solve today?`,
+            message: `Hi ${userName}! 👋 I'm the MakeItSell support assistant.\n\nI can help you with orders & delivery, service bookings, food orders, payments, account issues, wallet, bidding, and anything else on the site.\n\nWhat do you need help with today?`,
             timestamp: new Date(),
           },
         ])
@@ -116,11 +121,17 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
     }
   }
 
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim() || isLoading) return
+  const handleQuickReply = (text: string) => {
+    setSuggestedActions([])
+    handleSendMessage(text)
+  }
 
-    const userMessage = inputMessage.trim()
-    setInputMessage("")
+  const handleSendMessage = async (overrideMessage?: string) => {
+    const userMessage = (overrideMessage || inputMessage).trim()
+    if (!userMessage || isLoading) return
+
+    if (!overrideMessage) setInputMessage("")
+    setSuggestedActions([])
 
     // Add user message
     addMessage({
@@ -161,16 +172,12 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
           message: aiResponse.response,
         })
 
-        // Only add follow-up if there are suggested actions and we can resolve the issue
-        if (aiResponse.canResolve && aiResponse.suggestedActions && aiResponse.suggestedActions.length > 0) {
-          setTimeout(() => {
-            addMessage({
-              senderId: "ai",
-              senderRole: "ai",
-              message: `Here are some specific steps you can try:\n${Array.isArray(aiResponse.suggestedActions) ? aiResponse.suggestedActions.map((action: string) => `• ${action}`).join("\n") : ""}\n\nTry these steps and let me know if you need more help!`,
-            })
-          }, 1500)
-        } else if (!aiResponse.canResolve) {
+        // Show suggested actions as clickable chips
+        if (aiResponse.suggestedActions && aiResponse.suggestedActions.length > 0) {
+          setSuggestedActions(aiResponse.suggestedActions.slice(0, 4))
+        }
+
+        if (!aiResponse.canResolve) {
           // Only escalate after trying to help
           setTimeout(() => {
             addMessage({
@@ -280,7 +287,7 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
     }
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
       handleSendMessage()
@@ -327,9 +334,9 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
     <Card className="h-[72vh] min-h-[560px] sm:h-[600px] w-full flex flex-col overflow-hidden">
       <CardHeader className="pb-3 shrink-0">
         <CardTitle className="flex items-center gap-2">
-          <MessageCircle className="h-5 w-5" />
-          Customer Support
-          {isEscalated && <Badge variant="secondary">Connected to Human Agent</Badge>}
+          <MessageCircle className="h-5 w-5 text-accent" />
+          AI Support Assistant
+          {isEscalated && <Badge variant="secondary" className="ml-auto text-xs">Connected to Human Agent</Badge>}
         </CardTitle>
       </CardHeader>
 
@@ -381,17 +388,32 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
           </div>
         </ScrollArea>
 
+        {suggestedActions.length > 0 && !isLoading && (
+          <div className="px-4 pt-3 pb-1 flex flex-wrap gap-2 border-t bg-muted/20 shrink-0">
+            {suggestedActions.map((action, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => handleQuickReply(action)}
+                className="text-xs px-3 py-1.5 rounded-full border border-accent/40 text-accent hover:bg-accent hover:text-white transition-colors"
+              >
+                {action}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="border-t p-4 shrink-0">
           <div className="flex gap-2">
             <Input
-              placeholder={isEscalated ? "Type your message to the support agent..." : "Type your message..."}
+              placeholder={isEscalated ? "Type your message to the support agent..." : "Ask me anything about MakeItSell..."}
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyDown}
               disabled={isLoading}
               className="flex-1"
             />
-            <Button onClick={handleSendMessage} disabled={!inputMessage.trim() || isLoading} size="icon" className="shrink-0">
+            <Button onClick={() => handleSendMessage()} disabled={!inputMessage.trim() || isLoading} size="icon" className="shrink-0">
               {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
           </div>

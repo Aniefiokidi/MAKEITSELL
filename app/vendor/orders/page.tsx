@@ -198,7 +198,7 @@ export default function VendorOrdersPage() {
                   <CardContent className="space-y-4">
                     <div className="flex flex-col gap-3">
                       {order.products?.map((prod: any, idx: number) => (
-                        <div key={idx} className="flex items-center gap-3 p-2 border border-white/10 rounded-md bg-white/5 backdrop-blur-sm">
+                        <div key={idx} className="flex items-center gap-3 p-2 border border-border rounded-md bg-muted/30">
                           {prod.image && (
                             <img
                               src={prod.image}
@@ -219,7 +219,7 @@ export default function VendorOrdersPage() {
                       ))}
                     </div>
                     <div className="flex items-center gap-2 mt-2">
-                      <div className="w-full rounded-md border border-white/20 bg-white/5 p-2 text-sm">
+                      <div className="w-full rounded-md border border-border bg-muted/20 p-2 text-sm">
                         <div className="flex items-center justify-between">
                           <span className="text-muted-foreground">Product Subtotal:</span>
                           <span className="font-semibold">₦{productSubtotal.toLocaleString()}</span>
@@ -228,7 +228,7 @@ export default function VendorOrdersPage() {
                           <span className="text-muted-foreground">Delivery Fee:</span>
                           <span className="font-semibold">{deliveryFee > 0 ? `₦${deliveryFee.toLocaleString()}` : 'FREE'}</span>
                         </div>
-                        <div className="flex items-center justify-between mt-1 pt-1 border-t border-white/20">
+                        <div className="flex items-center justify-between mt-1 pt-1 border-t border-border">
                           <span className="font-semibold">Total:</span>
                           <span className="text-lg font-bold">₦{total.toLocaleString()}</span>
                         </div>

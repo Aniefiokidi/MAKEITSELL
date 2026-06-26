@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import Header from "@/components/Header"
+import Footer from "@/components/Footer"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -279,7 +280,7 @@ export default function SettingsPage() {
               <Button 
                 onClick={handlePasswordChange} 
                 disabled={loading || !passwordData.currentPassword || !passwordData.newPassword}
-                className="w-full sm:w-auto hover:bg-accent/80 hover:scale-105 transition-all hover:shadow-lg"
+                className="w-full sm:w-auto bg-accent text-white hover:bg-accent/90 transition-all"
               >
                 {loading ? 'Changing Password...' : 'Change Password'}
               </Button>
@@ -416,6 +417,7 @@ export default function SettingsPage() {
         </div>
       </main>
 
+      <Footer />
     </div>
   )
 }

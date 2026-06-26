@@ -61,7 +61,7 @@ export default function ProductViewPage() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col md:flex-row gap-6">
-              <div className="flex-shrink-0 w-48 h-48 relative">
+              <div className="shrink-0 w-48 h-48 relative">
                 <Image src={product.images?.[0] || "/placeholder.svg"} alt={product.title} fill className="object-cover rounded" />
               </div>
               <div className="flex-1 space-y-2">

@@ -2,7 +2,9 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ArrowLeft } from "lucide-react";
 
 import dynamic from "next/dynamic";
@@ -19,8 +21,6 @@ export default function SearchPage() {
     setSearchValue(query);
   }, [query]);
 
-  // TODO: Replace with real search logic/API call
-  // For now, just show the query
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
@@ -51,15 +51,15 @@ export default function SearchPage() {
           }}
         >
           <div className="flex gap-2">
-            <input
+            <Input
               type="text"
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
               placeholder="Search products, services, or stores..."
-              className="flex-1 h-11 rounded-md border border-input bg-background px-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex-1 h-11"
               aria-label="Search marketplace"
             />
-            <Button type="submit" className="h-11 px-5">
+            <Button type="submit" className="h-11 px-5 bg-accent hover:bg-accent/90 text-white">
               Search
             </Button>
           </div>
@@ -67,6 +67,7 @@ export default function SearchPage() {
 
         <SearchResults query={query} />
       </main>
+      <Footer />
     </div>
   );
 }

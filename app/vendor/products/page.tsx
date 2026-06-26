@@ -231,7 +231,7 @@ const VendorProductsPage = () => {
             >
               All Products
             </Button>
-            <Button asChild className="hover:bg-accent/80 hover:scale-105 transition-all hover:shadow-lg">
+            <Button asChild className="bg-accent text-white hover:bg-accent/90">
               <Link href="/vendor/products/new">
                 <Plus className="mr-2 h-4 w-4" />
                 Add Product
@@ -425,7 +425,7 @@ const VendorProductsPage = () => {
                   {searchQuery ? "Try adjusting your search terms" : "Get started by adding your first product"}
                 </p>
                 {!searchQuery && (
-                  <Button asChild className="mt-4 hover:bg-accent/80 hover:scale-105 transition-all hover:shadow-lg">
+                  <Button asChild className="mt-4 bg-accent text-white hover:bg-accent/90">
                     <Link href="/vendor/products/new">
                       <Plus className="mr-2 h-4 w-4" />
                       Add Product

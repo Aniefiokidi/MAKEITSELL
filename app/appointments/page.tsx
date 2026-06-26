@@ -410,7 +410,7 @@ export default function AppointmentsPage() {
               onClick={() => setFilter(tab)}
               className={`capitalize transition-all ${
                 filter === tab 
-                  ? "bg-accent text-white/90 hover:bg-white/90 hover:text-accent border-accent/30" 
+                  ? "bg-accent text-white hover:bg-accent/90 border-accent/30" 
                   : "border-accent/30"
               }`}
             >
@@ -438,7 +438,7 @@ export default function AppointmentsPage() {
                   ? "You don't have any upcoming appointments. Browse services and book one today!"
                   : `You don't have any ${filter} appointments.`}
               </p>
-              <Button onClick={() => router.push("/services")} size="lg" className="bg-accent text-white/90 hover:bg-white/90 hover:text-accent border-accent/30 transition-all">
+              <Button onClick={() => router.push("/services")} size="lg" className="bg-accent text-white hover:bg-accent/90 border-accent/30 transition-all">
                 Browse Services
               </Button>
             </CardContent>

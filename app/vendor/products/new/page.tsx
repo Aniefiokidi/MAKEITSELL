@@ -580,7 +580,7 @@ export default function NewProduct() {
                         />
                         <Label htmlFor={`color-${color}`} className="cursor-pointer flex items-center gap-2">
                           <div 
-                            className="w-4 h-4 rounded-full border border-gray-300" 
+                            className="w-4 h-4 rounded-full border border-border" 
                             style={{ backgroundColor: color.toLowerCase().replace(/ /g, '') }}
                           />
                           {color}
@@ -600,7 +600,7 @@ export default function NewProduct() {
                         <div key={color} className="flex items-center gap-4 p-3 border rounded-lg">
                           <div className="flex items-center gap-2 min-w-[120px]">
                             <div 
-                              className="w-4 h-4 rounded-full border border-gray-300" 
+                              className="w-4 h-4 rounded-full border border-border" 
                               style={{ backgroundColor: color.toLowerCase().replace(/ /g, '') }}
                             />
                             <Label className="font-medium">{color}</Label>
@@ -638,7 +638,7 @@ export default function NewProduct() {
 
           {/* Actions */}
           <div className="flex gap-4">
-            <Button type="submit" disabled={loading} className="flex-1 border-accent outline-accent outline-2 outline">
+            <Button type="submit" disabled={loading} className="flex-1 bg-accent text-white hover:bg-accent/90">
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create Product
             </Button>

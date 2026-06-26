@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import Header from "@/components/Header"
+import Footer from "@/components/Footer"
 import { useNotification } from "@/contexts/NotificationContext"
 import { Package, Truck, CheckCircle2, Clock, ShieldCheck } from "lucide-react"
 
@@ -173,10 +174,9 @@ export default function CustomerOrdersPage() {
   }
 
   return (
-    <React.Fragment>
-      <main className="min-h-screen bg-linear-to-b from-background via-accent/5 to-background flex flex-col font-sans">
-        <Header />
-        <section className="flex-1 w-full max-w-6xl mx-auto mt-10 mb-16 px-4 md:px-6">
+    <div className="min-h-screen bg-linear-to-b from-background via-accent/5 to-background flex flex-col">
+      <Header />
+      <main className="flex-1 w-full max-w-6xl mx-auto mt-10 mb-16 px-4 md:px-6">
           <div className="text-center mb-8">
             <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">My Orders</h1>
             <p className="text-muted-foreground mt-1 text-sm">Track and manage your purchases</p>
@@ -191,7 +191,7 @@ export default function CustomerOrdersPage() {
                   onClick={() => setTab(t)}
                   className={`flex-1 py-2.5 text-sm font-semibold rounded-lg capitalize transition-all ${
                     tab === t
-                      ? 'bg-white shadow-md text-accent'
+                      ? 'bg-card shadow-md text-accent'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
@@ -549,8 +549,8 @@ export default function CustomerOrdersPage() {
               })}
             </div>
           )}
-        </section>
-      </main>
-    </React.Fragment>
+        </main>
+      <Footer />
+    </div>
   )
 }

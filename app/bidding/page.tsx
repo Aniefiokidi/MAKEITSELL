@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import Header from "@/components/Header"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import Footer from "@/components/Footer"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -26,232 +27,332 @@ type Listing = {
   bidCount: number
 }
 
-const fallbackImage = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1200&q=80"
+const fallbackImage =
+  "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1200&q=80"
+
+function formatCountdown(ms: number): string {
+  if (ms <= 0) return "Ended"
+  const days = Math.floor(ms / 86400000)
+  const hours = Math.floor((ms % 86400000) / 3600000)
+  const minutes = Math.floor((ms % 3600000) / 60000)
+  const seconds = Math.floor((ms % 60000) / 1000)
+  if (days > 0) return `${days}d ${hours}h ${minutes}m`
+  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`
+  return `${minutes}m ${seconds}s`
+}
 
 export default function BiddingPage() {
   const { user, userProfile } = useAuth()
   const [listings, setListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<"live" | "closed">("live")
-  const [placing, setPlacing] = useState<string>("")
+  const [placing, setPlacing] = useState("")
   const [feedback, setFeedback] = useState<{ type: "error" | "success"; message: string } | null>(null)
-  const [bidForms, setBidForms] = useState<Record<string, { amount: string }>>({})
+  const [bidForms, setBidForms] = useState<Record<string, string>>({})
+  const [now, setNow] = useState(Date.now())
 
-  const loadListings = async (status: "live" | "closed") => {
+  // Live countdown — ticks every second
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const loadListings = useCallback(async (status: "live" | "closed") => {
     setLoading(true)
     setFeedback(null)
     try {
-      const response = await fetch(`/api/bidding?status=${status}`)
-      const result = await response.json()
-      if (!response.ok || !result?.success) {
-        throw new Error(result?.error || "Failed to load bidding products")
-      }
+      const res = await fetch(`/api/bidding?status=${status}`)
+      const result = await res.json()
+      if (!res.ok || !result?.success) throw new Error(result?.error || "Failed to load auctions")
       setListings(result.listings || [])
-    } catch (error: any) {
-      setFeedback({ type: "error", message: error?.message || "Failed to load bidding products" })
+    } catch (err: any) {
+      setFeedback({ type: "error", message: err?.message || "Failed to load auctions" })
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     loadListings(statusFilter)
-  }, [statusFilter])
+  }, [statusFilter, loadListings])
 
-  const onBidInputChange = (id: string, value: string) => {
-    setBidForms((prev) => ({
-      ...prev,
-      [id]: {
-        amount: value,
-      },
-    }))
-  }
+  // Auto-refresh live listings every 30 s so new bids appear
+  useEffect(() => {
+    if (statusFilter !== "live") return
+    const interval = setInterval(() => loadListings("live"), 30000)
+    return () => clearInterval(interval)
+  }, [statusFilter, loadListings])
 
   const placeBid = async (listing: Listing) => {
     if (!user) {
       setFeedback({ type: "error", message: "Please sign in to place a bid." })
       return
     }
-
-    const form = bidForms[listing._id] || { amount: "" }
+    const amount = Number(bidForms[listing._id] || "")
+    const minBid = (listing.currentBid || listing.startPrice) + (listing.minIncrement || 0)
+    if (!amount || amount < minBid) {
+      setFeedback({ type: "error", message: `Minimum bid is ₦${minBid.toLocaleString("en-NG")}` })
+      return
+    }
     setPlacing(listing._id)
     setFeedback(null)
-
     try {
-      const response = await fetch(`/api/bidding/${listing._id}/bid`, {
+      const res = await fetch(`/api/bidding/${listing._id}/bid`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: Number(form.amount),
-        }),
+        body: JSON.stringify({ amount }),
       })
-      const result = await response.json()
-      if (!response.ok || !result?.success) {
-        throw new Error(result?.error || "Failed to place bid")
-      }
-
-      setFeedback({ type: "success", message: `Bid placed successfully on ${listing.title}.` })
+      const result = await res.json()
+      if (!res.ok || !result?.success) throw new Error(result?.error || "Failed to place bid")
+      setFeedback({
+        type: "success",
+        message: `Bid of ₦${amount.toLocaleString("en-NG")} placed on "${listing.title}"!`,
+      })
+      setBidForms((prev) => ({ ...prev, [listing._id]: "" }))
       await loadListings(statusFilter)
-      setBidForms((prev) => ({
-        ...prev,
-        [listing._id]: {
-          amount: "",
-        },
-      }))
-    } catch (error: any) {
-      setFeedback({ type: "error", message: error?.message || "Failed to place bid" })
+    } catch (err: any) {
+      setFeedback({ type: "error", message: err?.message || "Failed to place bid" })
     } finally {
       setPlacing("")
     }
   }
 
-  const now = Date.now()
   const withCountdown = useMemo(() => {
-    return listings.map((listing) => {
-      const end = new Date(listing.endsAt).getTime()
-      const remainingMs = Math.max(end - now, 0)
-      const hours = Math.floor(remainingMs / (1000 * 60 * 60))
-      const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60))
-      return {
-        ...listing,
-        countdown: `${hours}h ${minutes}m`,
-      }
-    })
+    return listings.map((l) => ({
+      ...l,
+      countdown: formatCountdown(new Date(l.endsAt).getTime() - now),
+    }))
   }, [listings, now])
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#fff7ed_0%,#fff_45%,#f5f3ff_100%)]">
+    <div className="min-h-screen bg-linear-to-br from-background via-background to-accent/5 flex flex-col">
       <Header />
-      <main className="container mx-auto px-3 sm:px-4 py-8 sm:py-12 space-y-8">
-        <section className="rounded-3xl border border-accent/20 bg-white/70 backdrop-blur p-5 sm:p-8 shadow-sm">
-          <div className="space-y-3">
-            <Badge className="bg-accent text-white hover:bg-accent uppercase tracking-wide">Live Marketplace Auctions</Badge>
-            <h1
-              className="font-['Bebas_Neue'] text-5xl sm:text-7xl leading-none tracking-[0.06em] uppercase text-accent"
-              style={{ textShadow: "0 0 10px hsl(var(--accent)/0.38), 0 0 24px hsl(var(--accent)/0.28)" }}
-            >
-              BID. WIN. CELEBRATE.
-            </h1>
-          </div>
-          <p className="mt-3 text-sm text-muted-foreground">
-            Serious bids only: each new highest bid places a wallet security hold equal to 100% of your bid amount. If you are outbid, the hold is released automatically.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Signed in as: <span className="font-medium text-foreground">{userProfile?.displayName || userProfile?.email || "Guest"}</span>
-            {typeof userProfile?.walletBalance === "number" ? ` | Wallet: N${Number(userProfile.walletBalance).toLocaleString()}` : ""}
+      <main className="flex-1 container mx-auto px-3 sm:px-4 py-8 sm:py-12 space-y-6 sm:space-y-8">
+        {/* Hero */}
+        <section className="space-y-2">
+          <Badge className="bg-accent text-white hover:bg-accent uppercase tracking-wide">
+            Live Marketplace Auctions
+          </Badge>
+          <h1 className="font-['Bebas_Neue'] text-5xl sm:text-7xl leading-none tracking-[0.06em] uppercase text-foreground">
+            Bid. Win. Celebrate.
+          </h1>
+          <p className="text-sm text-muted-foreground max-w-xl">
+            Competitive auctions on products and collectibles. Each winning bid places a 100% wallet
+            hold — released automatically if you&apos;re outbid.
           </p>
         </section>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <Button
-            onClick={() => setStatusFilter("live")}
-            className={`uppercase tracking-wide ${statusFilter === "live" ? "bg-accent text-white hover:bg-accent/85" : "border-accent/40 text-accent hover:bg-accent hover:text-white"}`}
-            variant={statusFilter === "live" ? "default" : "outline"}
-          >
-            Live Auctions
-          </Button>
-          <Button
-            onClick={() => setStatusFilter("closed")}
-            className={`uppercase tracking-wide ${statusFilter === "closed" ? "bg-accent text-white hover:bg-accent/85" : "border-accent/40 text-accent hover:bg-accent hover:text-white"}`}
-            variant={statusFilter === "closed" ? "default" : "outline"}
-          >
-            Closed Auctions
-          </Button>
+        {/* Filter tabs — pill toggle matching site style */}
+        <div className="mx-auto w-full max-w-xs rounded-full border border-accent/30 bg-muted/30 p-1">
+          <div className="grid grid-cols-2 gap-1">
+            <button
+              type="button"
+              onClick={() => setStatusFilter("live")}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                statusFilter === "live"
+                  ? "bg-accent text-white shadow"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              🔴 Live
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("closed")}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                statusFilter === "closed"
+                  ? "bg-accent text-white shadow"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Closed
+            </button>
+          </div>
         </div>
 
+        {/* Feedback alert */}
         {feedback && (
-          <Alert className={feedback.type === "error" ? "border-red-200 bg-red-50" : "border-green-200 bg-green-50"}>
-            <AlertDescription className={feedback.type === "error" ? "text-red-700" : "text-green-700"}>
+          <Alert
+            className={
+              feedback.type === "error" ? "border-red-200 bg-red-50" : "border-green-200 bg-green-50"
+            }
+          >
+            <AlertDescription
+              className={feedback.type === "error" ? "text-red-700" : "text-green-700"}
+            >
               {feedback.message}
             </AlertDescription>
           </Alert>
         )}
 
+        {/* Sign-in notice for guests browsing live auctions */}
+        {!user && statusFilter === "live" && !loading && withCountdown.length > 0 && (
+          <div className="rounded-xl border border-accent/20 bg-accent/5 p-3 text-sm text-center">
+            <Link href="/login" className="text-accent font-semibold hover:underline">
+              Sign in
+            </Link>{" "}
+            to place bids.
+          </div>
+        )}
+
         {loading ? (
-          <div className="text-center text-muted-foreground py-12">Loading bidding products...</div>
+          /* Loading skeletons matching card shape */
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="rounded-2xl overflow-hidden border border-neutral-200 animate-pulse">
+                <div className="aspect-square bg-neutral-200" />
+                <div className="p-3 space-y-2">
+                  <div className="h-3 bg-neutral-200 rounded w-3/4" />
+                  <div className="h-4 bg-neutral-200 rounded w-1/2" />
+                  <div className="h-8 bg-neutral-200 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : withCountdown.length === 0 ? (
-          <Card>
-            <CardContent className="py-10 text-center text-muted-foreground">
-              No auctions found for this filter.
-            </CardContent>
-          </Card>
+          /* Empty state */
+          <div className="rounded-2xl border border-dashed border-accent/30 bg-accent/5 py-20 text-center">
+            <Gavel className="h-10 w-10 mx-auto text-accent/40 mb-4" />
+            <p className="font-semibold text-foreground">
+              No {statusFilter} auctions right now
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {statusFilter === "live"
+                ? "Check back soon — new auctions are added regularly."
+                : "No completed auctions to show yet."}
+            </p>
+            {statusFilter === "closed" && (
+              <button
+                onClick={() => setStatusFilter("live")}
+                className="mt-4 text-accent text-sm font-medium hover:underline"
+              >
+                View live auctions
+              </button>
+            )}
+          </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
             {withCountdown.map((listing) => {
-              const form = bidForms[listing._id] || { amount: "" }
-              const minBid = Number(listing.currentBid || listing.startPrice) + Number(listing.minIncrement || 0)
               const isLive = statusFilter === "live"
+              const bidAmount = bidForms[listing._id] || ""
+              const minBid =
+                (listing.currentBid || listing.startPrice) + (listing.minIncrement || 0)
+              const parsedAmount = Number(bidAmount)
 
               return (
-                <Card key={listing._id} className="overflow-hidden border-accent/20 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="h-44 w-full relative overflow-hidden">
+                <div
+                  key={listing._id}
+                  className="rounded-2xl overflow-hidden border border-neutral-200/80 shadow-sm hover:shadow-md transition-shadow bg-card"
+                >
+                  {/* Image with overlaid info */}
+                  <div className="aspect-square relative overflow-hidden">
                     <img
                       src={listing.imageUrl || fallbackImage}
                       alt={listing.title}
-                      className="h-full w-full object-cover"
+                      className="w-full h-full object-cover"
                     />
-                    <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent" />
-                    <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
-                      <Badge className="bg-white/90 text-black">{listing.category || "General"}</Badge>
-                      {listing.featured ? <Badge className="bg-accent text-white">Featured</Badge> : null}
+                    <div className="absolute inset-0 bg-linear-to-t from-black/85 via-black/20 to-transparent" />
+
+                    {/* Top: category + status badges */}
+                    <div className="absolute top-2 left-2 right-2 flex items-start justify-between gap-1">
+                      {listing.category && (
+                        <Badge className="bg-black/50 backdrop-blur-sm border-0 text-white text-[10px] px-1.5 py-0.5 shrink-0">
+                          {listing.category}
+                        </Badge>
+                      )}
+                      <div className="flex flex-col items-end gap-1 ml-auto shrink-0">
+                        {listing.featured && (
+                          <Badge className="bg-accent text-white text-[10px] px-1.5 py-0.5">
+                            Featured
+                          </Badge>
+                        )}
+                        {isLive ? (
+                          <span className="flex items-center gap-1 bg-red-600/90 backdrop-blur-sm text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse inline-block" />
+                            LIVE
+                          </span>
+                        ) : (
+                          <span className="bg-neutral-800/80 backdrop-blur-sm text-neutral-300 text-[10px] font-medium px-1.5 py-0.5 rounded-full">
+                            ENDED
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Bottom overlay: title + current bid + countdown */}
+                    <div className="absolute bottom-0 left-0 right-0 p-2.5 space-y-1">
+                      <h3 className="text-white font-semibold text-xs sm:text-sm leading-snug line-clamp-2">
+                        {listing.title}
+                      </h3>
+                      <div className="flex items-end justify-between gap-1">
+                        <div>
+                          <p className="text-white/60 text-[9px] sm:text-[10px] font-medium leading-none">
+                            Current bid
+                          </p>
+                          <p className="text-white font-extrabold text-base sm:text-lg leading-tight">
+                            ₦
+                            {Number(
+                              listing.currentBid || listing.startPrice || 0
+                            ).toLocaleString("en-NG")}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="flex items-center gap-0.5 text-white/80 text-[10px] sm:text-xs justify-end">
+                            <Clock3 className="h-3 w-3 shrink-0" />
+                            <span className="font-mono font-semibold">{listing.countdown}</span>
+                          </div>
+                          <p className="text-white/50 text-[9px]">
+                            <Trophy className="h-2.5 w-2.5 inline mr-0.5" />
+                            {listing.bidCount} bid{listing.bidCount !== 1 ? "s" : ""}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  <CardHeader className="space-y-2">
-                    <CardTitle className="line-clamp-1">{listing.title}</CardTitle>
-                    <p className="text-sm text-muted-foreground line-clamp-2">{listing.description}</p>
-                  </CardHeader>
-
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="rounded-lg border p-2">
-                        <p className="text-muted-foreground text-xs">Current Bid</p>
-                        <p className="font-semibold">N{Number(listing.currentBid || 0).toLocaleString()}</p>
-                      </div>
-                      <div className="rounded-lg border p-2">
-                        <p className="text-muted-foreground text-xs">Bids</p>
-                        <p className="font-semibold flex items-center gap-1"><Trophy className="h-4 w-4 text-accent" />{listing.bidCount}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground flex items-center gap-1">
-                        <Clock3 className="h-4 w-4" /> Ends in
-                      </span>
-                      <span className="font-semibold">{listing.countdown}</span>
-                    </div>
-
-                    {isLive ? (
-                      <div className="space-y-2 pt-2 border-t">
+                  {/* Bid input (live) or closed notice */}
+                  {isLive ? (
+                    <div className="p-2.5 sm:p-3 space-y-1.5 border-t border-neutral-100">
+                      <div className="flex gap-1.5">
                         <Input
                           type="number"
                           min={minBid}
-                          placeholder={`Minimum bid: N${minBid.toLocaleString()}`}
-                          value={form.amount}
-                          onChange={(e) => onBidInputChange(listing._id, e.target.value)}
+                          placeholder={`Min ₦${minBid.toLocaleString("en-NG")}`}
+                          value={bidAmount}
+                          onChange={(e) =>
+                            setBidForms((prev) => ({ ...prev, [listing._id]: e.target.value }))
+                          }
+                          className="h-8 text-xs flex-1 min-w-0"
+                          disabled={!user}
                         />
-                        <p className="text-xs text-muted-foreground">Required wallet hold: N{Math.max(5000, Math.ceil(Number(form.amount || minBid) || minBid)).toLocaleString()}</p>
                         <Button
-                          className="w-full bg-accent hover:bg-accent/85 text-white uppercase tracking-wide"
+                          size="sm"
+                          className="h-8 px-2.5 bg-accent hover:bg-accent/90 text-white shrink-0 gap-1"
                           onClick={() => placeBid(listing)}
                           disabled={placing === listing._id || !user}
                         >
-                          <Gavel className="h-4 w-4 mr-2" />
-                          {placing === listing._id ? "Placing Bid..." : (user ? "Place Bid" : "Sign in to bid")}
+                          <Gavel className="h-3.5 w-3.5" />
+                          {placing === listing._id ? "…" : user ? "Bid" : "Sign in"}
                         </Button>
                       </div>
-                    ) : (
-                      <div className="rounded-lg border border-muted p-3 text-sm text-muted-foreground">
-                        This auction has ended.
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                      {bidAmount && parsedAmount > 0 && (
+                        <p className="text-[10px] text-muted-foreground">
+                          Wallet hold: ₦{parsedAmount.toLocaleString("en-NG")}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="p-2.5 sm:p-3 border-t border-neutral-100">
+                      <p className="text-xs text-muted-foreground text-center">Auction ended</p>
+                    </div>
+                  )}
+                </div>
               )
             })}
           </div>
         )}
       </main>
+      <Footer />
     </div>
   )
 }

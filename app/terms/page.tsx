@@ -3,30 +3,31 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Scale, Shield, AlertTriangle, Users, FileText, Gavel, Building, ShoppingCart, Truck, CreditCard, Home, ArrowLeft } from "lucide-react"
 import Header from "@/components/Header"
+import Footer from "@/components/Footer"
 
 export default function TermsPage() {
   return (
-    <>
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
+      <main className="flex-1">
         <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-10 max-w-5xl">
           {/* Header */}
           <div className="mb-6 sm:mb-8 animate-fade-in-up">
             <nav className="text-[9px] xs:text-xs sm:text-sm text-accent font-semibold mb-3 sm:mb-4 tracking-wide animate-fade-in-up">
-              <Link href="/" className="hover:text-primary transition-colors">Home</Link>
+              <Link href="/" className="hover:text-accent transition-colors">Home</Link>
               <span className="mx-1 sm:mx-2">/</span>
               <span>Terms of Service</span>
             </nav>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4 animate-fade-in-up">
               <div>
-                <h1 className="text-lg sm:text-2xl md:text-3xl lg:text-4xl font-extrabold mb-2 sm:mb-4 text-accent bg-clip-text bg-gradient-to-r from-accent to-primary animate-fade-in-up drop-shadow-md">
+                <h1 className="text-lg sm:text-2xl md:text-3xl lg:text-4xl font-extrabold mb-2 sm:mb-4 text-accent animate-fade-in-up drop-shadow-md">
                   MAKE IT SELL — TERMS OF SERVICE
                 </h1>
                 <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[8px] xs:text-[9px] sm:text-xs text-muted-foreground animate-fade-in-up">
                   <span className="px-2 py-1 bg-muted/50 rounded text-[7px] xs:text-[8px] sm:text-xs shadow-md">
                     Effective Date: 10 February 2026
                   </span>
-                  <span className="px-2 py-1 bg-primary/10 text-primary rounded text-[7px] xs:text-[8px] sm:text-xs shadow-md animate-pulse">
+                  <span className="px-2 py-1 bg-accent/10 text-accent rounded text-[7px] xs:text-[8px] sm:text-xs shadow-md">
                     Last Updated: 10 February 2026
                   </span>
                 </div>
@@ -41,13 +42,13 @@ export default function TermsPage() {
           </div>
 
           {/* Welcome Notice */}
-          <Card className="mb-6 sm:mb-8 bg-white/90 dark:bg-neutral-800 border border-accent/10 shadow-lg animate-fade-in-up">
+          <Card className="mb-6 sm:mb-8 bg-card border border-accent/10 shadow-lg animate-fade-in-up">
             <CardContent className="p-4 sm:p-6">
               <p className="text-[10px] xs:text-xs sm:text-sm text-muted-foreground mb-3 animate-fade-in-up">
                 Welcome to <span className="font-bold text-accent">Make It Sell</span>! These Terms of Service govern your use of our marketplace platform.
                 By using our services, you agree to these terms.
               </p>
-              <div className="bg-blue-50/80 dark:bg-blue-900/30 border border-blue-200/60 dark:border-blue-800 rounded-lg p-3 text-[9px] xs:text-[10px] sm:text-xs text-blue-700 dark:text-blue-200 animate-fade-in-up animate-pulse">
+              <div className="bg-blue-50/80 dark:bg-blue-900/30 border border-blue-200/60 dark:border-blue-800 rounded-lg p-3 text-[9px] xs:text-[10px] sm:text-xs text-blue-700 dark:text-blue-200 animate-fade-in-up">
                 📝 <strong>Quick Summary:</strong> Make It Sell connects buyers and vendors. We facilitate transactions 
                 but don't own most products. Users must comply with our rules and Nigerian law.
               </div>
@@ -55,42 +56,42 @@ export default function TermsPage() {
           </Card>
 
           {/* Quick Navigation */}
-          <Card className="mb-6 sm:mb-8 bg-white/90 dark:bg-neutral-800 border border-accent/10 shadow-lg animate-fade-in-up">
+          <Card className="mb-6 sm:mb-8 bg-card border border-accent/10 shadow-lg animate-fade-in-up">
             <CardHeader className="p-4 sm:p-6">
               <CardTitle className="text-base sm:text-xl text-accent font-bold animate-fade-in-up">Quick Navigation</CardTitle>
             </CardHeader>
             <CardContent className="p-4 sm:p-6">
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
                 <Link href="#definitions" className="flex items-center gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-accent/10 transition-all duration-200 shadow-sm animate-fade-in-up">
-                  <FileText className="w-3 h-3 sm:w-4 sm:h-4 shrink-0 animate-bounce" />
+                  <FileText className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
                   <span className="text-[8px] xs:text-[9px] sm:text-xs">Definitions</span>
                 </Link>
                 <Link href="#marketplace-role" className="flex items-center gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-accent/10 transition-all duration-200 shadow-sm animate-fade-in-up">
-                  <Building className="w-3 h-3 sm:w-4 sm:h-4 shrink-0 animate-bounce" />
+                  <Building className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
                   <span className="text-[8px] xs:text-[9px] sm:text-xs">Our Role</span>
                 </Link>
                 <Link href="#eligibility" className="flex items-center gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-accent/10 transition-all duration-200 shadow-sm animate-fade-in-up">
-                  <Users className="w-3 h-3 sm:w-4 sm:h-4 shrink-0 animate-bounce" />
+                  <Users className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
                   <span className="text-[8px] xs:text-[9px] sm:text-xs">Eligibility</span>
                 </Link>
                 <Link href="#vendor-requirements" className="flex items-center gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-accent/10 transition-all duration-200 shadow-sm animate-fade-in-up">
-                  <Gavel className="w-3 h-3 sm:w-4 sm:h-4 shrink-0 animate-bounce" />
+                  <Gavel className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
                   <span className="text-[8px] xs:text-[9px] sm:text-xs">Vendors</span>
                 </Link>
                 <Link href="#prohibited-items" className="flex items-center gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-accent/10 transition-all duration-200 shadow-sm animate-fade-in-up">
-                  <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4 shrink-0 animate-bounce" />
+                  <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
                   <span className="text-[8px] xs:text-[9px] sm:text-xs">Prohibited</span>
                 </Link>
                 <Link href="#payments" className="flex items-center gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-accent/10 transition-all duration-200 shadow-sm animate-fade-in-up">
-                  <CreditCard className="w-3 h-3 sm:w-4 sm:h-4 shrink-0 animate-bounce" />
+                  <CreditCard className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
                   <span className="text-[8px] xs:text-[9px] sm:text-xs">Payments</span>
                 </Link>
                 <Link href="#delivery" className="flex items-center gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-accent/10 transition-all duration-200 shadow-sm animate-fade-in-up">
-                  <Truck className="w-3 h-3 sm:w-4 sm:h-4 shrink-0 animate-bounce" />
+                  <Truck className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
                   <span className="text-[8px] xs:text-[9px] sm:text-xs">Delivery</span>
                 </Link>
                 <Link href="#liability" className="flex items-center gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-accent/10 transition-all duration-200 shadow-sm animate-fade-in-up">
-                  <Shield className="w-3 h-3 sm:w-4 sm:h-4 shrink-0 animate-bounce" />
+                  <Shield className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
                   <span className="text-[8px] xs:text-[9px] sm:text-xs">Liability</span>
                 </Link>
               </div>
@@ -467,14 +468,14 @@ export default function TermsPage() {
           </Card>
 
           {/* Final Notice */}
-          <div className="bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 rounded-lg p-4 sm:p-6 text-center">
+          <div className="bg-accent/5 border border-accent/20 rounded-lg p-4 sm:p-6 text-center">
             <p className="text-[10px] xs:text-xs sm:text-sm text-muted-foreground">
               By using Make It Sell, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service.
             </p>
             <div className="mt-4">
               <Link
                 href="/support"
-                className="inline-flex items-center text-accent font-bold text-xs sm:text-sm transition-all duration-200 hover:scale-105 hover:text-primary animate-pulse"
+                className="inline-flex items-center text-accent font-bold text-xs sm:text-sm transition-colors duration-200 hover:opacity-80"
                 style={{ textShadow: '0 1px 4px rgba(0,0,0,0.08)' }}
               >
                 Contact Support Team →
@@ -482,7 +483,8 @@ export default function TermsPage() {
             </div>
           </div>
         </div>
-      </div>
-    </>
+      </main>
+      <Footer />
+    </div>
   )
 }

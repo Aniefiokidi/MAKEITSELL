@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import Image from "next/image"
 import Link from "next/link"
 import Header from "@/components/Header"
+import Footer from "@/components/Footer"
 import ProtectedRoute from "@/components/auth/ProtectedRoute"
 import { trackFunnelEvent } from "@/lib/funnel-tracker"
 import { NIGERIA_STATE_CITY_OPTIONS, NIGERIA_STATES } from "@/lib/nigeria-locations"
@@ -400,6 +401,7 @@ export default function CheckoutPage() {
               </Button>
             </div>
           </main>
+          <Footer />
         </div>
       </ProtectedRoute>
     )
@@ -683,7 +685,7 @@ export default function CheckoutPage() {
                           <button
                             type="button"
                             className={`border rounded-lg p-3 flex flex-col items-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/60 focus:border-accent/60 shadow-sm
-                              ${paymentMethod === 'wallet' ? 'border-accent bg-accent/10 ring-2 ring-accent/60' : 'border-muted bg-white hover:border-accent/40'}`}
+                              ${paymentMethod === 'wallet' ? 'border-accent bg-accent/10 ring-2 ring-accent/60' : 'border-muted bg-card hover:border-accent/40'}`}
                             onClick={() => setPaymentMethod('wallet')}
                             aria-pressed={paymentMethod === 'wallet'}
                           >
@@ -694,7 +696,7 @@ export default function CheckoutPage() {
                           <button
                             type="button"
                             className={`border rounded-lg p-3 flex flex-col items-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/60 focus:border-accent/60 shadow-sm
-                              ${paymentMethod === 'checkout' ? 'border-accent bg-accent/10 ring-2 ring-accent/60' : 'border-muted bg-white hover:border-accent/40'}`}
+                              ${paymentMethod === 'checkout' ? 'border-accent bg-accent/10 ring-2 ring-accent/60' : 'border-muted bg-card hover:border-accent/40'}`}
                             onClick={() => setPaymentMethod('checkout')}
                             aria-pressed={paymentMethod === 'checkout'}
                           >
@@ -705,7 +707,7 @@ export default function CheckoutPage() {
                           <button
                             type="button"
                             className={`border rounded-lg p-3 flex flex-col items-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/60 focus:border-accent/60 shadow-sm
-                              ${paymentMethod === 'bach' ? 'border-accent bg-accent/10 ring-2 ring-accent/60' : 'border-muted bg-white hover:border-accent/40'}`}
+                              ${paymentMethod === 'bach' ? 'border-accent bg-accent/10 ring-2 ring-accent/60' : 'border-muted bg-card hover:border-accent/40'}`}
                             onClick={() => setPaymentMethod('bach')}
                             aria-pressed={paymentMethod === 'bach'}
                           >
@@ -848,7 +850,7 @@ export default function CheckoutPage() {
                       </div>
 
                       <div className="pt-4 hidden md:block">
-                        <Button type="submit" className="w-full border border-accent/40 bg-white text-accent hover:bg-accent hover:text-white hover:scale-105 transition-all hover:shadow-lg" size="lg" disabled={loading}>
+                        <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-white" size="lg" disabled={loading}>
                           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                           {loading
                             ? "Processing..."
@@ -869,16 +871,16 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              <div className="md:hidden fixed bottom-0 inset-x-0 z-30 border-t border-neutral-200 bg-white/95 backdrop-blur px-4 py-3 shadow-[0_-10px_30px_rgba(0,0,0,0.10)]">
+              <div className="md:hidden fixed bottom-0 inset-x-0 z-30 border-t border-border bg-card/95 backdrop-blur px-4 py-3 shadow-[0_-10px_30px_rgba(0,0,0,0.10)]">
                 <div className="container mx-auto max-w-6xl flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Payable now</p>
-                    <p className="text-base font-bold text-neutral-900">₦{formatCurrency(total)}</p>
+                    <p className="text-base font-bold text-foreground">₦{formatCurrency(total)}</p>
                     <p className="text-[10px] text-muted-foreground">
                       {paymentMethod === 'wallet' ? 'Wallet checkout' : paymentMethod === 'bach' ? 'Bach checkout' : 'Card/bank checkout'}
                     </p>
                   </div>
-                  <Button type="submit" className="h-10 px-4 shrink-0 shadow-sm" disabled={loading}>
+                  <Button type="submit" className="h-10 px-4 shrink-0 bg-accent hover:bg-accent/90 text-white" disabled={loading}>
                     {loading
                       ? "Processing..."
                       : paymentMethod === 'wallet'
@@ -892,6 +894,8 @@ export default function CheckoutPage() {
             </form>
           </div>
         </main>
+
+        <Footer />
 
         <Dialog open={showWalletTopupPrompt} onOpenChange={setShowWalletTopupPrompt}>
           <DialogContent className="sm:max-w-md">

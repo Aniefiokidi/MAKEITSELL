@@ -1812,7 +1812,7 @@ export default function NewServicePage() {
 
               {images.length < 5 && (
                 <p className="text-sm text-amber-600">
-                  <svg className="inline w-4 h-4 text-yellow-500 mr-2 animate-pulse" fill="currentColor" viewBox="0 0 24 24">
+                  <svg className="inline w-4 h-4 text-amber-600 mr-2" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 2L1 21h22L12 2zm0 3.84L19.53 19H4.47L12 5.84zM11 16h2v2h-2v-2zm0-6h2v4h-2v-4z"/>
                   </svg>
                   Tip: Upload at least 5 images to showcase your work portfolio effectively

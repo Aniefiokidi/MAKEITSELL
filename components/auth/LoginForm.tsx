@@ -233,7 +233,7 @@ export default function LoginForm() {
         </CardContent>
 
         <CardFooter className="flex flex-col space-y-4">
-          <Button type="submit" className="w-full mt-2 border border-accent/40 bg-white text-accent hover:bg-accent hover:text-white transition-all" disabled={loading}>
+          <Button type="submit" className="w-full mt-2 bg-accent text-white hover:bg-accent/90 transition-all" disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Sign In
           </Button>

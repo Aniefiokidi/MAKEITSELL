@@ -20,7 +20,7 @@ export default function WishlistPage() {
 
   useEffect(() => {
     if (!user) router.push('/login')
-  }, [user])
+  }, [user, router])
 
   const handleAddToCart = (item: typeof items[0]) => {
     addItem({
@@ -61,7 +61,7 @@ export default function WishlistPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {items.map(item => (
-              <div key={item.productId} className="bg-white rounded-2xl border border-border/50 shadow-sm overflow-hidden">
+              <div key={item.productId} className="bg-card rounded-2xl border border-border/50 shadow-sm overflow-hidden">
                 <div className="relative h-44 w-full bg-muted">
                   <Image
                     src={item.image || '/placeholder.svg'}
@@ -71,7 +71,7 @@ export default function WishlistPage() {
                   />
                   <button
                     onClick={() => toggle(item)}
-                    className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center shadow"
+                    className="absolute top-2 right-2 w-8 h-8 rounded-full bg-card/90 flex items-center justify-center shadow"
                   >
                     <Heart className="h-4 w-4 fill-red-500 text-red-500" />
                   </button>

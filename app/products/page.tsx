@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Search, RefreshCw, Heart, Package, ArrowLeft, MapPin } from "lucide-react"
@@ -434,29 +434,23 @@ export default function AllProductsPage() {
               <Button
                 onClick={handleBackToStores}
                 variant="outline"
-                className="border-accent/50 bg-accent/10 hover:bg-accent text-white hover:text-white transition-all backdrop-blur-sm shadow-lg hover:shadow-xl"
+                className="border-accent/50 bg-accent/10 hover:bg-accent text-accent hover:text-white transition-all backdrop-blur-sm shadow-lg hover:shadow-xl"
               >
-                <ArrowLeft className="w-4 h-4 mr-2 text-white" />
+                <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Stores
               </Button>
             </div>
 
             <div className="mb-4 sm:mb-8 animate-fade-in">
-              <nav className="text-xs sm:text-sm text-accent mb-2 sm:mb-4">
-                <Link href="/" onClick={saveScrollPosition} className="hover:text-accent text-accent">Home</Link>
-                <span className="mx-2 text-accent">/</span>
-                <span className="text-accent">Products</span>
+              <nav className="text-xs sm:text-sm mb-2 sm:mb-4">
+                <Link href="/" onClick={saveScrollPosition} className="text-accent hover:underline">Home</Link>
+                <span className="mx-2 text-neutral-400">/</span>
+                <span className="text-neutral-500">Products</span>
               </nav>
               <div className="flex flex-col md:flex-row items-center md:items-center justify-center md:justify-between gap-4 mb-6">
                 <div className="text-center md:text-left">
-                  <h1
-                    className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold mb-2 text-accent tracking-tight"
-                    style={{
-                      fontFamily: 'Inter, Poppins, Arial, Helvetica, sans-serif',
-                      textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))'
-                    }}
-                  >
-                    ALL PRODUCTS
+                  <h1 className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold mb-2 text-accent tracking-tight">
+                    All Products
                   </h1>
                   <p className="text-accent text-xs sm:text-base md:text-lg">
                     Discover amazing products from all our vendors
@@ -571,15 +565,10 @@ export default function AllProductsPage() {
 
           {/* Products Grid */}
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 stagger-grid">
-              {[...Array(8)].map((_, i) => (
-                <Card key={i} className="border border-neutral-200 shadow-sm overflow-hidden rounded-2xl">
-                  <Skeleton className="w-full h-[200px] sm:h-[250px]" />
-                  <CardContent className="p-4">
-                    <Skeleton className="h-6 w-3/4 mb-2" />
-                    <Skeleton className="h-4 w-1/2 mb-4" />
-                    <Skeleton className="h-8 w-full" />
-                  </CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-6 stagger-grid">
+              {[...Array(10)].map((_, i) => (
+                <Card key={i} className="border-0 shadow-md overflow-hidden rounded-2xl sm:rounded-3xl h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px]">
+                  <Skeleton className="w-full h-full" />
                 </Card>
               ))}
             </div>
@@ -599,7 +588,7 @@ export default function AllProductsPage() {
             </div>
           ) : (
             <div className="text-center py-16 sm:py-24">
-              <div className="inline-flex p-8 bg-linear-to-br from-accent/20 to-orange-500/20 rounded-full mb-8 border-4 border-accent/20 shadow-2xl shadow-accent/20 animate-pulse">
+              <div className="inline-flex p-8 bg-linear-to-br from-accent/20 to-accent/5 rounded-full mb-8 border-4 border-accent/20 shadow-2xl shadow-accent/20">
                 <Package className="h-16 w-16 text-accent" />
               </div>
               <h2 className="text-2xl sm:text-4xl md:text-5xl font-extrabold text-accent mb-3 sm:mb-4">No products found</h2>

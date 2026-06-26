@@ -7,7 +7,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { useNotification } from "@/contexts/NotificationContext";
-import { MapPin, Users, Clock, Store as StoreIcon, ExternalLink, Heart } from "lucide-react";
+import { MapPin, Users, Clock, Store as StoreIcon, ExternalLink, Heart, Search } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import React from "react";
 import { useWishlist } from "@/contexts/WishlistContext";
 
@@ -207,7 +208,20 @@ export default function SearchResults({ query }: { query: string }) {
   }, [buildTokens, getRecommendationScore, levenshteinDistance, query]);
 
   if (!query) return null;
-  if (loading) return <div className="py-10 text-center text-muted-foreground">Loading results...</div>;
+  if (loading) return (
+    <div className="w-full max-w-6xl mx-auto space-y-10">
+      <div>
+        <Skeleton className="h-7 w-28 mb-4" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="rounded-2xl overflow-hidden border border-border animate-pulse">
+              <div className="h-[280px] sm:h-[350px] bg-muted" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-10">
@@ -261,7 +275,7 @@ export default function SearchResults({ query }: { query: string }) {
                   )}
                   <div className="absolute top-2 sm:top-3 left-2 sm:left-3 flex flex-col gap-1 z-10">
                     {product.featured && (
-                      <Badge className="bg-yellow-500 text-black font-semibold text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">Featured</Badge>
+                      <Badge className="bg-accent text-white font-semibold text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">Featured</Badge>
                     )}
                     {(product.stock ?? 0) < 10 && (product.stock ?? 0) > 0 && (
                       <Badge variant="destructive" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">Only {product.stock} left</Badge>
@@ -274,7 +288,7 @@ export default function SearchResults({ query }: { query: string }) {
                     className="absolute top-2 right-2 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:scale-110 active:scale-95 z-10"
                     onClick={(e) => { e.stopPropagation(); wishlist.toggle({ productId: String(product.id), title: product.title || product.name || '', price: Number(product.price || 0), image: String(product.images?.[0] || ''), vendorId: String(product.vendorId || ''), category: product.category || '' }) }}
                   >
-                    <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${wishlist.isInWishlist(String(product.id)) ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
+                    <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${wishlist.isInWishlist(String(product.id)) ? 'fill-red-500 text-red-500' : 'text-muted-foreground'}`} />
                   </button>
                 </div>
                 <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-2.5 md:p-3 backdrop-blur-xl bg-accent/10 border-t border-white/30 rounded-t-2xl sm:rounded-t-3xl z-30 space-y-1 gap-1 sm:gap-2">
@@ -358,8 +372,8 @@ export default function SearchResults({ query }: { query: string }) {
                   {service.images && service.images.length > 0 ? (
                     <Image src={service.images[0]} alt={service.title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
                   ) : (
-                    <div className="flex items-center justify-center h-full bg-linear-to-br from-accent/90 via-orange-500/90 to-red-600/90">
-                      <svg className="h-12 w-12 sm:h-20 sm:w-20 text-white drop-shadow-lg animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex items-center justify-center h-full bg-linear-to-br from-accent/90 via-accent/70 to-accent/50">
+                      <svg className="h-12 w-12 sm:h-20 sm:w-20 text-white drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
@@ -428,8 +442,8 @@ export default function SearchResults({ query }: { query: string }) {
                       className="object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                   ) : (
-                    <div className="flex items-center justify-center h-full bg-linear-to-br from-accent/90 via-orange-500/90 to-red-600/90">
-                      <StoreIcon className="h-20 w-20 text-white drop-shadow-lg animate-pulse" />
+                    <div className="flex items-center justify-center h-full bg-linear-to-br from-accent/90 via-accent/70 to-accent/50">
+                      <StoreIcon className="h-20 w-20 text-white drop-shadow-lg" />
                     </div>
                   )}
                   <div className="absolute inset-0 bg-linear-to-b from-black/20 via-transparent via-50% to-black/90" />
@@ -444,7 +458,7 @@ export default function SearchResults({ query }: { query: string }) {
                           className="object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full bg-linear-to-br from-accent to-orange-500 flex items-center justify-center">
+                        <div className="w-full h-full bg-accent flex items-center justify-center">
                           <StoreIcon className="h-8 w-8 text-white" />
                         </div>
                       )}

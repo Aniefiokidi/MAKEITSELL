@@ -10,8 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Mail, Phone, Clock, MessageCircle, Ticket, HelpCircle, ArrowRight } from "lucide-react"
+import { Mail, Phone, Clock, HelpCircle, ArrowRight } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import SupportChat from "@/components/support/SupportChat"
 
@@ -195,8 +194,8 @@ export default function ContactPage() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex items-start gap-3">
-                      <div className="bg-primary/10 p-2 rounded-lg shrink-0">
-                        <Mail className="w-5 h-5 text-black" />
+                      <div className="bg-accent/10 p-2 rounded-lg shrink-0">
+                        <Mail className="w-5 h-5 text-accent" />
                       </div>
                       <div>
                         <h3 className="font-semibold">Email</h3>
@@ -204,8 +203,8 @@ export default function ContactPage() {
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
-                      <div className="bg-primary/10 p-2 rounded-lg shrink-0">
-                        <Phone className="w-5 h-5 text-black" />
+                      <div className="bg-accent/10 p-2 rounded-lg shrink-0">
+                        <Phone className="w-5 h-5 text-accent" />
                       </div>
                       <div>
                         <h3 className="font-semibold">Phone (WhatsApp)</h3>
@@ -220,8 +219,8 @@ export default function ContactPage() {
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
-                      <div className="bg-primary/10 p-2 rounded-lg shrink-0">
-                        <Clock className="w-5 h-5 text-black" />
+                      <div className="bg-accent/10 p-2 rounded-lg shrink-0">
+                        <Clock className="w-5 h-5 text-accent" />
                       </div>
                       <div>
                         <h3 className="font-semibold">Business Hours</h3>
@@ -252,20 +251,9 @@ export default function ContactPage() {
             </div>
           ) : (
             <div className="grid xl:grid-cols-3 gap-4 sm:gap-6">
-              <Card className="xl:col-span-2 border-accent/30 w-full">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MessageCircle className="h-5 w-5 text-accent" />
-                    AI Support Assistant
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Chat instantly with AI support for orders, accounts, vendor issues, and technical help.
-                  </p>
-                  <SupportChat />
-                </CardContent>
-              </Card>
+              <div className="xl:col-span-2 w-full">
+                <SupportChat />
+              </div>
 
               <Card>
                 <CardHeader>
@@ -275,21 +263,25 @@ export default function ContactPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
-                  <div className="rounded-lg border p-3">
-                    <h4 className="font-semibold mb-1">Common Issues</h4>
+                  <div className="rounded-lg border p-3 space-y-1.5">
+                    <h4 className="font-semibold">What can I ask about?</h4>
                     <ul className="space-y-1 text-muted-foreground">
-                      <li>Order tracking and delivery updates</li>
-                      <li>Returns and refunds</li>
-                      <li>Login and account issues</li>
-                      <li>Payment verification</li>
+                      <li>📦 Track or cancel an order</li>
+                      <li>↩️ Returns, refunds, exchanges</li>
+                      <li>🛠️ Book a service or negotiate price</li>
+                      <li>🍽️ Food orders and delivery</li>
+                      <li>🔨 Bidding and auctions</li>
+                      <li>💳 Paystack payment issues</li>
+                      <li>👤 Login, account, or wallet help</li>
+                      <li>🏪 Become a vendor / seller</li>
                     </ul>
                   </div>
-                  <div className="rounded-lg border p-3">
-                    <h4 className="font-semibold mb-1">Response Times</h4>
+                  <div className="rounded-lg border p-3 space-y-1.5">
+                    <h4 className="font-semibold">Response times</h4>
                     <ul className="space-y-1 text-muted-foreground">
-                      <li>AI Assistant: Instant</li>
-                      <li>Human Agent: 2 to 4 hours</li>
-                      <li>Vendor Issues: 24 to 48 hours</li>
+                      <li>AI Assistant — instant, 24/7</li>
+                      <li>Human agent — 2 to 4 hours</li>
+                      <li>Vendor disputes — 24 to 48 hours</li>
                     </ul>
                   </div>
                 </CardContent>
@@ -310,11 +302,6 @@ export default function ContactPage() {
             </div>
           )}
 
-          <div className="flex justify-center">
-            <Badge variant="outline" className="border-accent/30 text-accent">
-              Contact and Support are now unified in one page
-            </Badge>
-          </div>
         </div>
       </div>
     </div>

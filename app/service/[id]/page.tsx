@@ -10,11 +10,11 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 // import { getServiceById, Service, createConversation, getConversations } from "@/lib/database"
 import type { Service } from "@/lib/database-client"
 import { useAuth } from "@/contexts/AuthContext"
-import { ArrowLeft, MapPin, Clock, DollarSign, Calendar, MessageCircle, CheckCircle, X, ChevronLeft, ChevronRight, Star, Hotel, Building2, Truck, Music2, Camera, Briefcase, ArrowLeftRight } from "lucide-react"
+import { ArrowLeft, MapPin, Clock, Calendar, MessageCircle, CheckCircle, X, ChevronLeft, ChevronRight, Star, Hotel, Building2, Truck, Music2, Camera, Briefcase, ArrowLeftRight } from "lucide-react"
 import BookingModal from "@/components/services/BookingModal"
 import PriceNegotiationModal from "@/components/services/PriceNegotiationModal"
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
@@ -43,7 +43,6 @@ export default function ServiceDetailPage() {
   const [showNegotiationModal, setShowNegotiationModal] = useState(false)
   const [negotiatedPrice, setNegotiatedPrice] = useState<number | undefined>(undefined)
   const [selectedImage, setSelectedImage] = useState(0)
-  const [messagingProvider, setMessagingProvider] = useState(false)
   const [showMessageModal, setShowMessageModal] = useState(false)
   const [quickMessage, setQuickMessage] = useState("")
   const [sendingQuickMessage, setSendingQuickMessage] = useState(false)
@@ -535,13 +534,13 @@ export default function ServiceDetailPage() {
         />
         
         {/* Gradient Overlay */}
-        <div className={`absolute inset-0 bg-linear-to-t ${familyTheme.overlay}`} style={{ zIndex: 2 }} />
-        
+        <div className={`absolute inset-0 bg-linear-to-t z-2 ${familyTheme.overlay}`} />
+
         {/* Bottom Fade to White */}
-        <div className="absolute bottom-0 left-0 right-0 h-32 bg-linear-to-t from-background to-transparent" style={{ zIndex: 3 }} />
-        
+        <div className="absolute bottom-0 left-0 right-0 h-32 bg-linear-to-t from-background to-transparent z-3" />
+
         {/* Content Overlay */}
-        <div className="absolute inset-0 flex flex-col justify-end" style={{ zIndex: 4 }}>
+        <div className="absolute inset-0 flex flex-col justify-end z-4">
           <div className="container mx-auto px-4 pb-8">
             {/* Back Button */}
             <Button
@@ -582,8 +581,8 @@ export default function ServiceDetailPage() {
               )}
             </div>
 
-            {/* Click to view full size button - more visible with animation */}
-            <div className="mt-6 animate-bounce">
+            {/* Click to view full size button */}
+            <div className="mt-6">
               <Button
                 onClick={() => {
                   if (displayedImages.length > 0) {
@@ -761,9 +760,8 @@ export default function ServiceDetailPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6 animate-fade-in">
-            {/* Title & Provider */}
+            {/* Provider */}
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold mb-2">{service.title}</h1>
               <div className="flex items-center gap-4 flex-wrap">
                 <div className="flex items-center gap-2">
                   <Avatar className="h-10 w-10">
@@ -785,8 +783,8 @@ export default function ServiceDetailPage() {
             {/* Trust, Urgency & Conversion Signals */}
             <Card className="border-accent/20 bg-background/90">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">Trust & Conversion Signals</CardTitle>
-                <CardDescription>Book with confidence and urgency</CardDescription>
+                <CardTitle className="text-base">Provider Details</CardTitle>
+                <CardDescription>Availability, track record, and booking terms</CardDescription>
               </CardHeader>
               <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-sm">
                 <div className="rounded-md border p-3 bg-muted/20">

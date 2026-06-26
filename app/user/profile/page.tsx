@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/AuthContext"
 import Header from "@/components/Header"
+import Footer from "@/components/Footer"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -192,7 +193,7 @@ export default function ProfilePage() {
                     <X className="h-4 w-4 mr-2" />
                     Cancel
                   </Button>
-                  <Button onClick={handleSave} size="sm" disabled={loading} className="hover:bg-accent/80 hover:scale-105 transition-all hover:shadow-lg">
+                  <Button onClick={handleSave} size="sm" disabled={loading} className="bg-accent text-white hover:bg-accent/90 transition-all">
                     <Save className="h-4 w-4 mr-2" />
                     {loading ? 'Saving...' : 'Save'}
                   </Button>
@@ -350,6 +351,7 @@ export default function ProfilePage() {
         />
       </main>
 
+      <Footer />
     </div>
   )
 }

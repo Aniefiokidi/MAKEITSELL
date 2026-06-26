@@ -635,7 +635,7 @@ export default function CategoryPage() {
               onClick={() => setActiveSegment("products")}
               className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                 activeSegment === "products"
-                  ? "bg-white text-accent shadow"
+                  ? "bg-card text-accent shadow"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -646,7 +646,7 @@ export default function CategoryPage() {
               onClick={() => setActiveSegment("services")}
               className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                 activeSegment === "services"
-                  ? "bg-white text-accent shadow"
+                  ? "bg-card text-accent shadow"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -657,7 +657,7 @@ export default function CategoryPage() {
               onClick={() => setActiveSegment("stores")}
               className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                 activeSegment === "stores"
-                  ? "bg-white text-accent shadow"
+                  ? "bg-card text-accent shadow"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -684,11 +684,11 @@ export default function CategoryPage() {
               />
               {/* Search Suggestions */}
               {showSuggestions && searchSuggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg z-20 max-h-60 overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-20 max-h-60 overflow-y-auto">
                   {searchSuggestions.map((suggestion, index) => (
                     <button
                       key={index}
-                      className="w-full text-left px-4 py-2 hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg"
+                      className="w-full text-left px-4 py-2 hover:bg-muted/50 first:rounded-t-lg last:rounded-b-lg"
                       onMouseDown={() => {
                         setSearchQuery(suggestion)
                         setShowSuggestions(false)
@@ -935,7 +935,7 @@ export default function CategoryPage() {
                   {/* Frosted Glass Bubble Content */}
                   <div className="absolute bottom-0 left-0 right-0 p-2.5 sm:p-3 backdrop-blur-xl bg-white/20 dark:bg-black/20 border-t border-white/30 rounded-t-3xl z-30 space-y-1.5">
                     <Link href={`/products/${product.id}`} onClick={() => addToRecentlyViewed(product)}>
-                      <h3 className="font-semibold text-xs sm:text-sm line-clamp-1 text-white drop-shadow-lg cursor-pointer hover:text-blue-200 transition-colors">
+                      <h3 className="font-semibold text-xs sm:text-sm line-clamp-1 text-white drop-shadow-lg cursor-pointer hover:opacity-80 transition-opacity">
                         {product.name}
                       </h3>
                     </Link>
@@ -999,8 +999,8 @@ export default function CategoryPage() {
                     {/* Product Badges */}
                     <div className="absolute top-2 sm:top-3 left-2 sm:left-3 flex flex-col gap-1 z-10">
                       {product.featured && (
-                        <Badge className="bg-yellow-500 text-black font-semibold text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
-                          <svg className="inline w-3 h-3 sm:w-4 sm:h-4 text-yellow-400 fill-current animate-pulse mr-0.5 sm:mr-1" viewBox="0 0 24 24">
+                        <Badge className="bg-accent text-white font-semibold text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
+                          <svg className="inline w-3 h-3 sm:w-4 sm:h-4 text-white fill-current mr-0.5 sm:mr-1" viewBox="0 0 24 24">
                             <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
                           </svg> 
                           Featured
@@ -1119,8 +1119,8 @@ export default function CategoryPage() {
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                       ) : (
-                        <div className="flex items-center justify-center h-full bg-linear-to-br from-accent/90 via-orange-500/90 to-red-600/90">
-                          <Store className="h-10 w-10 sm:h-16 sm:w-16 text-white drop-shadow-lg animate-pulse" />
+                        <div className="flex items-center justify-center h-full bg-accent">
+                          <Store className="h-10 w-10 sm:h-16 sm:w-16 text-white drop-shadow-lg" />
                         </div>
                       )}
 
@@ -1202,8 +1202,8 @@ export default function CategoryPage() {
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                       ) : (
-                        <div className="flex items-center justify-center h-full bg-linear-to-br from-accent/90 via-orange-500/90 to-red-600/90">
-                          <Store className="h-12 w-12 sm:h-20 sm:w-20 text-white drop-shadow-lg animate-pulse" />
+                        <div className="flex items-center justify-center h-full bg-accent">
+                          <Store className="h-12 w-12 sm:h-20 sm:w-20 text-white drop-shadow-lg" />
                         </div>
                       )}
 
@@ -1286,7 +1286,7 @@ export default function CategoryPage() {
                         className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                       <div className="absolute bottom-0 left-0 right-0 p-3 backdrop-blur-xl bg-white/20 dark:bg-black/20 border-t border-white/30 rounded-t-2xl z-30">
-                        <h3 className="font-semibold text-xs line-clamp-1 text-white drop-shadow-lg cursor-pointer hover:text-blue-200 transition-colors">
+                        <h3 className="font-semibold text-xs line-clamp-1 text-white drop-shadow-lg cursor-pointer hover:opacity-80 transition-opacity">
                           {product.name}
                         </h3>
                         <div className="font-bold text-sm text-white drop-shadow-lg mt-1">
@@ -1301,6 +1301,7 @@ export default function CategoryPage() {
           ) : null;
         })()}
       </div>
+      <Footer />
       <ProductQuickView
         product={selectedProduct}
         open={quickViewOpen}

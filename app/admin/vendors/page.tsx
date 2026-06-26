@@ -240,7 +240,7 @@ export default function AdminVendorsPage() {
               <button
                 key={`vendors-page-${item}`}
                 type="button"
-                className={`h-8 min-w-8 px-2 text-xs rounded border ${currentPage === item ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border"}`}
+                className={`h-8 min-w-8 px-2 text-xs rounded border ${currentPage === item ? "bg-accent text-white border-accent" : "bg-background border-border"}`}
                 onClick={() => setCurrentPage(item)}
               >
                 {item}
@@ -281,7 +281,7 @@ export default function AdminVendorsPage() {
               <button
                 key={`no-store-page-${item}`}
                 type="button"
-                className={`h-8 min-w-8 px-2 text-xs rounded border ${currentNoStorePage === item ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border"}`}
+                className={`h-8 min-w-8 px-2 text-xs rounded border ${currentNoStorePage === item ? "bg-accent text-white border-accent" : "bg-background border-border"}`}
                 onClick={() => setCurrentNoStorePage(item)}
               >
                 {item}

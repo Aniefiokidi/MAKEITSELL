@@ -1,12 +1,13 @@
 "use client"
 
 import Header from "@/components/Header"
+import Footer from "@/components/Footer"
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen bg-linear-to-br from-background via-background to-accent/5">
-        <Header/>
-      <div className="container mx-auto px-2 sm:px-4 py-8 sm:py-16">
+    <div className="min-h-screen bg-linear-to-br from-background via-background to-accent/5 flex flex-col">
+      <Header />
+      <div className="flex-1 container mx-auto px-2 sm:px-4 py-8 sm:py-16">
         <div className="max-w-6xl mx-auto">
           {/* Hero Section */}
           <div className="text-center mb-12 sm:mb-20">
@@ -22,7 +23,7 @@ export default function AboutPage() {
             <p className="text-xs xs:text-sm sm:text-base md:text-lg text-muted-foreground max-w-2xl mx-auto">
               We're not just a marketplace – we're your business growth partner 
               <span className="inline-block ml-2 w-8 h-8 align-middle">
-                <svg className="w-full h-full text-accent animate-bounce" fill="currentColor" viewBox="0 0 24 24">
+                <svg className="w-full h-full text-accent" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
                 </svg>
               </span>
@@ -35,7 +36,7 @@ export default function AboutPage() {
               <div className="space-y-3 sm:space-y-6">
                 <div className="flex items-center gap-2 sm:gap-3">
                   <div className="w-10 h-10 sm:w-12 sm:h-12 bg-accent rounded-2xl flex items-center justify-center shrink-0">
-                    <svg className="w-5 h-5 sm:w-8 sm:h-8 text-accent-foreground animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 sm:w-8 sm:h-8 text-accent-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <circle cx="12" cy="12" r="10"/>
                       <circle cx="12" cy="12" r="6"/>
                       <circle cx="12" cy="12" r="2"/>
@@ -71,7 +72,7 @@ export default function AboutPage() {
                 <div className="relative bg-card border border-border/50 rounded-3xl p-4 sm:p-8 shadow-2xl">
                   <img src="/heroimg8.jpg" alt="Make It Sell Marketplace team group photo" className="w-full h-40 sm:h-60 md:h-80 object-cover rounded-2xl" />
                   <div className="absolute -bottom-4 -right-4 sm:-bottom-6 sm:-right-6 bg-accent text-accent-foreground w-10 h-10 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center shadow-lg">
-                    <svg className="w-8 h-8 animate-pulse" fill="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
                     </svg>
                   </div>
@@ -154,7 +155,7 @@ export default function AboutPage() {
             <div className="relative bg-linear-to-br from-card to-accent/5 border border-border/50 rounded-3xl p-6 sm:p-12 text-center shadow-2xl">
               <div className="max-w-3xl mx-auto">
                 <div className="inline-flex items-center gap-1.5 sm:gap-2 bg-accent text-accent-foreground px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-[8px] xs:text-[9px] sm:text-xs font-bold mb-4 sm:mb-6">
-                  <svg className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" fill="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
                   </svg>
                   Ready to Scale?
@@ -202,6 +203,7 @@ export default function AboutPage() {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   )
 }

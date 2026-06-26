@@ -8,7 +8,7 @@ if (!apiKey) {
 }
 
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null
-const model = genAI ? genAI.getGenerativeModel({ model: 'gemini-pro' }) : null
+const model = genAI ? genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }) : null
 
 export interface GeminiResponse {
   canResolve: boolean
@@ -105,13 +105,44 @@ You are an exceptionally intelligent customer support AI for Make It Sell market
 18. Conversation continuity rule: acknowledge prior context briefly and move to solution quickly
 19. If request is ambiguous, ask one short clarifying question before proceeding
 
-**Marketplace Knowledge:**
-- Orders: Processing (1-2 days) → Shipped (1-3 days) → Delivered (varies by location)
-- Returns: 30-day window, vendor-specific policies, keep packaging/receipts
-- Payments: Secure processing, 1-2 day authorization, dispute resolution available
-- Vendors: Independent sellers, direct communication encouraged, quality varies
-- Account issues: Password resets, profile updates, notification preferences
-- Seller program: Application process, verification required, commission structure
+**About MakeItSell:**
+MakeItSell (makeitsell.ng) is a Nigerian online marketplace. All prices are in Nigerian Naira (₦). It is a PWA — users can install it on their phone like an app. Payments are processed by Paystack (Nigerian payment gateway) — supports Verve, Mastercard, Visa debit/credit cards and bank transfer.
+
+**Three main sections:**
+1. Products (/products) — physical goods from Nigerian vendors. Browse stores at /stores or search by category.
+2. Services (/services) — bookable services: photography, events, beauty, home services, logistics, hospitality (hotels/short-let apartments), consulting, repairs, and more.
+3. Food (/food) — food vendors, browse and order food for delivery.
+
+**Key service features:**
+- Price Negotiation: on any service page, customers tap "Negotiate Price" to offer a different price; the vendor accepts, rejects, or counter-offers.
+- Package options (Basic, Standard, Premium tiers) and optional add-ons at checkout.
+- Hospitality booking: select room type, pick check-in/check-out dates, see availability.
+- Appointments tracked at /appointments after a service is booked.
+
+**Bidding (/bidding):**
+Some products are listed for auction. Visit /bidding to see live auctions and place bids.
+
+**Account & Wallet:**
+- My Orders: track purchases and deliveries (accessible from account/profile icon).
+- Messages (/messages): direct chat with vendors.
+- Wallet (/wallet): vendors receive earnings here; withdraw to Nigerian bank account. Customers can also top up wallet for payments.
+- Appointments (/appointments): all booked service sessions.
+
+**Delivery in Nigeria:**
+- Processing: 1–2 business days (vendor prepares order).
+- Lagos within-city: 1–3 days. Inter-city: 3–7 days.
+- Track via order dashboard or email notification.
+
+**Returns & Refunds:**
+- 7-day window from delivery date.
+- Contact vendor first. If unresponsive, raise dispute with MakeItSell support.
+- Refund goes back via Paystack to original payment method.
+
+**Becoming a Vendor:**
+- Click "Become a Seller" in the menu. Fill in business details and submit documents.
+- Approval takes 1–3 business days.
+- Vendor dashboard to manage products, services, orders, and wallet earnings.
+- Platform takes a commission on sales (percentage disclosed during signup).
 
 **Response Format (JSON):**
 {
@@ -136,16 +167,8 @@ Remember: You're not just answering questions - you're having an intelligent con
       const parsedResponse = JSON.parse(cleanedText) as GeminiResponse
       return parsedResponse
     } catch (parseError) {
-      console.error('Failed to parse Gemini response:', parseError)
-      console.error('Raw response:', text)
-
-      // Fallback response
-      return {
-        canResolve: false,
-        response: "I'm having trouble processing your request right now. Let me connect you with a human support specialist who can better assist you.",
-        escalationReason: "AI response parsing failed - technical issue",
-        priority: "medium"
-      }
+      // Gemini returned non-JSON (e.g. plain text) — use keyword fallback
+      return fallbackKeywordAnalysis(query, context)
     }
   } catch (error: any) {
     console.error('Gemini AI error:', error)
@@ -976,19 +999,199 @@ What country are you shipping to? I can give you more specific guidance!`,
     }
   }
 
+  // Food ordering
+  if (lowerQuery.includes('food') || lowerQuery.includes('meal') || lowerQuery.includes('eat') || lowerQuery.includes('restaurant') || lowerQuery.includes('hungry') || lowerQuery.includes('order food')) {
+    return {
+      canResolve: true,
+      response: `${greeting}, you can order food right here on MakeItSell!
+
+**How to order food:**
+1. Go to the **Food** section — look for "Food" in the main menu or visit /food
+2. Browse food vendors near you or filter by cuisine
+3. Pick your items, add to cart, and checkout
+4. Pay via Paystack (debit card or bank transfer)
+5. Your order is confirmed and the vendor prepares it for delivery
+
+**Delivery:**
+• Delivery time depends on the vendor's location and yours
+• You'll get updates as your order is being prepared and dispatched
+• Track your order in the **My Orders** section of your account
+
+Is there something specific about food ordering I can help with?`,
+      suggestedActions: [
+        "Browse the Food section",
+        "Check my food order status",
+        "Find food vendors near me",
+        "Help with food order payment"
+      ]
+    }
+  }
+
+  // Services & booking
+  if (lowerQuery.includes('service') || lowerQuery.includes('book') || lowerQuery.includes('booking') || lowerQuery.includes('appointment') || lowerQuery.includes('hire') || lowerQuery.includes('photographer') || lowerQuery.includes('event') || lowerQuery.includes('hotel') || lowerQuery.includes('apartment') || lowerQuery.includes('short let') || lowerQuery.includes('beauty') || lowerQuery.includes('repair')) {
+    return {
+      canResolve: true,
+      response: `${greeting}, the Services section has everything from photographers and event planners to hotels, beauty services, home repairs, and logistics.
+
+**How to book a service:**
+1. Go to **/services** and browse or search for what you need
+2. Open a service page — you'll see the provider's packages, prices, and availability
+3. Select a package (Basic / Standard / Premium) and any optional add-ons
+4. Click **"Book Appointment"** and choose your date/time
+5. Complete payment via Paystack — you'll receive a booking confirmation
+
+**Price Negotiation:**
+Don't want to pay the listed price? Click **"Negotiate Price"** on any service page to make an offer. The vendor will accept, reject, or counter-offer.
+
+**After booking:**
+Find all your booked appointments at **/appointments** in your account.
+
+What service are you trying to book, or do you have an issue with an existing booking?`,
+      suggestedActions: [
+        "Browse available services",
+        "View my appointments",
+        "Negotiate a service price",
+        "Help with a booking issue"
+      ]
+    }
+  }
+
+  // Price negotiation specifically
+  if (lowerQuery.includes('negotiat') || lowerQuery.includes('bargain') || lowerQuery.includes('lower price') || lowerQuery.includes('discount') && lowerQuery.includes('service') || lowerQuery.includes('offer price')) {
+    return {
+      canResolve: true,
+      response: `${greeting}, price negotiation is built right into MakeItSell services!
+
+**How it works:**
+1. Open any service page at /services
+2. Click the **"Negotiate Price"** button (below the Book button)
+3. Enter the price you want to offer and a short message to the vendor
+4. The vendor will respond — they can accept, reject, or make a counter-offer
+5. Once you both agree on a price, you book at that agreed amount
+
+**Tips for a good negotiation:**
+• Be polite and explain why you're requesting a lower price
+• Be realistic — a reasonable offer gets better responses
+• Vendors set their own policies; some may not negotiate at all
+
+Has a negotiation been accepted and you're ready to book, or are you having trouble with a specific negotiation?`,
+      suggestedActions: [
+        "Browse services to negotiate",
+        "Check status of my negotiation",
+        "Book at an agreed price",
+        "Vendor hasn't responded to my offer"
+      ]
+    }
+  }
+
+  // Bidding
+  if (lowerQuery.includes('bid') || lowerQuery.includes('auction') || lowerQuery.includes('bidding') || lowerQuery.includes('place a bid') || lowerQuery.includes('win an item')) {
+    return {
+      canResolve: true,
+      response: `${greeting}, MakeItSell has an auction/bidding feature where you can win items by placing the highest bid!
+
+**How bidding works:**
+1. Go to **/bidding** to see all active auctions
+2. Browse items up for bid and see current highest bids and time remaining
+3. Click on an item to see details, then enter your bid amount (must be higher than current bid)
+4. If your bid is the highest when the auction ends, you win!
+5. You'll be notified and can complete payment to receive the item
+
+**Tips:**
+• Watch bids closely near the end — prices can jump fast
+• Set a maximum you're willing to pay and stick to it
+• Make sure you have a valid payment method saved
+
+Is there a specific auction you need help with?`,
+      suggestedActions: [
+        "Browse active auctions",
+        "How do I pay after winning a bid?",
+        "I was outbid — what now?",
+        "My winning bid item hasn't arrived"
+      ]
+    }
+  }
+
+  // Wallet
+  if (lowerQuery.includes('wallet') || lowerQuery.includes('withdraw') || lowerQuery.includes('earnings') || lowerQuery.includes('payout') || lowerQuery.includes('balance') || lowerQuery.includes('top up') || lowerQuery.includes('fund')) {
+    return {
+      canResolve: true,
+      response: `${greeting}, the wallet is where vendor earnings are managed and customers can store payment balance.
+
+**For Vendors:**
+• Your sales earnings are credited to your wallet after order completion
+• Go to **/wallet** to see your balance and transaction history
+• To withdraw: click "Withdraw", enter your Nigerian bank account details, and submit — transfers typically process within 1 business day
+
+**For Customers:**
+• You can top up your wallet and use it as a payment method at checkout
+• Go to **/wallet** and click "Top Up" to add funds via Paystack
+
+**Common wallet questions:**
+• **Withdrawal not received?** Bank transfers can take up to 1 business day — check again tomorrow
+• **Wrong bank details?** Contact support before the transfer processes
+• **Wallet balance wrong?** Check your transaction history in /wallet for details
+
+What specific wallet issue can I help you with?`,
+      suggestedActions: [
+        "How to withdraw my earnings",
+        "My withdrawal hasn't arrived",
+        "Top up my wallet",
+        "Check my wallet balance"
+      ]
+    }
+  }
+
+  // Paystack / Nigerian payment methods
+  if (lowerQuery.includes('paystack') || lowerQuery.includes('verve') || lowerQuery.includes('naira') || lowerQuery.includes('atm') || lowerQuery.includes('bank transfer') || lowerQuery.includes('ussd') || lowerQuery.includes('debit card')) {
+    return {
+      canResolve: true,
+      response: `${greeting}, MakeItSell processes all payments through Paystack — Nigeria's most trusted payment gateway.
+
+**Accepted payment methods:**
+• **Nigerian debit cards** — Verve, Mastercard, Visa (all work)
+• **Bank transfer** — transfer directly from your bank account
+• **USSD** — some banks support USSD payment through Paystack
+• **Wallet balance** — if you've topped up your MakeItSell wallet
+
+**If your payment failed:**
+1. Double-check your card number, expiry date, and CVV
+2. Make sure your card is enabled for online transactions (call your bank if unsure)
+3. Try a bank transfer as an alternative
+4. Check your account for any transaction limit set by your bank
+
+**If you were charged but order wasn't confirmed:**
+This sometimes happens with Paystack — wait 10–15 minutes, then check your email for an order confirmation. If nothing arrives, contact us — we'll verify and resolve it quickly.
+
+What payment issue are you facing?`,
+      suggestedActions: [
+        "My payment failed but I was charged",
+        "Enable my card for online payments",
+        "Pay via bank transfer instead",
+        "Check if my payment went through"
+      ]
+    }
+  }
+
   // Default intelligent response for any other query
   return {
     canResolve: true,
-    response: `${greeting}, I'd love to help you out! I can tell you want assistance with something, and I'm here to provide exactly the guidance you need.
+    response: `${greeting}, I'd love to help! Here's a quick overview of what I can assist with on MakeItSell:
 
-I'm pretty comprehensive at helping with orders, deliveries, account issues, returns, payments, vendor questions, technical problems, and marketplace navigation. I can also help with special situations like gifts, bulk orders, international shipping, and more.
+• **Orders & delivery** — track, cancel, returns, refunds
+• **Services & bookings** — book a service, price negotiation, appointments
+• **Food orders** — ordering food, delivery status
+• **Bidding** — how auctions work, placing bids
+• **Account & wallet** — login issues, wallet, vendor earnings
+• **Payments** — Paystack, card issues, bank transfers
+• **Becoming a seller** — application, dashboard, listings
 
-What's the specific situation you're dealing with? The more details you can give me, the better I can tailor my advice to your exact needs.`,
+What specifically can I help you with today?`,
     suggestedActions: [
-      "Describe your specific issue in detail",
-      "Tell me what you were trying to accomplish", 
-      "Ask about any aspect of the marketplace",
-      "Let me know what kind of help you need"
+      "Track my order",
+      "Book a service",
+      "Account or login help",
+      "Become a seller"
     ]
   }
 }

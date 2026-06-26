@@ -3,17 +3,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AlertCircle, ShieldAlert, Package, Info } from "lucide-react"
 import Header from "@/components/Header"
+import Footer from "@/components/Footer"
 
 export default function ReturnsPage() {
   return (
-    <>
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <div className="min-h-screen bg-background">
+      <main className="flex-1">
         <div className="container mx-auto px-4 py-8">
           {/* Header */}
           <div className="mb-8">
             <nav className="text-sm text-muted-foreground mb-4">
-              <Link href="/" className="hover:text-primary">Home</Link>
+              <Link href="/" className="hover:text-accent">Home</Link>
               <span className="mx-2">/</span>
               <span>Returns & Refunds</span>
             </nav>
@@ -27,7 +28,7 @@ export default function ReturnsPage() {
           <Card className="mb-8 border-yellow-200 bg-yellow-50">
             <CardContent className="p-6">
               <div className="flex items-start gap-4">
-                <ShieldAlert className="w-8 h-8 text-yellow-600 flex-shrink-0" />
+                <ShieldAlert className="w-8 h-8 text-yellow-600 shrink-0" />
                 <div>
                   <h3 className="font-bold text-lg mb-2 text-yellow-900">No Return Policy</h3>
                   <p className="text-yellow-800">
@@ -56,19 +57,19 @@ export default function ReturnsPage() {
                   </p>
                   <ul className="space-y-2 text-sm">
                     <li className="flex items-start gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-accent mt-2" />
                       <span>Competitive pricing by reducing logistics costs</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-accent mt-2" />
                       <span>Product authenticity and quality control</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-accent mt-2" />
                       <span>Fair treatment for all vendors on our platform</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-accent mt-2" />
                       <span>Faster delivery times and better service</span>
                     </li>
                   </ul>
@@ -97,21 +98,21 @@ export default function ReturnsPage() {
                   <h4 className="font-semibold mb-3">We will ONLY accept returns for:</h4>
                   <ul className="space-y-3 text-sm">
                     <li className="flex items-start gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
-                      <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                      <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
                       <div>
                         <strong className="text-red-900">Damaged Items</strong>
                         <p className="text-red-800 mt-1">Items that arrive physically damaged during shipping</p>
                       </div>
                     </li>
                     <li className="flex items-start gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
-                      <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                      <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
                       <div>
                         <strong className="text-red-900">Defective Products</strong>
                         <p className="text-red-800 mt-1">Items that are proven to be defective or not working as described</p>
                       </div>
                     </li>
                     <li className="flex items-start gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
-                      <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                      <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
                       <div>
                         <strong className="text-red-900">Wrong Item Received</strong>
                         <p className="text-red-800 mt-1">If you received a completely different item than what was ordered</p>
@@ -209,13 +210,14 @@ export default function ReturnsPage() {
               <Button variant="outline" asChild>
                 <Link href="/support">Contact Support</Link>
               </Button>
-              <Button asChild>
+              <Button asChild className="bg-accent text-white hover:bg-accent/90">
                 <Link href="/order">View My Orders</Link>
               </Button>
             </div>
           </div>
         </div>
-      </div>
-    </>
+      </main>
+      <Footer />
+    </div>
   )
 }

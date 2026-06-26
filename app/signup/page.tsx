@@ -9,6 +9,7 @@ export default function SignupPage() {
           <SignupForm />
         </div>
       </div>
+      <Footer />
     </div>
   )
 }

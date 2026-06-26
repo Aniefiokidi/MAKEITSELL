@@ -84,12 +84,12 @@ export default function VendorAnalyticsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-2xl font-bold">{formatNaira(totalRevenue)}</p>
-                  <p className="text-sm text-gray-600">Total Revenue</p>
+                  <p className="text-sm text-muted-foreground">Total Revenue</p>
                   <p className="text-xs text-green-600">
                     {revenueChange === null ? "" : `${revenueChange >= 0 ? "+" : ""}${revenueChange.toFixed(1)}% from last month`}
                   </p>
                 </div>
-                <Banknote className="h-8 w-8 text-gray-400" />
+                <Banknote className="h-8 w-8 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>
@@ -99,12 +99,12 @@ export default function VendorAnalyticsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-2xl font-bold">{totalOrders}</p>
-                  <p className="text-sm text-gray-600">Total Orders</p>
+                  <p className="text-sm text-muted-foreground">Total Orders</p>
                   <p className="text-xs text-green-600">
                     {ordersChange === null ? "" : `${ordersChange >= 0 ? "+" : ""}${ordersChange.toFixed(1)}% from last month`}
                   </p>
                 </div>
-                <ShoppingCart className="h-8 w-8 text-gray-400" />
+                <ShoppingCart className="h-8 w-8 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>
@@ -114,13 +114,13 @@ export default function VendorAnalyticsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-2xl font-bold">{totalProducts}</p>
-                  <p className="text-sm text-gray-600">Products Listed</p>
+                  <p className="text-sm text-muted-foreground">Products Listed</p>
                   <p className="text-xs text-green-600">
                     {typeof newProductsThisWeek === "number" ? `+${newProductsThisWeek} new this week` : ""}
                     {productsChange !== null && ` (${productsChange >= 0 ? "+" : ""}${productsChange.toFixed(1)}% vs last week)`}
                   </p>
                 </div>
-                <Package className="h-8 w-8 text-gray-400" />
+                <Package className="h-8 w-8 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>
@@ -130,12 +130,12 @@ export default function VendorAnalyticsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-2xl font-bold">{formatNaira(averageOrderValue)}</p>
-                  <p className="text-sm text-gray-600">Avg Order Value</p>
+                  <p className="text-sm text-muted-foreground">Avg Order Value</p>
                   <p className="text-xs text-green-600">
                     {avgOrderValueChange === null ? "" : `${avgOrderValueChange >= 0 ? "+" : ""}${avgOrderValueChange.toFixed(1)}% from last month`}
                   </p>
                 </div>
-                <TrendingUp className="h-8 w-8 text-gray-400" />
+                <TrendingUp className="h-8 w-8 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>
@@ -149,14 +149,14 @@ export default function VendorAnalyticsPage() {
             </CardHeader>
             <CardContent>
               {recentOrders.length === 0 ? (
-                <p className="text-gray-600">No orders yet.</p>
+                <p className="text-muted-foreground">No orders yet.</p>
               ) : (
                 <div className="space-y-4">
                   {recentOrders.map((order: any) => (
                     <div key={order._id || order.id} className="flex justify-between items-center border-b pb-2">
                       <div>
                         <p className="font-medium">Order #{(order._id || order.id || "").toString().slice(-8)}</p>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-muted-foreground">
                           {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : ""}
                         </p>
                       </div>
@@ -177,14 +177,14 @@ export default function VendorAnalyticsPage() {
             </CardHeader>
             <CardContent>
               {topProducts.length === 0 ? (
-                <p className="text-gray-600">No sales data yet.</p>
+                <p className="text-muted-foreground">No sales data yet.</p>
               ) : (
                 <div className="space-y-4">
                   {topProducts.map((product: any) => (
                     <div key={product._id || product.id} className="flex justify-between items-center border-b pb-2">
                       <div>
                         <p className="font-medium">{product.title || product.name}</p>
-                        <p className="text-sm text-gray-600">{product.sales || 0} sold</p>
+                        <p className="text-sm text-muted-foreground">{product.sales || 0} sold</p>
                       </div>
                       <div className="text-right">
                         <p className="font-medium">₦{product.price}</p>

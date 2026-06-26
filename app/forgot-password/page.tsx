@@ -185,7 +185,7 @@ export default function ForgotPasswordPage() {
 
                 <Button
                   type="submit"
-                  className="w-full h-12 text-lg hover:bg-accent/80 hover:scale-105 transition-all"
+                  className="w-full h-12 text-lg bg-accent text-white hover:bg-accent/90 transition-all"
                   disabled={loading}
                 >
                   {loading ? (
@@ -282,7 +282,7 @@ export default function ForgotPasswordPage() {
 
                 <Button
                   type="submit"
-                  className="w-full h-12 text-lg hover:bg-accent/80 hover:scale-105 transition-all"
+                  className="w-full h-12 text-lg bg-accent text-white hover:bg-accent/90 transition-all"
                   disabled={loading}
                 >
                   {loading ? (

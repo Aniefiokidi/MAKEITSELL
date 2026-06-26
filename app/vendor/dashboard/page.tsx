@@ -251,7 +251,7 @@ export default function VendorDashboardPage() {
   // Show loading while authentication is being checked or userProfile is loading
   if (loading || (user && !userProfile)) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
         <Card className="max-w-md">
           <CardHeader>
             <CardTitle>Loading...</CardTitle>
@@ -302,11 +302,11 @@ export default function VendorDashboardPage() {
       {/* Setup popup */}
       {showSetupPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-7 max-w-sm w-full mx-4 border border-accent">
+          <div className="bg-card rounded-2xl shadow-2xl p-7 max-w-sm w-full mx-4 border border-accent">
             {setupPopupType === "missing-fulfillment-time" ? (
               <>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="rounded-full bg-orange-100 p-2"><Clock className="h-5 w-5 text-orange-500" /></div>
+                  <div className="rounded-full bg-accent/10 p-2"><Clock className="h-5 w-5 text-accent" /></div>
                   <h2 className="text-lg font-bold">How long to fulfil orders?</h2>
                 </div>
                 <p className="text-sm text-muted-foreground mb-5">
@@ -381,7 +381,7 @@ export default function VendorDashboardPage() {
       {/* Phone number modal — shown immediately if store has no phone */}
       {showPhoneModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl p-8 max-w-sm w-full mx-4 border border-accent">
+          <div className="bg-card rounded-xl shadow-2xl p-8 max-w-sm w-full mx-4 border border-accent">
             <div className="flex items-center gap-3 mb-4">
               <div className="rounded-full bg-accent/10 p-2">
                 <Phone className="h-5 w-5 text-accent" />
@@ -526,7 +526,7 @@ export default function VendorDashboardPage() {
               <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                   <p className="text-lg lg:text-xl font-bold truncate">₦{formatCurrency(revenue)}</p>
-                  <p className="text-xs text-gray-600">Product Revenue</p>
+                  <p className="text-xs text-muted-foreground">Product Revenue</p>
                   <p className="text-xs text-green-600">
                     {`${safeRevenueChange >= 0 ? "+" : ""}${safeRevenueChange.toFixed(1)}% from last month`}
                   </p>
@@ -541,7 +541,7 @@ export default function VendorDashboardPage() {
               <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                   <p className="text-lg lg:text-xl font-bold">{productsCount}</p>
-                  <p className="text-xs text-gray-600">Products Listed</p>
+                  <p className="text-xs text-muted-foreground">Products Listed</p>
                   <p className="text-xs text-green-600 truncate">
                     {typeof newProductsThisWeek === "number" ? `+${newProductsThisWeek} new this week` : ""}
                     {` (${safeProductsChange >= 0 ? "+" : ""}${safeProductsChange.toFixed(1)}% vs last week)`}
@@ -557,7 +557,7 @@ export default function VendorDashboardPage() {
               <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                   <p className="text-lg lg:text-xl font-bold">{ordersCount}</p>
-                  <p className="text-xs text-gray-600">Total Orders</p>
+                  <p className="text-xs text-muted-foreground">Total Orders</p>
                   <p className="text-xs text-green-600">
                     {`${safeOrdersChange >= 0 ? "+" : ""}${safeOrdersChange.toFixed(1)}% from last month`}
                   </p>
@@ -572,7 +572,7 @@ export default function VendorDashboardPage() {
               <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                   <p className="text-lg lg:text-xl font-bold">{safeConversion}%</p>
-                  <p className="text-xs text-gray-600">Conversion Rate</p>
+                  <p className="text-xs text-muted-foreground">Conversion Rate</p>
                   <p className="text-xs text-green-600">
                     {`${safeConversionRateChange >= 0 ? "+" : ""}${safeConversionRateChange.toFixed(1)}% from last month`}
                   </p>
@@ -587,7 +587,7 @@ export default function VendorDashboardPage() {
               <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                   <p className="text-lg lg:text-xl font-bold truncate">₦{formatCurrency(walletBalance)}</p>
-                  <p className="text-xs text-gray-600">Available to Withdraw</p>
+                  <p className="text-xs text-muted-foreground">Available to Withdraw</p>
                   {escrowBalance > 0 && (
                     <p className="text-xs text-amber-600 mt-0.5">₦{formatCurrency(escrowBalance)} in escrow</p>
                   )}
@@ -610,8 +610,8 @@ export default function VendorDashboardPage() {
               {recent.length === 0 ? (
                 <div className="text-center py-8">
                   <ShoppingCart className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-gray-600 mb-4">No orders yet</p>
-                   <Button asChild variant="outline" className="border-accent/40 text-accent hover:bg-accent hover:text-white hover:scale-105 transition-all hover:shadow-lg">
+                  <p className="text-muted-foreground mb-4">No orders yet</p>
+                   <Button asChild variant="outline" className="border-accent/40 text-accent hover:bg-accent/10">
                                 <Link href="/vendor/products/new">
                                   <Plus className="mr-2 h-4 w-4" />
                                   Add Product
@@ -622,18 +622,18 @@ export default function VendorDashboardPage() {
                 <>
                   <div className="space-y-4">
                     {recent.map((order, index) => (
-                      <div key={order.id || order._id || index} className="p-3 rounded-lg hover:bg-accent/5 transition-colors border border-gray-100">
+                      <div key={order.id || order._id || index} className="p-3 rounded-lg hover:bg-accent/5 transition-colors border border-border">
                         <div className="flex justify-between items-start mb-2">
                           <div>
                             <p className="font-medium">Order #{(order.id || order._id || "").toString().slice(-8).toUpperCase()}</p>
-                            <p className="text-sm text-gray-600">
+                            <p className="text-sm text-muted-foreground">
                               {order.createdAt ? (typeof order.createdAt === 'string' ? new Date(order.createdAt).toLocaleDateString() : order.createdAt?.toLocaleDateString?.() || 'Unknown date') : 'Unknown date'}
                             </p>
                           </div>
                           <Badge variant="outline">{order.status}</Badge>
                         </div>
-                        <div className="mt-2 pt-2 border-t border-gray-100">
-                          <p className="text-sm font-medium text-gray-700 mb-1">
+                        <div className="mt-2 pt-2 border-t border-border">
+                          <p className="text-sm font-medium text-foreground mb-1">
                             👤 {order.customerName || "Unknown Customer"}
                           </p>
                           {order.vendorItems && order.vendorItems.length > 0 ? (
@@ -643,28 +643,28 @@ export default function VendorDashboardPage() {
                                   <img 
                                     src={item.image || item.images?.[0] || "/placeholder.png"} 
                                     alt={item.title || item.name || "Product"}
-                                    className="w-10 h-10 rounded object-cover border border-gray-200"
+                                    className="w-10 h-10 rounded object-cover border border-border"
                                   />
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-xs text-gray-600 truncate">
+                                    <p className="text-xs text-muted-foreground truncate">
                                       {item.title || item.name || "Product"}
                                     </p>
-                                    <p className="text-xs text-gray-500">
+                                    <p className="text-xs text-muted-foreground">
                                       Qty: {item.quantity || 1}
                                     </p>
                                   </div>
                                 </div>
                               ))}
                               {order.vendorItems.length > 2 && (
-                                <p className="text-xs text-gray-500 italic pl-12">
+                                <p className="text-xs text-muted-foreground italic pl-12">
                                   +{order.vendorItems.length - 2} more item{order.vendorItems.length - 2 > 1 ? 's' : ''}
                                 </p>
                               )}
                             </div>
                           ) : (
-                            <p className="text-xs text-gray-500">No items</p>
+                            <p className="text-xs text-muted-foreground">No items</p>
                           )}
-                          <p className="text-xs font-semibold text-gray-700 mt-2">
+                          <p className="text-xs font-semibold text-foreground mt-2">
                             Total Qty: {order.totalQuantity || 0}
                           </p>
                         </div>
@@ -691,7 +691,7 @@ export default function VendorDashboardPage() {
               {lowStock.length === 0 ? (
                 <div className="text-center py-8">
                   <Package className="h-12 w-12 text-green-500 mx-auto mb-3" />
-                  <p className="text-gray-600">All products well stocked!</p>
+                  <p className="text-muted-foreground">All products well stocked!</p>
                 </div>
               ) : (
                 <>
@@ -797,7 +797,7 @@ export default function VendorDashboardPage() {
               <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                   <p className="text-lg lg:text-xl font-bold truncate">₦{formatCurrency(revenue)}</p>
-                  <p className="text-xs text-gray-600">Service Revenue</p>
+                  <p className="text-xs text-muted-foreground">Service Revenue</p>
                   <p className="text-xs text-green-600">Completed bookings</p>
                 </div>
                 <Banknote className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow shrink-0" />
@@ -810,7 +810,7 @@ export default function VendorDashboardPage() {
               <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                   <p className="text-lg lg:text-xl font-bold">{servicesCount}</p>
-                  <p className="text-xs text-gray-600">Services Offered</p>
+                  <p className="text-xs text-muted-foreground">Services Offered</p>
                   <p className="text-xs text-blue-600">{active} active</p>
                 </div>
                 <Wrench className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow shrink-0" style={{ animationDelay: '0.2s' }} />
@@ -823,7 +823,7 @@ export default function VendorDashboardPage() {
               <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                   <p className="text-lg lg:text-xl font-bold">{bookingsCount}</p>
-                  <p className="text-xs text-gray-600">Total Bookings</p>
+                  <p className="text-xs text-muted-foreground">Total Bookings</p>
                   <p className="text-xs text-amber-600">{pending} pending</p>
                 </div>
                 <Calendar className="h-7 w-7 lg:h-8 lg:w-8 text-accent animate-pulse-glow shrink-0" style={{ animationDelay: '0.4s' }} />
@@ -843,7 +843,7 @@ export default function VendorDashboardPage() {
               {recent.length === 0 ? (
                 <div className="text-center py-8">
                   <Calendar className="h-10 w-10 lg:h-12 lg:w-12 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-sm lg:text-base text-gray-600 mb-4">No bookings yet</p>
+                  <p className="text-sm lg:text-base text-muted-foreground mb-4">No bookings yet</p>
                   <Button asChild variant="outline" size="sm" className="text-xs lg:text-sm border-accent/40 text-accent hover:bg-accent hover:text-white">
                     <Link href="/vendor/services/setup-wizard">
                       <Plus className="mr-2 h-3 w-3 lg:h-4 lg:w-4" />
@@ -860,7 +860,7 @@ export default function VendorDashboardPage() {
                           <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
                           <div>
                             <p className="font-medium">{booking.customerName}</p>
-                            <p className="text-sm text-gray-600">
+                            <p className="text-sm text-muted-foreground">
                               {new Date(booking.bookingDate).toLocaleDateString()} at {booking.startTime}
                             </p>
                           </div>
@@ -900,7 +900,7 @@ export default function VendorDashboardPage() {
                     </div>
                     <div>
                       <p className="font-medium">Active Services</p>
-                      <p className="text-sm text-gray-600">Currently available</p>
+                      <p className="text-sm text-muted-foreground">Currently available</p>
                     </div>
                   </div>
                   <p className="text-2xl font-bold text-green-600">{active}</p>
@@ -913,7 +913,7 @@ export default function VendorDashboardPage() {
                     </div>
                     <div>
                       <p className="font-medium">Pending Approvals</p>
-                      <p className="text-sm text-gray-600">Awaiting confirmation</p>
+                      <p className="text-sm text-muted-foreground">Awaiting confirmation</p>
                     </div>
                   </div>
                   <p className="text-2xl font-bold text-amber-600">{pending}</p>

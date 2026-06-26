@@ -587,13 +587,13 @@ export default function CategoriesPage() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search category cards..."
-                    className="w-full h-10 rounded-full border border-accent/30 bg-white/80 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-accent/40"
+                    className="w-full h-10 rounded-full border border-accent/30 bg-background/80 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-accent/40"
                   />
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowOnlyWithListings((prev) => !prev)}
-                  className={`h-10 rounded-full border text-sm font-semibold transition ${showOnlyWithListings ? "bg-accent text-white border-accent" : "bg-white/80 text-accent border-accent/30"}`}
+                  className={`h-10 rounded-full border text-sm font-semibold transition ${showOnlyWithListings ? "bg-accent text-white border-accent" : "bg-background/80 text-accent border-accent/30"}`}
                 >
                   {showOnlyWithListings ? "Showing with listings" : "Show listed only"}
                 </button>
@@ -610,7 +610,7 @@ export default function CategoriesPage() {
                     key={segment.key}
                     type="button"
                     onClick={() => setSegmentFilter(segment.key as "all" | "goods" | "services" | "stores")}
-                    className={`px-3 py-1.5 text-xs sm:text-sm rounded-full border transition ${segmentFilter === segment.key ? "bg-accent text-white border-accent" : "bg-white/80 text-accent border-accent/30"}`}
+                    className={`px-3 py-1.5 text-xs sm:text-sm rounded-full border transition ${segmentFilter === segment.key ? "bg-accent text-white border-accent" : "bg-background/80 text-accent border-accent/30"}`}
                   >
                     {segment.label}
                   </button>
@@ -669,7 +669,7 @@ export default function CategoriesPage() {
                           {/* Icon/Logo in Center Top */}
                           <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
                             <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-white border-4 border-white overflow-hidden shadow-2xl ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110 flex items-center justify-center">
-                              <IconComponent className="h-6 w-6 sm:h-8 sm:w-8 text-gray-700" />
+                              <IconComponent className="h-6 w-6 sm:h-8 sm:w-8 text-foreground" />
                             </div>
                           </div>
                           {/* Frosted Glass Bubble Content - Store Style */}
@@ -737,7 +737,7 @@ export default function CategoriesPage() {
           </div>
         </div>
       </div>
-      
+      <Footer />
     </>
   )
 }

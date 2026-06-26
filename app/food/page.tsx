@@ -8,6 +8,7 @@ import { Search, Clock, MapPin, UtensilsCrossed, ArrowRight } from "lucide-react
 import Link from "next/link"
 import Image from "next/image"
 import Header from "@/components/Header"
+import Footer from "@/components/Footer"
 import { buildPublicStorePath } from "@/lib/public-links"
 
 function resolveImg(src?: string) {
@@ -36,12 +37,12 @@ function RestaurantCard({ store }: { store: any }) {
   return (
     <Link
       href={isClosed ? "#" : buildPublicStorePath(store)}
-      className={`block group rounded-2xl overflow-hidden border border-gray-200 shadow-sm transition-all duration-300 bg-white ${
+      className={`block group rounded-2xl overflow-hidden border border-border shadow-sm transition-all duration-300 bg-card ${
         isClosed ? "opacity-60 pointer-events-none grayscale" : "hover:shadow-lg hover:-translate-y-0.5"
       }`}
     >
       {/* Banner */}
-      <div className="relative h-44 overflow-hidden" style={{ background: "linear-gradient(135deg, oklch(0.21 0.194 29.234), oklch(0.35 0.15 15))" }}>
+      <div className="relative h-44 overflow-hidden bg-accent">
         {resolveImg(banner) !== "/placeholder.svg" ? (
           <Image
             src={resolveImg(banner)}
@@ -54,7 +55,7 @@ function RestaurantCard({ store }: { store: any }) {
             <UtensilsCrossed className="h-14 w-14 text-white/30" />
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-t from-black/50 via-transparent to-transparent" />
 
         {isClosed && (
           <div className="absolute top-3 right-3">
@@ -81,8 +82,8 @@ function RestaurantCard({ store }: { store: any }) {
       <div className={`p-4 ${hasLogo ? "pt-10" : "pt-4"}`}>
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-base text-gray-900 truncate">{store.name || "Restaurant"}</h3>
-            <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
+            <h3 className="font-bold text-base text-foreground truncate">{store.name || "Restaurant"}</h3>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
               <MapPin className="h-3 w-3 shrink-0" />
               <span className="truncate">{location}</span>
             </div>
@@ -93,12 +94,12 @@ function RestaurantCard({ store }: { store: any }) {
         </div>
 
         <div className="flex items-center gap-2 mt-2 flex-wrap">
-          <span className="flex items-center gap-1 text-xs text-accent font-medium bg-accent/8 border border-accent/15 rounded-full px-2 py-0.5">
+          <span className="flex items-center gap-1 text-xs text-accent font-medium bg-accent/10 border border-accent/20 rounded-full px-2 py-0.5">
             <Clock className="h-3 w-3" />
             3–4 hrs prep
           </span>
           {(store.productCount || 0) > 0 && (
-            <span className="text-xs text-gray-400">{store.productCount} items on menu</span>
+            <span className="text-xs text-muted-foreground">{store.productCount} items on menu</span>
           )}
         </div>
       </div>
@@ -108,7 +109,7 @@ function RestaurantCard({ store }: { store: any }) {
 
 function RestaurantSkeleton() {
   return (
-    <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm bg-white">
+    <div className="rounded-2xl overflow-hidden border border-border shadow-sm bg-card">
       <Skeleton className="h-44 w-full rounded-none" />
       <div className="p-4 pt-10 space-y-2">
         <Skeleton className="h-5 w-2/3" />
@@ -150,11 +151,11 @@ export default function FoodPage() {
   }, [fetchFoodStores])
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
 
       {/* Hero */}
-      <div className="text-white py-12 px-4" style={{ background: "linear-gradient(135deg, oklch(0.21 0.194 29.234) 0%, oklch(0.32 0.16 18) 100%)" }}>
+      <div className="text-white py-12 px-4 bg-accent">
         <div className="max-w-2xl mx-auto text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/15 backdrop-blur-sm mb-4">
             <UtensilsCrossed className="h-8 w-8" />
@@ -176,11 +177,11 @@ export default function FoodPage() {
       </div>
 
       {/* Info bar */}
-      <div className="bg-white border-b border-gray-200 px-4 py-2.5 text-center">
-        <p className="text-xs sm:text-sm text-gray-600 flex items-center justify-center gap-1.5 flex-wrap">
+      <div className="bg-card border-b border-border px-4 py-2.5 text-center">
+        <p className="text-xs sm:text-sm text-muted-foreground flex items-center justify-center gap-1.5 flex-wrap">
           <Clock className="h-4 w-4 shrink-0 text-accent" />
           All meals are made to order — average prep time is{" "}
-          <strong className="text-gray-800">3–4 hours</strong>. Pick a delivery slot when you check out.
+          <strong className="text-foreground">3–4 hours</strong>. Pick a delivery slot when you check out.
         </p>
       </div>
 
@@ -195,14 +196,14 @@ export default function FoodPage() {
             <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-accent/10 mb-6">
               <UtensilsCrossed className="h-10 w-10 text-accent/60" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-700 mb-2">No restaurants found</h2>
-            <p className="text-gray-500 text-sm">
+            <h2 className="text-2xl font-bold text-foreground mb-2">No restaurants found</h2>
+            <p className="text-muted-foreground text-sm">
               {debounced ? `No results for "${debounced}". Try a different search.` : "No food vendors available right now. Check back soon."}
             </p>
           </div>
         ) : (
           <>
-            <p className="text-sm text-gray-500 mb-5">
+            <p className="text-sm text-muted-foreground mb-5">
               {stores.length} restaurant{stores.length !== 1 ? "s" : ""} available
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
@@ -213,6 +214,7 @@ export default function FoodPage() {
           </>
         )}
       </main>
+      <Footer />
     </div>
   )
 }
