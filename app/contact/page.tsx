@@ -90,58 +90,20 @@ export default function ContactPage() {
     </div>
   )
 
-  // ── Support tab: full-height no-scroll layout ─────────────────────────────
+  // ── Support tab: full-screen fixed overlay (like iMessage / Claude app) ───
+  // position: fixed covers the footer and header — nothing bleeds through.
+  // On iOS, fixed elements resize with the visual viewport, so the keyboard
+  // shrinks the container and the input stays pinned above it automatically.
   if (activeTab === "support") {
     return (
-      <div className="bg-background flex flex-col h-dvh overflow-hidden">
-        <Header />
-        <div className="flex-1 flex flex-col overflow-hidden px-3 sm:px-4 pt-3 pb-0">
-          <div className="max-w-3xl mx-auto w-full flex-1 flex flex-col overflow-hidden gap-2.5">
-
-            {/* Heading — compact, hidden on very small screens when space is tight */}
-            <div className="text-center shrink-0 hidden xs:block sm:block">
-              <h1 className="font-['Bebas_Neue'] text-3xl sm:text-4xl leading-none tracking-[0.04em] uppercase">
-                {tabTitle}
-              </h1>
-            </div>
-
-            {TabSwitcher}
-
-            {/* Chat fills remaining height */}
-            <div className="flex-1 min-h-0">
-              <SupportChat />
-            </div>
-
-            {/* Info strip — desktop only, never blocks keyboard on mobile */}
-            <div className="hidden lg:grid lg:grid-cols-2 gap-3 text-sm shrink-0 pb-4">
-              <div className="rounded-xl border bg-card p-4 space-y-2">
-                <p className="font-semibold text-foreground">What can I ask?</p>
-                <ul className="space-y-1 text-muted-foreground leading-relaxed">
-                  <li>📦 Track or cancel an order</li>
-                  <li>↩️ Returns, refunds, exchanges</li>
-                  <li>🛠️ Service bookings or price negotiation</li>
-                  <li>🍽️ Food orders and delivery</li>
-                  <li>💳 Paystack payment issues</li>
-                  <li>👤 Login, account, or wallet help</li>
-                </ul>
-              </div>
-              <div className="rounded-xl border bg-card p-4 space-y-3">
-                <div className="space-y-1.5">
-                  <p className="font-semibold text-foreground">Response times</p>
-                  <ul className="space-y-1 text-muted-foreground">
-                    <li>AI Assistant — instant, 24/7</li>
-                    <li>Human agent — 2–4 hours</li>
-                    <li>Vendor disputes — 24–48 hours</li>
-                  </ul>
-                </div>
-                <Button variant="outline" size="sm" className="w-full border-accent/40 mt-2" onClick={() => setActiveTab("contact")}>
-                  Email the team instead
-                  <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div
+        className="fixed inset-0 z-[60] flex flex-col bg-background"
+        style={{ paddingTop: 'env(safe-area-inset-top)' }}
+      >
+        <SupportChat
+          onBack={() => setActiveTab("contact")}
+          onSwitchToContact={() => setActiveTab("contact")}
+        />
       </div>
     )
   }
