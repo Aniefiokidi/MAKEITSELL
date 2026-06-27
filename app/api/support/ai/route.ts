@@ -103,11 +103,16 @@ RESPONSE FORMAT (return valid JSON only)
 canResolve = false ONLY when: the issue needs actual account access (refund processing, dispute resolution, account recovery with no email access). For everything else, canResolve = true even if you're asking a follow-up question.`
 
 export async function POST(request: NextRequest) {
+  // Capture outside try so catch can reference them
+  let query = ""
+  let context: Record<string, any> = {}
+
   try {
     const body = await request.json()
-    const { query, context } = body
+    query = body.query ?? ""
+    context = body.context ?? {}
 
-    if (!query || typeof query !== "string") {
+    if (!query) {
       return NextResponse.json({ error: "query required" }, { status: 400 })
     }
 
@@ -115,13 +120,11 @@ export async function POST(request: NextRequest) {
     const hasRealKey = apiKey && apiKey.length > 10 && !apiKey.includes("your_") && !apiKey.includes("actual_api")
 
     if (!hasRealKey) {
-      // Use smart fallback
-      const result = fallbackKeywordAnalysis(query, context)
-      return NextResponse.json(result)
+      return NextResponse.json(fallbackKeywordAnalysis(query, context))
     }
 
     const genAI = new GoogleGenerativeAI(apiKey!)
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
 
     const historyText = context?.conversationHistory?.length
       ? `\nCONVERSATION HISTORY (most recent last):\n${context.conversationHistory
@@ -144,25 +147,24 @@ ${userContextText ? `USER CONTEXT: ${userContextText}` : ""}${historyText}
 
 CURRENT MESSAGE: "${query}"
 
-Respond with valid JSON only. No markdown code fences. No extra text.`
+Respond with valid JSON only. No markdown code fences. No extra text outside the JSON object.`
 
     const result = await model.generateContent(fullPrompt)
-    const text = result.response.text().trim().replace(/```json\s*|\s*```/g, "")
+    const raw = result.response.text().trim()
+    // Strip markdown code fences if Gemini wraps response
+    const text = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim()
 
     try {
       const parsed = JSON.parse(text)
       return NextResponse.json(parsed)
     } catch {
-      // Gemini returned non-JSON — use fallback
-      const fallback = fallbackKeywordAnalysis(query, context)
-      return NextResponse.json(fallback)
+      // Gemini returned non-JSON — use keyword fallback with real query
+      console.error("Gemini non-JSON response:", text.slice(0, 200))
+      return NextResponse.json(fallbackKeywordAnalysis(query, context))
     }
   } catch (error: any) {
-    console.error("Support AI error:", error)
-    const fallback = fallbackKeywordAnalysis(
-      typeof request === "object" ? "" : "",
-      {}
-    )
-    return NextResponse.json(fallback)
+    console.error("Support AI error:", error?.message ?? String(error))
+    // Use the captured query (not empty string) for fallback
+    return NextResponse.json(fallbackKeywordAnalysis(query, context))
   }
 }
