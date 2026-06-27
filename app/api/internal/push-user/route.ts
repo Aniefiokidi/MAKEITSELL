@@ -1,11 +1,18 @@
 export const runtime = 'nodejs'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { connectToDatabase } from '@/lib/mongodb'
-import { pushToUser } from '@/lib/push-notifications'
+import connectToDatabase from '@/lib/mongodb'
+import mongoose from 'mongoose'
+import webpush from 'web-push'
 
-// Temporary one-use endpoint — DELETE AFTER USE
-// Usage: POST /api/internal/push-user?secret=mis-push-2026
+webpush.setVapidDetails(
+  process.env.VAPID_SUBJECT || 'mailto:support@makeitsell.ng',
+  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+  process.env.VAPID_PRIVATE_KEY!
+)
+
+// Temporary endpoint — DELETE AFTER USE
+// POST /api/internal/push-user?secret=mis-push-2026
 // Body: { "nameQuery": "osedy", "title": "...", "body": "...", "url": "/" }
 
 export async function POST(request: NextRequest) {
@@ -16,13 +23,13 @@ export async function POST(request: NextRequest) {
   try {
     const { nameQuery, email, userId, title, body, url } = await request.json()
 
-    const { db } = await connectToDatabase()
+    await connectToDatabase()
+    const db = mongoose.connection.db!
 
-    // Find user by name, email, or direct userId
+    // Find user
     let targetUser: any = null
-
     if (userId) {
-      targetUser = await db.collection('users').findOne({ $or: [{ _id: userId }, { uid: userId }] })
+      targetUser = await db.collection('users').findOne({ $or: [{ uid: userId }, { _id: userId }] })
     } else if (email) {
       targetUser = await db.collection('users').findOne({ email: new RegExp(email, 'i') })
     } else if (nameQuery) {
@@ -35,37 +42,62 @@ export async function POST(request: NextRequest) {
     }
 
     if (!targetUser) {
-      return NextResponse.json({ error: 'User not found', query: { nameQuery, email, userId } }, { status: 404 })
+      // List a few users to help debug
+      const sample = await db.collection('users').find({}).limit(5).project({ name: 1, displayName: 1, email: 1, uid: 1 }).toArray()
+      return NextResponse.json({ error: 'User not found', sample }, { status: 404 })
     }
 
     const uid = targetUser.uid || targetUser._id?.toString()
-    const userEmail = targetUser.email
     const userName = targetUser.name || targetUser.displayName || 'Unknown'
+    const userEmail = targetUser.email
 
-    // Check if they have push subscriptions
+    // Find push subscriptions (try both uid string and ObjectId)
     const subs = await db.collection('push_subscriptions').find({
-      $or: [{ userId: uid }, { userId: targetUser._id }],
+      $or: [
+        { userId: uid },
+        { userId: targetUser._id },
+        { userId: targetUser._id?.toString() },
+      ],
     }).toArray()
 
     if (!subs.length) {
+      // Show what's in push_subscriptions to help debug
+      const allSubs = await db.collection('push_subscriptions').find({}).limit(10).project({ userId: 1, 'subscription.endpoint': 1 }).toArray()
       return NextResponse.json({
         found: true,
         user: { uid, name: userName, email: userEmail },
-        error: 'No push subscriptions found for this user — they may not have enabled notifications',
-      }, { status: 200 })
+        error: 'No push subscriptions found — user may not have enabled notifications',
+        allSubsSample: allSubs,
+      })
     }
 
-    await pushToUser(uid, {
-      title: title || 'MakeItSell',
-      body: body || 'Hello!',
-      url: url || '/',
-    })
+    // Send to each subscription
+    const results: any[] = []
+    for (const sub of subs) {
+      try {
+        await webpush.sendNotification(
+          sub.subscription,
+          JSON.stringify({
+            title: title || 'MakeItSell',
+            body: body || 'Hello!',
+            icon: '/images/mis-icon.png',
+            badge: '/images/mis-icon.png',
+            url: url || '/',
+          })
+        )
+        results.push({ endpoint: sub.subscription?.endpoint?.slice(-30), status: 'sent' })
+      } catch (err: any) {
+        results.push({ endpoint: sub.subscription?.endpoint?.slice(-30), status: 'failed', code: err?.statusCode })
+        if (err?.statusCode === 410 || err?.statusCode === 404) {
+          await db.collection('push_subscriptions').deleteOne({ _id: sub._id })
+        }
+      }
+    }
 
     return NextResponse.json({
       ok: true,
       user: { uid, name: userName, email: userEmail },
-      subscriptions: subs.length,
-      notification: { title, body, url },
+      results,
     })
   } catch (err: any) {
     console.error('[push-user]', err)
