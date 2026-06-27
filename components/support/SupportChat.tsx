@@ -14,6 +14,24 @@ import { useAuth } from "@/contexts/AuthContext"
 import { analyzeQueryWithGemini } from "@/lib/gemini-ai"
 import { Send, Bot, User, Loader2, MessageCircle } from "lucide-react"
 
+function renderMarkdown(text: string) {
+  return text.split('\n').map((line, i, arr) => {
+    // Split line on **bold** spans
+    const parts = line.split(/(\*\*[^*]+\*\*)/)
+    const rendered = parts.map((part, j) =>
+      part.startsWith('**') && part.endsWith('**')
+        ? <strong key={j}>{part.slice(2, -2)}</strong>
+        : <span key={j}>{part}</span>
+    )
+    return (
+      <span key={i}>
+        {rendered}
+        {i < arr.length - 1 && <br />}
+      </span>
+    )
+  })
+}
+
 interface Message {
   id: string
   senderId: string
@@ -378,7 +396,7 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
                           <span>Typing...</span>
                         </div>
                       ) : (
-                        <div className="whitespace-pre-wrap wrap-break-word">{message.message}</div>
+                        <div className="whitespace-pre-wrap wrap-break-word">{renderMarkdown(message.message)}</div>
                       )}
                     </div>
                   </div>

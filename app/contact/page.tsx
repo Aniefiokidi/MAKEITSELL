@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Mail, Phone, Clock, HelpCircle, ArrowRight } from "lucide-react"
+import { Mail, Phone, Clock, ArrowRight } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import SupportChat from "@/components/support/SupportChat"
 
@@ -250,55 +250,37 @@ export default function ContactPage() {
               </div>
             </div>
           ) : (
-            <div className="grid xl:grid-cols-3 gap-4 sm:gap-6">
-              <div className="xl:col-span-2 w-full">
-                <SupportChat />
-              </div>
+            <div className="flex flex-col gap-4 sm:gap-6 max-w-3xl mx-auto">
+              <SupportChat />
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <HelpCircle className="h-5 w-5 text-accent" />
-                    Quick Help
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  <div className="rounded-lg border p-3 space-y-1.5">
-                    <h4 className="font-semibold">What can I ask about?</h4>
-                    <ul className="space-y-1 text-muted-foreground">
-                      <li>📦 Track or cancel an order</li>
-                      <li>↩️ Returns, refunds, exchanges</li>
-                      <li>🛠️ Book a service or negotiate price</li>
-                      <li>🍽️ Food orders and delivery</li>
-                      <li>🔨 Bidding and auctions</li>
-                      <li>💳 Paystack payment issues</li>
-                      <li>👤 Login, account, or wallet help</li>
-                      <li>🏪 Become a vendor / seller</li>
-                    </ul>
-                  </div>
-                  <div className="rounded-lg border p-3 space-y-1.5">
-                    <h4 className="font-semibold">Response times</h4>
+              {/* Compact help strip */}
+              <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                <div className="rounded-xl border bg-card p-4 space-y-2">
+                  <p className="font-semibold text-foreground">What can I ask?</p>
+                  <ul className="space-y-1 text-muted-foreground leading-relaxed">
+                    <li>📦 Track or cancel an order</li>
+                    <li>↩️ Returns, refunds, exchanges</li>
+                    <li>🛠️ Service bookings or price negotiation</li>
+                    <li>🍽️ Food orders and delivery</li>
+                    <li>💳 Paystack payment issues</li>
+                    <li>👤 Login, account, or wallet help</li>
+                  </ul>
+                </div>
+                <div className="rounded-xl border bg-card p-4 space-y-3">
+                  <div className="space-y-1.5">
+                    <p className="font-semibold text-foreground">Response times</p>
                     <ul className="space-y-1 text-muted-foreground">
                       <li>AI Assistant — instant, 24/7</li>
-                      <li>Human agent — 2 to 4 hours</li>
-                      <li>Vendor disputes — 24 to 48 hours</li>
+                      <li>Human agent — 2–4 hours</li>
+                      <li>Vendor disputes — 24–48 hours</li>
                     </ul>
                   </div>
-                </CardContent>
-              </Card>
-
-              <Card className="xl:col-span-3 bg-linear-to-r from-accent/10 to-primary/10 border-accent/30">
-                <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div>
-                    <p className="font-semibold">Want to message the team directly?</p>
-                    <p className="text-sm text-muted-foreground">Use the Contact Team tab for direct email follow-up.</p>
-                  </div>
-                  <Button variant="outline" className="border-accent/40" onClick={() => setActiveTab("contact")}>
-                    Contact Team
-                    <ArrowRight className="h-4 w-4 ml-2" />
+                  <Button variant="outline" size="sm" className="w-full border-accent/40 mt-2" onClick={() => setActiveTab("contact")}>
+                    Email the team instead
+                    <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
                   </Button>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </div>
           )}
 

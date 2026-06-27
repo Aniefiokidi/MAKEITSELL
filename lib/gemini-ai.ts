@@ -1112,7 +1112,43 @@ Is there a specific auction you need help with?`,
     }
   }
 
-  // Wallet
+  // Wallet — withdrawal delay (must come before general wallet check)
+  if (
+    lowerQuery.includes('withdraw') &&
+    (lowerQuery.includes("hasn't") || lowerQuery.includes("not arrived") || lowerQuery.includes("not received") ||
+     lowerQuery.includes("delay") || lowerQuery.includes("pending") || lowerQuery.includes("still") ||
+     lowerQuery.includes("waiting") || lowerQuery.includes("arrive") || lowerQuery.includes("come"))
+  ) {
+    return {
+      canResolve: true,
+      response: `${greeting}, sorry your withdrawal hasn't arrived yet — let's sort this out.
+
+**Typical processing time:**
+• Withdrawals are approved within 1 business day
+• Bank transfer then takes 1–3 business days depending on your bank
+
+**Check these first:**
+1. Go to /wallet and look at the withdrawal status — is it "Pending" or "Completed"?
+2. If "Completed" → your bank may just need a few more hours to reflect it
+3. If still "Pending" after 2 business days → we need to investigate
+
+**Common reasons for delays:**
+• Weekend or public holiday (banks don't process on those days)
+• Incorrect bank account details entered
+• High volume periods (end of month)
+• Some smaller Nigerian banks take longer than average
+
+If it's been more than 3 business days and still nothing, please contact support with the withdrawal amount, date, and your bank name and we'll chase it immediately.`,
+      suggestedActions: [
+        "Check withdrawal status in /wallet",
+        "Verify your bank account details are correct",
+        "Contact support with withdrawal reference",
+        "How to withdraw my earnings"
+      ]
+    }
+  }
+
+  // Wallet — general
   if (lowerQuery.includes('wallet') || lowerQuery.includes('withdraw') || lowerQuery.includes('earnings') || lowerQuery.includes('payout') || lowerQuery.includes('balance') || lowerQuery.includes('top up') || lowerQuery.includes('fund')) {
     return {
       canResolve: true,
