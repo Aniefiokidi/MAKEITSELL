@@ -1,6 +1,6 @@
 import webpush from 'web-push'
-import { connectToDatabase } from './mongodb'
-import { ObjectId } from 'mongodb'
+import connectToDatabase from './mongodb'
+import mongoose from 'mongoose'
 
 webpush.setVapidDetails(
   process.env.VAPID_SUBJECT || 'mailto:support@makeitsell.ng',
@@ -20,10 +20,16 @@ export interface PushPayload {
 const ICON = '/images/mis-icon.png'
 const BADGE = '/images/mis-icon.png'
 
-/**
- * Send a push notification to a single subscription record.
- * Returns true on success, false on permanent failure (expired/invalid).
- */
+function getPushSubModel() {
+  const schema = new mongoose.Schema({
+    subscription: mongoose.Schema.Types.Mixed,
+    userId: mongoose.Schema.Types.Mixed,
+    updatedAt: Date,
+    createdAt: Date,
+  }, { collection: 'push_subscriptions' })
+  return mongoose.models.PushSubLib || mongoose.model('PushSubLib', schema)
+}
+
 async function sendToSubscription(sub: any, payload: PushPayload): Promise<boolean> {
   try {
     await webpush.sendNotification(
@@ -40,68 +46,58 @@ async function sendToSubscription(sub: any, payload: PushPayload): Promise<boole
     return true
   } catch (err: any) {
     if (err?.statusCode === 410 || err?.statusCode === 404) {
-      return false // subscription expired — caller should delete it
+      return false
     }
     console.error('[push] sendNotification error:', err?.message)
-    return true // transient error — keep subscription
+    return true
   }
 }
 
-/**
- * Send a push notification to all subscriptions for a given userId.
- * Automatically removes expired subscriptions.
- */
 export async function pushToUser(userId: string, payload: PushPayload) {
-  const { db } = await connectToDatabase()
-  let userQuery: any
-  try { userQuery = { userId: new ObjectId(userId) } } catch { userQuery = { userId } }
+  await connectToDatabase()
+  const PushSub = getPushSubModel()
 
-  const subs = await db.collection('push_subscriptions').find(userQuery).toArray()
+  const subs = await PushSub.find({
+    $or: [{ userId }, { userId: userId.toString() }],
+  }).lean() as any[]
+
   if (!subs.length) return
 
-  const expired: string[] = []
+  const expired: any[] = []
   await Promise.all(
     subs.map(async (sub: any) => {
       const ok = await sendToSubscription(sub, payload)
-      if (!ok) expired.push(String(sub._id))
+      if (!ok) expired.push(sub._id)
     })
   )
   if (expired.length) {
-    await db.collection('push_subscriptions').deleteMany({
-      _id: { $in: expired.map((id) => { try { return new ObjectId(id) } catch { return id } }) },
-    })
+    await PushSub.deleteMany({ _id: { $in: expired } })
   }
 }
 
-/**
- * Broadcast a push notification to ALL subscribers (e.g. site-wide announcements).
- * Processes in batches to avoid memory issues.
- */
 export async function pushBroadcast(payload: PushPayload, batchSize = 200) {
-  const { db } = await connectToDatabase()
-  const expired: string[] = []
+  await connectToDatabase()
+  const PushSub = getPushSubModel()
+
+  const expired: any[] = []
   let skip = 0
 
   while (true) {
-    const batch = await db.collection('push_subscriptions').find({}).skip(skip).limit(batchSize).toArray()
+    const batch = await PushSub.find({}).skip(skip).limit(batchSize).lean() as any[]
     if (!batch.length) break
     await Promise.all(
       batch.map(async (sub: any) => {
         const ok = await sendToSubscription(sub, payload)
-        if (!ok) expired.push(String(sub._id))
+        if (!ok) expired.push(sub._id)
       })
     )
     if (expired.length > 100) {
-      await db.collection('push_subscriptions').deleteMany({
-        _id: { $in: expired.splice(0).map((id) => { try { return new ObjectId(id) } catch { return id } }) },
-      })
+      await PushSub.deleteMany({ _id: { $in: expired.splice(0) } })
     }
     skip += batchSize
     if (batch.length < batchSize) break
   }
   if (expired.length) {
-    await db.collection('push_subscriptions').deleteMany({
-      _id: { $in: expired.map((id) => { try { return new ObjectId(id) } catch { return id } }) },
-    })
+    await PushSub.deleteMany({ _id: { $in: expired } })
   }
 }

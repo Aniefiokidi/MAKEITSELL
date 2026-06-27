@@ -1,8 +1,17 @@
 export const runtime = 'nodejs'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { connectToDatabase } from '@/lib/mongodb'
-import { ObjectId } from 'mongodb'
+import connectToDatabase from '@/lib/mongodb'
+import mongoose from 'mongoose'
+
+const PushSubSchema = new mongoose.Schema({
+  subscription: mongoose.Schema.Types.Mixed,
+  userId: mongoose.Schema.Types.Mixed,
+  updatedAt: Date,
+  createdAt: Date,
+}, { collection: 'push_subscriptions' })
+
+const PushSub = mongoose.models.PushSubModel || mongoose.model('PushSubModel', PushSubSchema)
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,15 +22,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid subscription' }, { status: 400 })
     }
 
-    const { db } = await connectToDatabase()
+    await connectToDatabase()
 
-    // Upsert by endpoint — same browser tab won't create duplicates
-    await db.collection('push_subscriptions').updateOne(
+    await PushSub.updateOne(
       { 'subscription.endpoint': subscription.endpoint },
       {
         $set: {
           subscription,
-          userId: userId ? (() => { try { return new ObjectId(userId) } catch { return userId } })() : null,
+          userId: userId || null,
           updatedAt: new Date(),
         },
         $setOnInsert: { createdAt: new Date() },
