@@ -91,14 +91,16 @@ self.addEventListener('push', (event) => {
   try { data = event.data ? event.data.json() : {} } catch {}
 
   const title = data.title || 'MakeItSell'
+  // Use timestamp-based tag so iOS never suppresses as duplicate
+  const tag = data.tag ? `${data.tag}-${Date.now()}` : `mis-${Date.now()}`
   const options = {
     body: data.body || '',
     icon: data.icon || '/images/mis-icon.png',
     badge: data.badge || '/images/mis-icon.png',
     data: { url: data.url || '/' },
-    tag: data.tag || 'mis-notification',
-    renotify: true,
-    vibrate: [100, 50, 100],
+    tag,
+    // Note: vibrate is NOT included — iOS rejects showNotification silently if
+    // vibrate is present, causing the notification to never appear.
   }
 
   event.waitUntil(self.registration.showNotification(title, options))
