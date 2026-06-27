@@ -187,11 +187,142 @@ Remember: You're not just answering questions - you're having an intelligent con
   }
 }
 
+// Normalize Pidgin / typos / SMS shorthand → standard English keywords
+function normalizePidgin(text: string): string {
+  return text
+    .toLowerCase()
+    // Pidgin core words
+    .replace(/\bwetin\b/g, "what")
+    .replace(/\babeg\b/g, "please")
+    .replace(/\bna\b/g, "is")
+    .replace(/\babi\b/g, "or")
+    .replace(/\bdem\b/g, "they")
+    .replace(/\bdey\b/g, "are")
+    .replace(/\bno be\b/g, "not")
+    .replace(/\bwey\b/g, "where")
+    .replace(/\bsabi\b/g, "know")
+    .replace(/\bfit\b/g, "can")
+    .replace(/\bwan\b/g, "want")
+    .replace(/\bmake i\b/g, "let me")
+    .replace(/\bna so\b/g, "yes")
+    .replace(/\bhow e take\b/g, "how does")
+    .replace(/\bhow e go\b/g, "how do i")
+    .replace(/\bhow i go\b/g, "how do i")
+    .replace(/\be go\b/g, "will it")
+    .replace(/\be reach me\b/g, "has it arrived")
+    .replace(/\be don come\b/g, "it has arrived")
+    .replace(/\border don come\b/g, "order has arrived")
+    .replace(/\border never come\b/g, "order not arrived")
+    .replace(/\bmoney never enter\b/g, "payment not received")
+    .replace(/\bmoney no enter\b/g, "payment not received")
+    .replace(/\bmoney never show\b/g, "payment not received")
+    .replace(/\bno money enter\b/g, "payment not received")
+    .replace(/\bdem deduct my money\b/g, "they charged me")
+    .replace(/\bwithdraw[a]?l never land\b/g, "withdrawal not arrived")
+    .replace(/\bwithdrawal never come\b/g, "withdrawal not arrived")
+    .replace(/\bmy money go\b/g, "i was charged")
+    .replace(/\bchop my money\b/g, "charged my account")
+    .replace(/\bnever send\b/g, "not sent")
+    .replace(/\bnever land\b/g, "not arrived")
+    .replace(/\bnever show\b/g, "not received")
+    .replace(/\bnever enter\b/g, "not received")
+    // common typos
+    .replace(/\bpayamnt\b|\bpaymant\b|\bpayemnt\b/g, "payment")
+    .replace(/\bwithdrawl\b|\bwithdrawal\b/g, "withdraw")
+    .replace(/\brefnd\b|\brefundd\b/g, "refund")
+    .replace(/\bcancle\b|\bcancell\b/g, "cancel")
+    .replace(/\bdelivrey\b|\bdeleviry\b|\bdelivary\b/g, "delivery")
+    .replace(/\border\b|\boder\b/g, "order")
+    .replace(/\brecieve\b/g, "receive")
+    .replace(/\baccaunt\b|\baccout\b/g, "account")
+    .replace(/\bpasswrod\b|\bpasswod\b/g, "password")
+    .replace(/\bpls\b/g, "please")
+    .replace(/\bu\b/g, "you")
+    .replace(/\br\b/g, "are")
+    .replace(/\bcos\b/g, "because")
+    .replace(/\bcuz\b/g, "because")
+    .replace(/\bdat\b/g, "that")
+    .replace(/\bdis\b/g, "this")
+    .replace(/\bwat\b/g, "what")
+    .replace(/\bgot\b/g, "got")
+}
+
 // Highly intelligent fallback with advanced reasoning capabilities
-const fallbackKeywordAnalysis = (query: string, context?: { userName?: string }): GeminiResponse => {
-  const lowerQuery = query.toLowerCase()
+export const fallbackKeywordAnalysis = (query: string, context?: { userName?: string }): GeminiResponse => {
+  const normalized = normalizePidgin(query)
+  const lowerQuery = normalized
   const userName = context?.userName && context.userName !== 'there' ? context.userName : null
   const greeting = userName ? `${userName}` : 'there'
+
+  // ── Pidgin greetings ─────────────────────────────────────────────────────────
+  if (/\b(how far|how body|sup|watsup|e kaaro|e kaasan|good mornin|gud morning|omo)\b/.test(normalized)) {
+    return {
+      canResolve: true,
+      response: `Hey ${greeting}! 😄 How far! I dey here to help you with anything on MakeItSell — orders, payments, wallet, bookings — just talk your mind. What's going on?`,
+      suggestedActions: ["Track my order", "Payment issue", "Withdrawal help", "Book a service"]
+    }
+  }
+
+  // ── Payment debited but order/confirmation missing ───────────────────────────
+  if (
+    (lowerQuery.includes('charged') || lowerQuery.includes('debited') || lowerQuery.includes('i was charged') || lowerQuery.includes('money go') || lowerQuery.includes('payment not received')) &&
+    (lowerQuery.includes('order') || lowerQuery.includes('confirm') || lowerQuery.includes('show') || lowerQuery.includes('appear') || lowerQuery.includes('not'))
+  ) {
+    return {
+      canResolve: true,
+      response: `${greeting}, this is a Paystack timing issue — it happens sometimes. Here's what to do:
+
+**Check first:**
+1. Go to **My Orders** in your account — the order may already be there even if you didn't get a confirmation email
+2. Check your email (including spam) for a Paystack receipt
+
+**If the order is NOT there:**
+• The money is held by Paystack and will auto-return to your card/wallet in 1–5 business days — nothing is lost
+• This usually means the payment timed out before Paystack confirmed it to us
+
+**If it's been more than 5 business days:**
+Contact support with your bank debit alert details (amount, date, last 4 digits of card) and we'll trace it immediately.
+
+Don't panic — your money is safe.`,
+      suggestedActions: [
+        "Check My Orders in my account",
+        "It's been more than 5 days",
+        "Check my payment history",
+        "Talk to a human agent"
+      ]
+    }
+  }
+
+  // ── Paystack card declined ──────────────────────────────────────────────────
+  if (
+    (lowerQuery.includes('declined') || lowerQuery.includes('card not working') || lowerQuery.includes('payment failed') || lowerQuery.includes('card fail') || lowerQuery.includes('card block')) &&
+    (lowerQuery.includes('card') || lowerQuery.includes('payment') || lowerQuery.includes('pay'))
+  ) {
+    return {
+      canResolve: true,
+      response: `${greeting}, card declines on Paystack are usually one of these:
+
+**Most common reasons:**
+• **Insufficient funds** — check your account balance
+• **Card not enabled for online transactions** — call your bank to activate online/web payments
+• **OTP not entered in time** — the session times out, try again
+• **International transactions blocked** — some Nigerian banks block web payments by default; call your bank
+• **Paystack daily limit** — some cards have daily online spend limits
+
+**Quick fixes:**
+1. Try **bank transfer** instead — more reliable in Nigeria (select "Pay with Bank Transfer" on Paystack)
+2. Try a different card
+3. Call your bank to confirm the card is activated for online use
+
+Which bank's card are you using? I can give more specific advice.`,
+      suggestedActions: [
+        "Try bank transfer instead",
+        "My card is GTBank / Access / Zenith / UBA / First Bank",
+        "Help me activate my card for online payments",
+        "Try a different payment method"
+      ]
+    }
+  }
 
   // INTELLIGENT REASONING: Registration/Account Creation
   if (lowerQuery.includes('register') || lowerQuery.includes('sign up') || lowerQuery.includes('create account') || lowerQuery.includes('how do i join') || lowerQuery.includes('new account')) {

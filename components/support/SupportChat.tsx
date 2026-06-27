@@ -11,8 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 import { useAuth } from "@/contexts/AuthContext"
-import { analyzeQueryWithGemini } from "@/lib/gemini-ai"
-import { Send, Bot, User, Loader2, MessageCircle } from "lucide-react"
+import { Send, Bot, User, Loader2, MessageCircle, ThumbsUp, ThumbsDown } from "lucide-react"
 
 function renderMarkdown(text: string) {
   return text.split('\n').map((line, i, arr) => {
@@ -39,6 +38,7 @@ interface Message {
   message: string
   timestamp: Date
   isTyping?: boolean
+  feedback?: "up" | "down" | null
 }
 
 interface SupportChatProps {
@@ -170,15 +170,23 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
       })
 
       try {
-        // Get AI response with context
+        // Call server-side AI route (keeps API key secure, enables real Gemini)
         const userName = user?.displayName || userProfile?.name || user?.email?.split('@')[0] || undefined
-        const aiResponse = await analyzeQueryWithGemini(userMessage, {
-          userId: user?.uid,
-          userName: userName,
-          userRole: userProfile?.role || 'customer',
-          userEmail: user?.email,
-          conversationHistory: messages.slice(-5) // Last 5 messages for context
+        const aiRes = await fetch("/api/support/ai", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: userMessage,
+            context: {
+              userId: user?.uid,
+              userName,
+              userRole: userProfile?.role || "customer",
+              userEmail: user?.email,
+              conversationHistory: messages.filter(m => !m.isTyping).slice(-10),
+            },
+          }),
         })
+        const aiResponse = await aiRes.json()
 
         // Remove typing indicator
         setMessages((prev) => prev.filter((msg) => !msg.isTyping))
@@ -399,6 +407,26 @@ export default function SupportChat({ ticketId, onEscalate }: SupportChatProps) 
                         <div className="whitespace-pre-wrap wrap-break-word">{renderMarkdown(message.message)}</div>
                       )}
                     </div>
+                    {message.senderRole === "ai" && !message.isTyping && (
+                      <div className="flex gap-1 mt-0.5">
+                        <button
+                          type="button"
+                          title="Helpful"
+                          onClick={() => setMessages(prev => prev.map(m => m.id === message.id ? { ...m, feedback: "up" } : m))}
+                          className={`p-1 rounded transition-colors ${message.feedback === "up" ? "text-green-600" : "text-muted-foreground hover:text-green-600"}`}
+                        >
+                          <ThumbsUp className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Not helpful"
+                          onClick={() => setMessages(prev => prev.map(m => m.id === message.id ? { ...m, feedback: "down" } : m))}
+                          className={`p-1 rounded transition-colors ${message.feedback === "down" ? "text-red-500" : "text-muted-foreground hover:text-red-500"}`}
+                        >
+                          <ThumbsDown className="h-3 w-3" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))
