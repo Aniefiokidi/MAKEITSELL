@@ -11,7 +11,14 @@ webpush.setVapidDetails(
   process.env.VAPID_PRIVATE_KEY!
 )
 
-// Temporary endpoint — DELETE AFTER USE
+// Inline schemas — avoids model-already-registered errors in serverless
+const PushSubSchema = new mongoose.Schema({ userId: mongoose.Schema.Types.Mixed, subscription: mongoose.Schema.Types.Mixed }, { collection: 'push_subscriptions' })
+const PushSub = mongoose.models.PushSub || mongoose.model('PushSub', PushSubSchema)
+
+const UserSchema = new mongoose.Schema({ uid: String, name: String, displayName: String, email: String }, { collection: 'users', strict: false })
+const User = mongoose.models.InternalUser || mongoose.model('InternalUser', UserSchema)
+
+// Temporary — DELETE AFTER USE
 // POST /api/internal/push-user?secret=mis-push-2026
 // Body: { "nameQuery": "osedy", "title": "...", "body": "...", "url": "/" }
 
@@ -21,53 +28,41 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { nameQuery, email, userId, title, body, url } = await request.json()
-
     await connectToDatabase()
-    const db = mongoose.connection.db!
 
-    // Find user
-    let targetUser: any = null
-    if (userId) {
-      targetUser = await db.collection('users').findOne({ $or: [{ uid: userId }, { _id: userId }] })
-    } else if (email) {
-      targetUser = await db.collection('users').findOne({ email: new RegExp(email, 'i') })
+    const { nameQuery, email, title, body, url } = await request.json()
+
+    // Find target user
+    let query: any = {}
+    if (email) {
+      query = { email: new RegExp(email, 'i') }
     } else if (nameQuery) {
-      targetUser = await db.collection('users').findOne({
-        $or: [
-          { name: new RegExp(nameQuery, 'i') },
-          { displayName: new RegExp(nameQuery, 'i') },
-        ],
-      })
+      query = { $or: [{ name: new RegExp(nameQuery, 'i') }, { displayName: new RegExp(nameQuery, 'i') }] }
+    } else {
+      return NextResponse.json({ error: 'Provide nameQuery or email' }, { status: 400 })
     }
 
+    const targetUser = await User.findOne(query).lean() as any
     if (!targetUser) {
-      // List a few users to help debug
-      const sample = await db.collection('users').find({}).limit(5).project({ name: 1, displayName: 1, email: 1, uid: 1 }).toArray()
+      const sample = await User.find({}).limit(5).select('name displayName email uid').lean()
       return NextResponse.json({ error: 'User not found', sample }, { status: 404 })
     }
 
-    const uid = targetUser.uid || targetUser._id?.toString()
-    const userName = targetUser.name || targetUser.displayName || 'Unknown'
-    const userEmail = targetUser.email
+    const uid: string = targetUser.uid || targetUser._id?.toString()
+    const userName: string = targetUser.name || targetUser.displayName || 'Unknown'
 
-    // Find push subscriptions (try both uid string and ObjectId)
-    const subs = await db.collection('push_subscriptions').find({
-      $or: [
-        { userId: uid },
-        { userId: targetUser._id },
-        { userId: targetUser._id?.toString() },
-      ],
-    }).toArray()
+    // Find push subscriptions
+    const subs = await PushSub.find({
+      $or: [{ userId: uid }, { userId: targetUser._id?.toString() }],
+    }).lean() as any[]
 
     if (!subs.length) {
-      // Show what's in push_subscriptions to help debug
-      const allSubs = await db.collection('push_subscriptions').find({}).limit(10).project({ userId: 1, 'subscription.endpoint': 1 }).toArray()
+      const allSubs = await PushSub.find({}).limit(5).select('userId').lean()
       return NextResponse.json({
         found: true,
-        user: { uid, name: userName, email: userEmail },
-        error: 'No push subscriptions found — user may not have enabled notifications',
-        allSubsSample: allSubs,
+        user: { uid, name: userName, email: targetUser.email },
+        warning: 'No push subscriptions found — user may not have notifications enabled',
+        subsInDb: allSubs.map((s: any) => String(s.userId)),
       })
     }
 
@@ -79,26 +74,22 @@ export async function POST(request: NextRequest) {
           sub.subscription,
           JSON.stringify({
             title: title || 'MakeItSell',
-            body: body || 'Hello!',
+            body: body || '',
             icon: '/images/mis-icon.png',
             badge: '/images/mis-icon.png',
             url: url || '/',
           })
         )
-        results.push({ endpoint: sub.subscription?.endpoint?.slice(-30), status: 'sent' })
+        results.push({ ok: true })
       } catch (err: any) {
-        results.push({ endpoint: sub.subscription?.endpoint?.slice(-30), status: 'failed', code: err?.statusCode })
+        results.push({ ok: false, statusCode: err?.statusCode, message: err?.message })
         if (err?.statusCode === 410 || err?.statusCode === 404) {
-          await db.collection('push_subscriptions').deleteOne({ _id: sub._id })
+          await PushSub.deleteOne({ _id: (sub as any)._id })
         }
       }
     }
 
-    return NextResponse.json({
-      ok: true,
-      user: { uid, name: userName, email: userEmail },
-      results,
-    })
+    return NextResponse.json({ ok: true, user: { uid, name: userName, email: targetUser.email }, results })
   } catch (err: any) {
     console.error('[push-user]', err)
     return NextResponse.json({ error: err?.message || 'Server error' }, { status: 500 })
