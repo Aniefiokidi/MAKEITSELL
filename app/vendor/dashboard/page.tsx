@@ -24,6 +24,7 @@ import { getSessionToken } from "@/lib/auth-client"
 import Link from "next/link"
 import VendorLayout from "@/components/vendor/VendorLayout"
 import { VendorWalletModal } from "@/components/vendor/VendorWalletModal"
+import StreakWidget from "@/components/vendor/StreakWidget"
 
 
 export default function VendorDashboardPage() {
@@ -598,6 +599,9 @@ export default function VendorDashboardPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Streak widget */}
+        <StreakWidget />
 
         {/* Recent Orders and Low Stock */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

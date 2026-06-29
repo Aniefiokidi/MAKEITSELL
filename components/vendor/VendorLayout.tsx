@@ -25,6 +25,8 @@ import {
   ShoppingCart,
 } from "lucide-react"
 import AddProductModal from "./AddProductModal"
+import StreakTargetModal from "./StreakTargetModal"
+import { useAuth } from "@/contexts/AuthContext"
 
 const ALL_SEARCH_ITEMS = [
   { label: 'Overview', description: 'Dashboard summary and key stats', href: '/vendor/dashboard', icon: LayoutDashboard, keywords: 'home dashboard overview stats revenue' },
@@ -138,6 +140,28 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
   const pathname = usePathname()
   const routes = useRouter()
   const isVendorDashboard = pathname === "/vendor/dashboard"
+  const { user, userProfile } = useAuth()
+
+  // Streak target intercept — must be set before accessing any vendor page
+  const [streakModalData, setStreakModalData] = useState<{
+    floorOrderCount: number
+    isDefaultFloor: boolean
+  } | null>(null)
+
+  useEffect(() => {
+    if (!user || userProfile?.role !== 'vendor') return
+    fetch('/api/vendor/streak', { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && d.hasSetTarget === false) {
+          setStreakModalData({
+            floorOrderCount: d.floorOrderCount ?? 26,
+            isDefaultFloor: d.isDefaultFloor ?? true,
+          })
+        }
+      })
+      .catch(() => {})
+  }, [user, userProfile?.role])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -164,6 +188,14 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background flex">
+      {/* Streak target modal — blocks all dashboard interaction until target is set */}
+      {streakModalData && (
+        <StreakTargetModal
+          floorOrderCount={streakModalData.floorOrderCount}
+          isDefaultFloor={streakModalData.isDefaultFloor}
+          onSuccess={() => setStreakModalData(null)}
+        />
+      )}
       {searchOpen && <VendorSearch onClose={() => setSearchOpen(false)} />}
       {sidebarOpen && (
         <div

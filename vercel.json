@@ -4,6 +4,10 @@
     {
       "path": "/api/admin/orders/escrow-automation",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/admin/streak-evaluation",
+      "schedule": "0 1 1 * *"
     }
   ]
 }
