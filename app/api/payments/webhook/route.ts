@@ -706,6 +706,7 @@ async function handleTransferFailure(data: any) {
     })
 
     if (!transaction) {
+      console.error('[handleTransferFailure] No withdrawal transaction found for reference:', reference)
       return
     }
 
@@ -731,12 +732,26 @@ async function handleTransferFailure(data: any) {
         ? new mongoose.Types.ObjectId(transaction.userId)
         : transaction.userId
 
+      // Read the commission breakdown stored at withdrawal time so sub-balances
+      // are restored correctly. Full refund — commission is not kept on a failed transfer.
+      const breakdown = transaction.metadata?.commissionBreakdown
+      const restoreInc: Record<string, number> = {}
+
+      if (breakdown && typeof breakdown.withdrawFromEarned === 'number') {
+        const { withdrawFromDeposited = 0, withdrawFromPrize = 0, withdrawFromEarned = 0, commission = 0 } = breakdown
+        restoreInc.walletBalance = withdrawFromDeposited + withdrawFromPrize + withdrawFromEarned + commission
+        if (withdrawFromEarned + commission > 0) restoreInc.earnedBalance = withdrawFromEarned + commission
+        if (withdrawFromDeposited > 0) restoreInc.depositedBalance = withdrawFromDeposited
+        if (withdrawFromPrize > 0) restoreInc.prizeBalance = withdrawFromPrize
+      } else {
+        // No breakdown stored (pre-migration withdrawal) — fall back to full walletBalance restore
+        console.warn('[handleTransferFailure] No commissionBreakdown in metadata for tx:', String(transaction._id), '— restoring walletBalance only')
+        restoreInc.walletBalance = Number(transaction.amount || 0)
+      }
+
       await User.updateOne(
         { _id: userIdObject },
-        {
-          $inc: { walletBalance: transaction.amount },
-          $set: { updatedAt: new Date() },
-        }
+        { $inc: restoreInc, $set: { updatedAt: new Date() } }
       )
     }
   } catch (error) {
