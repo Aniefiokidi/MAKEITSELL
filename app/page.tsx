@@ -32,6 +32,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle2 } from "lucide-react"
 import { buildPublicServicePath } from "@/lib/public-links"
 import { personalizeProducts, personalizeServices, trackProductQuickView, trackServiceView } from "@/lib/personalization"
+import Footer from "@/components/Footer"
 
 function TrendingProducts() {
   const [products, setProducts] = useState<any[]>([])
@@ -507,7 +508,69 @@ function TrendingProducts() {
   )
 }
 
-// Move HeroButtons here, above HomePage
+function FeaturedStores() {
+  const [stores, setStores] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/home/featured-stores')
+      .then(r => r.json())
+      .then(data => { setStores(Array.isArray(data.stores) ? data.stores : []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 sm:gap-4">
+        {[1,2,3,4,5,6].map(i => (
+          <div key={i} className="animate-pulse rounded-2xl border border-neutral-200 bg-white">
+            <div className="aspect-square bg-neutral-200 rounded-t-2xl" />
+            <div className="p-3 space-y-2">
+              <div className="h-3 bg-neutral-200 rounded w-3/4" />
+              <div className="h-2.5 bg-neutral-200 rounded w-1/2" />
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+  if (!stores.length) return null
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 sm:gap-4 stagger-grid">
+      {stores.map((store: any) => (
+        <Link
+          key={store.id}
+          href={`/stores/${store.publicSlug || store.vendorId}`}
+          className="group block rounded-2xl overflow-hidden border border-neutral-200 hover:border-accent/50 hover:shadow-lg transition-all duration-300 card-lift bg-white"
+        >
+          <div className="aspect-square overflow-hidden bg-gradient-to-br from-accent/10 to-accent/5">
+            {store.image ? (
+              <img
+                src={store.image}
+                alt={store.storeName}
+                loading="lazy"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <span className="text-4xl font-bold text-accent/40">
+                  {store.storeName.charAt(0).toUpperCase()}
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="p-3">
+            <p className="text-sm font-semibold text-neutral-900 line-clamp-1">{store.storeName}</p>
+            {store.category && <p className="text-xs text-accent mt-0.5 line-clamp-1">{store.category}</p>}
+            {store.location && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{store.location}</p>}
+          </div>
+        </Link>
+      ))}
+    </div>
+  )
+}
+
 function HeroButtons({ isLoggedIn }: { isLoggedIn: boolean }) {
   const router = useRouter()
   const storesHref = '/stores'
@@ -549,25 +612,35 @@ function HeroButtons({ isLoggedIn }: { isLoggedIn: boolean }) {
             </svg>
           </span>
         </Link>
-        <Link
-          href={servicesHref}
-          prefetch
-          className="px-6 sm:px-8 py-3 text-[clamp(1rem,4.1vw,1.125rem)] font-semibold rounded-full shadow-2xl border-2 border-accent text-accent bg-white hover:bg-accent/10 transition-all duration-300 flex items-center justify-center group overflow-hidden relative min-w-[clamp(180px,74vw,260px)] sm:min-w-[260px]"
-          onMouseEnter={() => router.prefetch(servicesHref)}
-          onTouchStart={() => router.prefetch(servicesHref)}
-          onClick={(e) => triggerSlideNavigation(e, servicesHref, 'right')}
-        >
-          <span className="w-full text-center">{isLoggedIn ? 'Check out Services' : 'Become a Seller'}</span>
-          <span
-            className={
-              "inline-flex items-center absolute right-4 sm:right-3 top-1/2 -translate-y-1/2 transition-transform group-hover:translate-x-1 motion-reduce:transform-none animate-bounce-x"
-            }
+        {isLoggedIn ? (
+          <Link
+            href={servicesHref}
+            prefetch
+            className="px-6 sm:px-8 py-3 text-[clamp(1rem,4.1vw,1.125rem)] font-semibold rounded-full shadow-2xl border-2 border-accent text-accent bg-white hover:bg-accent/10 transition-all duration-300 flex items-center justify-center group overflow-hidden relative min-w-[clamp(180px,74vw,260px)] sm:min-w-[260px]"
+            onMouseEnter={() => router.prefetch(servicesHref)}
+            onTouchStart={() => router.prefetch(servicesHref)}
+            onClick={(e) => triggerSlideNavigation(e, servicesHref, 'right')}
           >
-            <svg width="24" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" className="text-accent group-hover:text-white">
+            <span className="w-full text-center">Check out Services</span>
+            <span className="inline-flex items-center absolute right-4 sm:right-3 top-1/2 -translate-y-1/2 transition-transform group-hover:translate-x-1 motion-reduce:transform-none animate-bounce-x">
+              <svg width="24" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" className="text-accent">
+                <path d="M3 12h18M15 6l6 6-6 6" />
+              </svg>
+            </span>
+          </Link>
+        ) : (
+          <Link
+            href={servicesHref}
+            className="text-accent font-semibold text-[clamp(0.9rem,3.8vw,1rem)] hover:underline flex items-center justify-center gap-1.5 mt-1"
+            onMouseEnter={() => router.prefetch(servicesHref)}
+            onClick={(e) => triggerSlideNavigation(e, servicesHref, 'right')}
+          >
+            Sell on Make It Sell
+            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
               <path d="M3 12h18M15 6l6 6-6 6" />
             </svg>
-          </span>
-        </Link>
+          </Link>
+        )}
       </div>
       <style jsx global>{`
         @keyframes bounce-x {
@@ -705,7 +778,7 @@ export default function HomePage() {
           {/* HERO SECTION */}
           <section className="relative flex items-start md:min-h-screen md:items-center justify-center pt-1 sm:pt-2 md:pt-12 lg:pt-0 mt-0 lg:-mt-20 overflow-hidden">
             <div className="container mx-auto px-4 sm:px-8 max-w-[1600px]">
-              <div className="flex flex-col-reverse items-center justify-center text-center gap-4 md:flex-row md:text-left md:items-center md:gap-0">
+              <div className="flex flex-col items-center justify-center text-center gap-4 md:flex-row md:text-left md:items-center md:gap-0">
                 {/* Left: Texts */}
                 <div className="w-full md:w-[40%] flex flex-col justify-center md:justify-center md:items-start md:text-left gap-4 sm:gap-6">
                   <span className="text-accent font-bold text-[clamp(1rem,4vw,1.25rem)] tracking-wide">
@@ -746,81 +819,84 @@ export default function HomePage() {
                   </form>
                   <HeroButtons isLoggedIn={!!user} />
                 </div>
-                {/* Carousel — visual top on mobile (flex-col-reverse), right column on desktop */}
+                {/* Carousel — below text on mobile, right column on desktop */}
                 <div className="flex w-full md:w-[60%] items-center justify-center md:justify-start md:items-center">
                   <HeroShuffleCarousel />
                 </div> 
               </div>
             </div>
           </section>
+          {/* TRENDING SECTION */}
+          <section className="py-10 sm:py-14">
+            <div className="w-full px-2 sm:px-4">
+              <div className="text-center mb-6 sm:mb-8 animate-fade-in">
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-balance text-accent">Trending Now</h2>
+                <p className="text-muted-foreground mt-1 sm:mt-2 text-xs sm:text-sm">Top products and most-booked services loved by customers</p>
+              </div>
+              <TrendingProducts />
+            </div>
+          </section>
+
           {/* CATEGORY SECTION */}
-          <section className="py-8 sm:py-12 bg-gray-50"> 
-            <div className="container mx-auto px-4 sm:px-8"> 
-              <div className="text-center mb-8 sm:mb-10"> 
+          <section className="py-8 sm:py-12 bg-gray-50">
+            <div className="container mx-auto px-4 sm:px-8">
+              <div className="text-center mb-8 sm:mb-10">
                 <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-neutral-900 mb-2">Browse by Category</h2>
                 <p className="text-muted-foreground text-sm sm:text-base">Explore top categories of products and services</p>
               </div>
-              
-              {/* Products Row */}
+
               <div className="mb-3 max-w-6xl mx-auto">
                 <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Products</span>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-5 md:gap-6 mb-6 sm:mb-8 max-w-6xl mx-auto">
-                <a href="/category/electronics" className="group bg-white rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-                  <Smartphone className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
-                  <h3 className="font-semibold text-neutral-900 text-sm sm:text-base mb-1">Electronics</h3>
-                  <p className="text-xs text-muted-foreground">Phones, laptops, gadgets & more</p>
-                </a>
-
-                <a href="/category/fashion" className="group bg-white rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-                  <ShoppingBag className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
-                  <h3 className="font-semibold text-neutral-900 text-sm sm:text-base mb-1">Fashion</h3>
-                  <p className="text-xs text-muted-foreground">Clothing, shoes & accessories</p>
-                </a>
-
-                <a href="/category/health-wellness" className="group bg-white rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-                  <Beauty className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
-                  <h3 className="font-semibold text-neutral-900 text-sm sm:text-base mb-1">Health & Beauty</h3>
-                  <p className="text-xs text-muted-foreground">Personal care & wellness products</p>
-                </a>
-
-                <a href="/category/home-living" className="group bg-white rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-                  <HomeIcon className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
-                  <h3 className="font-semibold text-neutral-900 text-sm sm:text-base mb-1">Home & Living</h3>
-                  <p className="text-xs text-muted-foreground">Furniture, décor & appliances</p>
-                </a>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8 max-w-6xl mx-auto">
+                {([
+                  { href: "/category/electronics", img: "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=600&h=400&fit=crop&auto=format", icon: Smartphone, title: "Electronics", desc: "Phones, laptops & gadgets" },
+                  { href: "/category/fashion", img: "https://images.unsplash.com/photo-1445205170230-053b83016050?w=600&h=400&fit=crop&auto=format", icon: ShoppingBag, title: "Fashion", desc: "Clothing, shoes & accessories" },
+                  { href: "/category/health-wellness", img: "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=600&h=400&fit=crop&auto=format", icon: Beauty, title: "Health & Beauty", desc: "Personal care & wellness" },
+                  { href: "/category/home-living", img: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=600&h=400&fit=crop&auto=format", icon: HomeIcon, title: "Home & Living", desc: "Furniture & décor" },
+                ] as const).map(cat => {
+                  const Icon = cat.icon
+                  return (
+                    <a key={cat.href} href={cat.href} className="group relative rounded-xl overflow-hidden block" style={{ aspectRatio: '4/3' }}>
+                      <img src={cat.img} alt={cat.title} loading="lazy" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
+                      <div className="absolute inset-0 bg-accent/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
+                        <Icon className="h-6 w-6 text-white drop-shadow mb-1.5" />
+                        <h3 className="font-bold text-white text-sm sm:text-base leading-tight">{cat.title}</h3>
+                        <p className="text-xs text-white/80 mt-0.5 line-clamp-1">{cat.desc}</p>
+                      </div>
+                    </a>
+                  )
+                })}
               </div>
 
-              {/* Services Row */}
               <div className="mb-3 max-w-6xl mx-auto">
                 <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Services</span>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-5 md:gap-6 max-w-6xl mx-auto">
-                <a href="/services?category=repairs" className="group bg-white rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-                  <Settings className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
-                  <h3 className="font-semibold text-neutral-900 text-sm sm:text-base mb-1">Repairs</h3>
-                  <p className="text-xs text-muted-foreground">Expert repair & maintenance</p>
-                </a>
-
-                <a href="/services?category=automotive" className="group bg-white rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-                  <CarFront className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
-                  <h3 className="font-semibold text-neutral-900 text-sm sm:text-base mb-1">Automotive</h3>
-                  <p className="text-xs text-muted-foreground">Car services & maintenance</p>
-                </a>
-
-                <a href="/services?category=consulting" className="group bg-white rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-                  <UserCheck className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
-                  <h3 className="font-semibold text-neutral-900 text-sm sm:text-base mb-1">Freelancers</h3>
-                  <p className="text-xs text-muted-foreground">Professional freelance services</p>
-                </a>
-
-                <a href="/food" className="group bg-white rounded-xl p-5 sm:p-7 flex flex-col items-start text-left border border-gray-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-                  <Coffee className="h-11 w-11 sm:h-14 sm:w-14 text-accent mb-3 group-hover:scale-110 transition-transform" />
-                  <h3 className="font-semibold text-neutral-900 text-sm sm:text-base mb-1">Food & Drinks</h3>
-                  <p className="text-xs text-muted-foreground">Restaurants & catering services</p>
-                </a>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 max-w-6xl mx-auto">
+                {([
+                  { href: "/services?category=repairs", img: "https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?w=600&h=400&fit=crop&auto=format", icon: Settings, title: "Repairs", desc: "Expert repair & maintenance" },
+                  { href: "/services?category=automotive", img: "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=600&h=400&fit=crop&auto=format", icon: CarFront, title: "Automotive", desc: "Car services & maintenance" },
+                  { href: "/services?category=consulting", img: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=600&h=400&fit=crop&auto=format", icon: UserCheck, title: "Freelancers", desc: "Professional freelance services" },
+                  { href: "/food", img: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&h=400&fit=crop&auto=format", icon: Coffee, title: "Food & Drinks", desc: "Restaurants & catering" },
+                ] as const).map(cat => {
+                  const Icon = cat.icon
+                  return (
+                    <a key={cat.href} href={cat.href} className="group relative rounded-xl overflow-hidden block" style={{ aspectRatio: '4/3' }}>
+                      <img src={cat.img} alt={cat.title} loading="lazy" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
+                      <div className="absolute inset-0 bg-accent/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
+                        <Icon className="h-6 w-6 text-white drop-shadow mb-1.5" />
+                        <h3 className="font-bold text-white text-sm sm:text-base leading-tight">{cat.title}</h3>
+                        <p className="text-xs text-white/80 mt-0.5 line-clamp-1">{cat.desc}</p>
+                      </div>
+                    </a>
+                  )
+                })}
               </div>
-              
+
               <div className="text-center mt-8 sm:mt-10">
                 <Link href="/categories">
                   <Button className="group bg-accent border-2 border-transparent hover:bg-transparent hover:border-accent hover:text-accent text-white px-6 py-3 rounded-lg transition-all duration-300 hover:scale-105">
@@ -839,7 +915,6 @@ export default function HomePage() {
                 <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-neutral-900 mb-2">Why Choose Make It Sell?</h2>
                 <p className="text-muted-foreground text-sm sm:text-base">Built for trust, speed, and real results — for buyers and sellers alike</p>
               </div>
-              
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-5 md:gap-6 max-w-6xl mx-auto">
                 <div className="flex flex-col items-center text-center p-5 sm:p-6 rounded-xl bg-white shadow-sm border border-gray-200 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
                   <div className="h-14 w-14 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
@@ -848,7 +923,6 @@ export default function HomePage() {
                   <h3 className="font-semibold text-neutral-900 mb-1.5 text-sm sm:text-base">Secure Payments</h3>
                   <p className="text-neutral-500 text-xs sm:text-sm leading-relaxed">All transactions are encrypted and protected</p>
                 </div>
-
                 <div className="flex flex-col items-center text-center p-5 sm:p-6 rounded-xl bg-white shadow-sm border border-gray-200 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
                   <div className="h-14 w-14 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
                     <Users className="h-7 w-7 text-accent" />
@@ -856,7 +930,6 @@ export default function HomePage() {
                   <h3 className="font-semibold text-neutral-900 mb-1.5 text-sm sm:text-base">Verified Sellers</h3>
                   <p className="text-neutral-500 text-xs sm:text-sm leading-relaxed">Every vendor is reviewed before going live</p>
                 </div>
-
                 <div className="flex flex-col items-center text-center p-5 sm:p-6 rounded-xl bg-white shadow-sm border border-gray-200 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
                   <div className="h-14 w-14 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
                     <BadgeCheck className="h-7 w-7 text-accent" />
@@ -864,7 +937,6 @@ export default function HomePage() {
                   <h3 className="font-semibold text-neutral-900 mb-1.5 text-sm sm:text-base">Buyer Protection</h3>
                   <p className="text-neutral-500 text-xs sm:text-sm leading-relaxed">Full refund guarantee on undelivered orders</p>
                 </div>
-
                 <div className="flex flex-col items-center text-center p-5 sm:p-6 rounded-xl bg-white shadow-sm border border-gray-200 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
                   <div className="h-14 w-14 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
                     <Truck className="h-7 w-7 text-accent" />
@@ -873,7 +945,6 @@ export default function HomePage() {
                   <p className="text-neutral-500 text-xs sm:text-sm leading-relaxed">Fast and reliable shipping across Nigeria</p>
                 </div>
               </div>
-              
               <div className="text-center mt-8 sm:mt-10">
                 <Link href="/stores">
                   <Button className="bg-accent border-2 border-transparent hover:bg-transparent hover:border-accent hover:text-accent text-white px-8 py-3 rounded-lg transition-all duration-300 hover:scale-105 shadow-md">
@@ -884,18 +955,24 @@ export default function HomePage() {
               </div>
             </div>
           </section>
-    
-          {/* TRENDING PRODUCTS SECTION */}
-          <section className="py-10 sm:py-14">
-            <div className="w-full px-2 sm:px-4">
-              <div className="text-center mb-6 sm:mb-8 animate-fade-in">
-                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-balance text-accent">Trending Now</h2>
-                <p className="text-muted-foreground mt-1 sm:mt-2 text-xs sm:text-sm">Top products and most-booked services loved by customers</p>
+
+          {/* FEATURED STORES SECTION */}
+          <section className="py-10 sm:py-14 bg-gray-50">
+            <div className="container mx-auto px-4 sm:px-8">
+              <div className="flex items-center justify-between mb-6 sm:mb-8">
+                <div>
+                  <h2 className="text-2xl sm:text-3xl font-bold text-neutral-900">Featured Stores</h2>
+                  <p className="text-muted-foreground text-sm mt-1">Top-rated vendors on Make It Sell</p>
+                </div>
+                <Link href="/stores" className="text-sm text-accent hover:underline font-medium flex items-center gap-1">
+                  See all <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
               </div>
-              <TrendingProducts />
+              <FeaturedStores />
             </div>
           </section>
         </main>
+        <Footer />
       </div>
       <style jsx global>{`
         button, .cursor-pointer, a[role="button"] {
