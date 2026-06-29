@@ -4,8 +4,8 @@
 // earnedBalance is still 0 and walletBalance is greater than 0.
 // Run with: node scripts/backfill-earned-balance.mjs
 
-import { MongoClient } from 'mongodb'
-import * as dotenv from 'dotenv'
+import mongoose from 'mongoose'
+import dotenv from 'dotenv'
 import { fileURLToPath } from 'url'
 import { dirname, resolve } from 'path'
 
@@ -14,86 +14,76 @@ dotenv.config({ path: resolve(__dirname, '../.env.local') })
 
 const MONGODB_URI = process.env.MONGODB_URI || process.env.DATABASE_URL
 if (!MONGODB_URI) {
-  console.error('ERROR: No MONGODB_URI or DATABASE_URL found in environment. Set it in .env.local')
+  console.error('ERROR: No MONGODB_URI or DATABASE_URL found in .env.local')
   process.exit(1)
 }
 
-const client = new MongoClient(MONGODB_URI)
+await mongoose.connect(MONGODB_URI)
+console.log('Connected to MongoDB')
 
-async function run() {
-  await client.connect()
-  console.log('Connected to MongoDB')
+const User = mongoose.model('User', new mongoose.Schema({}, { strict: false }))
 
-  const db = client.db()
-  const users = db.collection('users')
+const targets = await User.find({
+  role: 'vendor',
+  walletBalance: { $gt: 0 },
+  $or: [
+    { earnedBalance: { $exists: false } },
+    { earnedBalance: 0 },
+  ],
+}).lean()
 
-  // Find all vendors with a real walletBalance but earnedBalance still at 0
-  const targets = await users.find({
-    role: 'vendor',
-    walletBalance: { $gt: 0 },
-    $or: [
-      { earnedBalance: { $exists: false } },
-      { earnedBalance: 0 },
-    ],
-  }).toArray()
+console.log(`Found ${targets.length} vendor(s) to backfill`)
 
-  console.log(`Found ${targets.length} vendor(s) to backfill`)
+if (targets.length === 0) {
+  console.log('Nothing to do — all vendors already have earnedBalance set.')
+  await mongoose.disconnect()
+  process.exit(0)
+}
 
-  if (targets.length === 0) {
-    console.log('Nothing to do — all vendors already have earnedBalance set.')
-    return
-  }
+let updated = 0
+let failed = 0
+let totalBackfilled = 0
 
-  let updated = 0
-  let failed = 0
-  let totalBackfilled = 0
-
-  for (const vendor of targets) {
-    const id = vendor._id
-    const wallet = Number(vendor.walletBalance || 0)
-    try {
-      const result = await users.updateOne(
-        {
-          _id: id,
-          role: 'vendor',
-          walletBalance: { $gt: 0 },
-          $or: [
-            { earnedBalance: { $exists: false } },
-            { earnedBalance: 0 },
-          ],
-        },
-        { $set: { earnedBalance: wallet, updatedAt: new Date() } }
-      )
-      if (result.modifiedCount === 1) {
-        console.log(`  ✓ Vendor ${id} — walletBalance: ${wallet}, earnedBalance set to: ${wallet}`)
-        updated++
-        totalBackfilled += wallet
-      } else {
-        console.log(`  – Vendor ${id} — skipped (already updated or condition no longer met)`)
-      }
-    } catch (err) {
-      console.error(`  ✗ Vendor ${id} — FAILED:`, err.message)
-      failed++
+for (const vendor of targets) {
+  const id = vendor._id
+  const wallet = Number(vendor.walletBalance || 0)
+  try {
+    const result = await User.updateOne(
+      {
+        _id: id,
+        role: 'vendor',
+        walletBalance: { $gt: 0 },
+        $or: [
+          { earnedBalance: { $exists: false } },
+          { earnedBalance: 0 },
+        ],
+      },
+      { $set: { earnedBalance: wallet, updatedAt: new Date() } }
+    )
+    if (result.modifiedCount === 1) {
+      console.log(`  ✓ Vendor ${id} — walletBalance: ${wallet}, earnedBalance set to: ${wallet}`)
+      updated++
+      totalBackfilled += wallet
+    } else {
+      console.log(`  – Vendor ${id} — skipped (already updated or condition no longer met)`)
     }
-  }
-
-  console.log('')
-  console.log('═══════════════════════════════════════════')
-  console.log(`Vendors updated:        ${updated}`)
-  console.log(`Vendors failed:         ${failed}`)
-  console.log(`Total earnedBalance set: ₦${totalBackfilled.toLocaleString('en-NG')}`)
-  console.log('═══════════════════════════════════════════')
-
-  if (failed > 0) {
-    console.warn('WARNING: Some updates failed — review the errors above before marking migration complete.')
-  } else {
-    console.log('Backfill complete. All existing vendor balances are now tracked as earnedBalance.')
+  } catch (err) {
+    console.error(`  ✗ Vendor ${id} — FAILED:`, err.message)
+    failed++
   }
 }
 
-run()
-  .catch(err => {
-    console.error('Fatal error:', err)
-    process.exit(1)
-  })
-  .finally(() => client.close())
+console.log('')
+console.log('═══════════════════════════════════════════')
+console.log(`Vendors updated:         ${updated}`)
+console.log(`Vendors failed:          ${failed}`)
+console.log(`Total earnedBalance set: ₦${totalBackfilled.toLocaleString('en-NG')}`)
+console.log('═══════════════════════════════════════════')
+
+if (failed > 0) {
+  console.warn('WARNING: Some updates failed — review the errors above before marking migration complete.')
+} else {
+  console.log('Backfill complete.')
+}
+
+await mongoose.disconnect()
