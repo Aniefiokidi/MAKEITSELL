@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
       await User.updateOne(
         { _id: userIdObject, role: 'vendor' },
         {
-          $inc: { walletBalance: transaction.amount },
+          $inc: { walletBalance: transaction.amount, depositedBalance: transaction.amount },
           $set: { updatedAt: new Date() },
         }
       )

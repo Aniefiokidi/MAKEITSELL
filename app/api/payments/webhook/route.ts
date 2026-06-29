@@ -508,7 +508,7 @@ async function handleSuccessfulPayment(data: any) {
         await User.updateOne(
           { _id: userIdObject },
           {
-            $inc: { walletBalance: transaction.amount },
+            $inc: { walletBalance: transaction.amount, depositedBalance: transaction.amount },
             $set: { updatedAt: new Date() },
           }
         )

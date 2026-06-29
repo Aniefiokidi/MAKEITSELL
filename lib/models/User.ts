@@ -22,6 +22,15 @@ const UserSchema = new Schema({
   otp_attempts_reset_at: { type: Date },
   role: { type: String, default: 'customer' },
   walletBalance: { type: Number, default: 0 },
+  // Sub-balances used for withdrawal commission calculation.
+  // earnedBalance: from product sales — 5% commission on withdrawal.
+  // depositedBalance: vendor top-ups — no commission.
+  // prizeBalance: MIS prize payments (streak, referrals, champions) — no commission.
+  // walletBalance stays as the total of all three for backward compatibility.
+  // MIGRATION NOTE: any walletBalance present at deploy time is treated as earnedBalance.
+  earnedBalance: { type: Number, default: 0 },
+  depositedBalance: { type: Number, default: 0 },
+  prizeBalance: { type: Number, default: 0 },
   withdrawalPinHash: { type: String },
   withdrawalPinSetAt: { type: Date },
   payoutProfile: { type: Schema.Types.Mixed },

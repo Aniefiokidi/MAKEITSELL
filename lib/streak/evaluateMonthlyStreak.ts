@@ -36,7 +36,7 @@ async function creditStreakPrize(vendorId: string, milestone: number, amount: nu
   if ((tx as any).upsertedCount > 0) {
     await User.updateOne(
       { _id: vendorId },
-      { $inc: { walletBalance: amount }, $set: { updatedAt: new Date() } }
+      { $inc: { walletBalance: amount, prizeBalance: amount }, $set: { updatedAt: new Date() } }
     )
   }
 }

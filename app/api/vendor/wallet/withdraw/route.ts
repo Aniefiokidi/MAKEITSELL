@@ -8,6 +8,7 @@ import { createTransferRecipient, fetchPaystackNgnBalance, initiateTransfer } fr
 import crypto from 'crypto'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { enforceSameOrigin } from '@/lib/request-security'
+import { calcWithdrawalBreakdown } from './preview/route'
 
 const hashWithdrawalPin = (pin: string, userId: string) => {
   return crypto.createHash('sha256').update(`${pin}:${userId}`).digest('hex')
@@ -90,7 +91,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate inputs
     const normalizedAmount = Math.round(Number(amount) * 100) / 100
     if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
       return NextResponse.json(
@@ -143,8 +143,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get user for PIN verification
-    const userForPin = await User.findById(currentUser.id).select('withdrawalPinHash walletBalance payoutProfile').lean()
+    const userForPin = await User.findById(currentUser.id)
+      .select('withdrawalPinHash walletBalance earnedBalance depositedBalance prizeBalance payoutProfile')
+      .lean() as any
 
     if (!userForPin?.withdrawalPinHash) {
       return NextResponse.json(
@@ -153,7 +154,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify PIN
     const providedPinHash = hashWithdrawalPin(withdrawalPin.trim(), String(currentUser.id))
     if (userForPin.withdrawalPinHash !== providedPinHash) {
       return NextResponse.json(
@@ -162,13 +162,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const userBalance = typeof userForPin.walletBalance === 'number' ? userForPin.walletBalance : 0
-    if (userBalance < normalizedAmount) {
+    const walletBalance = typeof userForPin.walletBalance === 'number' ? userForPin.walletBalance : 0
+    if (walletBalance < normalizedAmount) {
       return NextResponse.json(
         { success: false, error: 'Insufficient wallet balance for this withdrawal' },
         { status: 400 }
       )
     }
+
+    // Calculate 3-bucket breakdown
+    const earnedBalance = typeof userForPin.earnedBalance === 'number' ? userForPin.earnedBalance : 0
+    const depositedBalance = typeof userForPin.depositedBalance === 'number' ? userForPin.depositedBalance : 0
+    const prizeBalance = typeof userForPin.prizeBalance === 'number' ? userForPin.prizeBalance : 0
+
+    const {
+      withdrawFromDeposited,
+      withdrawFromPrize,
+      withdrawFromEarned,
+      commission,
+      vendorReceives,
+    } = calcWithdrawalBreakdown(normalizedAmount, earnedBalance, depositedBalance, prizeBalance)
+
+    // Atomically deduct the full amount from walletBalance and each sub-balance
+    const deductInc: Record<string, number> = { walletBalance: -normalizedAmount }
+    if (withdrawFromEarned > 0) deductInc.earnedBalance = -withdrawFromEarned
+    if (withdrawFromDeposited > 0) deductInc.depositedBalance = -withdrawFromDeposited
+    if (withdrawFromPrize > 0) deductInc.prizeBalance = -withdrawFromPrize
 
     const updateResult = await User.updateOne(
       {
@@ -176,7 +195,7 @@ export async function POST(request: NextRequest) {
         walletBalance: { $gte: normalizedAmount },
       },
       {
-        $inc: { walletBalance: -normalizedAmount },
+        $inc: deductInc,
         $set: { updatedAt: new Date() },
       }
     )
@@ -231,12 +250,7 @@ export async function POST(request: NextRequest) {
 
       await User.updateOne(
         { _id: currentUser.id },
-        {
-          $set: {
-            payoutProfile: nextPayoutProfile,
-            updatedAt: new Date(),
-          },
-        }
+        { $set: { payoutProfile: nextPayoutProfile, updatedAt: new Date() } }
       )
 
       let resolvedRecipientCode = recipientCode
@@ -255,8 +269,9 @@ export async function POST(request: NextRequest) {
         await User.updateOne({ _id: currentUser.id }, { $set: { payoutProfile: nextPayoutProfile, updatedAt: new Date() } })
       }
 
+      // Transfer the amount the vendor actually receives (full amount minus commission on earned portion)
       const transfer = await initiateTransfer({
-        amount: normalizedAmount,
+        amount: vendorReceives,
         recipientCode: resolvedRecipientCode,
         reference: payoutReference,
         reason: transferReason,
@@ -282,20 +297,22 @@ export async function POST(request: NextRequest) {
       } else {
         const providerStatus = String((transfer.raw as any)?.data?.status || (transfer.raw as any)?.status || '').trim()
         const providerMessage = String((transfer.raw as any)?.message || '').trim()
-        const transferMsg = [transfer.message, providerMessage, providerStatus].filter(Boolean).join(' | ') || 'Paystack payout initiation failed'
-        payoutError = transferMsg
+        payoutError = [transfer.message, providerMessage, providerStatus].filter(Boolean).join(' | ') || 'Paystack payout initiation failed'
       }
     } catch (transferFailure: any) {
       payoutError = transferFailure?.message || 'Paystack payout request failed'
     }
 
     if (!transferCode) {
+      // Restore all sub-balances and walletBalance on failure
+      const restoreInc: Record<string, number> = { walletBalance: normalizedAmount }
+      if (withdrawFromEarned > 0) restoreInc.earnedBalance = withdrawFromEarned
+      if (withdrawFromDeposited > 0) restoreInc.depositedBalance = withdrawFromDeposited
+      if (withdrawFromPrize > 0) restoreInc.prizeBalance = withdrawFromPrize
+
       await User.updateOne(
         { _id: currentUser.id },
-        {
-          $inc: { walletBalance: normalizedAmount },
-          $set: { updatedAt: new Date() },
-        }
+        { $inc: restoreInc, $set: { updatedAt: new Date() } }
       )
 
       console.warn('[vendor/wallet/withdraw] auto-transfer unavailable, debit rolled back', {
@@ -308,10 +325,7 @@ export async function POST(request: NextRequest) {
       })
 
       return NextResponse.json(
-        {
-          success: false,
-          error: toFriendlyPayoutError(payoutError),
-        },
+        { success: false, error: toFriendlyPayoutError(payoutError) },
         { status: 502 }
       )
     }
@@ -335,14 +349,24 @@ export async function POST(request: NextRequest) {
         transferStatus,
         transferRecipientCode,
         vendorRole: true,
+        // Commission breakdown stored so webhook-based failure refunds can restore sub-balances correctly
+        commissionBreakdown: {
+          withdrawFromDeposited,
+          withdrawFromPrize,
+          withdrawFromEarned,
+          commission,
+          vendorReceives,
+        },
         ...transferMeta,
       },
       createdAt: new Date(),
       updatedAt: new Date(),
     })
 
-    // Fetch updated balance
-    const updatedUser = await User.findById(currentUser.id).select('walletBalance').lean()
+    const updatedUser = await User.findById(currentUser.id)
+      .select('walletBalance earnedBalance depositedBalance prizeBalance')
+      .lean() as any
+
     const newBalance = typeof updatedUser?.walletBalance === 'number' ? updatedUser.walletBalance : 0
 
     return NextResponse.json({
@@ -355,6 +379,13 @@ export async function POST(request: NextRequest) {
       reference,
       newBalance,
       balance: newBalance,
+      commissionBreakdown: {
+        withdrawFromDeposited,
+        withdrawFromPrize,
+        withdrawFromEarned,
+        commission,
+        vendorReceives,
+      },
     })
   } catch (error: any) {
     console.error('[vendor/wallet/withdraw] error:', error)

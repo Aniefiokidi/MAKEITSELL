@@ -160,7 +160,7 @@ export const creditVendorWalletsForOrder = async (
         const vendorCreditResult = await UserModel.updateOne(
           { _id: walletUserId },
           {
-            $inc: { walletBalance: amount },
+            $inc: { walletBalance: amount, earnedBalance: amount },
             $set: { updatedAt: new Date() },
           }
         );

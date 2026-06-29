@@ -218,7 +218,7 @@ export async function GET(request: NextRequest) {
         await User.updateOne(
           { _id: userIdObject, role: 'vendor' },
           {
-            $inc: { walletBalance: Number(pendingTopup.amount || 0) },
+            $inc: { walletBalance: Number(pendingTopup.amount || 0), depositedBalance: Number(pendingTopup.amount || 0) },
             $set: { updatedAt: new Date() },
           }
         )
@@ -268,6 +268,14 @@ export async function GET(request: NextRequest) {
 
     const userBalance = typeof currentUser.walletBalance === 'number' ? currentUser.walletBalance : 0
 
+    // Fetch sub-balances for breakdown display
+    const userDoc = await User.findById(currentUser.id)
+      .select('earnedBalance depositedBalance prizeBalance')
+      .lean() as any
+    const earnedBalance = typeof userDoc?.earnedBalance === 'number' ? userDoc.earnedBalance : 0
+    const depositedBalance = typeof userDoc?.depositedBalance === 'number' ? userDoc.depositedBalance : 0
+    const prizeBalance = typeof userDoc?.prizeBalance === 'number' ? userDoc.prizeBalance : 0
+
     // Sum totalAmount for escrow-held orders involving this vendor
     const escrowOrders = await Order.find({
       paymentStatus: 'escrow',
@@ -306,6 +314,9 @@ export async function GET(request: NextRequest) {
       success: true,
       transactions: data,
       walletBalance: userBalance,
+      earnedBalance,
+      depositedBalance,
+      prizeBalance,
       escrowBalance,
     })
   } catch (error: any) {
