@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     // After creating a product, recalculate streak floor if vendor still has the default floor.
     // This converts the default 26-order floor to the real floor based on actual product prices.
-    const vendorId = String(newProduct?.vendorId || productData?.vendorId || '')
+    const vendorId = String(productData?.vendorId || '')
     if (vendorId) {
       void (async () => {
         try {
