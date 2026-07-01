@@ -144,7 +144,7 @@ function TrendingProducts() {
         .then(r => r.json())
         .then(data => {
           if (!Array.isArray(data?.products)) return
-          const byId = new Map(data.products.map((p: any) => [p.id, p]))
+          const byId = new Map<string, { id: string; price: number; image: string }>(data.products.map((p: any) => [p.id, p]))
           setRecentlyViewedProducts(prev => prev.map(p => {
             const fresh = byId.get(p.id)
             if (!fresh) return p
