@@ -162,6 +162,7 @@ export default function CategoryPage() {
   const [categoryStores, setCategoryStores] = useState<any[]>([])
   const [servicesLoaded, setServicesLoaded] = useState(false)
   const [storesLoaded, setStoresLoaded] = useState(false)
+  const storeVendorFallbackRef = useRef(false)
   const [auxLoading, setAuxLoading] = useState(true)
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
@@ -325,6 +326,7 @@ export default function CategoryPage() {
     setCategoryServices([])
     setCategoryStores([])
     setAuxLoading(false)
+    storeVendorFallbackRef.current = false
   }, [categorySlug])
 
   useEffect(() => {
@@ -445,6 +447,28 @@ export default function CategoryPage() {
 
     fetchActiveSegmentData()
   }, [activeSegment, categorySlug, servicesLoaded, storesLoaded])
+
+  // Fallback: if category-based store fetch returned 0, query by vendor IDs from loaded products
+  useEffect(() => {
+    if (storeVendorFallbackRef.current || !storesLoaded || categoryStores.length > 0 || products.length === 0) return
+    storeVendorFallbackRef.current = true
+
+    const vendorIds = [...new Set(products.map((p: any) => String(p.vendorId || "")).filter((v: string) => v.length > 0))]
+    if (!vendorIds.length) return
+
+    Promise.all(
+      vendorIds.slice(0, 10).map((vid) =>
+        fetch(`/api/database/stores?vendorId=${encodeURIComponent(vid)}&limit=1`)
+          .then((r) => r.json())
+          .catch(() => ({ success: false, data: [] }))
+      )
+    ).then((responses) => {
+      const stores = dedupeById(
+        responses.flatMap((r: any) => (r?.success && Array.isArray(r?.data) ? r.data : []))
+      )
+      if (stores.length > 0) setCategoryStores(stores)
+    })
+  }, [products, storesLoaded, categoryStores.length])
 
   // Search suggestions logic
   useEffect(() => {
