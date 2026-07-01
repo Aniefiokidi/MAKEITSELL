@@ -62,6 +62,18 @@ const HOSPITALITY_SUBCATEGORIES = [
   "guest-house",
 ]
 
+const BEAUTY_SUBCATEGORIES = [
+  "nail-tech",
+  "lash-tech",
+  "hair-braiding",
+  "makeup-artist",
+  "hair-styling",
+  "skincare",
+  "eyebrows",
+  "massage-spa",
+  "waxing",
+]
+
 const NIGERIA_STATES = [
   "Abia",
   "Adamawa",
@@ -153,8 +165,18 @@ const MAX_PACKAGE_IMAGES = 5
 
 export default function NewServicePage() {
   const router = useRouter()
-  const { user, userProfile } = useAuth()
+  const { user, userProfile, loading: authLoading } = useAuth()
   const { toast } = useToast()
+
+  // Redirect unauthenticated visitors and non-vendors
+  if (!authLoading && !user) {
+    router.replace("/login")
+    return null
+  }
+  if (!authLoading && userProfile && userProfile.role !== "vendor") {
+    router.replace("/")
+    return null
+  }
 
   const [formData, setFormData] = useState({
     title: "",
@@ -830,7 +852,7 @@ export default function NewServicePage() {
                   <Select
                     value={formData.subcategory}
                     onValueChange={(value) => setFormData({ ...formData, subcategory: value })}
-                    disabled={formData.category !== "rentals" && formData.category !== "hospitality"}
+                    disabled={formData.category !== "rentals" && formData.category !== "hospitality" && formData.category !== "beauty"}
                   >
                     <SelectTrigger>
                       <SelectValue
@@ -839,12 +861,19 @@ export default function NewServicePage() {
                             ? "Select rental type"
                             : formData.category === "hospitality"
                               ? "Select property type"
-                              : "Available for rentals/hospitality"
+                              : formData.category === "beauty"
+                                ? "Select your specialty"
+                                : "Available for rentals/hospitality/beauty"
                         }
                       />
                     </SelectTrigger>
                     <SelectContent>
-                      {(formData.category === "hospitality" ? HOSPITALITY_SUBCATEGORIES : RENTAL_SUBCATEGORIES).map((subcategory) => (
+                      {(formData.category === "hospitality"
+                        ? HOSPITALITY_SUBCATEGORIES
+                        : formData.category === "beauty"
+                          ? BEAUTY_SUBCATEGORIES
+                          : RENTAL_SUBCATEGORIES
+                      ).map((subcategory) => (
                         <SelectItem key={subcategory} value={subcategory} className="capitalize">
                           {subcategory.replace(/-/g, " ")}
                         </SelectItem>

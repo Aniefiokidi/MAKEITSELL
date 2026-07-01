@@ -47,6 +47,18 @@ const RENTAL_SUBCATEGORIES = [
   "construction-tools",
 ]
 
+const BEAUTY_SUBCATEGORIES = [
+  "nail-tech",
+  "lash-tech",
+  "hair-braiding",
+  "makeup-artist",
+  "hair-styling",
+  "skincare",
+  "eyebrows",
+  "massage-spa",
+  "waxing",
+]
+
 const initialAvailability = DAYS.reduce((acc, day) => {
   acc[day] = { start: "09:00", end: "17:00", available: day !== "sunday" }
   return acc
@@ -440,11 +452,19 @@ export default function ServiceSetupWizardPage() {
                   <Select
                     value={formData.subcategory || undefined}
                     onValueChange={(value) => setFormData((prev) => ({ ...prev, subcategory: value }))}
-                    disabled={formData.category !== "rentals"}
+                    disabled={formData.category !== "rentals" && formData.category !== "beauty"}
                   >
-                    <SelectTrigger id="subcategory"><SelectValue placeholder={formData.category === "rentals" ? "Select rental type" : "Available for rentals"} /></SelectTrigger>
+                    <SelectTrigger id="subcategory">
+                      <SelectValue placeholder={
+                        formData.category === "rentals"
+                          ? "Select rental type"
+                          : formData.category === "beauty"
+                            ? "Select your specialty"
+                            : "Available for rentals/beauty"
+                      } />
+                    </SelectTrigger>
                     <SelectContent>
-                      {RENTAL_SUBCATEGORIES.map((subcategory) => (
+                      {(formData.category === "beauty" ? BEAUTY_SUBCATEGORIES : RENTAL_SUBCATEGORIES).map((subcategory) => (
                         <SelectItem key={subcategory} value={subcategory}>{subcategory.replace(/-/g, " ")}</SelectItem>
                       ))}
                     </SelectContent>

@@ -652,6 +652,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
             {[
               { label: "Stores", href: "/stores" },
               { label: "Food", href: "/food" },
+              { label: "Beauty", href: "/beauty" },
               { label: "Services", href: "/services" },
               { label: "About", href: "/about" },
               { label: "Help", href: "/contact" },
@@ -1301,6 +1302,7 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
           [
             { label: "Stores",             href: "/stores",   icon: Store },
             { label: "Food & Restaurants", href: "/food",     icon: UtensilsCrossed, food: true },
+            { label: "Beauty",             href: "/beauty",   icon: Sparkles },
             { label: "Services",           href: "/services", icon: Wrench },
             { label: "About Us",           href: "/about",    icon: Info },
             { label: "Help",               href: "/contact",  icon: HelpCircle },
