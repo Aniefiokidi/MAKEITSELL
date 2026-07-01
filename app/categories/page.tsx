@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import Image from "next/image"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import Header from "@/components/Header"
@@ -367,6 +366,63 @@ const storeCards: CategoryExplorerItem[] = storeSystemCategories.map((category) 
 
 const allCategoryCards: CategoryExplorerItem[] = [...goodsCards, ...serviceCards, ...storeCards]
 
+const CATEGORY_UNSPLASH: Record<string, string> = {
+  electronics: "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=800&h=600&fit=crop&auto=format",
+  fashion: "https://images.unsplash.com/photo-1445205170230-053b83016050?w=800&h=600&fit=crop&auto=format",
+  home: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800&h=600&fit=crop&auto=format",
+  accessories: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&h=600&fit=crop&auto=format",
+  sports: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=800&h=600&fit=crop&auto=format",
+  audio: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&h=600&fit=crop&auto=format",
+  photography: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800&h=600&fit=crop&auto=format",
+  books: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&h=600&fit=crop&auto=format",
+  gaming: "https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?w=800&h=600&fit=crop&auto=format",
+  automotive: "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=800&h=600&fit=crop&auto=format",
+  "home-services": "https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?w=800&h=600&fit=crop&auto=format",
+  "logistics-delivery": "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=800&h=600&fit=crop&auto=format",
+  "health-wellness": "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=800&h=600&fit=crop&auto=format",
+  "business-services": "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=800&h=600&fit=crop&auto=format",
+  events: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=600&fit=crop&auto=format",
+  "pet-care": "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800&h=600&fit=crop&auto=format",
+  groceries: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&h=600&fit=crop&auto=format",
+  pharmacy: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&h=600&fit=crop&auto=format",
+  furniture: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&h=600&fit=crop&auto=format",
+  "toys-baby": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop&auto=format",
+  beauty: "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=800&h=600&fit=crop&auto=format",
+  repairs: "https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?w=800&h=600&fit=crop&auto=format",
+  design: "https://images.unsplash.com/photo-1561070791-2526d30994b5?w=800&h=600&fit=crop&auto=format",
+  fitness: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=800&h=600&fit=crop&auto=format",
+  education: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&h=600&fit=crop&auto=format",
+  cleaning: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&h=600&fit=crop&auto=format",
+  tech: "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=800&h=600&fit=crop&auto=format",
+  rentals: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop&auto=format",
+  marketing: "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=800&h=600&fit=crop&auto=format",
+  legal: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=800&h=600&fit=crop&auto=format",
+  healthcare: "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=800&h=600&fit=crop&auto=format",
+  logistics: "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=800&h=600&fit=crop&auto=format",
+  "home-improvement": "https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?w=800&h=600&fit=crop&auto=format",
+  "event-planning": "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=600&fit=crop&auto=format",
+  "moving-relocation": "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=800&h=600&fit=crop&auto=format",
+  childcare: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop&auto=format",
+  "elderly-care": "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=800&h=600&fit=crop&auto=format",
+  "laundry-drycleaning": "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&h=600&fit=crop&auto=format",
+  catering: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&h=600&fit=crop&auto=format",
+  "real-estate": "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop&auto=format",
+  "accounting-tax": "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=800&h=600&fit=crop&auto=format",
+  "writing-translation": "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&h=600&fit=crop&auto=format",
+  "software-development": "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=800&h=600&fit=crop&auto=format",
+  "virtual-assistant": "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=800&h=600&fit=crop&auto=format",
+  "security-services": "https://images.unsplash.com/photo-1555374018-13a8994ab246?w=800&h=600&fit=crop&auto=format",
+  food: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&h=600&fit=crop&auto=format",
+  appliances: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800&h=600&fit=crop&auto=format",
+  toys: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop&auto=format",
+  baby: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop&auto=format",
+  "office-supplies": "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=800&h=600&fit=crop&auto=format",
+  "pet-supplies": "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800&h=600&fit=crop&auto=format",
+  jewelry: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&h=600&fit=crop&auto=format",
+  hardware: "https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?w=800&h=600&fit=crop&auto=format",
+  consulting: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=800&h=600&fit=crop&auto=format",
+}
+
 const CATEGORY_OVERVIEW_CACHE_KEY = "mis:categories:overview:v2"
 const CATEGORY_OVERVIEW_CACHE_TTL_MS = 5 * 60 * 1000
 
@@ -634,34 +690,29 @@ export default function CategoriesPage() {
                 ))
               : visibleCards.map((category, index) => {
                   const IconComponent = category.icon
-                  const categoryImage = categoryImages[category.key]
+                  const productImage = categoryImages[category.key]
+                  const displayImage = productImage || CATEGORY_UNSPLASH[category.slug]
                   return (
                     <Link key={category.key} href={category.href} onClick={saveScrollPosition}>
                       <Card className={`h-full hover:shadow-2xl hover:shadow-accent/40 transition-all duration-300 group overflow-hidden border-none rounded-2xl sm:rounded-3xl relative ${category.slug === 'electronics' ? '' : 'hover:scale-[1.01]'}`} style={{ animationDelay: `${index * 0.05}s` }}>
                         {/* Full Background with Product Image or Gradient */}
                         <div className="aspect-9/16 relative overflow-hidden rounded-2xl sm:rounded-3xl">
-                          {categoryImage ? (
+                          {displayImage ? (
                             <>
-                              {/* Product Image Background */}
-                              <Image
-                                src={categoryImage}
-                                alt={`Top product in ${category.name}`}
-                                fill
-                                className={`${category.slug === 'electronics' ? 'object-contain' : 'object-cover'} ${category.slug === 'electronics' ? '' : 'group-hover:scale-105'} transition-transform duration-500`}
+                              <img
+                                src={displayImage}
+                                alt={category.name}
+                                className={`absolute inset-0 w-full h-full ${productImage && category.slug === 'electronics' ? 'object-contain' : 'object-cover'} group-hover:scale-105 transition-transform duration-500`}
                               />
-                              {/* Darker overlay for better text readability on images */}
                               <div className="absolute inset-0 bg-linear-to-b from-black/30 via-transparent via-40% to-black/80" />
                             </>
                           ) : (
                             <>
-                              {/* Gradient Background for categories without products */}
                               <div className={`flex items-center justify-center h-full ${category.color} bg-linear-to-br from-current via-current to-black/20`}>
-                                {/* Background pattern overlay */}
                                 <div className="absolute inset-0 opacity-10">
                                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1)_1px,transparent_1px)] bg-size-[20px_20px]" />
                                 </div>
                               </div>
-                              {/* Lighter overlay for gradient backgrounds */}
                               <div className="absolute inset-0 bg-linear-to-b from-black/10 via-transparent via-50% to-black/60" />
                             </>
                           )}

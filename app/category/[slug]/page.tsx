@@ -123,6 +123,30 @@ const fashionSubcategories = [
   "Socks & Underwear",
 ]
 
+const CATEGORY_UNSPLASH: Record<string, string> = {
+  electronics: "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=1200&h=500&fit=crop&auto=format",
+  fashion: "https://images.unsplash.com/photo-1445205170230-053b83016050?w=1200&h=500&fit=crop&auto=format",
+  home: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=1200&h=500&fit=crop&auto=format",
+  accessories: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1200&h=500&fit=crop&auto=format",
+  sports: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&h=500&fit=crop&auto=format",
+  audio: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=1200&h=500&fit=crop&auto=format",
+  photography: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=1200&h=500&fit=crop&auto=format",
+  books: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=1200&h=500&fit=crop&auto=format",
+  gaming: "https://images.unsplash.com/photo-1493711662062-fa541adb3fc8?w=1200&h=500&fit=crop&auto=format",
+  automotive: "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=1200&h=500&fit=crop&auto=format",
+  "home-services": "https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?w=1200&h=500&fit=crop&auto=format",
+  "logistics-delivery": "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=1200&h=500&fit=crop&auto=format",
+  "health-wellness": "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=1200&h=500&fit=crop&auto=format",
+  beauty: "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=1200&h=500&fit=crop&auto=format",
+  "business-services": "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=1200&h=500&fit=crop&auto=format",
+  events: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&h=500&fit=crop&auto=format",
+  "pet-care": "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=1200&h=500&fit=crop&auto=format",
+  groceries: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=1200&h=500&fit=crop&auto=format",
+  pharmacy: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=1200&h=500&fit=crop&auto=format",
+  furniture: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=1200&h=500&fit=crop&auto=format",
+  "toys-baby": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1200&h=500&fit=crop&auto=format",
+}
+
 const CATEGORY_SLUG_PRODUCTS_CACHE_TTL_MS = 5 * 60 * 1000
 const CATEGORY_SLUG_SEGMENT_CACHE_TTL_MS = 10 * 60 * 1000
 
@@ -575,52 +599,43 @@ export default function CategoryPage() {
       <Header />
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8">
-          {/* Header with Back Button */}
-          <div className="mb-8">
-            {/* Back Button */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => router.back()}
-              className="mb-4 hover:bg-accent hover:text-white transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-            
-            {/* Glass Bubble Header */}
-            <div className="backdrop-blur-2xl bg-linear-to-br from-accent/5 via-accent/10 to-accent/5 dark:from-accent/10 dark:via-accent/20 dark:to-accent/10 border border-accent/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-lg">
-              <nav className="text-xs sm:text-sm text-accent dark:text-white mb-2 sm:mb-4">
-                <Link href="/" className="hover:opacity-80 transition-opacity">
-                  Home
-                </Link>
-                <span className="mx-2">/</span>
-                <Link href="/categories" className="hover:opacity-80 transition-opacity">
-                  Categories
-                </Link>
-                <span className="mx-2">/</span>
-                <span>{categoryName}</span>
-              </nav>
-              <h1
-                className="text-xl sm:text-3xl font-extrabold mb-2 sm:mb-4 text-accent dark:text-white tracking-tight"
-                style={{
-                  fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif',
-                  letterSpacing: '-0.03em',
-                  textShadow: '0 2px 16px rgba(0,0,0,0.18)'
-                }}
+          {/* Hero Banner Header */}
+          <div className="mb-8 relative rounded-2xl sm:rounded-3xl overflow-hidden min-h-[180px] sm:min-h-[220px]">
+            <img
+              src={CATEGORY_UNSPLASH[categorySlug] || "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1200&h=500&fit=crop&auto=format"}
+              alt={categoryName}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/10" />
+            <div className="absolute top-4 left-4 z-10">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.back()}
+                className="bg-white/15 backdrop-blur-sm border-white/40 text-white hover:bg-white/25 hover:text-white hover:border-white/60 transition-colors"
               >
+                <ArrowLeft className="h-4 w-4 mr-1.5" />
+                Back
+              </Button>
+            </div>
+            <div className="relative z-10 p-4 sm:p-8 pt-14 sm:pt-16">
+              <nav className="text-xs sm:text-sm text-white/70 mb-2">
+                <Link href="/" className="hover:text-white transition-colors">Home</Link>
+                <span className="mx-2 text-white/40">/</span>
+                <Link href="/categories" className="hover:text-white transition-colors">Categories</Link>
+                <span className="mx-2 text-white/40">/</span>
+                <span className="text-white font-medium">{categoryName}</span>
+              </nav>
+              <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight drop-shadow-lg mb-1.5">
                 {categoryName}
               </h1>
               {loading ? null : filteredProducts.length === 0 ? (
-                <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg p-4">
-                  <p className="text-accent dark:text-white">
-                    Sorry, we do not have products in "{categoryName}" yet.<br />
-                    Here are some other products you might like:
-                  </p>
-                </div>
+                <p className="text-yellow-300/90 text-xs sm:text-sm">
+                  No products in this category yet — showing suggestions below
+                </p>
               ) : (
-                <p className="text-accent dark:text-white text-xs sm:text-base">
-                  Discover amazing {categoryName.toLowerCase()} products from our trusted sellers
+                <p className="text-white/80 text-xs sm:text-base">
+                  Discover amazing {categoryName.toLowerCase()} from our trusted sellers
                 </p>
               )}
             </div>
