@@ -196,6 +196,8 @@ function TrendingProducts() {
                     category: product.category,
                     title: product.title || product.name,
                     storeName: product.storeName || product.vendorName,
+                    price: Number(product.price || 0),
+                    image: product.images?.[0] || '',
                   })
                   setSelectedProduct(product)
                   setQuickViewOpen(true)
@@ -334,6 +336,8 @@ function TrendingProducts() {
                 category: product.category,
                 title: product.title || product.name,
                 storeName: product.storeName || product.vendorName,
+                price: Number(product.price || 0),
+                image: product.images?.[0] || '',
               })
               setSelectedProduct(product)
               setQuickViewOpen(true)
