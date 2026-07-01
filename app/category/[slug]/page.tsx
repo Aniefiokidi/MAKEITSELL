@@ -604,9 +604,9 @@ export default function CategoryPage() {
             <img
               src={CATEGORY_UNSPLASH[categorySlug] || "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1200&h=500&fit=crop&auto=format"}
               alt={categoryName}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/10" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/10 pointer-events-none" />
             <div className="absolute top-4 left-4 z-10">
               <Button
                 variant="outline"
