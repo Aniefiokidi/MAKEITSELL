@@ -428,7 +428,6 @@ const CATEGORY_OVERVIEW_CACHE_TTL_MS = 5 * 60 * 1000
 
 export default function CategoriesPage() {
   const CATEGORIES_SCROLL_KEY = "mis:scroll:categories:list:v1"
-  const [categoryImages, setCategoryImages] = useState<{ [key: string]: string }>({})
   const [categoryCounts, setCategoryCounts] = useState<{ [key: string]: number }>({})
   const [loading, setLoading] = useState(true)
   const [segmentFilter, setSegmentFilter] = useState<"all" | "goods" | "services" | "stores">("all")
@@ -448,8 +447,7 @@ export default function CategoriesPage() {
           if (cached) {
             const parsed = JSON.parse(cached)
             const isFresh = Date.now() - Number(parsed?.timestamp || 0) < CATEGORY_OVERVIEW_CACHE_TTL_MS
-            if (isFresh && parsed?.images && parsed?.counts) {
-              setCategoryImages(parsed.images)
+            if (isFresh && parsed?.counts) {
               setCategoryCounts(parsed.counts)
               setLoading(false)
               return
@@ -471,7 +469,7 @@ export default function CategoriesPage() {
               const serviceCategories = categoryToServiceCategories[categoryCard.slug] || []
               const storeCategories = categoryToStoreCategories[categoryCard.slug] || [categoryCard.slug]
 
-              const [serviceCountResponses, storeCountResponses, topProductResult] = await Promise.all([
+              const [serviceCountResponses, storeCountResponses] = await Promise.all([
                 Promise.all(
                   serviceCategories.map((serviceCategory) =>
                     fetch(`/api/database/services?category=${encodeURIComponent(serviceCategory)}&count=true`)
@@ -486,9 +484,6 @@ export default function CategoriesPage() {
                       .catch(() => ({ success: false, count: 0, data: [] }))
                   )
                 ),
-                fetch(`/api/database/products?category=${categoryCard.slug}&limit=1&sortBy=popular`)
-                  .then((res) => res.json())
-                  .catch(() => ({ success: false, data: [] })),
               ])
 
               const serviceCount = serviceCountResponses.reduce((total, result) => {
@@ -501,17 +496,9 @@ export default function CategoriesPage() {
                 return total + Number(result.count || result.data?.length || 0)
               }, 0)
 
-              const topProduct = topProductResult?.success && Array.isArray(topProductResult?.data)
-                ? topProductResult.data[0]
-                : null
-              const productImage = topProduct
-                ? (Array.isArray(topProduct.images) ? topProduct.images[0] : topProduct.image)
-                : null
-
               return {
                 key: categoryCard.key,
                 count: productCount + serviceCount + storeCount,
-                image: productImage && productImage !== "/placeholder.svg" ? productImage : null,
               }
             }
 
@@ -520,24 +507,19 @@ export default function CategoriesPage() {
             const countResult = await countResponse.json()
             const count = countResult?.success ? Number(countResult.count || countResult.data?.length || 0) : 0
 
-            return { key: categoryCard.key, count, image: null as string | null }
+            return { key: categoryCard.key, count }
           } catch (error) {
             console.error(`Error fetching data for ${categoryCard.key}:`, error)
-            return { key: categoryCard.key, count: 0, image: null as string | null }
+            return { key: categoryCard.key, count: 0 }
           }
         })
       )
 
-      const imageMap: { [key: string]: string } = {}
       const countMap: { [key: string]: number } = {}
       categoryResults.forEach((result) => {
         countMap[result.key] = result.count
-        if (result.image) {
-          imageMap[result.key] = result.image
-        }
       })
 
-      setCategoryImages(imageMap)
       setCategoryCounts(countMap)
 
       if (typeof window !== "undefined") {
@@ -546,7 +528,6 @@ export default function CategoriesPage() {
             CATEGORY_OVERVIEW_CACHE_KEY,
             JSON.stringify({
               timestamp: Date.now(),
-              images: imageMap,
               counts: countMap,
             })
           )
@@ -616,60 +597,67 @@ export default function CategoriesPage() {
       <Header />
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
-          {/* Header in Glass Bubble */}
-          <div className="mb-8 p-6 md:p-8 bg-linear-to-br from-accent/5 via-accent/15 to-accent/50 backdrop-blur-2xl rounded-3xl border border-accent/30 shadow-2xl shadow-accent/20 hover:shadow-3xl hover:shadow-accent/30 transition-all duration-500">
-            <div className="animate-fade-in">
-              <nav className="text-xs sm:text-sm text-accent mb-2 sm:mb-4">
-                <Link href="/" className="hover:text-primary">
-                  Home
-                </Link>
-                <span className="mx-2">/</span>
-                <span>Categories</span>
-              </nav>
-              <h1 className="text-xl sm:text-3xl font-extrabold mb-2 sm:mb-4 text-accent tracking-tight" style={{
-                fontFamily: 'Inter, Poppins, Arial, Helvetica, sans-serif',
-                textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))'
-              }}>SHOP BY CATEGORY</h1>
-              <p className="text-accent text-xs sm:text-base">
-                Discover all categories across goods, services and stores
-              </p>
-
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-3">
-                <div className="relative md:col-span-2">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-accent/70" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search category cards..."
-                    className="w-full h-10 rounded-full border border-accent/30 bg-background/80 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-accent/40"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowOnlyWithListings((prev) => !prev)}
-                  className={`h-10 rounded-full border text-sm font-semibold transition ${showOnlyWithListings ? "bg-accent text-white border-accent" : "bg-background/80 text-accent border-accent/30"}`}
-                >
-                  {showOnlyWithListings ? "Showing with listings" : "Show listed only"}
-                </button>
+          {/* Hero Banner */}
+          <div className="mb-8 relative rounded-2xl sm:rounded-3xl overflow-hidden">
+            <img
+              src="https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1400&h=500&fit=crop&auto=format"
+              alt="Shop by Category"
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+            />
+            <div className="absolute inset-0 bg-gradient-to-br from-black/75 via-black/55 to-black/40 pointer-events-none" />
+            <div className="relative z-10 p-5 sm:p-8 md:p-10 min-h-[220px] sm:min-h-[280px] flex flex-col justify-between">
+              <div>
+                <nav className="text-xs sm:text-sm text-white/65 mb-3">
+                  <Link href="/" className="hover:text-white transition-colors">Home</Link>
+                  <span className="mx-2 text-white/40">/</span>
+                  <span className="text-white font-medium">Categories</span>
+                </nav>
+                <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight drop-shadow-lg mb-2">
+                  Shop by Category
+                </h1>
+                <p className="text-white/75 text-sm sm:text-base">
+                  Discover goods, services and stores across all categories
+                </p>
               </div>
 
-              <div className="mt-3 flex flex-wrap gap-2">
-                {[
-                  { key: "all", label: "All" },
-                  { key: "goods", label: "Goods" },
-                  { key: "services", label: "Services" },
-                  { key: "stores", label: "Stores" },
-                ].map((segment) => (
+              <div className="mt-5 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="relative sm:col-span-2">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search category cards..."
+                      className="w-full h-10 rounded-full border border-white/30 bg-white/10 backdrop-blur-sm pl-10 pr-4 text-sm text-white placeholder:text-white/50 outline-none focus:ring-2 focus:ring-white/30 focus:border-white/50"
+                    />
+                  </div>
                   <button
-                    key={segment.key}
                     type="button"
-                    onClick={() => setSegmentFilter(segment.key as "all" | "goods" | "services" | "stores")}
-                    className={`px-3 py-1.5 text-xs sm:text-sm rounded-full border transition ${segmentFilter === segment.key ? "bg-accent text-white border-accent" : "bg-background/80 text-accent border-accent/30"}`}
+                    onClick={() => setShowOnlyWithListings((prev) => !prev)}
+                    className={`h-10 rounded-full border text-sm font-semibold transition backdrop-blur-sm ${showOnlyWithListings ? "bg-white text-accent border-white" : "bg-white/10 text-white border-white/30 hover:bg-white/20"}`}
                   >
-                    {segment.label}
+                    {showOnlyWithListings ? "Showing listed only" : "Show listed only"}
                   </button>
-                ))}
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { key: "all", label: "All" },
+                    { key: "goods", label: "Goods" },
+                    { key: "services", label: "Services" },
+                    { key: "stores", label: "Stores" },
+                  ].map((segment) => (
+                    <button
+                      key={segment.key}
+                      type="button"
+                      onClick={() => setSegmentFilter(segment.key as "all" | "goods" | "services" | "stores")}
+                      className={`px-4 py-1.5 text-xs sm:text-sm rounded-full border font-medium transition backdrop-blur-sm ${segmentFilter === segment.key ? "bg-white text-accent border-white shadow" : "bg-white/10 text-white border-white/30 hover:bg-white/20"}`}
+                    >
+                      {segment.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -690,35 +678,23 @@ export default function CategoriesPage() {
                 ))
               : visibleCards.map((category, index) => {
                   const IconComponent = category.icon
-                  const productImage = categoryImages[category.key]
-                  const displayImage = productImage || CATEGORY_UNSPLASH[category.slug]
                   return (
                     <Link key={category.key} href={category.href} onClick={saveScrollPosition}>
                       <Card className={`h-full hover:shadow-2xl hover:shadow-accent/40 transition-all duration-300 group overflow-hidden border-none rounded-2xl sm:rounded-3xl relative ${category.slug === 'electronics' ? '' : 'hover:scale-[1.01]'}`} style={{ animationDelay: `${index * 0.05}s` }}>
                         {/* Full Background with Product Image or Gradient */}
                         <div className="aspect-9/16 relative overflow-hidden rounded-2xl sm:rounded-3xl">
-                          {/* Unsplash base image — always rendered so cards never show blank */}
-                          {CATEGORY_UNSPLASH[category.slug] && (
+                          {/* Unsplash background image */}
+                          {CATEGORY_UNSPLASH[category.slug] ? (
                             <img
                               src={CATEGORY_UNSPLASH[category.slug]}
                               alt={category.name}
                               className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                             />
-                          )}
-                          {/* Product image overlaid on top when available */}
-                          {productImage && (
-                            <img
-                              src={productImage}
-                              alt={`Top product in ${category.name}`}
-                              className={`absolute inset-0 w-full h-full ${category.slug === 'electronics' ? 'object-contain' : 'object-cover'} transition-transform duration-500`}
-                            />
-                          )}
-                          {/* Gradient — lighter when we have an image */}
-                          <div className={`absolute inset-0 bg-linear-to-b ${displayImage ? 'from-black/30 via-transparent via-40% to-black/80' : 'from-black/10 via-transparent via-50% to-black/60'}`} />
-                          {/* Gradient-only fallback tint when no image at all */}
-                          {!displayImage && (
+                          ) : (
                             <div className={`absolute inset-0 ${category.color} opacity-80`} />
                           )}
+                          {/* Gradient overlay */}
+                          <div className="absolute inset-0 bg-linear-to-b from-black/30 via-transparent via-40% to-black/80" />
                           {/* Icon/Logo in Center Top */}
                           <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
                             <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-white border-4 border-white overflow-hidden shadow-2xl ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110 flex items-center justify-center">
