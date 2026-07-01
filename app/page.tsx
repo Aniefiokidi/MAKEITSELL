@@ -32,8 +32,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle2 } from "lucide-react"
 import { buildPublicServicePath, buildPublicStorePath } from "@/lib/public-links"
 import { personalizeProducts, personalizeServices, personalizeStores, trackProductQuickView, trackServiceView } from "@/lib/personalization"
-import Footer from "@/components/Footer"
-
 function TrendingProducts() {
   const [products, setProducts] = useState<any[]>([])
   const [services, setServices] = useState<any[]>([])
@@ -1008,7 +1006,6 @@ export default function HomePage() {
             </div>
           </section>
         </main>
-        <Footer />
       </div>
       <style jsx global>{`
         button, .cursor-pointer, a[role="button"] {
