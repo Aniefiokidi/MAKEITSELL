@@ -170,7 +170,7 @@ export default function CategoryPage() {
   const [fashionSubcategory, setFashionSubcategory] = useState("All Fashion")
   
   // Advanced filtering states
-  const [priceRange, setPriceRange] = useState([0, 100000])
+  const [priceFilterMax, setPriceFilterMax] = useState<string>("")  // "" = no price filter active
   const [selectedBrands, setSelectedBrands] = useState<string[]>([])
   const [minRating, setMinRating] = useState(0)
   const [isFiltersOpen, setIsFiltersOpen] = useState(false)
@@ -220,10 +220,6 @@ export default function CategoryPage() {
                 new Set(cachedProducts.map((p: any) => String(p.storeName || "Store")))
               )
               setAvailableBrands(brands)
-              const prices = cachedProducts.map((p: any) => p.price).filter(Boolean)
-              if (prices.length > 0) {
-                setPriceRange([Math.min(...prices), Math.max(...prices)])
-              }
               setLoading(false)
               return
             }
@@ -311,12 +307,6 @@ export default function CategoryPage() {
             new Set(mappedProducts.map((p: any) => String(p.storeName || "Store")))
           )
           setAvailableBrands(brands)
-          const prices = mappedProducts.map((p: any) => p.price).filter(Boolean)
-          if (prices.length > 0) {
-            const minPrice = Math.min(...prices)
-            const maxPrice = Math.max(...prices)
-            setPriceRange([minPrice, maxPrice])
-          }
         } else {
           console.log('No products found or API error')
         }
@@ -491,10 +481,11 @@ export default function CategoryPage() {
       )
     }
     
-    // Apply price range filter
-    filtered = filtered.filter(
-      (product) => product.price >= priceRange[0] && product.price <= priceRange[1]
-    )
+    // Apply price filter only when the user has explicitly set a max
+    if (priceFilterMax) {
+      const max = Number(priceFilterMax)
+      filtered = filtered.filter((product) => !product.price || product.price <= max)
+    }
     
     // Apply brand/store filter
     if (selectedBrands.length > 0) {
@@ -529,7 +520,7 @@ export default function CategoryPage() {
     }
     
     setFilteredProducts(filtered)
-  }, [searchQuery, sortBy, products, fashionSubcategory, categorySlug, priceRange, selectedBrands, minRating])
+  }, [searchQuery, sortBy, products, fashionSubcategory, categorySlug, priceFilterMax, selectedBrands, minRating])
 
   // Handle brand selection
   const handleBrandToggle = (brand: string) => {
@@ -546,10 +537,7 @@ export default function CategoryPage() {
     setSelectedBrands([])
     setMinRating(0)
     setFashionSubcategory("All Fashion")
-    const prices = products.map((p: any) => p.price).filter(Boolean)
-    if (prices.length > 0) {
-      setPriceRange([Math.min(...prices), Math.max(...prices)])
-    }
+    setPriceFilterMax("")
   }
 
   // Add product to recently viewed
@@ -719,12 +707,9 @@ export default function CategoryPage() {
             >
               <Filter className="w-4 h-4" />
               Filters
-              {(selectedBrands.length > 0 || minRating > 0 || 
-                priceRange[0] !== Math.min(...products.map(p => p.price).filter(Boolean)) ||
-                priceRange[1] !== Math.max(...products.map(p => p.price).filter(Boolean))
-              ) && (
+              {(selectedBrands.length > 0 || minRating > 0 || priceFilterMax) && (
                 <Badge variant="destructive" className="ml-1">
-                  {selectedBrands.length + (minRating > 0 ? 1 : 0) + 1}
+                  {selectedBrands.length + (minRating > 0 ? 1 : 0) + (priceFilterMax ? 1 : 0)}
                 </Badge>
               )}
               {isFiltersOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -740,22 +725,20 @@ export default function CategoryPage() {
                   <div className="space-y-3">
                     <label className="text-sm font-medium">Price Range</label>
                     <Select
-                      value={priceRange[1].toString()}
-                      onValueChange={val => {
-                        const max = Number(val);
-                        setPriceRange([0, max]);
-                      }}
+                      value={priceFilterMax}
+                      onValueChange={val => setPriceFilterMax(val)}
                     >
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select price range" />
+                        <SelectValue placeholder="Any price" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="5000">Under ₦5,000</SelectItem>
                         <SelectItem value="10000">Under ₦10,000</SelectItem>
                         <SelectItem value="50000">Under ₦50,000</SelectItem>
                         <SelectItem value="100000">Under ₦100,000</SelectItem>
+                        <SelectItem value="500000">Under ₦500,000</SelectItem>
                         <SelectItem value="1000000">Under ₦1,000,000</SelectItem>
-                        <SelectItem value="10000000">Any Price</SelectItem>
+                        <SelectItem value="10000000">Under ₦10,000,000</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
