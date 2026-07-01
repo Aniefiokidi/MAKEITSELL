@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useParams, useRouter } from "next/navigation"
+import { useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -155,7 +155,6 @@ export default function CategoryPage() {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [quickViewOpen, setQuickViewOpen] = useState(false);
   const params = useParams()
-  const router = useRouter()
   const categorySlug = params.slug as string
   const [products, setProducts] = useState<any[]>([])
   const [filteredProducts, setFilteredProducts] = useState<any[]>([])
@@ -608,23 +607,13 @@ export default function CategoryPage() {
               className="absolute inset-0 w-full h-full object-cover pointer-events-none"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/10 pointer-events-none" />
-            <div className="absolute top-4 left-4 z-30">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  if (typeof window !== "undefined" && window.history.length > 1) {
-                    router.back()
-                  } else {
-                    router.push("/categories")
-                  }
-                }}
-                className="bg-white/15 backdrop-blur-sm border-white/40 text-white hover:bg-white/25 hover:text-white hover:border-white/60 transition-colors"
-              >
-                <ArrowLeft className="h-4 w-4 mr-1.5" />
-                Back
-              </Button>
-            </div>
+            <Link
+              href="/categories"
+              className="absolute top-4 left-4 z-30 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-white/20 backdrop-blur-sm border border-white/40 rounded-lg hover:bg-white/30 hover:border-white/60 transition-all"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Link>
             <div className="relative z-10 p-4 sm:p-8 pt-14 sm:pt-16">
               <nav className="text-xs sm:text-sm text-white/70 mb-2">
                 <Link href="/" className="hover:text-white transition-colors">Home</Link>
