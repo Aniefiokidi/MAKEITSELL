@@ -30,7 +30,7 @@ import HeroShuffleCarousel from "@/components/HeroShuffleCarousel"
 import { Shield, Users, Truck, Sparkles, ArrowRight, Smartphone, ShoppingBag, Sparkles as Beauty, HomeIcon, Settings, CarFront, UserCheck, Coffee, Verified, Clock, Banknote, Camera, Briefcase, Wrench, Palette, Dumbbell, GraduationCap, Scissors, Laptop, Package, Heart, BadgeCheck } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle2 } from "lucide-react"
-import { buildPublicServicePath } from "@/lib/public-links"
+import { buildPublicServicePath, buildPublicStorePath } from "@/lib/public-links"
 import { personalizeProducts, personalizeServices, personalizeStores, trackProductQuickView, trackServiceView } from "@/lib/personalization"
 import Footer from "@/components/Footer"
 
@@ -116,8 +116,8 @@ function TrendingProducts() {
   const recommendedProducts = personalizedProducts.slice(0, 4)
   const recommendedServices = personalizedServices.slice(0, 2)
 
-  // Load recently viewed directly from localStorage — no dependency on trending products,
-  // so any product you've ever viewed will appear (not just ones currently trending).
+  // Load recently viewed from localStorage, then enrich any stale entries
+  // (saved before image/price were tracked) with a server batch fetch.
   useEffect(() => {
     if (typeof window === "undefined") return
     try {
@@ -134,7 +134,30 @@ function TrendingProducts() {
         resolved.push({ id, _id: id, title: entry.title, name: entry.title, price: entry.price || 0, images: entry.image ? [entry.image] : [], category: entry.category })
         if (resolved.length >= 8) break
       }
+      if (!resolved.length) return
+
+      // Show immediately with whatever we have, then enrich stale entries
       setRecentlyViewedProducts(resolved)
+
+      const staleIds = resolved.filter(p => !p.images[0] || !p.price).map(p => p.id)
+      if (!staleIds.length) return
+
+      fetch(`/api/home/product-cards?ids=${staleIds.join(",")}`)
+        .then(r => r.json())
+        .then(data => {
+          if (!Array.isArray(data?.products)) return
+          const byId = new Map(data.products.map((p: any) => [p.id, p]))
+          setRecentlyViewedProducts(prev => prev.map(p => {
+            const fresh = byId.get(p.id)
+            if (!fresh) return p
+            return {
+              ...p,
+              price: fresh.price || p.price,
+              images: fresh.image ? [fresh.image] : p.images,
+            }
+          }))
+        })
+        .catch(() => {})
     } catch {
       setRecentlyViewedProducts([])
     }
@@ -554,7 +577,7 @@ function FeaturedStores() {
       {stores.map((store: any) => (
         <Link
           key={store.id}
-          href={`/stores/${store.publicSlug || store.vendorId}`}
+          href={buildPublicStorePath(store)}
           className="group block rounded-2xl overflow-hidden border border-neutral-200 hover:border-accent/50 hover:shadow-lg transition-all duration-300 card-lift bg-white"
         >
           <div className="aspect-square overflow-hidden bg-gradient-to-br from-accent/10 to-accent/5">
