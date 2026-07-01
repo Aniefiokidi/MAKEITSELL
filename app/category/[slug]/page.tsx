@@ -339,8 +339,9 @@ export default function CategoryPage() {
   }, [categorySlug])
 
   useEffect(() => {
-    const shouldLoadServices = activeSegment === "services" && !servicesLoaded
-    const shouldLoadStores = activeSegment === "stores" && !storesLoaded
+    // Load both eagerly in the background so tabs are instant
+    const shouldLoadServices = !servicesLoaded
+    const shouldLoadStores = !storesLoaded
 
     if (!shouldLoadServices && !shouldLoadStores) return
 
@@ -659,7 +660,7 @@ export default function CategoryPage() {
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              My Goods ({filteredProducts.length})
+              Goods ({filteredProducts.length})
             </button>
             <button
               type="button"
@@ -670,7 +671,7 @@ export default function CategoryPage() {
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              My Services ({categoryServices.length})
+              Services ({categoryServices.length})
             </button>
             <button
               type="button"
@@ -681,7 +682,7 @@ export default function CategoryPage() {
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              My Stores ({categoryStores.length})
+              Stores ({categoryStores.length})
             </button>
           </div>
         </div>
