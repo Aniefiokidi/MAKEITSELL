@@ -31,7 +31,7 @@ import { Shield, Users, Truck, Sparkles, ArrowRight, Smartphone, ShoppingBag, Sp
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle2 } from "lucide-react"
 import { buildPublicServicePath } from "@/lib/public-links"
-import { personalizeProducts, personalizeServices, trackProductQuickView, trackServiceView } from "@/lib/personalization"
+import { personalizeProducts, personalizeServices, personalizeStores, trackProductQuickView, trackServiceView } from "@/lib/personalization"
 import Footer from "@/components/Footer"
 
 function TrendingProducts() {
@@ -110,8 +110,11 @@ function TrendingProducts() {
     fetchTrending()
   }, [visible])
 
-  const recommendedProducts = personalizeProducts(products).slice(0, 4)
-  const recommendedServices = personalizeServices(services).slice(0, 2)
+  // Run personalization once — re-ranks the full pool by user signals, then slice for each section
+  const personalizedProducts = personalizeProducts(products)
+  const personalizedServices = personalizeServices(services)
+  const recommendedProducts = personalizedProducts.slice(0, 4)
+  const recommendedServices = personalizedServices.slice(0, 2)
 
   // Load recently viewed directly from localStorage — no dependency on trending products,
   // so any product you've ever viewed will appear (not just ones currently trending).
@@ -321,7 +324,7 @@ function TrendingProducts() {
             <Link href="/products" className="text-xs sm:text-sm text-accent hover:underline">View all products</Link>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4 md:gap-6 stagger-grid">
-            {products.map((product: any) => (
+            {personalizedProducts.map((product: any) => (
           <Card 
             key={product.id} 
             className="border border-neutral-200 shadow-sm overflow-hidden relative hover:shadow-lg transition-all duration-300 rounded-2xl active:scale-95 md:active:scale-100 cursor-pointer card-lift"
@@ -412,9 +415,9 @@ function TrendingProducts() {
             <h3 className="text-base sm:text-lg md:text-xl font-bold text-neutral-900">Top Services Booked</h3>
             <Link href="/services" className="text-xs sm:text-sm text-accent hover:underline">View all services</Link>
           </div>
-          {services.length ? (
+          {personalizedServices.length ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4 stagger-grid">
-              {services.map((service: any) => {
+              {personalizedServices.map((service: any) => {
                 const serviceName = service.title || service.name || service.serviceTitle || 'Service'
                 const serviceId = service.id || service._id
 
@@ -515,7 +518,13 @@ function FeaturedStores() {
   useEffect(() => {
     fetch('/api/home/featured-stores')
       .then(r => r.json())
-      .then(data => { setStores(Array.isArray(data.stores) ? data.stores : []); setLoading(false) })
+      .then(data => {
+        const pool = Array.isArray(data.stores) ? data.stores : []
+        // Re-rank by user signals (category affinity, visited stores, search terms)
+        // then cap to 6 for display
+        setStores(personalizeStores(pool).slice(0, 6))
+        setLoading(false)
+      })
       .catch(() => setLoading(false))
   }, [])
 

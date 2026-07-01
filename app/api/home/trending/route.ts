@@ -29,9 +29,9 @@ export async function GET() {
 
   await connectToDatabase()
 
-  const topProductsRaw = await Product.find({ stock: { $gt: 1 } })
+  const topProductsRaw = await Product.find({ stock: { $gt: 0 } })
     .sort({ sales: -1, createdAt: -1 })
-    .limit(5)
+    .limit(12)
     .lean()
 
   const vendorIds = Array.from(
@@ -81,7 +81,7 @@ export async function GET() {
       },
     },
     { $sort: { bookingCount: -1 } },
-    { $limit: 5 },
+    { $limit: 8 },
   ])
 
   const serviceIds = topServiceBookings.map((entry: any) => String(entry._id || "")).filter(Boolean)
