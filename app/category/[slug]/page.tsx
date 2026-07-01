@@ -611,7 +611,13 @@ export default function CategoryPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => router.back()}
+                onClick={() => {
+                  if (typeof window !== "undefined" && window.history.length > 1) {
+                    router.back()
+                  } else {
+                    router.push("/categories")
+                  }
+                }}
                 className="bg-white/15 backdrop-blur-sm border-white/40 text-white hover:bg-white/25 hover:text-white hover:border-white/60 transition-colors"
               >
                 <ArrowLeft className="h-4 w-4 mr-1.5" />
