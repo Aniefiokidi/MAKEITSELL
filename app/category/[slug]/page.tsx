@@ -607,7 +607,7 @@ export default function CategoryPage() {
               className="absolute inset-0 w-full h-full object-cover pointer-events-none"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/10 pointer-events-none" />
-            <div className="absolute top-4 left-4 z-10">
+            <div className="absolute top-4 left-4 z-30">
               <Button
                 variant="outline"
                 size="sm"

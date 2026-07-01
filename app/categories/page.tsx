@@ -697,24 +697,27 @@ export default function CategoriesPage() {
                       <Card className={`h-full hover:shadow-2xl hover:shadow-accent/40 transition-all duration-300 group overflow-hidden border-none rounded-2xl sm:rounded-3xl relative ${category.slug === 'electronics' ? '' : 'hover:scale-[1.01]'}`} style={{ animationDelay: `${index * 0.05}s` }}>
                         {/* Full Background with Product Image or Gradient */}
                         <div className="aspect-9/16 relative overflow-hidden rounded-2xl sm:rounded-3xl">
-                          {displayImage ? (
-                            <>
-                              <img
-                                src={displayImage}
-                                alt={category.name}
-                                className={`absolute inset-0 w-full h-full ${productImage && category.slug === 'electronics' ? 'object-contain' : 'object-cover'} group-hover:scale-105 transition-transform duration-500`}
-                              />
-                              <div className="absolute inset-0 bg-linear-to-b from-black/30 via-transparent via-40% to-black/80" />
-                            </>
-                          ) : (
-                            <>
-                              <div className={`flex items-center justify-center h-full ${category.color} bg-linear-to-br from-current via-current to-black/20`}>
-                                <div className="absolute inset-0 opacity-10">
-                                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1)_1px,transparent_1px)] bg-size-[20px_20px]" />
-                                </div>
-                              </div>
-                              <div className="absolute inset-0 bg-linear-to-b from-black/10 via-transparent via-50% to-black/60" />
-                            </>
+                          {/* Unsplash base image — always rendered so cards never show blank */}
+                          {CATEGORY_UNSPLASH[category.slug] && (
+                            <img
+                              src={CATEGORY_UNSPLASH[category.slug]}
+                              alt={category.name}
+                              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            />
+                          )}
+                          {/* Product image overlaid on top when available */}
+                          {productImage && (
+                            <img
+                              src={productImage}
+                              alt={`Top product in ${category.name}`}
+                              className={`absolute inset-0 w-full h-full ${category.slug === 'electronics' ? 'object-contain' : 'object-cover'} transition-transform duration-500`}
+                            />
+                          )}
+                          {/* Gradient — lighter when we have an image */}
+                          <div className={`absolute inset-0 bg-linear-to-b ${displayImage ? 'from-black/30 via-transparent via-40% to-black/80' : 'from-black/10 via-transparent via-50% to-black/60'}`} />
+                          {/* Gradient-only fallback tint when no image at all */}
+                          {!displayImage && (
+                            <div className={`absolute inset-0 ${category.color} opacity-80`} />
                           )}
                           {/* Icon/Logo in Center Top */}
                           <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
