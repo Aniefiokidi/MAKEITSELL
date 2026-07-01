@@ -336,20 +336,21 @@ export default function ServicesPage() {
         const parsedServices = JSON.parse(cachedServices)
         const cacheIsFresh = (now - parseInt(cacheTimestamp)) < 300000
         if (cacheIsFresh && Array.isArray(parsedServices) && parsedServices.length > 0) {
-          setServices(personalizeServices(parsedServices))
+          setServices(personalizeServices(parsedServices.filter((s: any) => s.category !== "beauty")))
           setLoading(false)
           return
         }
       }
 
       const firestoreServices = await getServices()
+      const nonBeautyServices = firestoreServices.filter((s) => s.category !== "beauty")
 
-      if (firestoreServices.length > 0) {
-        sessionStorage.setItem('marketplace-services', JSON.stringify(firestoreServices))
+      if (nonBeautyServices.length > 0) {
+        sessionStorage.setItem('marketplace-services', JSON.stringify(nonBeautyServices))
         sessionStorage.setItem('marketplace-services-timestamp', now.toString())
       }
 
-      setServices(personalizeServices(firestoreServices))
+      setServices(personalizeServices(nonBeautyServices))
     } catch (error) {
       console.error("Error loading services:", error)
       setServices([])
@@ -368,14 +369,15 @@ export default function ServicesPage() {
       
       // Fetch fresh data
       const firestoreServices = await getServices()
-      
+      const nonBeautyServices = firestoreServices.filter((s) => s.category !== "beauty")
+
       // Update cache with fresh data if we actually have services
-      if (firestoreServices.length > 0) {
-        sessionStorage.setItem('marketplace-services', JSON.stringify(firestoreServices))
+      if (nonBeautyServices.length > 0) {
+        sessionStorage.setItem('marketplace-services', JSON.stringify(nonBeautyServices))
         sessionStorage.setItem('marketplace-services-timestamp', Date.now().toString())
       }
-      
-      setServices(personalizeServices(firestoreServices))
+
+      setServices(personalizeServices(nonBeautyServices))
     } catch (error) {
       console.error("Error refreshing services:", error)
     }
