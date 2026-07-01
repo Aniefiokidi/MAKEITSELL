@@ -308,7 +308,6 @@ const categoryToStoreCategories: Record<string, string[]> = {
   "toys-baby": ["toys", "baby"],
 }
 
-import { Skeleton } from "@/components/ui/skeleton"
 
 type CategoryExplorerItem = {
   key: string
@@ -662,21 +661,9 @@ export default function CategoriesPage() {
             </div>
           </div>
 
-          {/* Categories Grid with Loading Skeleton */}
+          {/* Categories Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
-            {loading
-              ? Array.from({ length: 10 }).map((_, idx) => (
-                  <div key={idx} className="h-full">
-                    <div className="aspect-9/16 relative overflow-hidden rounded-2xl sm:rounded-3xl">
-                      <Skeleton className="absolute inset-0 w-full h-full rounded-2xl sm:rounded-3xl" />
-                    </div>
-                    <div className="mt-2 space-y-2">
-                      <Skeleton className="h-4 w-2/3 rounded-full" />
-                      <Skeleton className="h-3 w-1/2 rounded-full" />
-                    </div>
-                  </div>
-                ))
-              : visibleCards.map((category, index) => {
+            {visibleCards.map((category, index) => {
                   const IconComponent = category.icon
                   return (
                     <Link key={category.key} href={category.href} onClick={saveScrollPosition}>
@@ -720,7 +707,7 @@ export default function CategoriesPage() {
                             </Badge>
                             <div className="flex items-center justify-between gap-1 sm:gap-2">
                               <Badge variant="outline" className="text-[9px] sm:text-[10px] md:text-xs backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 text-white bg-accent">
-                                {categoryCounts[category.key] ? `${categoryCounts[category.key]} listings` : 'No listings yet'}
+                                {loading ? '···' : (categoryCounts[category.key] ? `${categoryCounts[category.key]} listings` : '—')}
                               </Badge>
                               <div className="shrink-0 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/70 flex items-center justify-center shadow hover:scale-110 active:scale-95 hover:bg-white transition-all duration-200 cursor-pointer group/arrow">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent group-hover/arrow:translate-x-0.5 transition-transform">

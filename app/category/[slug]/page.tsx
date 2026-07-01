@@ -234,80 +234,70 @@ export default function CategoryPage() {
         const response = await fetch(`/api/database/products?category=${categorySlug}`)
         const result = await response.json()
         if (result.success && result.data) {
-          // Get unique vendor IDs
-          const vendorIds = [...new Set(result.data.map((p: any) => p.vendorId))]
-          // Fetch all vendor stores in parallel to reduce blocking load time
+          const mapProduct = (p: any, storeName: string) => ({
+            id: p.id || p._id,
+            name: p.name || p.title,
+            title: p.title || p.name,
+            price: p.price,
+            images: Array.isArray(p.images) ? p.images : (p.image ? [p.image] : ["/placeholder.svg"]),
+            image: Array.isArray(p.images) ? p.images[0] : p.image || "/placeholder.svg",
+            storeName,
+            vendorName: p.vendorName || storeName,
+            vendorId: p.vendorId,
+            inStock: typeof p.stock === "number" ? (p.stock > 0 || p.category === 'Food & Beverages') : true,
+            stock: typeof p.stock === "number" ? p.stock : 99,
+            rating: p.rating || 5,
+            reviews: p.reviews || 0,
+            originalPrice: p.originalPrice || null,
+            maxStock: p.stock || 99,
+            vendorCategory: p.category || "",
+            category: p.category || "",
+            description: p.description || "",
+            subcategory: p.subcategory || "",
+            featured: p.featured || false,
+            status: p.status || (typeof p.stock === "number" && p.stock === 0 && p.category !== 'Food & Beverages' ? "out_of_stock" : "active"),
+            hasColorOptions: p.hasColorOptions || (Array.isArray(p.colors) && p.colors.length > 0),
+            hasSizeOptions: p.hasSizeOptions || (Array.isArray(p.sizes) && p.sizes.length > 0),
+            colors: p.colors || [],
+            sizes: p.sizes || [],
+            colorImages: p.colorImages || {},
+            sales: p.sales || 0,
+            createdAt: p.createdAt || "",
+            updatedAt: p.updatedAt || ""
+          })
+
+          // Phase 1 — show products immediately with placeholder store names
+          const initialProducts = result.data.map((p: any) => mapProduct(p, "Store"))
+          setProducts(initialProducts)
+          setLoading(false)
+
+          // Phase 2 — fetch store names in background, then update
+          const vendorIds = [...new Set(result.data.map((p: any) => p.vendorId))] as string[]
           const storeNamesMap: { [key: string]: string } = {}
-          const vendorStoreResults = await Promise.all(
+          await Promise.all(
             vendorIds.map(async (vendorId) => {
               try {
                 const storeRes = await fetch(`/api/database/stores?vendorId=${vendorId}`)
                 const storeData = await storeRes.json()
-                return { vendorId, storeData }
-              } catch {
-                return { vendorId, storeData: null }
-              }
+                if (storeData?.success && Array.isArray(storeData?.data) && storeData.data.length > 0) {
+                  storeNamesMap[vendorId] = storeData.data[0].storeName || "Store"
+                }
+              } catch { /* ignore */ }
             })
           )
 
-          vendorStoreResults.forEach(({ vendorId, storeData }) => {
-            if (storeData?.success && Array.isArray(storeData?.data) && storeData.data.length > 0) {
-              storeNamesMap[vendorId as string] = storeData.data[0].storeName || "Store"
-            }
-          })
-
-          const mappedProducts = result.data.map((p: any) => {
-            const storeName = storeNamesMap[p.vendorId] || "Store";
-            return {
-              id: p.id || p._id,
-              name: p.name || p.title,
-              title: p.title || p.name,
-              price: p.price,
-              images: Array.isArray(p.images) ? p.images : (p.image ? [p.image] : ["/placeholder.svg"]),
-              image: Array.isArray(p.images) ? p.images[0] : p.image || "/placeholder.svg",
-              storeName: storeName,
-              vendorName: p.vendorName || storeName,
-              vendorId: p.vendorId,
-              inStock: typeof p.stock === "number" ? (p.stock > 0 || p.category === 'Food & Beverages') : true,
-              stock: typeof p.stock === "number" ? p.stock : 99,
-              rating: p.rating || 5,
-              reviews: p.reviews || 0,
-              originalPrice: p.originalPrice || null,
-              maxStock: p.stock || 99,
-              vendorCategory: p.category || "",
-              category: p.category || "",
-              description: p.description || "",
-              subcategory: p.subcategory || "",
-              featured: p.featured || false,
-              status: p.status || (typeof p.stock === "number" && p.stock === 0 && p.category !== 'Food & Beverages' ? "out_of_stock" : "active"),
-              hasColorOptions: p.hasColorOptions || (Array.isArray(p.colors) && p.colors.length > 0),
-              hasSizeOptions: p.hasSizeOptions || (Array.isArray(p.sizes) && p.sizes.length > 0),
-              colors: p.colors || [],
-              sizes: p.sizes || [],
-              colorImages: p.colorImages || {},
-              sales: p.sales || 0,
-              createdAt: p.createdAt || "",
-              updatedAt: p.updatedAt || ""
-            };
-          });
-          setProducts(mappedProducts)
+          const finalProducts = result.data.map((p: any) => mapProduct(p, storeNamesMap[p.vendorId] || "Store"))
+          setProducts(finalProducts)
+          setAvailableBrands(Array.from(new Set(finalProducts.map((p: any) => String(p.storeName)))))
 
           if (typeof window !== "undefined") {
             try {
               sessionStorage.setItem(
                 `mis:category:${categorySlug}:products:v1`,
-                JSON.stringify({ timestamp: Date.now(), products: mappedProducts })
+                JSON.stringify({ timestamp: Date.now(), products: finalProducts })
               )
-            } catch {
-              // ignore storage quota errors
-            }
+            } catch { /* ignore */ }
           }
-
-          // Set available brands and price range
-          const brands: string[] = Array.from(
-            new Set(mappedProducts.map((p: any) => String(p.storeName || "Store")))
-          )
-          setAvailableBrands(brands)
         } else {
           console.log('No products found or API error')
         }
