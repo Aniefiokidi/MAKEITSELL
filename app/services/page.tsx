@@ -92,7 +92,6 @@ const SERVICE_CATEGORIES = [
   { value: "design", label: "Design & Creative" },
   { value: "fitness", label: "Fitness & Wellness" },
   { value: "education", label: "Education & Tutoring" },
-  { value: "beauty", label: "Beauty" },
   { value: "cleaning", label: "Cleaning Services" },
   { value: "tech", label: "Tech Support" },
   { value: "rentals", label: "Rentals" },
@@ -384,7 +383,9 @@ export default function ServicesPage() {
   }
 
   const filterServices = () => {
-    let filtered = services
+    let filtered = services.filter(
+      (service) => normalizeServiceCategory(service.category) !== "beauty"
+    )
 
     if (serviceGroup === "hotels") {
       filtered = filtered.filter(
