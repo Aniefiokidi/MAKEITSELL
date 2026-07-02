@@ -347,7 +347,7 @@ export default function ServicesPage() {
       }
 
       const firestoreServices = await getServices()
-      const nonBeautyServices = firestoreServices.filter((s) => s.category !== "beauty")
+      const nonBeautyServices = firestoreServices.filter((s: Service) => s.category !== "beauty")
 
       if (nonBeautyServices.length > 0) {
         sessionStorage.setItem('marketplace-services', JSON.stringify(nonBeautyServices))
@@ -373,7 +373,7 @@ export default function ServicesPage() {
       
       // Fetch fresh data
       const firestoreServices = await getServices()
-      const nonBeautyServices = firestoreServices.filter((s) => s.category !== "beauty")
+      const nonBeautyServices = firestoreServices.filter((s: Service) => s.category !== "beauty")
 
       // Update cache with fresh data if we actually have services
       if (nonBeautyServices.length > 0) {
