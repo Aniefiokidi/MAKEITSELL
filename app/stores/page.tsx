@@ -10,7 +10,6 @@ import { Search, Store, RefreshCw, MapPin, Clock, Users, Package, Wrench, ArrowR
 import Link from "next/link"
 import Header from "@/components/Header"
 import { Skeleton } from "@/components/ui/skeleton"
-import Image from "next/image"
 import { useGeolocation } from "@/hooks/use-geolocation"
 import { distanceToItem, formatDistance } from "@/lib/geo-utils"
 import { useRouter } from "next/navigation"
@@ -351,17 +350,15 @@ export default function ShopPage() {
         >
           {/* Full Image Background */}
           <div className="aspect-9/16 relative overflow-hidden rounded-2xl">
-            {/* Fallback gradient always underneath — revealed when image is missing or fails */}
+            {/* Fallback gradient always underneath */}
             <div className="absolute inset-0 bg-linear-to-br from-accent/30 via-accent/20 to-accent/40 flex items-center justify-center">
               <Store className="h-20 w-20 text-accent/30" />
             </div>
+            {/* CSS background-image: silently shows nothing when URL is broken — no alt text, no broken icon */}
             {backgroundImageCandidate && (
-              <Image
-                src={resolveStoreImageSrc(backgroundImageCandidate, firstProductImage)}
-                alt=""
-                fill
-                className="object-cover group-hover:scale-105 transition-transform duration-500"
-                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+              <div
+                className="absolute inset-0 bg-cover bg-center group-hover:scale-105 transition-transform duration-500"
+                style={{ backgroundImage: `url(${resolveStoreImageSrc(backgroundImageCandidate, firstProductImage)})` }}
               />
             )}
             {/* Dark overlay gradient at bottom for text readability */}
@@ -381,19 +378,16 @@ export default function ShopPage() {
             )}
             {/* Logo in Center Top */}
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
-              <div className="w-16 h-16 rounded-full bg-accent border-4 border-white overflow-hidden shadow-2xl ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110 relative">
-                {/* Fallback Store icon always underneath */}
+              <div className="w-16 h-16 rounded-full bg-accent border-4 border-white shadow-2xl ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110 relative overflow-hidden">
+                {/* Fallback Store icon underneath */}
                 <div className="absolute inset-0 flex items-center justify-center">
                   <Store className="h-8 w-8 text-white" />
                 </div>
+                {/* CSS background-image for logo — same silent-fail behaviour */}
                 {logoImageCandidate && (
-                  <Image
-                    src={resolveStoreImageSrc(logoImageCandidate, firstProductImage)}
-                    alt=""
-                    width={64}
-                    height={64}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                  <div
+                    className="absolute inset-0 bg-cover bg-center"
+                    style={{ backgroundImage: `url(${resolveStoreImageSrc(logoImageCandidate, firstProductImage)})` }}
                   />
                 )}
               </div>
