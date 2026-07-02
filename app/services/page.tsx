@@ -13,7 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { getServices, Service } from "@/lib/database-client"
 import { initPersonalizationSync, personalizeServices, trackSearch, trackServiceView } from "@/lib/personalization"
 import { buildPublicServicePath } from "@/lib/public-links"
-import { Search, Clock, Banknote, Verified, RefreshCw, Camera, Briefcase, Wrench, Palette, Dumbbell, GraduationCap, Scissors, Sparkles, Laptop, Settings, Store, ArrowRight, Car, Megaphone, Shield, HeartPulse, Truck, Home, CarTaxiFront, Music2, Coffee, Users, Hotel } from "lucide-react"
+import { Search, Clock, Banknote, Verified, RefreshCw, Camera, Briefcase, Wrench, Palette, Dumbbell, GraduationCap, Scissors, Sparkles, Laptop, Settings, Store, ArrowRight, Car, Megaphone, Shield, HeartPulse, Truck, Home, CarTaxiFront, Music2, Coffee, Users, Hotel, Navigation, MapPin, Loader2 } from "lucide-react"
+import { useGeolocation } from "@/hooks/use-geolocation"
+import { distanceToItem, formatDistance } from "@/lib/geo-utils"
 import Image from "next/image"
 
 // Function to get icon component based on category
@@ -226,6 +228,8 @@ export default function ServicesPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [serviceGroup, setServiceGroup] = useState<"all" | "hotels">("all")
+  const [nearbySort, setNearbySort] = useState(false)
+  const geo = useGeolocation()
   const [selectedState, setSelectedState] = useState("all")
   const [selectedCity, setSelectedCity] = useState("all")
   const [showMobileSearch, setShowMobileSearch] = useState(false)
@@ -297,7 +301,7 @@ export default function ServicesPage() {
 
   useEffect(() => {
     filterServices()
-  }, [searchQuery, selectedCategory, serviceGroup, selectedState, selectedCity, services])
+  }, [searchQuery, selectedCategory, serviceGroup, selectedState, selectedCity, services, nearbySort, geo.lat, geo.lng, geo.granted])
 
   const availableStates = Array.from(
     new Set(
@@ -421,6 +425,20 @@ export default function ServicesPage() {
       filtered = filtered.filter((service) => {
         const cityValue = (service.city || parseCityFromLocation(service.location || "")).toLowerCase()
         return cityValue === selectedCity.toLowerCase()
+      })
+    }
+
+    // Near You: sort by distance when active
+    if (nearbySort && geo.granted && geo.lat != null && geo.lng != null) {
+      const userLat = geo.lat
+      const userLng = geo.lng
+      filtered = [...filtered].sort((a, b) => {
+        const da = distanceToItem(userLat, userLng, a as any)
+        const db = distanceToItem(userLat, userLng, b as any)
+        if (da == null && db == null) return 0
+        if (da == null) return 1
+        if (db == null) return -1
+        return da - db
       })
     }
 
@@ -552,7 +570,25 @@ export default function ServicesPage() {
             >
               Hotels
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!geo.granted) geo.request()
+                setNearbySort(n => !n)
+              }}
+              className={`px-3 py-1.5 text-xs sm:text-sm rounded-full font-semibold transition-colors flex items-center gap-1 ${
+                nearbySort ? "bg-accent text-white" : "text-accent hover:bg-accent/10"
+              }`}
+            >
+              {geo.loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Navigation className="w-3 h-3" />}
+              Near You
+            </button>
           </div>
+          {geo.error && (
+            <p className="text-xs text-rose-600 flex items-center gap-1">
+              <MapPin className="w-3 h-3" />{geo.error}
+            </p>
+          )}
 
           <div className="w-full lg:w-auto xl:hidden">
             <Link
@@ -745,6 +781,9 @@ export default function ServicesPage() {
               const avatarImage = getServiceAvatarImage(service)
               const isLongTitle = serviceName.length > 34
               const isLongProvider = (service.providerName || '').length > 22
+              const dist = (nearbySort && geo.granted && geo.lat != null && geo.lng != null)
+                ? distanceToItem(geo.lat, geo.lng, service as any)
+                : null
               
               return (
                 <Card 
@@ -776,6 +815,15 @@ export default function ServicesPage() {
                     
                     {/* Dark overlay gradient at bottom for text readability */}
                     <div className="absolute inset-0 bg-linear-to-b from-black/20 via-transparent via-50% to-black/90" />
+
+                    {/* Distance badge */}
+                    {dist != null && (
+                      <div className="absolute top-2 left-2 z-20">
+                        <span className="text-[9px] sm:text-[10px] font-semibold px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-white flex items-center gap-1">
+                          <MapPin className="w-2.5 h-2.5" />{formatDistance(dist)}
+                        </span>
+                      </div>
+                    )}
                     
                     {/* Provider Icon in Center Top */}
                     <div className="absolute top-3 sm:top-4 left-1/2 -translate-x-1/2 z-20">

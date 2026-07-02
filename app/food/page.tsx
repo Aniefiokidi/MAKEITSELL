@@ -1,14 +1,16 @@
 ﻿"use client"
 
-import React, { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback, useMemo } from "react"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Search, Clock, MapPin, UtensilsCrossed, ArrowRight } from "lucide-react"
+import { Search, Clock, MapPin, UtensilsCrossed, ArrowRight, Navigation, Loader2 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import Header from "@/components/Header"
 import { buildPublicStorePath } from "@/lib/public-links"
+import { useGeolocation } from "@/hooks/use-geolocation"
+import { distanceToItem, formatDistance } from "@/lib/geo-utils"
 
 function resolveImg(src?: string) {
   if (!src) return "/placeholder.svg"
@@ -124,6 +126,20 @@ export default function FoodPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [debounced, setDebounced] = useState("")
+  const [nearbySort, setNearbySort] = useState(false)
+  const geo = useGeolocation()
+
+  const displayStores = useMemo(() => {
+    if (!nearbySort || !geo.granted || geo.lat == null || geo.lng == null) return stores
+    return [...stores].sort((a, b) => {
+      const da = distanceToItem(geo.lat!, geo.lng!, a)
+      const db = distanceToItem(geo.lat!, geo.lng!, b)
+      if (da == null && db == null) return 0
+      if (da == null) return 1
+      if (db == null) return -1
+      return da - db
+    })
+  }, [stores, nearbySort, geo.lat, geo.lng, geo.granted])
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search.trim()), 250)
@@ -186,11 +202,28 @@ export default function FoodPage() {
 
       {/* Content */}
       <main className="flex-1 container mx-auto px-4 py-8 max-w-5xl">
+        {/* Near You toggle */}
+        <div className="flex items-center gap-3 mb-5">
+          <button
+            type="button"
+            onClick={() => { if (!geo.granted) geo.request(); setNearbySort(n => !n) }}
+            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold border transition-all ${
+              nearbySort
+                ? "bg-accent text-white border-accent"
+                : "border-accent/30 text-accent hover:bg-accent/5"
+            }`}
+          >
+            {geo.loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Navigation className="w-4 h-4" />}
+            Near You
+          </button>
+          {geo.error && <p className="text-xs text-rose-600">{geo.error}</p>}
+        </div>
+
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {[...Array(6)].map((_, i) => <RestaurantSkeleton key={i} />)}
           </div>
-        ) : stores.length === 0 ? (
+        ) : displayStores.length === 0 ? (
           <div className="text-center py-24">
             <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-accent/10 mb-6">
               <UtensilsCrossed className="h-10 w-10 text-accent/60" />
@@ -203,10 +236,10 @@ export default function FoodPage() {
         ) : (
           <>
             <p className="text-sm text-muted-foreground mb-5">
-              {stores.length} restaurant{stores.length !== 1 ? "s" : ""} available
+              {displayStores.length} restaurant{displayStores.length !== 1 ? "s" : ""} {nearbySort ? "near you" : "available"}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-              {stores.map(store => (
+              {displayStores.map(store => (
                 <RestaurantCard key={store._id || store.id} store={store} />
               ))}
             </div>

@@ -6,10 +6,12 @@ import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Search, Store, RefreshCw, MapPin, Clock, Users, Package, Wrench, ArrowRight, ExternalLink } from "lucide-react"
+import { Search, Store, RefreshCw, MapPin, Clock, Users, Package, Wrench, ArrowRight, ExternalLink, Navigation, Loader2 } from "lucide-react"
 import Link from "next/link"
 import Header from "@/components/Header"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useGeolocation } from "@/hooks/use-geolocation"
+import { distanceToItem, formatDistance } from "@/lib/geo-utils"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { initPersonalizationSync, personalizeStores, trackSearch, trackStoreView } from "@/lib/personalization"
@@ -65,6 +67,7 @@ export default function ShopPage() {
   const [selectedLocation, setSelectedLocation] = useState("all")
   const [locationOptions, setLocationOptions] = useState<string[]>([])
   const [sortBy, setSortBy] = useState("for-you")
+  const geo = useGeolocation()
   const [refreshing, setRefreshing] = useState(false)
   const [showFilters, setShowFilters] = useState(true)
   const [isTransitioning, setIsTransitioning] = useState(false)
@@ -117,9 +120,9 @@ export default function ShopPage() {
         params.append("location", selectedLocation)
       }
 
-      params.append("sortBy", sortBy)
+      params.append("sortBy", sortBy === "near-you" ? "newest" : sortBy)
       params.append("page", String(currentPage))
-      params.append("limit", String(itemsPerPage))
+      params.append("limit", sortBy === "near-you" ? "100" : String(itemsPerPage))
       
       const response = await fetch(`/api/database/stores?${params}`, { cache: "no-store" })
       const data = await response.json()
@@ -172,6 +175,19 @@ export default function ShopPage() {
       setLoading(false)
     }
   }
+
+  // Client-side sort when "near-you" is selected
+  const displayStores = useMemo(() => {
+    if (sortBy !== "near-you" || !geo.granted || geo.lat == null || geo.lng == null) return stores
+    return [...stores].sort((a, b) => {
+      const da = distanceToItem(geo.lat!, geo.lng!, a)
+      const db = distanceToItem(geo.lat!, geo.lng!, b)
+      if (da == null && db == null) return 0
+      if (da == null) return 1
+      if (db == null) return -1
+      return da - db
+    })
+  }, [stores, sortBy, geo.lat, geo.lng, geo.granted])
 
   const saveScrollPosition = () => {
     if (typeof window === "undefined") return
@@ -642,12 +658,15 @@ export default function ShopPage() {
               </Select>
 
               {/* Sort */}
-              <Select value={sortBy} onValueChange={setSortBy}>
+              <Select value={sortBy} onValueChange={(v) => { if (v === "near-you" && !geo.granted) geo.request(); setSortBy(v) }}>
                 <SelectTrigger className="flex-1 sm:w-auto h-10 text-xs sm:text-sm border-2 border-accent/20 hover:border-accent/40 transition-colors p-2">
                   <SelectValue placeholder="Sort" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="for-you" className="text-xs sm:text-sm">For You</SelectItem>
+                  <SelectItem value="near-you" className="text-xs sm:text-sm" onPointerDown={() => { if (!geo.granted) geo.request() }}>
+                    📍 Near You
+                  </SelectItem>
                   <SelectItem value="name" className="text-xs sm:text-sm">Name A-Z</SelectItem>
                   <SelectItem value="newest" className="text-xs sm:text-sm">Newest</SelectItem>
                   <SelectItem value="products" className="text-xs sm:text-sm">Most Products</SelectItem>
@@ -721,9 +740,9 @@ export default function ShopPage() {
               </Card>
             ))}
           </div>
-        ) : stores.length > 0 ? (
+        ) : displayStores.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5 lg:gap-6 stagger-grid">
-            {stores.map((store) => (
+            {displayStores.map((store) => (
               <StoreCard key={store._id || store.id} store={store} />
             ))}
           </div>

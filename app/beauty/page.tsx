@@ -1,11 +1,13 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import Link from "next/link"
 import Header from "@/components/Header"
-import { Search, MapPin, Star, Clock, Banknote, ChevronRight, Sparkles, Heart } from "lucide-react"
+import { Search, MapPin, Star, Clock, Banknote, ChevronRight, Sparkles, Heart, Navigation, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { buildPublicServicePath } from "@/lib/public-links"
+import { useGeolocation } from "@/hooks/use-geolocation"
+import { distanceToItem, formatDistance } from "@/lib/geo-utils"
 
 // ─── Specialty filter definitions ────────────────────────────────────────────
 
@@ -84,7 +86,7 @@ function formatPrice(price: any): string {
 
 // ─── Provider card ────────────────────────────────────────────────────────────
 
-function ProviderCard({ service, fallbackIndex }: { service: any; fallbackIndex: number }) {
+function ProviderCard({ service, fallbackIndex, distance }: { service: any; fallbackIndex: number; distance?: number | null }) {
   const [liked, setLiked] = useState(false)
   const img = getProviderImage(service, fallbackIndex)
   const location = service.location || service.city || service.state || ""
@@ -111,14 +113,19 @@ function ProviderCard({ service, fallbackIndex }: { service: any; fallbackIndex:
           <Heart className={`w-4 h-4 ${liked ? "fill-rose-400 text-rose-400" : "text-white"}`} />
         </button>
 
-        {/* Specialty badge top-left */}
-        {service.subcategory && (
-          <div className="absolute top-3 left-3 z-10">
-            <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-rose-500/80 backdrop-blur-sm text-white border border-white/20">
-              {service.subcategory}
+        {/* Distance or specialty badge top-left */}
+        <div className="absolute top-3 left-3 z-10 flex flex-col gap-1">
+          {distance != null && (
+            <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-sm text-white border border-white/20 flex items-center gap-1">
+              <MapPin className="w-2.5 h-2.5" />{formatDistance(distance)}
             </span>
-          </div>
-        )}
+          )}
+          {service.subcategory && (
+            <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-rose-500/80 backdrop-blur-sm text-white border border-white/20">
+              {service.subcategory.replace(/-/g, " ")}
+            </span>
+          )}
+        </div>
 
         {/* Bottom info */}
         <div className="absolute bottom-0 left-0 right-0 p-3.5 z-10">
@@ -157,7 +164,9 @@ export default function BeautyPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [specialty, setSpecialty] = useState("all")
+  const [nearbyActive, setNearbyActive] = useState(false)
   const pillsRef = useRef<HTMLDivElement>(null)
+  const geo = useGeolocation()
 
   useEffect(() => {
     async function load() {
@@ -176,15 +185,24 @@ export default function BeautyPage() {
     load()
   }, [])
 
-  const filtered = services.filter((s) => {
-    if (!matchesSpecialty(s, specialty)) return false
-    if (search) {
-      const q = search.toLowerCase()
-      const hay = `${s.title || ""} ${s.providerName || ""} ${s.description || ""} ${s.location || ""}`.toLowerCase()
-      if (!hay.includes(q)) return false
-    }
-    return true
-  })
+  // Attach distances when we have user coordinates
+  const servicesWithDistance = useMemo(() => {
+    if (!geo.granted || geo.lat == null || geo.lng == null) return services.map(s => ({ ...s, _dist: null }))
+    return services.map(s => ({ ...s, _dist: distanceToItem(geo.lat!, geo.lng!, s) }))
+  }, [services, geo.lat, geo.lng, geo.granted])
+
+  const filtered = servicesWithDistance
+    .filter((s) => {
+      if (nearbyActive && s._dist == null) return false
+      if (!matchesSpecialty(s, specialty)) return false
+      if (search) {
+        const q = search.toLowerCase()
+        const hay = `${s.title || ""} ${s.providerName || ""} ${s.description || ""} ${s.location || ""}`.toLowerCase()
+        if (!hay.includes(q)) return false
+      }
+      return true
+    })
+    .sort((a, b) => nearbyActive && a._dist != null && b._dist != null ? a._dist - b._dist : 0)
 
   return (
     <>
@@ -253,6 +271,24 @@ export default function BeautyPage() {
           className="container mx-auto px-4 flex gap-1 overflow-x-auto"
           style={{ scrollbarWidth: "none" }}
         >
+          {/* Near You tab */}
+          <button
+            type="button"
+            onClick={() => {
+              if (!geo.granted) geo.request()
+              setNearbyActive(n => !n)
+            }}
+            className={`shrink-0 relative px-4 py-3.5 text-[13px] font-medium transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+              nearbyActive ? "text-rose-600" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {geo.loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Navigation className="w-3.5 h-3.5" />}
+            Near You
+            {nearbyActive && <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-rose-500 rounded-full" />}
+          </button>
+
+          <span className="self-stretch w-px bg-border/60 my-2.5 shrink-0" />
+
           {SPECIALTIES.map((sp) => (
             <button
               key={sp.key}
@@ -277,14 +313,26 @@ export default function BeautyPage() {
       <div className="min-h-screen bg-gradient-to-b from-rose-50/40 to-background">
         <div className="container mx-auto px-4 py-8">
 
+          {/* Location error */}
+          {geo.error && (
+            <div className="mb-4 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-start gap-2">
+              <MapPin className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>{geo.error}</span>
+            </div>
+          )}
+
           {/* Result count */}
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-lg sm:text-xl font-bold text-foreground">
-                {specialty === "all" ? "All Beauty Artists" : SPECIALTIES.find(s => s.key === specialty)?.label}
+                {nearbyActive
+                  ? "Beauty Artists Near You"
+                  : specialty === "all"
+                  ? "All Beauty Artists"
+                  : SPECIALTIES.find(s => s.key === specialty)?.label}
               </h2>
               <p className="text-muted-foreground text-sm mt-0.5">
-                {loading ? "Loading…" : `${filtered.length} ${filtered.length === 1 ? "artist" : "artists"} available`}
+                {loading ? "Loading…" : `${filtered.length} ${filtered.length === 1 ? "artist" : "artists"} ${nearbyActive ? "near you" : "available"}`}
               </p>
             </div>
             <Link
@@ -330,7 +378,7 @@ export default function BeautyPage() {
           {!loading && filtered.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
               {filtered.map((service, i) => (
-                <ProviderCard key={service.id || service._id || i} service={service} fallbackIndex={i} />
+                <ProviderCard key={service.id || service._id || i} service={service} fallbackIndex={i} distance={service._dist} />
               ))}
             </div>
           )}
