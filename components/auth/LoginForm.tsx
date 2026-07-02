@@ -123,7 +123,11 @@ export default function LoginForm() {
       } else if (error.message === 'PASSWORD_WAS_RESET') {
         setError("Your password was recently updated by an administrator. Please check your email for your temporary password and use that to sign in.")
       } else {
-        setError(error.message || "Failed to sign in. Please check your credentials.")
+        const raw = String(error.message || "")
+        const isConnectionError = /ssl|tls|socket|econnrefused|econnreset|etimeout|querysrv|mongodb|0a000438|alert internal/i.test(raw)
+        setError(isConnectionError
+          ? "Connection error. Please check your internet and try again."
+          : (raw || "Failed to sign in. Please check your credentials."))
       }
     } finally {
       setLoading(false)

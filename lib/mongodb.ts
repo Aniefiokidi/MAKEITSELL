@@ -52,6 +52,11 @@ function isSrvDnsError(error: unknown) {
   );
 }
 
+function isSslError(error: unknown) {
+  const message = String((error as any)?.message || error || '');
+  return /ssl|tls|alert internal|certificate|0a000438/i.test(message);
+}
+
 function extractSearchParams(uri: URL) {
   const params = new URLSearchParams(uri.searchParams);
   if (!params.has('retryWrites')) params.set('retryWrites', 'true');
@@ -141,11 +146,19 @@ export async function connectToDatabase() {
         throw error;
       }
     })().catch((error: any) => {
+      // Reset cached promise so the next request can retry rather than
+      // replaying a permanently-failed promise.
+      cached.promise = null;
+      (global as any).mongoose = cached;
+
       const message = String(error?.message || error);
       if (isSrvDnsError(error)) {
         throw new Error(
           'MongoDB DNS SRV lookup failed (querySrv ECONNREFUSED). Use a stable DNS (e.g. 8.8.8.8/1.1.1.1) or set MONGODB_URI to a direct mongodb:// Atlas URI.'
         );
+      }
+      if (isSslError(error)) {
+        throw new Error('Database connection failed (TLS error). Please try again.');
       }
       throw new Error(message);
     });
