@@ -329,18 +329,21 @@ export default function ShopPage() {
 
   const StoreCard = ({ store }: { store: any }) => (
     (() => {
-      // Reject placeholder sentinel values saved by the setup wizard when no image is uploaded
+      // realImg rejects placeholder sentinels saved by setup wizard — only used for the logo
+      // so the accent-circle fallback shows instead of a grey placeholder in the logo ring
       const realImg = (v?: string) => (v && v !== '/placeholder.svg' && v.trim() !== '' ? v : undefined)
 
-      const firstProductImage = realImg(store.featuredProduct?.image) || realImg(store.productImages?.[0])
-      // Banner: prefer dedicated banner fields, fall back to profile/product images
+      const firstProductImage = store.featuredProduct?.image || store.productImages?.[0]
+      // Banner: keep original priority — profileImage first since most stores store their
+      // banner there; add new fields at the end for stores that use them
       const backgroundImageCandidate =
-        realImg(store.backgroundImage) ||
-        realImg(store.storeBanner) ||
-        realImg(store.bannerImages?.[0]) ||
-        realImg(store.profileImage) ||
+        store.profileImage ||
+        store.bannerImage ||
+        store.backgroundImage ||
+        store.storeBanner ||
+        store.bannerImages?.[0] ||
         firstProductImage
-      // Logo: correct field name is `logo` (not `logoImage`); skip storeImage if it's a placeholder
+      // Logo: correct field is `store.logo` (not `store.logoImage`); filter placeholder sentinels
       const logoImageCandidate =
         realImg(store.logo) ||
         realImg(store.storeImage) ||
