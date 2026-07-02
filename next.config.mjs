@@ -50,24 +50,10 @@ const nextConfig = {
     formats: ["image/webp", "image/avif"],
     remotePatterns: [
       {
+        // Allow any HTTPS image source — vendors upload to many providers
+        // (Firebase, Cloudinary, S3, GCS, Supabase, Uploadthing, etc.)
         protocol: "https",
-        hostname: "images.unsplash.com",
-        pathname: "/**",
-      },
-      {
-        protocol: "https",
-        hostname: "unsplash.com",
-        pathname: "/**",
-      },
-      {
-        protocol: "https",
-        hostname: "res.cloudinary.com",
-        pathname: "/**",
-      },
-      {
-        protocol: "https",
-        hostname: "firebasestorage.googleapis.com",
-        pathname: "/**",
+        hostname: "**",
       },
     ],
   },

@@ -235,7 +235,7 @@ export default function ShopPage() {
     return /\.pdf(\?|#|$)/i.test(value)
   }
 
-  const resolveStoreImageSrc = (value?: string, fallbackValue?: string) => {
+  const resolveStoreImageSrc = (value?: string, fallbackValue?: string): string => {
     if (!value) return "/placeholder.svg"
     const normalized = value.trim()
     if (!normalized) return "/placeholder.svg"
@@ -243,10 +243,9 @@ export default function ShopPage() {
     if (normalized.startsWith("data:image/")) return normalized
     if (normalized.startsWith("/")) return normalized
 
-    const isHttpUrl = /^https?:\/\//i.test(normalized)
-    const looksLikeImageFile = /\.(avif|bmp|gif|ico|jpe?g|png|svg|webp)(\?|#|$)/i.test(normalized)
-
-    if (isHttpUrl && looksLikeImageFile) return normalized
+    // Accept any HTTPS URL — storage providers (Firebase, S3, GCS, Supabase,
+    // Uploadthing, etc.) often serve images without a file extension in the path
+    if (/^https?:\/\//i.test(normalized)) return normalized
 
     if (fallbackValue && fallbackValue !== value) {
       return resolveStoreImageSrc(fallbackValue)

@@ -18,7 +18,7 @@ function resolveImg(src?: string) {
   if (!n) return "/placeholder.svg"
   if (/\.pdf(\?|#|$)/i.test(n)) return "/placeholder.svg"
   if (n.startsWith("/") || n.startsWith("data:image/")) return n
-  if (/^https?:\/\//i.test(n) && /\.(avif|bmp|gif|ico|jpe?g|png|svg|webp)(\?|#|$)/i.test(n)) return n
+  if (/^https?:\/\//i.test(n)) return n
   return "/placeholder.svg"
 }
 
