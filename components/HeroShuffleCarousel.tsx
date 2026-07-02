@@ -18,7 +18,7 @@ type CarouselSlide = {
 }
 
 const INVALID_IMAGE_PATTERN = /(placeholder|default|no[-_ ]?image|avatar-default|image-not-found)/i
-const HERO_CAROUSEL_CACHE_KEY = "mis:hero-carousel:v2"
+const HERO_CAROUSEL_CACHE_KEY = "mis:hero-carousel:v3"
 const CACHE_TTL_MS = 30 * 60 * 1000
 const FALLBACK_IMAGE = "/MISHG.png"
 const X_PX_BY_OFFSET: Record<number, number> = { [-2]: -250, [-1]: -135, [0]: 0, [1]: 135, [2]: 250 }
@@ -155,7 +155,7 @@ export default function HeroShuffleCarousel() {
 
       const serviceSlides: CarouselSlide[] = services
         .map((service: any) => {
-          const image = firstValidImage([service?.images, service?.image, service?.imageUrl, service?.thumbnail])
+          const image = firstValidImage([service?.images, service?.image, service?.imageUrl, service?.thumbnail, service?.providerImage])
           if (!image) return null
           const id = String(service?.id || service?._id || "").trim()
           if (!id) return null
@@ -165,9 +165,7 @@ export default function HeroShuffleCarousel() {
 
       const storeSlides: CarouselSlide[] = stores
         .map((store: any) => {
-          const hasLogoOrProfileCard = hasValidImage(store?.logoImage) || hasValidImage(store?.profileImage) || hasValidImage(store?.storeImage) || hasValidImage(store?.logo)
-          if (!hasLogoOrProfileCard) return null
-          const image = firstValidImage([store?.bannerImage, store?.profileImage, store?.logoImage, store?.storeImage, store?.logo, store?.bannerImages])
+          const image = firstValidImage([store?.bannerImage, store?.backgroundImage, store?.storeBanner, store?.profileImage, store?.logoImage, store?.storeImage, store?.logo, store?.bannerImages])
           if (!image) return null
           const id = String(store?.id || store?._id || "").trim()
           if (!id) return null

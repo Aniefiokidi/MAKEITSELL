@@ -665,14 +665,16 @@ function HeroButtons({ isLoggedIn }: { isLoggedIn: boolean }) {
         ) : (
           <Link
             href={servicesHref}
-            className="text-accent font-semibold text-[clamp(0.9rem,3.8vw,1rem)] hover:underline flex items-center justify-center gap-1.5 mt-1"
+            className="px-6 sm:px-8 py-3 text-[clamp(1rem,4.1vw,1.125rem)] font-semibold rounded-full shadow-2xl border-2 border-accent text-accent bg-white hover:bg-accent/10 transition-all duration-300 flex items-center justify-center group overflow-hidden relative min-w-[clamp(180px,74vw,260px)] sm:min-w-[260px]"
             onMouseEnter={() => router.prefetch(servicesHref)}
             onClick={(e) => triggerSlideNavigation(e, servicesHref, 'right')}
           >
-            Sell on Make It Sell
-            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-              <path d="M3 12h18M15 6l6 6-6 6" />
-            </svg>
+            <span className="w-full text-center">Sell on Make It Sell</span>
+            <span className="inline-flex items-center absolute right-4 sm:right-3 top-1/2 -translate-y-1/2 transition-transform group-hover:translate-x-1 motion-reduce:transform-none animate-bounce-x">
+              <svg width="24" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" className="text-accent">
+                <path d="M3 12h18M15 6l6 6-6 6" />
+              </svg>
+            </span>
           </Link>
         )}
       </div>
