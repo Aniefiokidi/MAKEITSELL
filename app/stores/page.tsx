@@ -142,12 +142,12 @@ export default function ShopPage() {
           pinnedStores.unshift(pinnedStore);
         }
 
-        // Sort so allowed states come first, then coming soon (greyed out) at the end
+        // Sort: 1) allowed locations first  2) stores with images+products first
         const sortedStores = [...pinnedStores].sort((a, b) => {
           const isAllowedA = isAllowedStoreByLocation(a);
           const isAllowedB = isAllowedStoreByLocation(b);
-          if (isAllowedA === isAllowedB) return 0;
-          return isAllowedA ? -1 : 1;
+          if (isAllowedA !== isAllowedB) return isAllowedA ? -1 : 1;
+          return storeQuality(b) - storeQuality(a);
         });
         setStores(sortedStores);
         setLocationOptions(
@@ -175,10 +175,12 @@ export default function ShopPage() {
     }
   }
 
-  // Client-side sort when "near-you" is selected
+  // Client-side sort when "near-you" is selected: quality tier first, then distance
   const displayStores = useMemo(() => {
     if (sortBy !== "near-you" || !geo.granted || geo.lat == null || geo.lng == null) return stores
     return [...stores].sort((a, b) => {
+      const qa = storeQuality(a), qb = storeQuality(b)
+      if (qa !== qb) return qb - qa
       const da = distanceToItem(geo.lat!, geo.lng!, a)
       const db = distanceToItem(geo.lat!, geo.lng!, b)
       if (da == null && db == null) return 0
@@ -814,4 +816,20 @@ const isAllowedStoreByLocation = (store: any) => {
     store?.location,
   ].filter(Boolean).join(" "))
   return ALLOWED_STATE_TOKENS.some((token) => locationBlob.includes(token))
+}
+
+// Stores with real images + products always sort to the top of every listing.
+// Returns 0–3: higher = more complete profile.
+const storeQuality = (store: any): number => {
+  const ph = '/placeholder.svg'
+  const hasImage = !!(
+    (store.profileImage   && store.profileImage   !== ph) ||
+    (store.backgroundImage && store.backgroundImage !== ph) ||
+    (store.storeBanner    && store.storeBanner    !== ph) ||
+    (store.logo           && store.logo           !== ph) ||
+    (store.storeImage     && store.storeImage     !== ph) ||
+    (Array.isArray(store.bannerImages) && store.bannerImages.length > 0)
+  )
+  const hasProducts = (store.productCount || 0) > 0
+  return (hasImage ? 2 : 0) + (hasProducts ? 1 : 0)
 }
