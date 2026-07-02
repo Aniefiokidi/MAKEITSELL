@@ -10,6 +10,7 @@ import { Search, Store, RefreshCw, MapPin, Clock, Users, Package, Wrench, ArrowR
 import Link from "next/link"
 import Header from "@/components/Header"
 import { Skeleton } from "@/components/ui/skeleton"
+import Image from "next/image"
 import { useGeolocation } from "@/hooks/use-geolocation"
 import { distanceToItem, formatDistance } from "@/lib/geo-utils"
 import { useRouter } from "next/navigation"
@@ -350,18 +351,16 @@ export default function ShopPage() {
         >
           {/* Full Image Background */}
           <div className="aspect-9/16 relative overflow-hidden rounded-2xl">
-            {/* Fallback gradient always underneath — shows when image missing or fails */}
+            {/* Fallback gradient always underneath — revealed when image is missing or fails */}
             <div className="absolute inset-0 bg-linear-to-br from-accent/30 via-accent/20 to-accent/40 flex items-center justify-center">
               <Store className="h-20 w-20 text-accent/30" />
             </div>
             {backgroundImageCandidate && (
-              // Native img so onError can hide it gracefully (Next.js Image shows ugly alt-text on failure)
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={resolveStoreImageSrc(backgroundImageCandidate, firstProductImage)}
                 alt=""
-                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                loading="lazy"
+                fill
+                className="object-cover group-hover:scale-105 transition-transform duration-500"
                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
               />
             )}
@@ -382,30 +381,20 @@ export default function ShopPage() {
             )}
             {/* Logo in Center Top */}
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
-              <div className="w-16 h-16 rounded-full bg-white border-4 border-white overflow-hidden shadow-2xl ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110">
-                {logoImageCandidate ? (
-                  <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={resolveStoreImageSrc(logoImageCandidate, firstProductImage)}
-                      alt=""
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                      onError={(e) => {
-                        const img = e.currentTarget as HTMLImageElement
-                        img.style.display = 'none'
-                        const fallback = img.nextElementSibling as HTMLElement | null
-                        if (fallback) fallback.style.display = 'flex'
-                      }}
-                    />
-                    <div className="w-full h-full bg-accent hidden items-center justify-center">
-                      <Store className="h-8 w-8 text-white" />
-                    </div>
-                  </>
-                ) : (
-                  <div className="w-full h-full bg-accent flex items-center justify-center">
-                    <Store className="h-8 w-8 text-white" />
-                  </div>
+              <div className="w-16 h-16 rounded-full bg-accent border-4 border-white overflow-hidden shadow-2xl ring-4 ring-white/30 group-hover:ring-white/50 transition-all group-hover:scale-110 relative">
+                {/* Fallback Store icon always underneath */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Store className="h-8 w-8 text-white" />
+                </div>
+                {logoImageCandidate && (
+                  <Image
+                    src={resolveStoreImageSrc(logoImageCandidate, firstProductImage)}
+                    alt=""
+                    width={64}
+                    height={64}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                  />
                 )}
               </div>
             </div>
