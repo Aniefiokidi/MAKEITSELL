@@ -24,14 +24,20 @@ const SPECIALTIES = [
   { key: "waxing",        label: "Waxing" },
 ]
 
-const DEFAULT_BEAUTY_PHOTOS = [
-  "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=600&h=800&fit=crop&auto=format",
-  "https://images.unsplash.com/photo-1487412912498-0447578fcca8?w=600&h=800&fit=crop&auto=format",
-  "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=600&h=800&fit=crop&auto=format",
-  "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=600&h=800&fit=crop&auto=format",
-  "https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?w=600&h=800&fit=crop&auto=format",
-  "https://images.unsplash.com/photo-1607779097040-26e80aa78e66?w=600&h=800&fit=crop&auto=format",
-]
+// Subcategory-specific fallback photos — each specialty gets its own image
+const SUBCATEGORY_FALLBACKS: Record<string, string> = {
+  "nail-tech":     "https://images.unsplash.com/photo-1604654894610-df63bc536371?w=600&h=800&fit=crop&auto=format",
+  "lash-tech":     "https://images.unsplash.com/photo-1583001931096-959e9a1a6223?w=600&h=800&fit=crop&auto=format",
+  "hair-braiding": "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=600&h=800&fit=crop&auto=format",
+  "hair-styling":  "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=600&h=800&fit=crop&auto=format",
+  "makeup-artist": "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=600&h=800&fit=crop&auto=format",
+  "skincare":      "https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?w=600&h=800&fit=crop&auto=format",
+  "eyebrows":      "https://images.unsplash.com/photo-1547193657-1bfc1cbe76b5?w=600&h=800&fit=crop&auto=format",
+  "massage-spa":   "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=600&h=800&fit=crop&auto=format",
+  "waxing":        "https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=600&h=800&fit=crop&auto=format",
+}
+
+const BEAUTY_GENERIC_FALLBACK = "https://images.unsplash.com/photo-1487412912498-0447578fcca8?w=600&h=800&fit=crop&auto=format"
 
 // ─── Specialty matching ───────────────────────────────────────────────────────
 
@@ -69,13 +75,14 @@ function matchesSpecialty(service: any, specialty: string): boolean {
   }
 }
 
-function getProviderImage(service: any, fallbackIndex: number): string {
+function getProviderImage(service: any): string {
   if (service.providerImage && !service.providerImage.endsWith(".pdf")) return service.providerImage
   if (Array.isArray(service.images) && service.images.length > 0) {
     const img = service.images.find((i: string) => i && !i.endsWith(".pdf"))
     if (img) return img
   }
-  return DEFAULT_BEAUTY_PHOTOS[fallbackIndex % DEFAULT_BEAUTY_PHOTOS.length]
+  const sub = (service.subcategory || "").toLowerCase()
+  return SUBCATEGORY_FALLBACKS[sub] ?? BEAUTY_GENERIC_FALLBACK
 }
 
 function formatPrice(price: any): string {
@@ -86,9 +93,9 @@ function formatPrice(price: any): string {
 
 // ─── Provider card ────────────────────────────────────────────────────────────
 
-function ProviderCard({ service, fallbackIndex, distance }: { service: any; fallbackIndex: number; distance?: number | null }) {
+function ProviderCard({ service, distance }: { service: any; distance?: number | null }) {
   const [liked, setLiked] = useState(false)
-  const img = getProviderImage(service, fallbackIndex)
+  const img = getProviderImage(service)
   const location = service.location || service.city || service.state || ""
 
   return (
@@ -378,7 +385,7 @@ export default function BeautyPage() {
           {!loading && filtered.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
               {filtered.map((service, i) => (
-                <ProviderCard key={service.id || service._id || i} service={service} fallbackIndex={i} distance={service._dist} />
+                <ProviderCard key={service.id || service._id || i} service={service} distance={service._dist} />
               ))}
             </div>
           )}
