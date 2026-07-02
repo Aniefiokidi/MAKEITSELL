@@ -237,7 +237,7 @@ export default function ShopPage() {
   const resolveStoreImageSrc = (value?: string, fallbackValue?: string): string => {
     if (!value) return "/placeholder.svg"
     const normalized = value.trim()
-    if (!normalized) return "/placeholder.svg"
+    if (!normalized || normalized === '/placeholder.svg') return "/placeholder.svg"
     if (isPdfAsset(normalized)) return "/placeholder.svg"
     if (normalized.startsWith("data:image/")) return normalized
     if (normalized.startsWith("/")) return normalized
@@ -329,17 +329,31 @@ export default function ShopPage() {
 
   const StoreCard = ({ store }: { store: any }) => (
     (() => {
-      const firstProductImage = store.featuredProduct?.image || store.productImages?.[0];
-      const backgroundImageCandidate = store.profileImage || store.bannerImage || store.backgroundImage || firstProductImage;
-      const logoImageCandidate = store.storeImage || store.logoImage || store.profileImage || firstProductImage;
+      // Reject placeholder sentinel values saved by the setup wizard when no image is uploaded
+      const realImg = (v?: string) => (v && v !== '/placeholder.svg' && v.trim() !== '' ? v : undefined)
+
+      const firstProductImage = realImg(store.featuredProduct?.image) || realImg(store.productImages?.[0])
+      // Banner: prefer dedicated banner fields, fall back to profile/product images
+      const backgroundImageCandidate =
+        realImg(store.backgroundImage) ||
+        realImg(store.storeBanner) ||
+        realImg(store.bannerImages?.[0]) ||
+        realImg(store.profileImage) ||
+        firstProductImage
+      // Logo: correct field name is `logo` (not `logoImage`); skip storeImage if it's a placeholder
+      const logoImageCandidate =
+        realImg(store.logo) ||
+        realImg(store.storeImage) ||
+        realImg(store.profileImage) ||
+        firstProductImage
       const isClosed = store.isOpen === false;
       const isAllowed = isAllowedStoreByLocation(store);
       const isGreyed = !isAllowed;
       const storeBrandingPdfUrl = [
         store.storeImage,
-        store.logoImage,
+        store.logo,
         store.profileImage,
-        store.bannerImage,
+        store.storeBanner,
         store.backgroundImage,
       ].find((value) => isPdfAsset(value));
 
