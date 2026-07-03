@@ -398,7 +398,6 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
         requiresQuote: Boolean(service.requiresQuote),
         customerLocation,
         tripDistanceMiles: Number.isFinite(parsedTripDistanceMiles) && parsedTripDistanceMiles > 0 ? parsedTripDistanceMiles : undefined,
-        cancellationPolicyPercent: 30,
         cancellationWindowHours: 24,
         bookingFeeAmount: BOOKING_FEE_NAIRA,
         paymentMethod: 'wallet',
@@ -886,7 +885,7 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
                   <p className="text-xs text-muted-foreground">Final amount will be confirmed by provider before acceptance.</p>
                 )}
                 <p className="text-xs text-muted-foreground pt-1">
-                  Cancellation policy: 30% cancellation fee applies when you cancel within 24 hours of start time.
+                  Cancellation policy: ₦5,000 fee applies if you cancel within 24 hours of your booking date.
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Booking fee of ₦{BOOKING_FEE_NAIRA.toLocaleString('en-NG')} is charged at booking confirmation.

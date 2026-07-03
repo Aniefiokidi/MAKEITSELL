@@ -96,17 +96,9 @@ export async function PATCH(
     if (actionType === 'cancel') {
       const bookingDate = new Date((existingBooking as any).bookingDate)
       const startTime = String((existingBooking as any).startTime || '00:00')
-      const amount = Number((existingBooking as any).finalPrice ?? (existingBooking as any).totalPrice ?? 0)
-      const policyPercent = Number((existingBooking as any).cancellationPolicyPercent || 30)
       const windowHours = Number((existingBooking as any).cancellationWindowHours || 24)
 
-      const feeResult = computeCancellationFee({
-        bookingDate,
-        startTime,
-        amount,
-        policyPercent,
-        windowHours,
-      })
+      const feeResult = computeCancellationFee({ bookingDate, startTime, windowHours })
 
       updatePayload.status = 'cancelled'
       updatePayload.cancelledAt = new Date()

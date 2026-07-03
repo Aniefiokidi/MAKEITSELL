@@ -105,20 +105,14 @@ export async function applyLocationPricing(params: {
   }
 }
 
+export const CANCELLATION_FEE_NAIRA = 5000
+
 export function computeCancellationFee(params: {
   bookingDate: Date
   startTime: string
-  amount: number
-  policyPercent?: number
   windowHours?: number
 }): { shouldCharge: boolean; feeAmount: number; hoursUntilBooking: number } {
-  const {
-    bookingDate,
-    startTime,
-    amount,
-    policyPercent = 30,
-    windowHours = 24,
-  } = params
+  const { bookingDate, startTime, windowHours = 24 } = params
 
   const [hours, minutes] = String(startTime || "00:00").split(":").map((v) => Number(v || 0))
   const startDateTime = new Date(bookingDate)
@@ -131,10 +125,5 @@ export function computeCancellationFee(params: {
     return { shouldCharge: false, feeAmount: 0, hoursUntilBooking }
   }
 
-  const feeAmount = Math.max(0, Math.round((Number(amount || 0) * policyPercent) / 100))
-  return {
-    shouldCharge: feeAmount > 0,
-    feeAmount,
-    hoursUntilBooking,
-  }
+  return { shouldCharge: true, feeAmount: CANCELLATION_FEE_NAIRA, hoursUntilBooking }
 }
