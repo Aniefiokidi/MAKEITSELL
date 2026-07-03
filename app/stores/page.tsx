@@ -679,7 +679,7 @@ export default function ShopPage() {
                 <SelectContent>
                   <SelectItem value="for-you" className="text-xs sm:text-sm">For You</SelectItem>
                   <SelectItem value="near-you" className="text-xs sm:text-sm" onPointerDown={() => { if (!geo.granted) geo.request() }}>
-                    📍 Near You
+                    Near You
                   </SelectItem>
                   <SelectItem value="name" className="text-xs sm:text-sm">Name A-Z</SelectItem>
                   <SelectItem value="newest" className="text-xs sm:text-sm">Newest</SelectItem>
