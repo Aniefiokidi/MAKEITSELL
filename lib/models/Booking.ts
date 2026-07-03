@@ -81,6 +81,8 @@ export interface IBooking extends Document {
   rescheduledFromBookingId?: string;
   rescheduledToBookingId?: string;
   lastRescheduledAt?: Date;
+  reminderSent24h?: boolean;
+  reminderSentDayOf?: boolean;
   locationType: "online" | "store" | "home-service" | "in-person" | "both";
   location: string;
   notes?: string;
@@ -180,6 +182,8 @@ const BookingSchema = new Schema<IBooking>({
   rescheduledFromBookingId: { type: String },
   rescheduledToBookingId: { type: String },
   lastRescheduledAt: { type: Date },
+  reminderSent24h: { type: Boolean, default: false },
+  reminderSentDayOf: { type: Boolean, default: false },
   // Keep legacy values (in-person/both) while accepting current service values.
   locationType: { type: String, enum: ["online", "store", "home-service", "in-person", "both"], required: true },
   location: { type: String, required: true },

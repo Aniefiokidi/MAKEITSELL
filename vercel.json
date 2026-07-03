@@ -8,6 +8,14 @@
     {
       "path": "/api/admin/streak-evaluation",
       "schedule": "0 1 1 * *"
+    },
+    {
+      "path": "/api/admin/booking-sla-job",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/admin/booking-reminder-job",
+      "schedule": "0 * * * *"
     }
   ]
 }

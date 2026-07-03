@@ -307,6 +307,79 @@ export const AppointmentEmailService = {
     })
   },
 
+  async sendBookingReminderEmails(params: {
+    bookingId: string
+    customerName: string
+    customerEmail: string
+    providerName: string
+    providerEmail: string
+    serviceTitle: string
+    bookingDate: Date
+    startTime: string
+    endTime: string
+    location: string
+    locationType: string
+    totalPrice: number
+    timing: 'day-before' | 'day-of'
+  }): Promise<boolean> {
+    const formattedDate = new Date(params.bookingDate).toLocaleDateString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    })
+    const when = params.timing === 'day-before' ? 'tomorrow' : 'today'
+    const locationText = params.locationType === 'online'
+      ? 'Online Session'
+      : params.locationType === 'in-person'
+      ? params.location
+      : `${params.location} (Flexible)`
+
+    const headerBg = params.timing === 'day-before' ? '#1e3a5f' : '#7c2d12'
+    const headerText = params.timing === 'day-before'
+      ? 'Appointment Reminder — Tomorrow'
+      : 'Your Appointment is Today'
+
+    const makeHtml = (recipientName: string, counterpartyLabel: string, counterpartyName: string, dashboardUrl: string) => `
+      <div style="font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;max-width:600px;margin:0 auto;padding:20px;background:#fff;">
+        <div style="text-align:center;margin-bottom:30px;padding:20px;background:${headerBg};border-left:4px solid #f97316;border-radius:10px;">
+          <h1 style="color:#fff;margin:0;font-size:26px;font-weight:700;">${headerText}</h1>
+          <p style="color:#e5e7eb;margin:8px 0 0;font-size:15px;">Don't forget your upcoming booking</p>
+        </div>
+        <p style="color:#333;font-size:16px;">Hi <strong>${recipientName}</strong>,</p>
+        <p style="color:#555;font-size:15px;line-height:1.6;">
+          Just a reminder — your <strong>${params.serviceTitle}</strong> with <strong>${counterpartyName}</strong> is happening <strong>${when}</strong>.
+        </p>
+        <div style="background:#f8f9fa;padding:20px;border-radius:10px;margin:20px 0;border:1px solid #e9ecef;">
+          <h3 style="color:#333;margin:0 0 12px;font-size:18px;border-bottom:2px solid #f97316;padding-bottom:6px;">Booking Details</h3>
+          <p style="margin:6px 0;color:#333;font-size:15px;">📅 <strong>Date:</strong> ${formattedDate}</p>
+          <p style="margin:6px 0;color:#333;font-size:15px;">⏰ <strong>Time:</strong> ${params.startTime} – ${params.endTime}</p>
+          <p style="margin:6px 0;color:#333;font-size:15px;">${params.locationType === 'online' ? '💻' : '📍'} <strong>Location:</strong> ${locationText}</p>
+          <p style="margin:6px 0;color:#333;font-size:15px;">💰 <strong>Amount:</strong> ₦${Number(params.totalPrice).toLocaleString('en-NG')}</p>
+          <p style="margin:6px 0;color:#333;font-size:15px;">👤 <strong>${counterpartyLabel}:</strong> ${counterpartyName}</p>
+        </div>
+        <div style="text-align:center;margin:24px 0;">
+          <a href="${dashboardUrl}" style="display:inline-block;padding:12px 28px;background:#f97316;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:15px;">View Booking</a>
+        </div>
+        <div style="text-align:center;color:#999;font-size:12px;margin-top:24px;padding-top:16px;border-top:1px solid #eee;">
+          Booking ID: #${params.bookingId.substring(0, 8).toUpperCase()} &bull; makeitsell.ng
+        </div>
+      </div>
+    `
+
+    const [customerSent, providerSent] = await Promise.all([
+      emailService.sendEmail({
+        to: params.customerEmail,
+        subject: `Reminder: ${params.serviceTitle} is ${when} at ${params.startTime}`,
+        html: makeHtml(params.customerName, 'Provider', params.providerName, 'https://makeitsell.ng/appointments'),
+      }),
+      emailService.sendEmail({
+        to: params.providerEmail,
+        subject: `Upcoming booking: ${params.serviceTitle} with ${params.customerName} — ${when} at ${params.startTime}`,
+        html: makeHtml(params.providerName, 'Customer', params.customerName, 'https://makeitsell.ng/vendor/bookings'),
+      }),
+    ])
+
+    return customerSent && providerSent
+  },
+
   async sendQuoteReminderEmail(params: {
     customerEmail: string
     customerName: string
