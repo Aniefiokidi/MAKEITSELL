@@ -132,7 +132,7 @@ export async function PATCH(
                 note: `Cancellation fee for booking ${id}`,
                 metadata: {
                   bookingId: id,
-                  policyPercent,
+                  feeType: 'flat',
                   windowHours,
                 },
                 createdAt: new Date(),
