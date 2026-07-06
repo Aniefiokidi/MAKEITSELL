@@ -32,6 +32,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle2 } from "lucide-react"
 import { buildPublicServicePath, buildPublicStorePath } from "@/lib/public-links"
 import { personalizeProducts, personalizeServices, personalizeStores, trackProductQuickView, trackServiceView } from "@/lib/personalization"
+import { Leaderboard } from "@/components/public/Leaderboard"
 function TrendingProducts() {
   const [products, setProducts] = useState<any[]>([])
   const [services, setServices] = useState<any[]>([])
@@ -675,7 +676,7 @@ function HeroButtons({ isLoggedIn }: { isLoggedIn: boolean }) {
                 <path d="M3 12h18M15 6l6 6-6 6" />
               </svg>
             </span>
-          </Link>
+          </Link> 
         )}
       </div>
       <style jsx global>{`
@@ -991,6 +992,9 @@ export default function HomePage() {
               </div>
             </div>
           </section>
+
+          {/* LEADERBOARD SECTION */}
+          <Leaderboard />
 
           {/* FEATURED STORES SECTION */}
           <section className="py-10 sm:py-14 bg-gray-50">

@@ -1,6 +1,7 @@
 import { Order as OrderModel } from './models/Order';
 import ConversationModel, { IConversation } from './models/Conversation';
 import MessageModel, { IMessage } from './models/Message';
+import { processVendorReferral, processBuyerReferral } from './referral/processReferral';
 export const createOrder = async (orderData: any): Promise<string> => {
   await connectToDatabase();
   const order: any = await OrderModel.create(orderData as any);
@@ -177,10 +178,24 @@ export const creditVendorWalletsForOrder = async (
 
       if (creditedAny) {
         totalCredited += amount;
+        // Trigger vendor referral check asynchronously — does not block payout
+        void processVendorReferral(walletUserId || vendorId).catch((e: unknown) =>
+          console.error('[referral] vendor referral check failed for vendor:', vendorId, e)
+        );
       }
     } catch (vendorCreditError) {
       skippedVendors += 1;
       console.error('[wallet-credit] Failed to credit vendor entry for order:', orderId, vendorCreditError);
+    }
+  }
+
+  // Trigger buyer referral check — fires once per order after all vendors are credited
+  if (creditedVendors > 0) {
+    const buyerId = String((order as any).customerId || '').trim();
+    if (buyerId) {
+      void processBuyerReferral(buyerId, orderId).catch((e: unknown) =>
+        console.error('[referral] buyer referral check failed for order:', orderId, e)
+      );
     }
   }
 

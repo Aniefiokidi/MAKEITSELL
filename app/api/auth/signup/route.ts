@@ -3,6 +3,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { serialize } from 'cookie'
 import { signUp } from '@/lib/auth'
 import { enforceRateLimit } from '@/lib/rate-limit'
+import { connectToDatabase } from '@/lib/mongodb'
+import { User } from '@/lib/models/User'
+
+function generateReferralCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let code = ''
+  for (let i = 0; i < 6; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)]
+  }
+  return code
+}
 
 
 const isValidContactPhone = (phoneInput: string) => {
@@ -25,7 +36,7 @@ export async function POST(request: NextRequest) {
     })
     if (rateLimitResponse) return rateLimitResponse
 
-    const { email, password, name, role, vendorType, phone, verificationChannel } = await request.json()
+    const { email, password, name, role, vendorType, phone, verificationChannel, referralCode } = await request.json()
     const normalizedPhone = String(phone || '').trim()
 
     const isValidVendorType = vendorType === "goods" || vendorType === "services" || vendorType === "both"
@@ -59,6 +70,37 @@ export async function POST(request: NextRequest) {
       role: role === "admin" ? "customer" : role,
       vendorInfo
     })
+
+    if (result.success) {
+      // Apply referral attribution and generate referral code for vendors
+      try {
+        await connectToDatabase()
+        const referralUpdates: Record<string, unknown> = {}
+
+        if (role === 'vendor') {
+          referralUpdates.referralCode = generateReferralCode()
+        }
+
+        if (referralCode && typeof referralCode === 'string' && referralCode.trim()) {
+          const referringVendor = await User.findOne(
+            { referralCode: referralCode.trim().toUpperCase() },
+            { _id: 1 }
+          ).lean() as any
+          if (referringVendor) {
+            referralUpdates.referredByVendorId = String(referringVendor._id)
+          }
+        }
+
+        if (Object.keys(referralUpdates).length > 0) {
+          await User.updateOne(
+            { email: (email as string).toLowerCase().trim() },
+            { $set: { ...referralUpdates, updatedAt: new Date() } }
+          )
+        }
+      } catch (refErr) {
+        console.error('[signup] referral attribution failed:', refErr)
+      }
+    }
 
     if (result.success && result.sessionToken) {
       // Set HTTP-only cookie

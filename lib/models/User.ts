@@ -48,6 +48,10 @@ const UserSchema = new Schema({
   verificationEmailLastError: { type: String },
   mustChangePassword: { type: Boolean, default: false },
   temporaryPasswordIssuedAt: { type: Date },
+  // Referral programme fields
+  referralCode: { type: String, sparse: true, index: true },
+  referredByVendorId: { type: String },
+  referralCreditIssued: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
