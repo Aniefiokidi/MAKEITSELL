@@ -40,7 +40,9 @@ export const signUp = async (
   role: "customer" | "vendor" | "admin" = "customer",
   vendorType?: "goods" | "services" | "both",
   phone?: string,
-  verificationChannel: "email" = "email"
+  verificationChannel: "email" = "email",
+  referralCode?: string,
+  referredByVendorId?: string,
 ) => {
   try {
     const response = await fetch('/api/auth/signup', {
@@ -54,7 +56,9 @@ export const signUp = async (
         phone,
         verificationChannel,
         role: role === "admin" ? "customer" : role,
-        vendorType
+        vendorType,
+        ...(referralCode ? { referralCode } : {}),
+        ...(referredByVendorId ? { referredByVendorId } : {}),
       }),
     });
     const result = await response.json();

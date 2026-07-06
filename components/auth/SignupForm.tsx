@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -55,6 +55,8 @@ export default function SignupForm() {
   const searchParams = useSearchParams()
   const isVendorSignup = searchParams.get("type") === "vendor"
   const signupError = searchParams.get("error")
+  // ?ref=CODE in URL = vendor referral code shared as a link
+  const urlRefCode = (searchParams.get("ref") || "").trim().toUpperCase() || undefined
   const { register } = useAuth() // Add auth context hook
 
   type RoleType = "customer" | "vendor" | "admin";
@@ -100,6 +102,15 @@ export default function SignupForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [acceptTerms, setAcceptTerms] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [pendingReferralVendorId, setPendingReferralVendorId] = useState<string | undefined>(undefined)
+
+  // Read referral attribution from localStorage (set when visiting a vendor store page)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('misReferralVendorId')
+      if (stored) setPendingReferralVendorId(stored)
+    } catch {}
+  }, [])
   const [error, setError] = useState(
     signupError ? "Your signup session could not be completed. Please try again." :
     ""
@@ -211,8 +222,11 @@ export default function SignupForm() {
           "vendor",
           verificationPhone || undefined,
           formData.vendorType as "goods" | "services" | "both",
-          formData.verificationMethod
+          formData.verificationMethod,
+          urlRefCode,
+          pendingReferralVendorId,
         )
+        try { localStorage.removeItem('misReferralVendorId') } catch {}
 
         const vendorId = result?.user?.uid
         const shouldCreateStore = formData.vendorType === "goods" || formData.vendorType === "both"
@@ -272,8 +286,11 @@ export default function SignupForm() {
           formData.role === "admin" ? "customer" : formData.role,
           verificationPhone,
           undefined,
-          formData.verificationMethod
+          formData.verificationMethod,
+          urlRefCode,
+          pendingReferralVendorId,
         )
+        try { localStorage.removeItem('misReferralVendorId') } catch {}
         console.log("Step 1: Customer/admin account created successfully")
         
         console.log("Step 2: Redirecting to OTP verification...")

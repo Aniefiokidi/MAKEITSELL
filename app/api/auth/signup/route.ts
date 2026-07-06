@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     })
     if (rateLimitResponse) return rateLimitResponse
 
-    const { email, password, name, role, vendorType, phone, verificationChannel, referralCode } = await request.json()
+    const { email, password, name, role, vendorType, phone, verificationChannel, referralCode, referredByVendorId } = await request.json()
     const normalizedPhone = String(phone || '').trim()
 
     const isValidVendorType = vendorType === "goods" || vendorType === "services" || vendorType === "both"
@@ -88,6 +88,18 @@ export async function POST(request: NextRequest) {
           ).lean() as any
           if (referringVendor) {
             referralUpdates.referredByVendorId = String(referringVendor._id)
+          }
+        } else if (referredByVendorId && typeof referredByVendorId === 'string' && referredByVendorId.trim()) {
+          // Direct vendor ID from store-page visit — validate it's a real vendor
+          const mongoose = (await import('mongoose')).default
+          if (mongoose.Types.ObjectId.isValid(referredByVendorId.trim())) {
+            const referringVendor = await User.findOne(
+              { _id: referredByVendorId.trim(), role: 'vendor' },
+              { _id: 1 }
+            ).lean()
+            if (referringVendor) {
+              referralUpdates.referredByVendorId = referredByVendorId.trim()
+            }
           }
         }
 

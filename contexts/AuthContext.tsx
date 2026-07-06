@@ -26,6 +26,8 @@ interface AuthContextType {
     phone?: string,
     vendorType?: "goods" | "services" | "both",
     verificationChannel?: "email",
+    referralCode?: string,
+    referredByVendorId?: string,
   ) => Promise<{ user: User; userProfile: UserProfile }>
   logout: () => Promise<void>
 }
@@ -267,10 +269,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     phone?: string,
     vendorType?: "goods" | "services" | "both",
     verificationChannel: "email" = "email",
+    referralCode?: string,
+    referredByVendorId?: string,
   ): Promise<{ user: User; userProfile: UserProfile }> => {
     try {
       setLoading(true)
-      const result = await signUp(email, password, displayName, role, vendorType, phone, verificationChannel)
+      const result = await signUp(email, password, displayName, role, vendorType, phone, verificationChannel, referralCode, referredByVendorId)
       setUser(result.user)
       // Fix vendorType type
       const allowedVendorTypes = ["goods", "services", "both"];

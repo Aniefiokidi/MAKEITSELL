@@ -232,6 +232,10 @@ export default function StorePage() {
     })
     setStoreVisitTracked(true)
     void trackFunnelEvent(store.vendorId, "store_visit", { storeId })
+    // Store vendor ID for referral attribution if visitor signs up later
+    try {
+      localStorage.setItem('misReferralVendorId', store.vendorId)
+    } catch {}
   }, [store?.vendorId, storeId, storeVisitTracked])
 
   const fetchStoreData = async () => {
