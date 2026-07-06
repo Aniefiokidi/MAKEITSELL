@@ -77,9 +77,7 @@ export async function POST(request: NextRequest) {
         await connectToDatabase()
         const referralUpdates: Record<string, unknown> = {}
 
-        if (role === 'vendor') {
-          referralUpdates.referralCode = generateReferralCode()
-        }
+        referralUpdates.referralCode = generateReferralCode()
 
         if (referralCode && typeof referralCode === 'string' && referralCode.trim()) {
           const referringVendor = await User.findOne(

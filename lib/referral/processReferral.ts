@@ -11,7 +11,7 @@ const SETTLED_STATUSES = [
 ]
 const VENDOR_REFERRAL_ORDER_THRESHOLD = 10
 const VENDOR_REFERRAL_WINDOW_DAYS = 60
-const VENDOR_REFERRAL_AMOUNT = 10000
+const VENDOR_TO_VENDOR_AMOUNT = 10000
 const BUYER_REFERRAL_AMOUNT = 500
 
 async function sendReferralNotification(
@@ -33,9 +33,9 @@ async function sendReferralNotification(
 
 /**
  * Called after a vendor's wallet is credited for a settled order.
- * Checks if the selling vendor was referred by another vendor, and if they have
- * just hit their 10th settled order within 60 days of account creation.
- * If so, credits ₦10,000 to the referring vendor's prizeBalance.
+ *
+ * - If the referrer is a VENDOR: ₦10,000 at 10th order within 60 days (vendor-to-vendor rule)
+ * - If the referrer is a BUYER:  ₦500 at 1st order, no time limit (buyer-to-vendor rule)
  */
 export async function processVendorReferral(sellingVendorId: string): Promise<void> {
   await connectToDatabase()
@@ -46,40 +46,61 @@ export async function processVendorReferral(sellingVendorId: string): Promise<vo
 
   if (!vendor?.referredByVendorId) return
 
-  const daysSinceCreated =
-    (Date.now() - new Date(vendor.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+  const referringUserId = String(vendor.referredByVendorId)
+  const reference = `VENDOR-REFERRAL-${sellingVendorId}`
 
-  if (daysSinceCreated > VENDOR_REFERRAL_WINDOW_DAYS) {
-    console.log(`[referral] vendor ${sellingVendorId} outside 60-day window (${Math.round(daysSinceCreated)}d)`)
-    return
-  }
+  // Check idempotency first — if already paid, skip everything
+  const existing = await WalletTransaction.findOne({ reference }).lean()
+  if (existing) return
 
-  // Count ALL settled orders for this vendor across all orders
+  const referrer = await User.findById(referringUserId).select('role').lean() as any
+  if (!referrer) return
+
+  const isReferrerVendor = referrer.role === 'vendor'
+
+  // Count settled orders for this vendor
   const settledCount = await Order.countDocuments({
     'vendors.vendorId': sellingVendorId,
     status: { $in: SETTLED_STATUSES },
   })
 
-  if (settledCount !== VENDOR_REFERRAL_ORDER_THRESHOLD) return
+  let creditAmount: number
+  let shouldCredit: boolean
 
-  const referringVendorId = String(vendor.referredByVendorId)
-  const reference = `VENDOR-REFERRAL-${sellingVendorId}`
+  if (isReferrerVendor) {
+    // Vendor-to-vendor: ₦10,000 at exactly the 10th order, within 60 days
+    const daysSinceCreated =
+      (Date.now() - new Date(vendor.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+    if (daysSinceCreated > VENDOR_REFERRAL_WINDOW_DAYS) {
+      console.log(`[referral] vendor ${sellingVendorId} outside 60-day window (${Math.round(daysSinceCreated)}d)`)
+      return
+    }
+    shouldCredit = settledCount === VENDOR_REFERRAL_ORDER_THRESHOLD
+    creditAmount = VENDOR_TO_VENDOR_AMOUNT
+  } else {
+    // Buyer-to-vendor: ₦500 at the 1st sale, no time limit
+    shouldCredit = settledCount === 1
+    creditAmount = BUYER_REFERRAL_AMOUNT
+  }
+
+  if (!shouldCredit) return
 
   const tx = await WalletTransaction.updateOne(
     { reference },
     {
       $setOnInsert: {
-        userId: referringVendorId,
-        type: 'vendor_referral_bonus',
-        amount: VENDOR_REFERRAL_AMOUNT,
+        userId: referringUserId,
+        type: isReferrerVendor ? 'vendor_referral_bonus' : 'buyer_referral_credit',
+        amount: creditAmount,
         status: 'completed',
         reference,
         provider: 'referral_programme',
-        note: `Vendor referral bonus — referred vendor hit ${VENDOR_REFERRAL_ORDER_THRESHOLD} orders`,
+        note: isReferrerVendor
+          ? `Vendor referral bonus — referred vendor hit ${VENDOR_REFERRAL_ORDER_THRESHOLD} orders`
+          : `Buyer referral bonus — referred vendor made their first sale`,
         metadata: {
-          subType: 'vendor_referral',
+          subType: isReferrerVendor ? 'vendor_referral' : 'buyer_referred_vendor',
           referredVendorId: sellingVendorId,
-          orderThreshold: VENDOR_REFERRAL_ORDER_THRESHOLD,
         },
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -90,17 +111,21 @@ export async function processVendorReferral(sellingVendorId: string): Promise<vo
 
   if ((tx as any).upsertedCount > 0) {
     await User.updateOne(
-      { _id: referringVendorId },
-      { $inc: { walletBalance: VENDOR_REFERRAL_AMOUNT, prizeBalance: VENDOR_REFERRAL_AMOUNT }, $set: { updatedAt: new Date() } }
+      { _id: referringUserId },
+      { $inc: { walletBalance: creditAmount, prizeBalance: creditAmount }, $set: { updatedAt: new Date() } }
     )
 
     const storeName =
-      String(vendor?.vendorInfo?.businessName || vendor?.name || vendor?.displayName || 'The vendor you referred').trim()
+      String(vendor?.vendorInfo?.businessName || vendor?.name || vendor?.displayName || 'A vendor you referred').trim()
+
+    const msg = isReferrerVendor
+      ? `Great news. ${storeName} you referred just completed their 10th sale on Make It Sell. ₦10,000 has been added to your wallet. Withdraw anytime with no fee.`
+      : `Great news. ${storeName} you referred just made their first sale on Make It Sell. ₦500 has been added to your wallet.`
 
     await sendReferralNotification(
-      referringVendorId,
+      referringUserId,
       'Referral Bonus Earned',
-      `Great news. ${storeName} you referred just completed their 10th sale on Make It Sell. ₦10,000 has been added to your wallet. Withdraw anytime with no fee.`,
+      msg,
       `vendor-referral-${sellingVendorId}`
     )
   }

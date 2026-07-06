@@ -25,6 +25,7 @@ import Link from "next/link"
 import VendorLayout from "@/components/vendor/VendorLayout"
 import { VendorWalletModal } from "@/components/vendor/VendorWalletModal"
 import StreakWidget from "@/components/vendor/StreakWidget"
+import { ReferralCard } from "@/components/shared/ReferralCard"
 
 
 export default function VendorDashboardPage() {
@@ -602,6 +603,9 @@ export default function VendorDashboardPage() {
 
         {/* Streak widget */}
         <StreakWidget />
+
+        {/* Referral card */}
+        <ReferralCard referralCode={(userProfile as any)?.referralCode} role="vendor" />
 
         {/* Recent Orders and Low Stock */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

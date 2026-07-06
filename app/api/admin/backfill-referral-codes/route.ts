@@ -28,9 +28,9 @@ async function generateUniqueCode(existingCodes: Set<string>): Promise<string> {
 }
 
 async function runBackfill() {
-  // Find all vendors missing a referralCode
+  // Find ALL users missing a referralCode (vendors and buyers)
   const vendors = await User.find(
-    { role: 'vendor', referralCode: { $exists: false } },
+    { referralCode: { $exists: false } },
     { _id: 1 }
   ).lean() as any[]
 
@@ -56,8 +56,8 @@ async function runBackfill() {
     updated++
   }
 
-  // Count how many vendors already had a code (for the report)
-  const alreadyHaveCode = await User.countDocuments({ role: 'vendor', referralCode: { $exists: true } })
+  // Count how many users now have a code
+  const alreadyHaveCode = await User.countDocuments({ referralCode: { $exists: true } })
 
   return {
     scanned: vendors.length,

@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator"
 import { User, Mail, Calendar, ShoppingBag, MapPin, Phone, Edit2, Save, X, Heart } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { FollowedStoresModal } from "@/components/ui/followed-stores-modal"
+import { ReferralCard } from "@/components/shared/ReferralCard"
 
 export default function ProfilePage() {
   const { user, userProfile } = useAuth()
@@ -342,8 +343,13 @@ export default function ProfilePage() {
           </Card>
         </div>
 
+        {/* Referral card */}
+        <div className="mt-6">
+          <ReferralCard referralCode={(userProfile as any)?.referralCode} role="customer" />
+        </div>
+
         {/* Followed Stores Modal */}
-        <FollowedStoresModal 
+        <FollowedStoresModal
           open={followedStoresModalOpen} 
           onClose={() => setFollowedStoresModalOpen(false)} 
           userId={user?.uid || ''}

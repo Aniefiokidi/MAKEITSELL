@@ -67,6 +67,7 @@ export async function GET(request: NextRequest) {
         postalCode: (user as any).postalCode,
         vendorType: user.role === 'vendor' ? user.vendorType : undefined,
         walletBalance: typeof user.walletBalance === 'number' ? user.walletBalance : 0,
+        referralCode: (user as any).referralCode || null,
         createdAt: new Date(),
         updatedAt: new Date()
       },
