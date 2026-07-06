@@ -118,7 +118,7 @@ export async function processBuyerReferral(buyerId: string, orderId: string): Pr
 
   // Atomically claim the referral credit — prevents race conditions
   const updateResult = await User.updateOne(
-    { _id: buyerId, referredByVendorId: { $exists: true, $ne: null, $ne: '' }, referralCreditIssued: { $ne: true } },
+    { _id: buyerId, referredByVendorId: { $exists: true, $nin: [null, ''] }, referralCreditIssued: { $ne: true } },
     { $set: { referralCreditIssued: true, updatedAt: new Date() } }
   )
 
