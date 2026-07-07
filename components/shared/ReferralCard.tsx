@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Copy, Check, Gift, Users } from 'lucide-react'
+import { Copy, Check, Gift, Users, Share2 } from 'lucide-react'
 
 interface ReferralCardProps {
   referralCode: string | null | undefined
@@ -22,6 +22,13 @@ export function ReferralCard({ referralCode, role }: ReferralCardProps) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })
+  }
+
+  const handleWhatsApp = () => {
+    const text = encodeURIComponent(
+      `Shop and sell on Make It Sell — Nigeria's fastest-growing marketplace. Sign up here: ${referralLink}`
+    )
+    window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer')
   }
 
   return (
@@ -60,6 +67,14 @@ export function ReferralCard({ referralCode, role }: ReferralCardProps) {
             <span className="ml-1 text-xs">{copied ? 'Copied!' : 'Copy'}</span>
           </Button>
         </div>
+
+        <Button
+          className="w-full bg-[#25D366] hover:bg-[#20b858] text-white gap-2"
+          onClick={handleWhatsApp}
+        >
+          <Share2 className="h-4 w-4" />
+          Share on WhatsApp
+        </Button>
 
         <p className="text-xs text-muted-foreground">
           Share your link with friends. When they sign up and complete their first transaction, ₦500 goes straight to your wallet.

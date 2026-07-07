@@ -24,7 +24,7 @@ import { getSessionToken } from "@/lib/auth-client"
 import Link from "next/link"
 import VendorLayout from "@/components/vendor/VendorLayout"
 import { VendorWalletModal } from "@/components/vendor/VendorWalletModal"
-import StreakWidget from "@/components/vendor/StreakWidget"
+import StreakGate from "@/components/vendor/StreakGate"
 import { ReferralCard } from "@/components/shared/ReferralCard"
 
 
@@ -601,8 +601,8 @@ export default function VendorDashboardPage() {
           </Card>
         </div>
 
-        {/* Streak widget */}
-        <StreakWidget />
+        {/* Streak widget / onboarding gate */}
+        <StreakGate />
 
         {/* Referral card */}
         <ReferralCard referralCode={(userProfile as any)?.referralCode} role="vendor" />
