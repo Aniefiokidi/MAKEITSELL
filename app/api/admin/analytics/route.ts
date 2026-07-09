@@ -2,6 +2,9 @@ import { NextRequest } from 'next/server'
 import { getAllProducts, getAllOrders, getServices, getAllBookings } from '@/lib/mongodb-operations'
 import { requireAdminAccess } from '@/lib/server-route-auth'
 
+export const dynamic = 'force-static'
+export const revalidate = 0
+
 export async function GET(req: NextRequest) {
   const unauthorized = await requireAdminAccess(req)
   if (unauthorized) return unauthorized
