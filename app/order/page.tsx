@@ -6,8 +6,9 @@ import { useAuth } from "@/contexts/AuthContext"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import Header from "@/components/Header"
+import Link from "next/link"
 import { useNotification } from "@/contexts/NotificationContext"
-import { Package, Truck, CheckCircle2, Clock, ShieldCheck } from "lucide-react"
+import { Package, Truck, CheckCircle2, Clock, ShieldCheck, MapPin } from "lucide-react"
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -63,6 +64,7 @@ export default function CustomerOrdersPage() {
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null)
   const [cancellingId, setCancellingId] = useState<string | null>(null)
   const [tab, setTab] = useState<'ongoing' | 'completed' | 'cancelled'>('ongoing')
+  const [trackingByRowId, setTrackingByRowId] = useState<Record<string, { trackingToken: string; status: string }>>({})
 
   const formatCurrency = (amount: number) => amount.toLocaleString('en-NG')
 
@@ -74,6 +76,28 @@ export default function CustomerOrdersPage() {
         const ordersResponse = await fetch(`/api/orders?customerId=${user.uid}`)
         const ordersResult = await ordersResponse.json()
         setOrders(Array.isArray(ordersResult) ? ordersResult : [])
+
+        const rowIds = new Set<string>();
+        (Array.isArray(ordersResult) ? ordersResult : []).forEach((order: any) => {
+          const orderId = order.orderId || order.id
+          if (Array.isArray(order.vendors)) {
+            order.vendors.forEach((vendor: any) => {
+              rowIds.add(`${orderId}:${vendor.vendorId || ''}`)
+            })
+          } else if (orderId) {
+            rowIds.add(`${orderId}:${order.storeId || ''}`)
+          }
+        })
+        if (rowIds.size > 0) {
+          fetch(`/api/riders/tracking-lookup?rowIds=${Array.from(rowIds).map(encodeURIComponent).join(',')}`, {
+            credentials: 'include',
+          })
+            .then((res) => res.json())
+            .then((json) => {
+              if (json?.success) setTrackingByRowId(json.tracking || {})
+            })
+            .catch(() => {})
+        }
 
         const productIds = new Set<string>()
         const vendorIds = new Set<string>();
@@ -401,6 +425,20 @@ export default function CustomerOrdersPage() {
 
                     {/* Actions */}
                     <div className="px-4 pb-4 space-y-2">
+                      {/* Track delivery */}
+                      {(() => {
+                        const rowVendorId = order.vendor?.vendorId || order.storeId || ''
+                        const rowId = `${order._parentOrderId}:${rowVendorId}`
+                        const tracking = trackingByRowId[rowId]
+                        if (!tracking || !['assigned', 'picked_up', 'en_route', 'arrived'].includes(tracking.status)) return null
+                        return (
+                          <Link href={`/track/${tracking.trackingToken}`}>
+                            <Button size="sm" variant="outline" className="w-full flex items-center gap-1.5">
+                              <MapPin className="h-3.5 w-3.5" /> Track Your Delivery Live
+                            </Button>
+                          </Link>
+                        )
+                      })()}
                       {/* Cancel */}
                       {!['out_for_delivery','delivered','received','cancelled','refunded','completed'].includes(order.status) && (
                         confirmCancelId === (order._parentOrderId || order.orderId || order.id) ? (

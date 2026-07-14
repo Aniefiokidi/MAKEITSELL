@@ -53,7 +53,7 @@ async function finalizeVerifiedUser(user: any) {
   return new NextResponse(JSON.stringify({
     success: true,
     message: 'Email verified successfully',
-    redirectUrl: '/stores'
+    redirectUrl: user.role === 'rider' ? '/rider' : '/stores'
   }), {
     status: 200,
     headers: { 'Set-Cookie': buildSessionCookie(sessionToken), 'Content-Type': 'application/json' },

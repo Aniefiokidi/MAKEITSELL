@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
           message: 'No users matched. To create an account, enter a valid email address and check "Create account if not found".',
         })
       }
-      const allowedRoles = ['vendor', 'customer', 'admin', 'csa']
+      const allowedRoles = ['vendor', 'customer', 'admin', 'csa', 'rider']
       const resolvedRole = allowedRoles.includes(createRole) ? createRole : 'vendor'
       const newUser = await User.create({
         email: emailInput.toLowerCase(),

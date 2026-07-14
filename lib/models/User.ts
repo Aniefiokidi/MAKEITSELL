@@ -35,6 +35,7 @@ const UserSchema = new Schema({
   withdrawalPinSetAt: { type: Date },
   payoutProfile: { type: Schema.Types.Mixed },
   vendorInfo: { type: Schema.Types.Mixed },
+  riderInfo: { type: Schema.Types.Mixed },
   sessionToken: { type: String },
   resetToken: { type: String },
   resetTokenExpiry: { type: Date },

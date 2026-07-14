@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'New password must be different from current password' }, { status: 400 })
     }
 
-    const allowedRoles = ['vendor', 'customer', 'csa', 'admin']
+    const allowedRoles = ['vendor', 'customer', 'csa', 'admin', 'rider']
     const roleUpdate = chosenRole && allowedRoles.includes(chosenRole) ? { role: chosenRole } : {}
 
     const newSessionToken = crypto.randomBytes(32).toString('hex')

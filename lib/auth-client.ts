@@ -6,7 +6,7 @@ export interface UserProfile {
   email: string
   name?: string
   displayName: string
-  role: "customer" | "vendor" | "admin" | "csa"
+  role: "customer" | "vendor" | "admin" | "csa" | "rider"
   phone?: string
   phoneNumber?: string
   phoneVerified?: boolean

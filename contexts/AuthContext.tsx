@@ -9,7 +9,7 @@ interface User {
   uid: string
   email: string
   displayName: string
-  role: "customer" | "vendor" | "admin" | "csa"
+  role: "customer" | "vendor" | "admin" | "csa" | "rider"
 }
 
 interface AuthContextType {

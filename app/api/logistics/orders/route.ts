@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import mongoose from 'mongoose'
 import connectToDatabase from '@/lib/mongodb'
 import { Order } from '@/lib/models/Order'
 import { User } from '@/lib/models/User'
 import { Store } from '@/lib/models/Store'
+import { RiderAssignment } from '@/lib/models/RiderAssignment'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { estimateShippingFee } from '@/lib/aco-logistics-rates'
 import { logisticsEmailAllowedForRegion, resolveLogisticsRegion, storeMatchesLogisticsRegion } from '@/lib/logistics-access'
@@ -55,16 +57,23 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Order data can contain malformed/legacy ids (e.g. from data-migration bugs or test
+    // records) that aren't valid ObjectIds — filter before querying _id fields so one bad
+    // order can't 500 the whole dashboard for every order in the region.
+    const validCustomerIds = customerIds.filter((id) => mongoose.Types.ObjectId.isValid(id))
+    const validVendorIds = Array.from(vendorIds).filter((id) => mongoose.Types.ObjectId.isValid(id))
+    const validStoreIds = Array.from(storeIds).filter((id) => mongoose.Types.ObjectId.isValid(id))
+
     const storeLookupOr: any[] = []
-    if (storeIds.size > 0) storeLookupOr.push({ _id: { $in: Array.from(storeIds) } })
+    if (validStoreIds.length > 0) storeLookupOr.push({ _id: { $in: validStoreIds } })
     if (vendorIds.size > 0) storeLookupOr.push({ vendorId: { $in: Array.from(vendorIds) } })
     if (storeNameHints.size > 0) {
       storeLookupOr.push({ storeName: { $in: Array.from(storeNameHints).map((name) => new RegExp(`^${name}$`, 'i')) } })
     }
 
     const [customers, vendors, stores] = await Promise.all([
-      customerIds.length > 0 ? User.find({ _id: { $in: customerIds } }).lean() : Promise.resolve([]),
-      vendorIds.size > 0 ? User.find({ _id: { $in: Array.from(vendorIds) } }).lean() : Promise.resolve([]),
+      validCustomerIds.length > 0 ? User.find({ _id: { $in: validCustomerIds } }).lean() : Promise.resolve([]),
+      validVendorIds.length > 0 ? User.find({ _id: { $in: validVendorIds } }).lean() : Promise.resolve([]),
       storeLookupOr.length > 0 ? Store.find({ $or: storeLookupOr }).lean() : Promise.resolve([]),
     ])
 
@@ -179,6 +188,22 @@ export async function GET(request: NextRequest) {
       }
       return status !== 'received' && status !== 'cancelled'
     })
+
+    const rowIds = filteredRows.map((row) => row.rowId)
+    if (rowIds.length > 0) {
+      const assignments = await RiderAssignment.find({ rowId: { $in: rowIds } })
+        .select('rowId riderName status')
+        .lean()
+      const assignmentByRowId = new Map<string, any>()
+      for (const assignment of assignments as any[]) {
+        assignmentByRowId.set(String(assignment.rowId), assignment)
+      }
+      for (const row of filteredRows as any[]) {
+        const assignment = assignmentByRowId.get(row.rowId)
+        row.assignedRiderName = assignment?.riderName || null
+        row.riderAssignmentStatus = assignment?.status || null
+      }
+    }
 
     return NextResponse.json({
       success: true,

@@ -12,6 +12,7 @@ import { Loader2, MapPin, Phone, Package, RefreshCw } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import LogisticsLayout from "@/components/logistics/LogisticsLayout"
 import { logisticsEmailAllowedForRegion, resolveLogisticsRegion } from "@/lib/logistics-access"
+import AssignRiderModal from "@/components/logistics/AssignRiderModal"
 
 type LogisticsOrder = {
   rowId: string
@@ -34,6 +35,8 @@ type LogisticsOrder = {
   dropoffLocation: string
   dropoffPhone: string
   instructions: string
+  assignedRiderName?: string | null
+  riderAssignmentStatus?: string | null
   items: Array<{
     title?: string
     quantity?: number
@@ -51,6 +54,7 @@ export default function LogisticsPage() {
   const [error, setError] = useState("")
   const [orders, setOrders] = useState<LogisticsOrder[]>([])
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null)
+  const [assignModalOrder, setAssignModalOrder] = useState<LogisticsOrder | null>(null)
 
   const prioritizedOrders = useMemo(() => {
     const sorted = [...orders]
@@ -242,6 +246,14 @@ export default function LogisticsPage() {
                         </SelectContent>
                       </Select>
                     </div>
+                    <Button
+                      variant={order.assignedRiderName ? "secondary" : "default"}
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={() => setAssignModalOrder(order)}
+                    >
+                      {order.assignedRiderName ? `Rider: ${order.assignedRiderName}` : "Assign Rider"}
+                    </Button>
                   </div>
                 </div>
 
@@ -300,6 +312,21 @@ export default function LogisticsPage() {
           )}
         </div>
       </div>
+
+      {assignModalOrder ? (
+        <AssignRiderModal
+          open={!!assignModalOrder}
+          onOpenChange={(next) => {
+            if (!next) setAssignModalOrder(null)
+          }}
+          region="abuja"
+          orderId={assignModalOrder.orderId}
+          vendorId={assignModalOrder.vendorId}
+          storeId={assignModalOrder.storeId}
+          dropoffLocationHint={assignModalOrder.dropoffLocation}
+          onAssigned={fetchOrders}
+        />
+      ) : null}
     </LogisticsLayout>
   )
 }

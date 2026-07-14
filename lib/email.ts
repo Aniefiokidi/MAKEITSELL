@@ -689,6 +689,92 @@ class EmailService {
     }
   }
 
+  async sendRiderAssignedEmail(data: {
+    to: string
+    customerName: string
+    orderId: string
+    riderName: string
+    trackingUrl: string
+  }): Promise<boolean> {
+    try {
+      const shortOrderId = String(data.orderId || '').substring(0, 8).toUpperCase()
+      const logoUrl = 'https://res.cloudinary.com/dgqxt06km/image/upload/q_auto/f_auto/v1778221830/logo_2_ovdgjg.png'
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; background: #ffffff; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
+          <div style="background: #ffffff; padding: 20px; text-align: center; border-bottom: 3px solid #7f1d1d;">
+            <img src="${logoUrl}" alt="Make It Sell" style="height: 44px; width: auto; display: block; margin: 0 auto;" />
+          </div>
+          <div style="background: #7f1d1d; color: #fff; padding: 20px;">
+            <h1 style="margin: 0; font-size: 24px;">A Rider Is On The Way</h1>
+            <p style="margin: 8px 0 0 0; opacity: 0.92;">Order #${shortOrderId}</p>
+          </div>
+          <div style="padding: 20px;">
+            <p style="margin: 0 0 12px 0;">Hi ${this.escapeHtml(String(data.customerName || 'there'))},</p>
+            <p style="margin: 0 0 12px 0;">${this.escapeHtml(data.riderName || 'A dispatch rider')} has been assigned to deliver your order. You can follow their live location and see an estimated arrival time on the tracking page.</p>
+            <div style="margin-top: 16px;">
+              <a href="${data.trackingUrl}" style="display: inline-block; background: #7f1d1d; color: #fff; text-decoration: none; padding: 10px 16px; border-radius: 8px; font-weight: 700;">
+                Track Your Delivery
+              </a>
+            </div>
+          </div>
+        </div>
+      `
+
+      return this.sendEmail({
+        to: data.to,
+        subject: `Your rider is on the way - Order #${shortOrderId}`,
+        html,
+      })
+    } catch (error) {
+      console.error('[emailService.sendRiderAssignedEmail] Failed:', error)
+      return false
+    }
+  }
+
+  async sendRiderArrivedEmail(data: {
+    to: string
+    customerName: string
+    orderId: string
+    riderName: string
+    trackingUrl: string
+  }): Promise<boolean> {
+    try {
+      const shortOrderId = String(data.orderId || '').substring(0, 8).toUpperCase()
+      const logoUrl = 'https://res.cloudinary.com/dgqxt06km/image/upload/q_auto/f_auto/v1778221830/logo_2_ovdgjg.png'
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; background: #ffffff; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
+          <div style="background: #ffffff; padding: 20px; text-align: center; border-bottom: 3px solid #7f1d1d;">
+            <img src="${logoUrl}" alt="Make It Sell" style="height: 44px; width: auto; display: block; margin: 0 auto;" />
+          </div>
+          <div style="background: #7f1d1d; color: #fff; padding: 20px;">
+            <h1 style="margin: 0; font-size: 24px;">Your Rider Has Arrived</h1>
+            <p style="margin: 8px 0 0 0; opacity: 0.92;">Order #${shortOrderId}</p>
+          </div>
+          <div style="padding: 20px;">
+            <p style="margin: 0 0 12px 0;">Hi ${this.escapeHtml(String(data.customerName || 'there'))},</p>
+            <p style="margin: 0 0 12px 0;">${this.escapeHtml(data.riderName || 'Your rider')} is now at your delivery location with order #${shortOrderId}.</p>
+            <div style="margin-top: 16px;">
+              <a href="${data.trackingUrl}" style="display: inline-block; background: #7f1d1d; color: #fff; text-decoration: none; padding: 10px 16px; border-radius: 8px; font-weight: 700;">
+                View Delivery
+              </a>
+            </div>
+          </div>
+        </div>
+      `
+
+      return this.sendEmail({
+        to: data.to,
+        subject: `Your rider has arrived - Order #${shortOrderId}`,
+        html,
+      })
+    } catch (error) {
+      console.error('[emailService.sendRiderArrivedEmail] Failed:', error)
+      return false
+    }
+  }
+
   private async sendCustomerOrderConfirmation(orderData: OrderEmailData): Promise<boolean> {
     const orderDate = orderData.orderDate || new Date()
     const accent = '#7f1d1d'

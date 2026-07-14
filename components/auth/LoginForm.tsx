@@ -92,6 +92,8 @@ export default function LoginForm() {
           router.push("/vendor/dashboard")
         } else if (result.userProfile?.role === "admin") {
           router.push("/admin/dashboard")
+        } else if (result.userProfile?.role === "rider") {
+          router.push("/rider")
         } else {
           // Customers go to home page
           router.push("/")

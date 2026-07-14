@@ -18,7 +18,7 @@ function normalizeBooleanFlag(value: unknown): boolean {
   return false
 }
 
-export async function signUp({ email, password, name, role, vendorInfo, phone, verificationChannel }: { email: string, password: string, name: string, role?: string, vendorInfo?: any, phone?: string, verificationChannel?: 'email' }) {
+export async function signUp({ email, password, name, role, vendorInfo, riderInfo, phone, verificationChannel }: { email: string, password: string, name: string, role?: string, vendorInfo?: any, riderInfo?: any, phone?: string, verificationChannel?: 'email' }) {
   await connectToDatabase();
   const normalizedEmail = String(email || '').trim().toLowerCase();
   const existing = await User.findOne({ email: normalizedEmail });
@@ -42,6 +42,7 @@ export async function signUp({ email, password, name, role, vendorInfo, phone, v
     role: role || 'customer',
     walletBalance: 0,
     vendorInfo,
+    riderInfo,
     sessionToken,
     isEmailVerified: false,
     emailVerificationToken,
