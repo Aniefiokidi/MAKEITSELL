@@ -23,6 +23,7 @@ import {
   UserRoundPlus,
   KeyRound,
   Megaphone,
+  MessageCircleQuestion,
 } from "lucide-react"
 
 const adminNavItems = [
@@ -90,6 +91,11 @@ const adminNavItems = [
     title: "Audit Logs",
     href: "/admin/audit-logs",
     icon: History,
+  },
+  {
+    title: "Support Bot Gaps",
+    href: "/admin/support-queries",
+    icon: MessageCircleQuestion,
   },
   {
     title: "Broadcast Email",
