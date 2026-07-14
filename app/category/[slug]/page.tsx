@@ -19,6 +19,7 @@ import { ProductQuickView } from "@/components/ui/product-quick-view"
 import Link from "next/link"
 import Header from "@/components/Header"
 import { buildPublicServicePath, buildPublicStorePath } from "@/lib/public-links"
+import { optimizedImageUrl } from "@/lib/cloudinary-url"
 // import { getProducts } from "@/lib/firestore"
 
 // Use real products from Firestore
@@ -904,7 +905,7 @@ export default function CategoryPage() {
                   <div className="group absolute inset-0 overflow-hidden">
                     {/* Full Card Image Background */}
                     <img
-                      src={product.image || "/placeholder.svg"}
+                      src={optimizedImageUrl(product.image, { width: 600 }) || "/placeholder.svg"}
                       alt={product.name}
                       className={`absolute inset-0 w-full h-full ${categorySlug === 'electronics' ? 'object-contain bg-white' : 'object-cover'} group-hover:scale-110 transition-transform duration-500`}
                     />
@@ -988,7 +989,7 @@ export default function CategoryPage() {
                   <div className="group absolute inset-0 overflow-hidden">
                     {/* Full Card Image Background */}
                     <img
-                      src={product.image || "/placeholder.svg"}
+                      src={optimizedImageUrl(product.image, { width: 600 }) || "/placeholder.svg"}
                       alt={product.name}
                       className={`absolute inset-0 w-full h-full ${categorySlug === 'electronics' ? 'object-contain bg-white' : 'object-cover'} group-hover:scale-105 transition-transform duration-500 ${!product.inStock ? 'opacity-50 grayscale' : ''}`}
                     />
@@ -1121,7 +1122,7 @@ export default function CategoryPage() {
                     <div className="aspect-9/16 relative overflow-hidden rounded-[2.5rem]">
                       {Array.isArray(service.images) && service.images.length > 0 ? (
                         <img
-                          src={service.images[0]}
+                          src={optimizedImageUrl(service.images[0], { width: 500 })}
                           alt={service.title || 'Service'}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
@@ -1204,7 +1205,7 @@ export default function CategoryPage() {
                     <div className="aspect-9/16 relative overflow-hidden rounded-[2.5rem]">
                       {store.profileImage || store.bannerImage || store.storeImage ? (
                         <img
-                          src={store.profileImage || store.bannerImage || store.storeImage}
+                          src={optimizedImageUrl(store.profileImage || store.bannerImage || store.storeImage, { width: 500 })}
                           alt={store.storeName || store.name || "Store"}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
@@ -1288,7 +1289,7 @@ export default function CategoryPage() {
                   >
                     <div className="group absolute inset-0 overflow-hidden">
                       <img
-                        src={product.image || "/placeholder.svg"}
+                        src={optimizedImageUrl(product.image, { width: 600 }) || "/placeholder.svg"}
                         alt={product.name}
                         className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />

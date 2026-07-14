@@ -17,6 +17,7 @@ import { ArrowLeft, MapPin, Clock, Calendar, MessageCircle, CheckCircle, X, Chev
 import BookingModal from "@/components/services/BookingModal"
 import PriceNegotiationModal from "@/components/services/PriceNegotiationModal"
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
+import { optimizedImageUrl } from "@/lib/cloudinary-url"
 import { buildPublicServicePath, extractEntityIdFromParam } from "@/lib/public-links"
 
 export default function ServiceDetailPage() {
@@ -525,7 +526,7 @@ export default function ServiceDetailPage() {
       <div className="relative w-full h-[500px] overflow-hidden">
         {/* Service Image Banner */}
         <img
-          src={displayedImages.length > 0 ? displayedImages[selectedImage] : "/placeholder.svg"}
+          src={displayedImages.length > 0 ? optimizedImageUrl(displayedImages[selectedImage], { width: 1200 }) : "/placeholder.svg"}
           alt={service.title}
           className="absolute inset-0 w-full h-full object-cover"
         />
@@ -613,7 +614,7 @@ export default function ServiceDetailPage() {
                     selectedImage === index ? "border-accent ring-2 ring-accent/50" : "border-gray-200"
                   }`}
                 >
-                  <img src={img} alt={`${service.title} ${index + 1}`} className="w-full h-full object-cover" />
+                  <img src={optimizedImageUrl(img, { width: 150 })} alt={`${service.title} ${index + 1}`} className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>
@@ -717,7 +718,7 @@ export default function ServiceDetailPage() {
               {displayedImages.length > 0 && (
                 <div className="relative">
                   <img
-                    src={displayedImages[modalImageIndex]}
+                    src={optimizedImageUrl(displayedImages[modalImageIndex], { width: 1400 })}
                     alt={`${service.title} - Image ${modalImageIndex + 1}`}
                     className="w-full h-auto max-h-[80vh] object-contain"
                   />

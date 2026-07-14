@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Clock3, Gavel, Trophy } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
+import { optimizedImageUrl } from "@/lib/cloudinary-url"
 
 type Listing = {
   _id: string
@@ -246,7 +247,7 @@ export default function BiddingPage() {
                   {/* Image with overlaid info */}
                   <div className="aspect-square relative overflow-hidden">
                     <img
-                      src={listing.imageUrl || fallbackImage}
+                      src={optimizedImageUrl(listing.imageUrl, { width: 500 }) || fallbackImage}
                       alt={listing.title}
                       className="w-full h-full object-cover"
                     />

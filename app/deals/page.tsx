@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Clock, ShoppingCart, Heart, Zap } from "lucide-react"
 import { useCart } from "@/contexts/CartContext"
 import Header from "@/components/Header"
+import { optimizedImageUrl } from "@/lib/cloudinary-url"
 // All product fetching must be done via API route only. Do not import getProducts or any database logic directly in client components.
 
 export default function DealsPage() {
@@ -195,7 +196,7 @@ export default function DealsPage() {
                   <div className="relative mb-4 mt-6 overflow-hidden rounded-lg">
                     <Link href={`/products/${product.id}`}>
                       <img
-                        src={product.image || "/placeholder.svg"}
+                        src={optimizedImageUrl(product.image, { width: 400 }) || "/placeholder.svg"}
                         alt={product.name}
                         className="w-full h-48 object-cover rounded-lg cursor-pointer group-hover:scale-110 transition-transform duration-300"
                       />

@@ -10,6 +10,7 @@ import Link from "next/link"
 import Header from "@/components/Header"
 import SmartSearch from "@/components/search/SmartSearch"
 import AdvancedFilters from "@/components/search/AdvancedFilters"
+import { optimizedImageUrl } from "@/lib/cloudinary-url"
 
 // Filter state interface
 interface FilterState {
@@ -270,7 +271,7 @@ export default function EnhancedShopPage() {
                           <>
                             <div className="relative aspect-square overflow-hidden rounded-t-lg">
                               <img
-                                src={product.image}
+                                src={optimizedImageUrl(product.image, { width: 500 })}
                                 alt={product.name}
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                 onError={(e) => {
@@ -351,7 +352,7 @@ export default function EnhancedShopPage() {
                           <div className="flex gap-4 p-4">
                             <div className="relative w-24 h-24 shrink-0">
                               <img
-                                src={product.image}
+                                src={optimizedImageUrl(product.image, { width: 150 })}
                                 alt={product.name}
                                 className="w-full h-full object-cover rounded-lg"
                                 onError={(e) => {

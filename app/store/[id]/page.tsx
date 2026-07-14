@@ -22,6 +22,7 @@ import { ProductQuickView } from "@/components/ui/product-quick-view"
 import { trackFunnelEvent } from "@/lib/funnel-tracker"
 import { trackStoreView } from "@/lib/personalization"
 import { buildPublicStorePath, extractEntityIdFromParam } from "@/lib/public-links"
+import { optimizedImageUrl } from "@/lib/cloudinary-url"
 
 interface Product {
   id: string
@@ -123,7 +124,7 @@ const ImageCycler = ({ product, store }: { product: Product; store: Store | null
     >
       <img
         key={`${product.id}-${currentImageIndex}`}
-        src={activeImage}
+        src={optimizedImageUrl(activeImage, { width: 500 })}
         alt={(product.title || (product as any).name || 'Product') as string}
         loading="lazy"
         decoding="async"
@@ -656,13 +657,14 @@ export default function StorePage() {
         {/* Background/Profile Card Image with Gradient Overlay */}
         <div className="absolute inset-0">
           <img
-            src={
+            src={optimizedImageUrl(
               ((store as any).profileImage && !isPdfAsset((store as any).profileImage)
                 ? (store as any).profileImage
                 : undefined)
                 || (products[0]?.images?.[0])
-                || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&h=600&fit=crop"
-            }
+                || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&h=600&fit=crop",
+              { width: 1200 }
+            )}
             alt={store.storeName}
             className="w-full h-full object-cover"
           />

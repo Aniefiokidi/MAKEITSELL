@@ -5,6 +5,7 @@ import Link from "next/link"
 import { ArrowUpRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { buildPublicServicePath, buildPublicStorePath } from "@/lib/public-links"
+import { optimizedImageUrl } from "@/lib/cloudinary-url"
 
 type SlideKind = "store" | "product" | "service"
 
@@ -362,7 +363,7 @@ export default function HeroShuffleCarousel() {
               style={{ transform, opacity, zIndex: Z_BY_OFFSET[offset] || 1, pointerEvents, backfaceVisibility: "hidden" }}
             >
           <img
-            src={slide.image}
+            src={optimizedImageUrl(slide.image, { width: 900 })}
             alt={slide.title}
             className="h-full w-full object-cover"
             loading={index === activeIndex ? "eager" : "lazy"}

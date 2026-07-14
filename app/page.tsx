@@ -27,6 +27,7 @@ import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import Header from "@/components/Header"
 import HeroShuffleCarousel from "@/components/HeroShuffleCarousel"
+import { optimizedImageUrl } from "@/lib/cloudinary-url"
 import { Shield, Users, Truck, Sparkles, ArrowRight, Smartphone, ShoppingBag, Sparkles as Beauty, HomeIcon, Settings, CarFront, UserCheck, Coffee, Verified, Clock, Banknote, Camera, Briefcase, Wrench, Palette, Dumbbell, GraduationCap, Scissors, Laptop, Package, Heart, BadgeCheck } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle2 } from "lucide-react"
@@ -55,7 +56,7 @@ function TrendingProducts() {
 
   const getProductImage = (product: any) => {
     const source = Array.isArray(product?.images) ? product.images.find((item: unknown) => typeof item === "string" && item.trim()) : ""
-    return source || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=900&h=900&fit=crop"
+    return optimizedImageUrl(source, { width: 500 }) || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=900&h=900&fit=crop"
   }
 
   const getServiceDisplayPrice = (service: any) => {
@@ -323,7 +324,7 @@ function TrendingProducts() {
                   <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200 group-hover:border-accent/50 transition-colors mb-1.5">
                     {(product.images?.[0]) ? (
                       <img
-                        src={product.images[0]}
+                        src={optimizedImageUrl(product.images[0], { width: 200 })}
                         alt={product.title || product.name}
                         loading="lazy"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -455,7 +456,7 @@ function TrendingProducts() {
                   <div className="aspect-4/5 relative overflow-hidden rounded-t-2xl">
                     {service.images && service.images.length > 0 && service.images[0] ? (
                       <img
-                        src={service.images[0]}
+                        src={optimizedImageUrl(service.images[0], { width: 500 })}
                         alt={serviceName}
                         loading="lazy"
                         decoding="async"
@@ -582,7 +583,7 @@ function FeaturedStores() {
           <div className="aspect-square overflow-hidden bg-gradient-to-br from-accent/10 to-accent/5">
             {store.image ? (
               <img
-                src={store.image}
+                src={optimizedImageUrl(store.image, { width: 400 })}
                 alt={store.storeName}
                 loading="lazy"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"

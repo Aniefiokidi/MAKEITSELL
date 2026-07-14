@@ -26,6 +26,7 @@ import VendorLayout from "@/components/vendor/VendorLayout"
 import { VendorWalletModal } from "@/components/vendor/VendorWalletModal"
 import StreakGate from "@/components/vendor/StreakGate"
 import { ReferralCard } from "@/components/shared/ReferralCard"
+import { optimizedImageUrl } from "@/lib/cloudinary-url"
 
 
 export default function VendorDashboardPage() {
@@ -648,8 +649,8 @@ export default function VendorDashboardPage() {
                             <div className="space-y-2">
                               {order.vendorItems.slice(0, 2).map((item: any, idx: number) => (
                                 <div key={idx} className="flex items-center gap-2">
-                                  <img 
-                                    src={item.image || item.images?.[0] || "/placeholder.png"} 
+                                  <img
+                                    src={optimizedImageUrl(item.image || item.images?.[0], { width: 100 }) || "/placeholder.png"}
                                     alt={item.title || item.name || "Product"}
                                     className="w-10 h-10 rounded object-cover border border-border"
                                   />
