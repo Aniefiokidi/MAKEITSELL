@@ -1,20 +1,18 @@
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import { Search, RefreshCw, Heart, Package, ArrowLeft, MapPin } from "lucide-react"
+import { Search, RefreshCw, Package, ArrowLeft, MapPin } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import Header from "@/components/Header"
 import { useCart } from "@/contexts/CartContext"
 import { useNotification } from "@/contexts/NotificationContext"
-import { useWishlist } from "@/contexts/WishlistContext"
 import { ProductQuickView } from "@/components/ui/product-quick-view"
+import { ProductCard } from "@/components/products/ProductCard"
 import { useRouter } from "next/navigation"
 import { initPersonalizationSync, personalizeProducts, trackProductQuickView, trackSearch } from "@/lib/personalization"
 
@@ -65,189 +63,9 @@ const getCompactPagination = (currentPage: number, totalPages: number): Array<nu
   return [1, "ellipsis-left", currentPage - 1, currentPage, currentPage + 1, "ellipsis-right", totalPages]
 }
 
-const formatCurrency = (price: number) =>
-  new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(price)
-
-// ── ImageCycler ───────────────────────────────────────────────────────────────
-// Defined at module level so React never treats it as a new component type on
-// parent re-renders, which would force every card to unmount/remount.
-const ImageCycler = React.memo(({ product }: { product: Product }) => {
-  const [currentIdx, setCurrentIdx] = useState(0)
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
-  const isElectronics = product.category?.toLowerCase().includes('electronics')
-  const isOos = (product.stock ?? 0) === 0
-
-  const handleMouseEnter = useCallback(() => {
-    if (product.images && product.images.length > 1) {
-      intervalRef.current = setInterval(() => {
-        setCurrentIdx(prev => (prev + 1 >= product.images.length ? 0 : prev + 1))
-      }, 1000)
-    }
-  }, [product.images])
-
-  const handleMouseLeave = useCallback(() => {
-    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
-    setCurrentIdx(0)
-  }, [])
-
-  useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current) }, [])
-
-  const src =
-    product.images?.[currentIdx] ||
-    product.images?.[0] ||
-    "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"
-
-  return (
-    <div
-      className="absolute inset-0 w-full h-full"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      <Image
-        src={src}
-        alt={(product.title || product.name || 'Product') as string}
-        fill
-        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 300px"
-        className={`${
-          isElectronics ? 'object-contain bg-white' : 'object-cover'
-        } group-hover:scale-110 transition-transform duration-500 ${isOos ? 'grayscale' : ''}`}
-        loading="lazy"
-      />
-    </div>
-  )
-})
-ImageCycler.displayName = 'ImageCycler'
-
-// ── ProductCard ───────────────────────────────────────────────────────────────
-interface ProductCardProps {
-  product: Product
-  addedToCartId: string | null
-  onAddToCart: (product: any) => void
-  onQuickView: (product: Product) => void
-  onWishlistToggle: (args: any) => void
-  isInWishlist: (id: string) => boolean
-}
-
-const ProductCard = React.memo(({
-  product,
-  addedToCartId,
-  onAddToCart,
-  onQuickView,
-  onWishlistToggle,
-  isInWishlist,
-}: ProductCardProps) => {
-  return (
-    <Card
-      className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100 group card-lift cursor-pointer"
-      onClick={() => onQuickView(product)}
-    >
-      <div className="absolute inset-0 overflow-hidden">
-        <ImageCycler product={product} />
-
-        {(product.stock ?? 0) === 0 && product.category !== 'Food & Beverages' && (
-          <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
-            <div className="bg-red-600 text-white px-4 sm:px-8 py-1 sm:py-2 transform -rotate-45 font-bold text-xs sm:text-sm shadow-lg">
-              OUT OF STOCK
-            </div>
-          </div>
-        )}
-
-        <div className="absolute top-2 sm:top-3 left-2 sm:left-3 flex flex-col gap-1 z-10">
-          {product.featured && (
-            <Badge className="bg-yellow-500 text-black font-semibold text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
-              <svg className="inline w-3 h-3 sm:w-4 sm:h-4 text-yellow-400 fill-current animate-pulse mr-0.5 sm:mr-1" viewBox="0 0 24 24">
-                <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
-              </svg>
-              Featured
-            </Badge>
-          )}
-          {(product.stock ?? 0) < 10 && (product.stock ?? 0) > 0 && (
-            <Badge variant="destructive" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
-              Only {product.stock} left
-            </Badge>
-          )}
-          {(product.stock ?? 0) === 0 && product.category !== 'Food & Beverages' && (
-            <Badge variant="secondary" className="bg-gray-600 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
-              Out of Stock
-            </Badge>
-          )}
-        </div>
-
-        <div className="absolute top-2 sm:top-3 right-2 sm:right-3 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 flex gap-1 sm:gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-110 active:scale-95 transition-all h-8 w-8 p-0 sm:h-9 sm:w-9"
-            onClick={(e) => {
-              e.stopPropagation()
-              onWishlistToggle({
-                productId: String(product.id),
-                title: product.title || product.name || '',
-                price: Number(product.price),
-                image: String(product.images?.[0] || ''),
-                vendorId: String(product.vendorId || ''),
-                category: product.category || '',
-              })
-            }}
-          >
-            <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isInWishlist(String(product.id)) ? 'fill-red-500 text-red-500' : ''}`} />
-          </Button>
-        </div>
-      </div>
-
-      <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-2.5 md:p-3 backdrop-blur-xl bg-accent/10 border-t border-white/30 rounded-t-2xl sm:rounded-t-3xl z-30 space-y-1 gap-1 sm:gap-2">
-        <Badge
-          variant="outline"
-          role="button"
-          className="inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow cursor-pointer hover:opacity-90 transition min-h-5 sm:min-h-6 items-center justify-center text-center leading-tight bg-accent text-white"
-          onClick={(e) => {
-            e.stopPropagation()
-            onQuickView(product)
-          }}
-          style={{ whiteSpace: 'normal', wordBreak: 'break-word', hyphens: 'auto', lineHeight: '1.2' }}
-        >
-          <span className="line-clamp-2 sm:line-clamp-1">{product.title || product.name}</span>
-        </Badge>
-
-        <div className="flex items-center justify-between gap-1 sm:gap-2">
-          <Badge
-            variant="outline"
-            className={`${(product.category || '').length > 12 ? 'text-[7px] sm:text-[9px] md:text-[10px]' : 'text-[8px] sm:text-[10px] md:text-xs'} backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 text-white bg-accent max-w-[58%] min-w-0 whitespace-nowrap overflow-hidden text-ellipsis`}
-          >
-            <span className="block max-w-full whitespace-nowrap overflow-hidden text-ellipsis">{product.category}</span>
-          </Badge>
-          <Badge
-            variant="outline"
-            className="text-[9px] sm:text-[10px] md:text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 backdrop-blur-sm bg-white/70 text-accent"
-          >
-            {formatCurrency(product.price)}
-          </Badge>
-        </div>
-
-        <Button
-          type="button"
-          size="sm"
-          onClick={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            onAddToCart(product)
-          }}
-          disabled={(product.stock ?? 0) === 0 || addedToCartId === product.id}
-          className={`w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black ${addedToCartId === product.id ? 'bg-green-100 text-green-800 border-green-300' : ''}`}
-        >
-          <img src="/images/logo3.png" alt="Add" className="w-6 sm:w-7 md:w-8 h-6 sm:h-7 md:h-8 -mt-1 sm:-mt-2" />
-          <span className="leading-none text-accent">{addedToCartId === product.id ? 'Added to cart' : 'Add to cart'}</span>
-        </Button>
-      </div>
-    </Card>
-  )
-})
-ProductCard.displayName = 'ProductCard'
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function AllProductsPage() {
   const PRODUCTS_SCROLL_KEY = "mis:scroll:products:list:v1"
-  const [addedToCartId, setAddedToCartId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [products, setProducts] = useState<Product[]>([])
   const [searchQuery, setSearchQuery] = useState("")
@@ -265,7 +83,6 @@ export default function AllProductsPage() {
   const [isTransitioning, setIsTransitioning] = useState(false)
   const { addItem } = useCart()
   const notification = useNotification()
-  const wishlist = useWishlist()
   const router = useRouter()
   const itemsPerPage = 24
   const lastScrollY = useRef<number | null>(null)
@@ -365,8 +182,6 @@ export default function AllProductsPage() {
       maxStock: Number(product?.stock || 100),
     })
     notification.success('Product added to cart', product.title || product.name || 'Added to cart', 3000)
-    setAddedToCartId(String(product?.id || ""))
-    setTimeout(() => setAddedToCartId(null), 1700)
   }, [addItem, notification])
 
   const handleQuickView = useCallback((product: Product) => {
@@ -584,11 +399,8 @@ export default function AllProductsPage() {
                 <ProductCard
                   key={product.id}
                   product={product}
-                  addedToCartId={addedToCartId}
                   onAddToCart={handleAddToCart}
-                  onQuickView={handleQuickView}
-                  onWishlistToggle={wishlist.toggle}
-                  isInWishlist={wishlist.isInWishlist}
+                  onOpen={(p) => handleQuickView(p as Product)}
                 />
               ))}
             </div>

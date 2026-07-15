@@ -17,12 +17,12 @@ import Link from "next/link"
 import { useCart } from "@/contexts/CartContext"
 import { useAuth } from "@/contexts/AuthContext"
 import { useNotification } from "@/contexts/NotificationContext"
-import { useWishlist } from "@/contexts/WishlistContext"
 import { ProductQuickView } from "@/components/ui/product-quick-view"
 import { trackFunnelEvent } from "@/lib/funnel-tracker"
 import { trackStoreView } from "@/lib/personalization"
 import { buildPublicStorePath, extractEntityIdFromParam } from "@/lib/public-links"
 import { optimizedImageUrl } from "@/lib/cloudinary-url"
+import { ProductCard } from "@/components/products/ProductCard"
 
 interface Product {
   id: string
@@ -78,66 +78,8 @@ interface Store {
   }
 }
 
-// Defined at module level so React never creates a new component type on parent re-renders,
-// which would force every product card to unmount/remount on every state change.
-const ImageCycler = ({ product, store }: { product: Product; store: Store | null }) => {
-  const [currentImageIndex, setCurrentImageIndex] = useState(0)
-  const [isHovered, setIsHovered] = useState(false)
-
-  useEffect(() => {
-    if (!isHovered || !product.images || product.images.length <= 1) return
-    const interval = setInterval(() => {
-      setCurrentImageIndex((prev: number) => (prev + 1 >= product.images.length ? 0 : prev + 1))
-    }, 2000)
-    return () => clearInterval(interval)
-  }, [isHovered, product.images])
-
-  useEffect(() => {
-    if (!isHovered) setCurrentImageIndex(0)
-  }, [isHovered])
-
-  const isElectronics = store?.category?.toLowerCase() === 'electronics'
-  const isOos = product.stock === 0 && product.category !== 'Food & Beverages'
-  const objectFit = isElectronics ? 'object-contain bg-white' : 'object-cover'
-  const grayscale = isOos ? 'grayscale' : ''
-
-  if (!product.images || product.images.length === 0) {
-    return (
-      <img
-        src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"
-        alt={(product.title || (product as any).name || 'Product') as string}
-        loading="lazy"
-        decoding="async"
-        className={`absolute inset-0 w-full h-full ${objectFit} group-hover:scale-110 transition-transform duration-500 ${grayscale}`}
-      />
-    )
-  }
-
-  const activeImage = product.images[currentImageIndex] || product.images[0] ||
-    "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=300&fit=crop"
-
-  return (
-    <div
-      className="absolute inset-0 w-full h-full"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <img
-        key={`${product.id}-${currentImageIndex}`}
-        src={optimizedImageUrl(activeImage, { width: 500 })}
-        alt={(product.title || (product as any).name || 'Product') as string}
-        loading="lazy"
-        decoding="async"
-        fetchPriority="low"
-        className={`absolute inset-0 w-full h-full ${objectFit} group-hover:scale-110 transition-all duration-500 ${grayscale} opacity-100`}
-        style={{ transitionProperty: 'opacity, transform', transitionDuration: '450ms, 450ms', transitionTimingFunction: 'ease-in-out, ease-out' }}
-      />
-    </div>
-  )
-}
 
 export default function StorePage() {
-  const [addedToCartId, setAddedToCartId] = useState<string | null>(null)
   const params = useParams()
   const router = useRouter()
   const rawStoreParam = String(params.id || "")
@@ -198,7 +140,6 @@ export default function StorePage() {
   const { addItem } = useCart()
   const { user } = useAuth()
   const notification = useNotification()
-  const wishlist = useWishlist()
 
   const getStateFromAddress = (value?: string) => {
     if (!value) return ""
@@ -534,15 +475,6 @@ export default function StorePage() {
       product.title || product.name || 'Added to cart',
       3000
     )
-    setAddedToCartId(String(product?.id || ""))
-    setTimeout(() => setAddedToCartId(null), 1700)
-  }
-
-  const formatCurrency = (price: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN'
-    }).format(price)
   }
 
   const getUniqueCategories = () => {
@@ -911,133 +843,17 @@ export default function StorePage() {
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4 md:gap-6 auto-rows-max">
                   {paginatedProducts.filter(product => product && product.id).map((product) => (
-                    <Card 
-                      key={product.id} 
-                      className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100 cursor-pointer"
-                      onClick={() => {
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      showVendor={false}
+                      forceContain={store?.category?.toLowerCase() === 'electronics'}
+                      onOpen={() => {
                         setSelectedProduct(product)
                         setQuickViewOpen(true)
                       }}
-                    >
-                      {/* Image Container with Group Hover */}
-                      <div className="group absolute inset-0 overflow-hidden">
-                        {/* Full Card Image Background with Cycling Animation */}
-                        <ImageCycler product={product} store={store} />
-                        
-                        {/* Out of Stock Red Tape Overlay */}
-                        {product.stock === 0 && product.category !== 'Food & Beverages' && (
-                          <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
-                            <div className="bg-red-600 text-white px-4 sm:px-8 py-1 sm:py-2 transform -rotate-45 font-bold text-xs sm:text-sm shadow-lg">
-                              OUT OF STOCK
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Product Badges */}
-                        <div className="absolute top-2 sm:top-3 left-2 sm:left-3 flex flex-col gap-1 z-10">
-                          {product.featured && (
-                            <Badge className="bg-yellow-500 text-black font-semibold text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
-                              <svg className="inline w-3 h-3 sm:w-4 sm:h-4 text-yellow-400 fill-current animate-pulse mr-0.5 sm:mr-1" viewBox="0 0 24 24">
-                                <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
-                              </svg> 
-                              Featured
-                            </Badge>
-                          )}
-                          {(product.stock ?? 0) < 10 && (product.stock ?? 0) > 0 && (
-                            <Badge variant="destructive" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
-                              Only {product.stock} left
-                            </Badge>
-                          )}
-                          {product.stock === 0 && product.category !== 'Food & Beverages' && (
-                            <Badge variant="secondary" className="bg-gray-600 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
-                              Out of Stock
-                            </Badge>
-                          )}
-                        </div>
-                        
-                        {/* Action Buttons - Like button visible on hover */}
-                        <div className="absolute top-2 sm:top-3 right-2 sm:right-3 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 flex gap-1 sm:gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-110 active:scale-95 transition-all h-8 w-8 p-0 sm:h-9 sm:w-9"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              wishlist.toggle({
-                                productId: product.id,
-                                title: product.title || product.name || '',
-                                price: product.price,
-                                image: product.images?.[0] || '',
-                                vendorId: product.vendorId,
-                                category: product.category,
-                              })
-                            }}
-                          >
-                            <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-colors ${wishlist.isInWishlist(product.id) ? 'fill-red-500 text-red-500' : ''}`} />
-                          </Button>
-                        </div>
-                      </div>
-                      
-                      {/* Frosted Glass Bubble Content */}
-                      <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-2.5 md:p-3 backdrop-blur-xl bg-accent/10 border-t border-white/30 rounded-t-2xl sm:rounded-t-3xl z-30 space-y-1 gap-1 sm:gap-2">
-                        <Badge
-                          variant="outline"
-                          role="button"
-                          className="inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow hover:opacity-90 transition min-h-5 sm:min-h-6 items-center justify-center text-center leading-tight bg-accent text-white"
-                          style={{
-                            whiteSpace: 'normal',
-                            wordBreak: 'break-word',
-                            hyphens: 'auto',
-                            lineHeight: '1.2'
-                          }}
-                        >
-                          <span className="line-clamp-2 sm:line-clamp-1">
-                            {product.title || (product as any).name}
-                          </span>
-                        </Badge>
-                        
-                        <div className="flex items-center justify-between gap-1 sm:gap-2">
-                          <Badge variant="outline" className={`${(product.category || '').length > 12 ? 'text-[8px] sm:text-[9px] md:text-[10px]' : 'text-[9px] sm:text-[10px] md:text-xs'} backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 max-w-[58%] min-w-0 whitespace-nowrap overflow-hidden text-ellipsis text-white bg-accent`}>
-                            {product.category}
-                          </Badge>
-                          
-                          <Badge
-                            variant="outline"
-                            className="text-[9px] sm:text-[10px] md:text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 backdrop-blur-sm bg-white/70 text-accent"
-                          >
-                            {formatCurrency(product.price)}
-                          </Badge>
-                        </div>
-                        
-                        {/* Sizes Display */}
-                        {product.hasSizeOptions && product.sizes && product.sizes.length > 0 && (
-                          <div className="flex items-center gap-1 flex-wrap">
-                            {product.sizes.slice(0, 5).map((size: string, idx: number) => (
-                              <Badge
-                                key={idx}
-                                variant="outline"
-                                className="text-[8px] sm:text-[9px] md:text-[10px] px-1 sm:px-1.5 py-0 border-white/40 bg-white/50 text-accent"
-                              >
-                                {size}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                        
-                        <Button
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleAddToCart(product)
-                          }}
-                          disabled={(product.stock === 0 && product.category !== 'Food & Beverages') || addedToCartId === product.id}
-                          className={`w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black ${addedToCartId === product.id ? 'bg-green-100 text-green-800 border-green-300' : ''}`}
-                        >
-                          <img src="/images/logo3.png" alt="Add" className="w-6 sm:w-7 md:w-8 h-6 sm:h-7 md:h-8 -mt-1 sm:-mt-2" />
-                          <span className="leading-none text-accent">{addedToCartId === product.id ? 'Added to cart' : 'Add to cart'}</span>
-                        </Button>
-                      </div>
-                    </Card>
+                      onAddToCart={() => handleAddToCart(product)}
+                    />
                   ))}
                 </div>
 

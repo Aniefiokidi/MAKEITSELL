@@ -11,11 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Slider } from "@/components/ui/slider"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { Search, ShoppingCart, Heart, ArrowLeft, Filter, Star, X, ChevronDown, ChevronUp, Clock, Verified, Banknote, MapPin, Users, Store } from "lucide-react"
+import { Search, ShoppingCart, ArrowLeft, Filter, Star, X, ChevronDown, ChevronUp, Clock, Verified, Banknote, MapPin, Users, Store } from "lucide-react"
 import { useCart } from "@/contexts/CartContext"
 import { useNotification } from "@/contexts/NotificationContext"
-import { useWishlist } from "@/contexts/WishlistContext"
 import { ProductQuickView } from "@/components/ui/product-quick-view"
+import { ProductCard } from "@/components/products/ProductCard"
 import Link from "next/link"
 import Header from "@/components/Header"
 import { buildPublicServicePath, buildPublicStorePath } from "@/lib/public-links"
@@ -152,7 +152,6 @@ const CATEGORY_SLUG_PRODUCTS_CACHE_TTL_MS = 5 * 60 * 1000
 const CATEGORY_SLUG_SEGMENT_CACHE_TTL_MS = 10 * 60 * 1000
 
 export default function CategoryPage() {
-  const [addedToCartId, setAddedToCartId] = useState<string | null>(null)
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [quickViewOpen, setQuickViewOpen] = useState(false);
   const params = useParams()
@@ -190,7 +189,6 @@ export default function CategoryPage() {
   
   const { addToCart } = useCart()
   const notification = useNotification()
-  const wishlist = useWishlist()
 
   // Load recently viewed products from localStorage
   useEffect(() => {
@@ -586,8 +584,6 @@ export default function CategoryPage() {
       product.title || product.name || 'Added to cart',
       3000
     )
-    setAddedToCartId(product.id)
-    setTimeout(() => setAddedToCartId(null), 1700)
   }
 
   const categoryProducts = products.filter((p) => p.category === categorySlug)
@@ -900,196 +896,50 @@ export default function CategoryPage() {
             {/* Show all products as suggestions */}
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6 mt-8">
               {products.map((product) => (
-                <Card key={product.id} className={`border-0 shadow-md overflow-hidden relative h-[350px] sm:h-[450px] hover:shadow-xl transition-all duration-500 ${categorySlug === 'electronics' ? 'hover:-translate-y-1' : 'hover:-translate-y-2'} rounded-3xl`}>
-                  {/* Image Container with Group Hover */}
-                  <div className="group absolute inset-0 overflow-hidden">
-                    {/* Full Card Image Background */}
-                    <img
-                      src={optimizedImageUrl(product.image, { width: 600 }) || "/placeholder.svg"}
-                      alt={product.name}
-                      className={`absolute inset-0 w-full h-full ${categorySlug === 'electronics' ? 'object-contain bg-white' : 'object-cover'} group-hover:scale-110 transition-transform duration-500`}
-                    />
-                    {/* Product Badges */}
-                    <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
-                      {!product.inStock && (
-                        <Badge variant="secondary" className="bg-gray-600">
-                          Out of Stock
-                        </Badge>
-                      )}
-                      {/* Show 'Suggested' only if product matches last 5 purchases (by subcategory or vendor) and is not in the main category list */}
-                      {lastPurchases.length > 0 &&
-                        product.category !== categorySlug &&
-                        lastPurchases.some(p =>
-                          (p.subcategory && product.subcategory && p.subcategory === product.subcategory) ||
-                          (p.vendorId && product.vendorId && p.vendorId === product.vendorId)
-                        ) && (
-                          <Badge className="bg-blue-500 text-white font-semibold">
-                            Suggested
-                          </Badge>
-                        )}
-                    </div>
-                    {/* Action Buttons */}
-                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-110 transition-all h-8 w-8 p-0"
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); wishlist.toggle({ productId: String(product.id), title: product.name || '', price: Number(product.price || 0), image: String(product.images?.[0] || ''), vendorId: String(product.vendorId || ''), category: product.category || '' }) }}
-                      >
-                        <Heart className={`w-4 h-4 ${wishlist.isInWishlist(String(product.id)) ? 'fill-red-500 text-red-500' : ''}`} />
-                      </Button>
-                    </div>
-                  </div>
-                  {/* Frosted Glass Bubble Content */}
-                  <div className="absolute bottom-0 left-0 right-0 p-2.5 sm:p-3 backdrop-blur-xl bg-white/20 dark:bg-black/20 border-t border-white/30 rounded-t-3xl z-30 space-y-1.5">
-                    <Link href={`/products/${product.id}`} onClick={() => addToRecentlyViewed(product)}>
-                      <h3 className="font-semibold text-xs sm:text-sm line-clamp-1 text-white drop-shadow-lg cursor-pointer hover:opacity-80 transition-opacity">
-                        {product.name}
-                      </h3>
-                    </Link>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-white text-[11px] sm:text-xs font-medium px-2 py-1 bg-accent/80 backdrop-blur-sm rounded-full border border-white/50">
-                        {product.storeName}
-                      </span>
-                      <div className="font-bold text-sm text-white drop-shadow-lg">
-                        ₦{product.price}
-                      </div>
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={() => handleAddToCart(product)}
-                      disabled={!product.inStock || addedToCartId === product.id}
-                      className={`w-full h-7 text-xs bg-white/90 hover:bg-white text-black backdrop-blur-sm hover:scale-105 transition-all hover:shadow-lg flex items-center justify-center gap-0 ${addedToCartId === product.id ? 'bg-green-100 text-green-800 border-green-300' : ''}`}
-                    >
-                      <img src="/images/logo3.png" alt="Add" className="w-8 h-8 -mt-2" />
-                      <span className="leading-none text-accent">{addedToCartId === product.id ? 'Added to cart' : 'Add to cart'}</span>
-                    </Button>
-                  </div>
-                </Card>
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  forceContain={categorySlug === 'electronics'}
+                  suggested={
+                    lastPurchases.length > 0 &&
+                    product.category !== categorySlug &&
+                    lastPurchases.some((p: any) =>
+                      (p.subcategory && product.subcategory && p.subcategory === product.subcategory) ||
+                      (p.vendorId && product.vendorId && p.vendorId === product.vendorId)
+                    )
+                  }
+                  onOpen={(p) => {
+                    setSelectedProduct(p)
+                    setQuickViewOpen(true)
+                    addToRecentlyViewed(p)
+                  }}
+                  onAddToCart={handleAddToCart}
+                />
               ))}
             </div>
           </>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4 md:gap-6 auto-rows-max">
             {filteredProducts.map((product) => (
-              <Card
+              <ProductCard
                 key={product.id}
-                className="border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100"
-                // Only open quick view if not clicking Add to Cart
-                onClick={e => {
-                  // Prevent quick view if clicking Add to Cart
-                  const target = e.target as HTMLElement;
-                  if (target.closest('.add-to-cart-btn')) return;
-                  setSelectedProduct(product);
-                  setQuickViewOpen(true);
-                  addToRecentlyViewed(product);
+                product={product}
+                forceContain={categorySlug === 'electronics'}
+                suggested={
+                  lastPurchases.length > 0 &&
+                  product.category !== categorySlug &&
+                  lastPurchases.some((p: any) =>
+                    (p.subcategory && product.subcategory && p.subcategory === product.subcategory) ||
+                    (p.vendorId && product.vendorId && p.vendorId === product.vendorId)
+                  )
+                }
+                onOpen={(p) => {
+                  setSelectedProduct(p)
+                  setQuickViewOpen(true)
+                  addToRecentlyViewed(p)
                 }}
-              >
-                  {/* Image Container with Group Hover */}
-                  <div className="group absolute inset-0 overflow-hidden">
-                    {/* Full Card Image Background */}
-                    <img
-                      src={optimizedImageUrl(product.image, { width: 600 }) || "/placeholder.svg"}
-                      alt={product.name}
-                      className={`absolute inset-0 w-full h-full ${categorySlug === 'electronics' ? 'object-contain bg-white' : 'object-cover'} group-hover:scale-105 transition-transform duration-500 ${!product.inStock ? 'opacity-50 grayscale' : ''}`}
-                    />
-                    {/* Out of Stock Overlay */}
-                    {!product.inStock && (
-                      <>
-                        <div className="absolute inset-0 bg-black/50 z-20 rounded-2xl sm:rounded-3xl" />
-                        <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
-                          <div className="bg-red-600 text-white px-4 sm:px-8 py-1 sm:py-2 transform -rotate-45 font-bold text-xs sm:text-sm shadow-lg rounded">
-                            OUT OF STOCK
-                          </div>
-                        </div>
-                      </>
-                    )}
-                    {/* Product Badges */}
-                    <div className="absolute top-2 sm:top-3 left-2 sm:left-3 flex flex-col gap-1 z-10">
-                      {product.featured && (
-                        <Badge className="bg-accent text-white font-semibold text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
-                          <svg className="inline w-3 h-3 sm:w-4 sm:h-4 text-white fill-current mr-0.5 sm:mr-1" viewBox="0 0 24 24">
-                            <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z"/>
-                          </svg> 
-                          Featured
-                        </Badge>
-                      )}
-                      {product.stock < 10 && product.stock > 0 && (
-                        <Badge variant="destructive" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
-                          Only {product.stock} left
-                        </Badge>
-                      )}
-                      {!product.inStock && (
-                        <Badge variant="secondary" className="bg-gray-600 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
-                          Out of Stock
-                        </Badge>
-                      )}
-                      {/* Show 'Suggested' only if product matches last 5 purchases (by subcategory or vendor) and is not in the main category list */}
-                      {lastPurchases.length > 0 &&
-                        product.category !== categorySlug &&
-                        lastPurchases.some(p =>
-                          (p.subcategory && product.subcategory && p.subcategory === product.subcategory) ||
-                          (p.vendorId && product.vendorId && p.vendorId === product.vendorId)
-                        ) && (
-                          <Badge className="bg-blue-500 text-white font-semibold text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
-                            Suggested
-                          </Badge>
-                        )}
-                    </div>
-                    {/* Action Buttons */}
-                    <div className="absolute top-2 sm:top-3 right-2 sm:right-3 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 flex gap-1 sm:gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-110 active:scale-95 transition-all h-8 w-8 p-0 sm:h-9 sm:w-9"
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); wishlist.toggle({ productId: String(product.id), title: product.name || product.title || '', price: Number(product.price || 0), image: String(product.images?.[0] || ''), vendorId: String(product.vendorId || ''), category: product.category || '' }) }}
-                      >
-                        <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${wishlist.isInWishlist(String(product.id)) ? 'fill-red-500 text-red-500' : ''}`} />
-                      </Button>
-                    </div>
-                  </div>
-                  {/* Frosted Glass Bubble Content */}
-                  <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-2.5 md:p-3 backdrop-blur-xl bg-accent/10 border-t border-white/30 rounded-t-2xl sm:rounded-t-3xl z-30 space-y-1 gap-1 sm:gap-2">
-                    <Badge
-                      variant="outline"
-                      role="button"
-                      className="inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow cursor-pointer hover:opacity-90 transition min-h-5 sm:min-h-6 items-center justify-center text-center leading-tight bg-accent text-white"
-                      style={{
-                        whiteSpace: 'normal',
-                        wordBreak: 'break-word',
-                        hyphens: 'auto',
-                        lineHeight: '1.2'
-                      }}
-                    >
-                      <span className="line-clamp-2 sm:line-clamp-1">
-                        {product.name}
-                      </span>
-                    </Badge>
-                    <div className="flex items-center justify-between gap-1 sm:gap-2">
-                      <Badge variant="outline" className="text-[9px] sm:text-[10px] md:text-xs backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 text-white bg-accent">
-                        {product.storeName}
-                      </Badge>
-                      <Badge
-                        variant="outline"
-                        className="text-[9px] sm:text-[10px] md:text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 backdrop-blur-sm bg-white/70 text-accent"
-                      >
-                        ₦{product.price.toLocaleString()}
-                      </Badge>
-                    </div>
-                    <Button 
-                      size="sm"
-                      onClick={e => {
-                        e.preventDefault()
-                        handleAddToCart(product)
-                      }}
-                      disabled={!product.inStock}
-                      className="add-to-cart-btn w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black"
-                    >
-                      <img src="/images/logo3.png" alt="Add" className="w-6 sm:w-7 md:w-8 h-6 sm:h-7 md:h-8 -mt-1 sm:-mt-2" />
-                      <span className="leading-none text-accent">Add to cart</span>
-                    </Button>
-                  </div>
-                </Card>
+                onAddToCart={handleAddToCart}
+              />
             ))}
           </div>
         )}

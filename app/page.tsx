@@ -34,6 +34,7 @@ import { CheckCircle2 } from "lucide-react"
 import { buildPublicServicePath, buildPublicStorePath } from "@/lib/public-links"
 import { personalizeProducts, personalizeServices, personalizeStores, trackProductQuickView, trackServiceView } from "@/lib/personalization"
 import { Leaderboard } from "@/components/public/Leaderboard"
+import { ProductCard } from "@/components/products/ProductCard"
 function TrendingProducts() {
   const [products, setProducts] = useState<any[]>([])
   const [services, setServices] = useState<any[]>([])
@@ -350,89 +351,22 @@ function TrendingProducts() {
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4 md:gap-6 stagger-grid">
             {personalizedProducts.map((product: any) => (
-          <Card 
-            key={product.id} 
-            className="border border-neutral-200 shadow-sm overflow-hidden relative hover:shadow-lg transition-all duration-300 rounded-2xl active:scale-95 md:active:scale-100 cursor-pointer card-lift"
-            onClick={() => {
-              trackProductQuickView({
-                id: String(product.id || product._id || ""),
-                category: product.category,
-                title: product.title || product.name,
-                storeName: product.storeName || product.vendorName,
-                price: Number(product.price || 0),
-                image: product.images?.[0] || '',
-              })
-              setSelectedProduct(product)
-              setQuickViewOpen(true)
-            }}
-          >
-            <div className="group overflow-hidden">
-              <div className="aspect-square overflow-hidden bg-muted">
-                <img
-                  src={getProductImage(product)}
-                  alt={product.title || product.name || "Product image"}
-                  loading="lazy"
-                  decoding="async"
-                  className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${product.stock === 0 ? 'grayscale' : ''}`}
-                />
-              </div>
-
-              {product.stock === 0 && (
-                <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
-                  <div className="bg-red-600 text-white px-4 py-1 transform -rotate-45 font-bold text-xs shadow-lg">
-                    OUT OF STOCK
-                  </div>
-                </div>
-              )}
-              <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
-                {product.featured && (
-                  <Badge className="bg-yellow-500 text-black font-semibold text-[10px] px-2 py-0.5">
-                    Featured
-                  </Badge>
-                )}
-                {(product.stock ?? 0) < 10 && (product.stock ?? 0) > 0 && (
-                  <Badge variant="destructive" className="text-[10px] px-2 py-0.5">
-                    Only {product.stock} left
-                  </Badge>
-                )}
-              </div>
-            </div>
-            <div className="p-3 space-y-2">
-              <p className="text-sm font-semibold text-neutral-900 line-clamp-2">{product.title || product.name}</p>
-              <p className="text-xs text-muted-foreground line-clamp-1">{product.storeName || product.vendorName || 'Store'}</p>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-accent">{formatCurrency(Number(product.price || 0))}</span>
-                <span className="text-[11px] text-muted-foreground">{product.category || 'General'}</span>
-              </div>
-              <Button 
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  addItem({
-                    productId: product.id,
-                    id: product.id,
-                    title: product.title || product.name || '',
-                    price: product.price,
-                    image: product.images?.[0] || '',
-                    maxStock: product.stock || 100,
-                    vendorId: product.vendorId,
-                    vendorName: product.storeName || product.vendorName || 'Unknown Vendor'
+              <ProductCard
+                key={product.id}
+                product={product}
+                onOpen={(p) => {
+                  trackProductQuickView({
+                    id: String(p.id || (p as any)._id || ""),
+                    category: p.category,
+                    title: p.title || p.name,
+                    storeName: p.storeName || p.vendorName,
+                    price: Number(p.price || 0),
+                    image: p.images?.[0] || '',
                   })
-                  if (notification) {
-                    notification.success(
-                      'Product added to cart',
-                      product.title || product.name || 'Added to cart',
-                      3000
-                    )
-                  }
+                  setSelectedProduct(product)
+                  setQuickViewOpen(true)
                 }}
-                disabled={product.stock === 0}
-                className="w-full h-8 text-xs hover:scale-[1.01] active:scale-95 transition-all"
-              >
-                Add to cart
-              </Button>
-            </div>
-          </Card>
+              />
             ))}
           </div>
         </div>
