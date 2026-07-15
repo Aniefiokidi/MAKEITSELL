@@ -11,12 +11,21 @@ import { cn } from "@/lib/utils"
 
 function renderMarkdown(text: string) {
   return text.split('\n').map((line, i, arr) => {
-    const parts = line.split(/(\*\*[^*]+\*\*)/)
-    const rendered = parts.map((part, j) =>
-      part.startsWith('**') && part.endsWith('**')
-        ? <strong key={j}>{part.slice(2, -2)}</strong>
-        : <span key={j}>{part}</span>
-    )
+    const parts = line.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/)
+    const rendered = parts.map((part, j) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={j}>{part.slice(2, -2)}</strong>
+      }
+      const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/)
+      if (linkMatch) {
+        return (
+          <a key={j} href={linkMatch[2]} className="text-accent underline font-medium">
+            {linkMatch[1]}
+          </a>
+        )
+      }
+      return <span key={j}>{part}</span>
+    })
     return (
       <span key={i}>
         {rendered}

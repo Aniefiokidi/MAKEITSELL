@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { matchFaq } from "@/lib/support-faq"
 import { personalize } from "@/lib/support-personalize"
+import { buildDiscoveryReply } from "@/lib/support-discovery"
 import connectToDatabase from "@/lib/mongodb"
 import { SupportQueryLog } from "@/lib/models/SupportQueryLog"
 
@@ -28,9 +29,25 @@ export async function POST(request: NextRequest) {
     }
 
     const match = matchFaq(query, context)
+    let responsePayload = match.response
 
-    if (match.entry) {
-      match.response.response = await personalize(match.entry.id, match.response.response, match.lang, context.userId)
+    // The matcher only had a generic "go browse" answer, or nothing at all — before
+    // giving up, try a live lookup so a query naming an actual product/service can
+    // surface real matching stores/providers instead. Never let a lookup failure
+    // break the chat; just keep the FAQ-provided response.
+    if (match.matchedEntryId === 'product-discovery' || match.matchedEntryId === null) {
+      try {
+        const discoveryReply = await buildDiscoveryReply(query, match.lang, context.userName)
+        if (discoveryReply) {
+          responsePayload = discoveryReply
+        }
+      } catch (error: any) {
+        console.error("Support discovery lookup error:", error?.message ?? String(error))
+      }
+    }
+
+    if (match.entry && responsePayload === match.response) {
+      responsePayload.response = await personalize(match.entry.id, responsePayload.response, match.lang, context.userId)
     }
 
     await logQuery({
@@ -41,7 +58,7 @@ export async function POST(request: NextRequest) {
       userId: context.userId,
     })
 
-    return NextResponse.json(match.response)
+    return NextResponse.json(responsePayload)
   } catch (error: any) {
     console.error("Support FAQ error:", error?.message ?? String(error))
     return NextResponse.json(matchFaq(query || "", context).response)

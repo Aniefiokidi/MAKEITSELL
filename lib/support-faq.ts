@@ -19,7 +19,7 @@ interface FaqEntry {
 
 // Translate common Pidgin words/phrases to English equivalents so a single keyword list
 // can match both languages. Pattern lifted from the project's existing Pidgin handling.
-function normalize(text: string): string {
+export function normalize(text: string): string {
   return text
     .toLowerCase()
     // Common typos/SMS-shorthand corrected FIRST — the Pidgin phrase rules below check
@@ -79,7 +79,7 @@ function isPidgin(rawQuery: string): boolean {
   return PIDGIN_MARKERS.test(rawQuery)
 }
 
-function tokenize(text: string): string[] {
+export function tokenize(text: string): string[] {
   return text.toLowerCase().match(/[a-z0-9']+/g) || []
 }
 
@@ -477,7 +477,11 @@ export function matchFaq(query: string, context?: { userName?: string }): FaqMat
         return {
           normalizedQuery,
           lang,
-          matchedEntryId: null,
+          // Prefixed rather than left null so this is distinguishable downstream from a
+          // true unmatched query (the API route uses that distinction to decide whether
+          // to attempt a live product/service lookup — an ambiguous-trigger question is
+          // already a resolved, useful response, not a gap).
+          matchedEntryId: `ambiguous:${trigger.keyword}`,
           entry: null,
           response: {
             canResolve: true,
