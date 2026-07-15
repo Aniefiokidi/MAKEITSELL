@@ -247,58 +247,55 @@ export default function AllProductsPage() {
       <Header />
 
       <div className={isTransitioning ? 'page-slide-transition' : ''}>
-        <main className="flex-1 container mx-auto px-4 py-8">
-          {/* Filters panel */}
-          <div className="mb-8 p-6 md:p-8 bg-linear-to-br from-accent/5 via-accent/15 to-accent/50 backdrop-blur-2xl rounded-3xl border border-accent/30 shadow-2xl shadow-accent/20 hover:shadow-3xl hover:shadow-accent/30 transition-all duration-500">
+        <main className="flex-1 container mx-auto px-4 py-6">
+          {/* Header strip — kept deliberately compact. Category/listing pages live and die
+              on how fast a visitor reaches the product grid; a tall decorative hero here
+              just pushes real inventory further below the fold. */}
+          <div className="mb-4">
+            <button
+              type="button"
+              onClick={handleBackToStores}
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-accent transition-colors mb-2 -ml-0.5"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Back to Stores
+            </button>
 
-            <div className="mb-6">
+            <nav className="text-xs text-muted-foreground mb-2.5">
+              <Link href="/" onClick={saveScrollPosition} className="hover:text-accent transition-colors">Home</Link>
+              <span className="mx-1.5">/</span>
+              <span className="text-foreground font-medium">Products</span>
+            </nav>
+
+            <div className="flex items-end justify-between gap-4 flex-wrap">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 tracking-tight">All Products</h1>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  <span className="font-semibold text-accent">{totalProducts}</span> products from all our vendors
+                </p>
+              </div>
               <Button
-                onClick={handleBackToStores}
-                variant="outline"
-                className="border-accent/50 bg-accent/10 hover:bg-accent text-accent hover:text-white transition-all backdrop-blur-sm shadow-lg hover:shadow-xl"
+                onClick={handleRefresh}
+                variant="ghost"
+                size="sm"
+                disabled={refreshing}
+                className="text-muted-foreground hover:text-accent hover:bg-accent/5"
               >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Stores
+                <RefreshCw className={`h-4 w-4 mr-1.5 ${refreshing ? 'animate-spin' : ''}`} />
+                Refresh
               </Button>
             </div>
+          </div>
 
-            <div className="mb-4 sm:mb-8 animate-fade-in">
-              <nav className="text-xs sm:text-sm mb-2 sm:mb-4">
-                <Link href="/" onClick={saveScrollPosition} className="text-accent hover:underline">Home</Link>
-                <span className="mx-2 text-neutral-400">/</span>
-                <span className="text-neutral-500">Products</span>
-              </nav>
-              <div className="flex flex-col md:flex-row items-center md:items-center justify-center md:justify-between gap-4 mb-6">
-                <div className="text-center md:text-left">
-                  <h1 className="text-xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold mb-2 text-accent tracking-tight">
-                    All Products
-                  </h1>
-                  <p className="text-accent text-xs sm:text-base md:text-lg">
-                    Discover amazing products from all our vendors
-                  </p>
-                </div>
-                <div className="flex items-center gap-4 text-sm md:text-base">
-                  <div className="bg-accent/20 backdrop-blur-sm px-4 py-2 rounded-full border border-accent/40 shadow-lg">
-                    <span className="font-bold text-accent drop-shadow-sm">{totalProducts}</span>
-                    <span className="text-accent ml-1">Products</span>
-                  </div>
-                  <Button
-                    onClick={handleRefresh}
-                    variant="outline"
-                    size="sm"
-                    disabled={refreshing}
-                    className="border-accent/50 bg-accent/10 hover:bg-accent hover:text-white transition-all backdrop-blur-sm shadow-lg hover:shadow-xl"
-                  >
-                    <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                    Refresh
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            {/* Category Toggle */}
-            <div className="mb-4 overflow-x-auto">
-              <div className="inline-flex gap-2 min-w-max">
+          {/* Single toolbar band — one flat surface for every filter control instead of each
+              one wearing its own gradient/border treatment. Grouping same-purpose controls
+              into one visually uniform unit reduces how much a visitor has to parse before
+              acting (Hick's law); the brand color is then reserved for the one thing that
+              should pop — the active category and the CTAs — rather than tinting everything
+              equally, which drowns out exactly what should stand out (isolation effect). */}
+          <div className="mb-6 bg-white border border-neutral-200 rounded-2xl shadow-sm p-3 sm:p-4 space-y-3">
+            <div className="overflow-x-auto -mx-1 px-1">
+              <div className="inline-flex gap-1.5 min-w-max">
                 {defaultCategories.map((category) => (
                   <button
                     key={category.id}
@@ -306,8 +303,8 @@ export default function AllProductsPage() {
                     onClick={() => setSelectedCategory(category.id)}
                     className={`px-3 py-1.5 text-xs sm:text-sm rounded-full border transition-colors whitespace-nowrap ${
                       selectedCategory === category.id
-                        ? "bg-accent text-white border-accent"
-                        : "bg-white/70 text-accent border-accent/30 hover:bg-accent/10"
+                        ? "bg-accent text-white border-accent font-medium"
+                        : "bg-neutral-50 text-neutral-600 border-neutral-200 hover:bg-neutral-100 hover:text-neutral-900"
                     }`}
                   >
                     {category.name}
@@ -316,21 +313,22 @@ export default function AllProductsPage() {
               </div>
             </div>
 
-            {/* Search and Filters */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="h-px bg-neutral-100" />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
               <div className="relative sm:col-span-2 md:col-span-1">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-accent/60" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search products..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 bg-accent/5 border-accent/30 focus:border-accent/50 backdrop-blur-sm"
+                  className="pl-10 bg-white border-neutral-200 focus-visible:border-accent"
                 />
               </div>
 
               <Select value={selectedCity} onValueChange={setSelectedCity}>
-                <SelectTrigger className="bg-accent/5 border-accent/30 focus:border-accent/50 backdrop-blur-sm">
-                  <MapPin className="h-3.5 w-3.5 mr-1.5 text-accent/60 shrink-0" />
+                <SelectTrigger className="bg-white border-neutral-200">
+                  <MapPin className="h-3.5 w-3.5 mr-1.5 text-muted-foreground shrink-0" />
                   <SelectValue placeholder="Location" />
                 </SelectTrigger>
                 <SelectContent>
@@ -341,7 +339,7 @@ export default function AllProductsPage() {
               </Select>
 
               <Select value={priceRange} onValueChange={setPriceRange}>
-                <SelectTrigger className="bg-accent/5 border-accent/30 focus:border-accent/50 backdrop-blur-sm">
+                <SelectTrigger className="bg-white border-neutral-200">
                   <SelectValue placeholder="Price Range" />
                 </SelectTrigger>
                 <SelectContent>
@@ -354,7 +352,7 @@ export default function AllProductsPage() {
               </Select>
 
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="bg-accent/5 border-accent/30 focus:border-accent/50 backdrop-blur-sm">
+                <SelectTrigger className="bg-white border-neutral-200">
                   <SelectValue placeholder="Sort By" />
                 </SelectTrigger>
                 <SelectContent>
