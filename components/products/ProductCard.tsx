@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Heart } from "lucide-react"
+import { Heart, ShoppingCart, Store } from "lucide-react"
 import { useCart } from "@/contexts/CartContext"
 import { useWishlist } from "@/contexts/WishlistContext"
 import { useNotification } from "@/contexts/NotificationContext"
@@ -24,12 +24,18 @@ export interface ProductCardProduct {
   featured?: boolean
   hasSizeOptions?: boolean
   sizes?: string[]
+  hasColorOptions?: boolean
+  colors?: string[]
 }
 
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&h=500&fit=crop"
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", minimumFractionDigits: 0 }).format(amount)
+
+// Same convention used in the vendor product form (app/vendor/products/new) — colors are
+// stored as plain CSS color-name strings, not hex, so swatches resolve the same way here.
+const colorToCss = (color: string) => color.toLowerCase().replace(/\s+/g, '')
 
 // Module-level so React never treats it as a new component type on parent re-renders.
 const ImageCycler = React.memo(({ product, contain }: { product: ProductCardProduct; contain: boolean }) => {
@@ -155,10 +161,11 @@ export function ProductCard({
 
   return (
     <Card
-      className={`border-0 shadow-md overflow-hidden relative h-[280px] sm:h-[350px] md:h-[380px] lg:h-[450px] hover:shadow-xl transition-all duration-500 hover:-translate-y-2 rounded-2xl sm:rounded-3xl active:scale-95 md:active:scale-100 group card-lift cursor-pointer ${className}`}
+      className={`p-0 gap-0 overflow-hidden relative border border-neutral-200/80 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 rounded-2xl active:scale-[0.98] cursor-pointer group card-lift flex flex-col ${className}`}
       onClick={() => onOpen?.(product)}
     >
-      <div className="absolute inset-0 overflow-hidden">
+      {/* Image zone */}
+      <div className="relative aspect-[4/5] overflow-hidden bg-muted shrink-0">
         <ImageCycler product={product} contain={contain} />
 
         {isOos && (
@@ -169,97 +176,96 @@ export function ProductCard({
           </div>
         )}
 
-        <div className="absolute top-2 sm:top-3 left-2 sm:left-3 flex flex-col gap-1 z-10">
+        <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
           {product.featured && (
-            <Badge className="bg-yellow-500 text-black font-semibold text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
-              <svg className="inline w-3 h-3 sm:w-4 sm:h-4 text-yellow-400 fill-current animate-pulse mr-0.5 sm:mr-1" viewBox="0 0 24 24">
+            <Badge className="bg-yellow-500 text-black font-semibold text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 shadow">
+              <svg className="inline w-3 h-3 sm:w-3.5 sm:h-3.5 text-yellow-800 fill-current mr-0.5" viewBox="0 0 24 24">
                 <path d="M12 2L15.09 8.26L22 9L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9L8.91 8.26L12 2Z" />
               </svg>
               Featured
             </Badge>
           )}
           {suggested && (
-            <Badge className="bg-blue-500 text-white font-semibold text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
+            <Badge className="bg-blue-500 text-white font-semibold text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 shadow">
               Suggested
             </Badge>
           )}
           {isLowStock && (
-            <Badge variant="destructive" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
+            <Badge variant="destructive" className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 shadow">
               Only {product.stock} left
             </Badge>
           )}
-          {isOos && (
-            <Badge variant="secondary" className="bg-gray-600 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
-              Out of Stock
-            </Badge>
-          )}
         </div>
 
-        <div className="absolute top-2 sm:top-3 right-2 sm:right-3 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
-          <Button
-            size="sm"
-            variant="outline"
-            className="bg-white/90 backdrop-blur-sm hover:bg-white hover:scale-110 active:scale-95 transition-all h-8 w-8 p-0 sm:h-9 sm:w-9"
-            onClick={handleWishlistToggle}
-          >
-            <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${inWishlist ? "fill-red-500 text-red-500" : ""}`} />
-          </Button>
-        </div>
+        <button
+          type="button"
+          onClick={handleWishlistToggle}
+          className="absolute top-2 right-2 z-10 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/95 shadow flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
+        >
+          <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${inWishlist ? "fill-red-500 text-red-500" : "text-neutral-500"}`} />
+        </button>
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 p-2 sm:p-2.5 md:p-3 backdrop-blur-xl bg-accent/10 border-t border-white/30 rounded-t-2xl sm:rounded-t-3xl z-30 space-y-1">
-        <Badge
-          variant="outline"
-          className="inline-flex w-full text-[10px] sm:text-xs md:text-sm font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 shadow min-h-5 sm:min-h-6 items-center justify-center text-center leading-tight bg-accent text-white"
-          style={{ whiteSpace: "normal", wordBreak: "break-word", hyphens: "auto", lineHeight: "1.2" }}
-        >
-          <span className="line-clamp-2 sm:line-clamp-1">{title}</span>
-        </Badge>
+      {/* Solid detail panel — deliberately opaque (not overlaid on the image) so text
+          contrast never depends on how light or dark the product photo is. */}
+      <div className="border-t-[3px] border-accent bg-white px-2.5 sm:px-3 py-2 sm:py-2.5 space-y-1.5 flex-1 flex flex-col">
+        <h3 className="text-xs sm:text-sm font-semibold text-neutral-900 line-clamp-2 leading-snug min-h-8 sm:min-h-9">
+          {title}
+        </h3>
 
         {showVendor && vendorLabel && (
-          <p className="text-[10px] sm:text-xs text-white font-medium drop-shadow line-clamp-1">{vendorLabel}</p>
+          <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground">
+            <Store className="w-3 h-3 shrink-0" />
+            <span className="line-clamp-1">{vendorLabel}</span>
+          </div>
         )}
 
-        <div className="flex items-center justify-between gap-1 sm:gap-2">
-          <Badge
-            variant="outline"
-            className={`${(product.category || "").length > 12 ? "text-[8px] sm:text-[9px] md:text-[10px]" : "text-[9px] sm:text-[10px] md:text-xs"} backdrop-blur-sm border-white/50 px-1 sm:px-1.5 py-0 max-w-[58%] min-w-0 whitespace-nowrap overflow-hidden text-ellipsis text-white bg-accent`}
-          >
-            <span className="block max-w-full whitespace-nowrap overflow-hidden text-ellipsis">
-              {product.category || "General"}
-            </span>
+        <div className="flex items-center justify-between gap-1.5">
+          <Badge variant="outline" className="text-[9px] sm:text-[10px] px-1.5 py-0 max-w-[55%] min-w-0 whitespace-nowrap overflow-hidden text-ellipsis text-muted-foreground font-normal">
+            {product.category || "General"}
           </Badge>
-          <Badge
-            variant="outline"
-            className="text-[9px] sm:text-[10px] md:text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-full border-white/40 backdrop-blur-sm bg-white/70 text-accent whitespace-nowrap"
-          >
+          <span className="text-sm sm:text-base font-bold text-accent whitespace-nowrap">
             {formatCurrency(Number(product.price || 0))}
-          </Badge>
+          </span>
         </div>
 
-        {product.hasSizeOptions && product.sizes && product.sizes.length > 0 && (
+        {(product.hasColorOptions && product.colors && product.colors.length > 0) && (
           <div className="flex items-center gap-1 flex-wrap">
-            {product.sizes.slice(0, 5).map((size, idx) => (
-              <Badge
+            {product.colors.slice(0, 6).map((color, idx) => (
+              <span
                 key={idx}
-                variant="outline"
-                className="text-[8px] sm:text-[9px] md:text-[10px] px-1 sm:px-1.5 py-0 border-white/40 bg-white/60 text-accent"
-              >
-                {size}
-              </Badge>
+                title={color}
+                className="w-3.5 h-3.5 rounded-full border border-neutral-300 shrink-0"
+                style={{ backgroundColor: colorToCss(color) }}
+              />
             ))}
           </div>
         )}
 
-        <Button
-          size="sm"
-          onClick={handleAddToCart}
-          disabled={isOos || justAdded}
-          className={`w-full h-6 sm:h-7 md:h-8 text-[10px] sm:text-xs md:text-xs backdrop-blur-sm hover:scale-105 active:scale-95 transition-all hover:shadow-lg flex items-center justify-center gap-0 bg-white/50 hover:bg-white text-black ${justAdded ? "bg-green-100 text-green-800 border-green-300" : ""}`}
-        >
-          <img src="/images/logo3.png" alt="" className="w-6 sm:w-7 md:w-8 h-6 sm:h-7 md:h-8 -mt-1 sm:-mt-2" />
-          <span className="leading-none text-accent">{justAdded ? "Added to cart" : "Add to cart"}</span>
-        </Button>
+        {(product.hasSizeOptions && product.sizes && product.sizes.length > 0) && (
+          <div className="flex items-center gap-1 flex-wrap">
+            {product.sizes.slice(0, 6).map((size, idx) => (
+              <span
+                key={idx}
+                className="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded border border-neutral-200 bg-neutral-50 text-neutral-600 font-medium"
+              >
+                {size}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="pt-0.5 mt-auto">
+          <Button
+            size="sm"
+            onClick={handleAddToCart}
+            disabled={isOos || justAdded}
+            className={`w-full h-7 sm:h-8 text-[11px] sm:text-xs font-semibold gap-1.5 hover:scale-[1.02] active:scale-95 transition-all ${justAdded ? "bg-green-600 hover:bg-green-600" : "bg-accent hover:bg-accent/90"} text-white`}
+          >
+            <ShoppingCart className="w-3.5 h-3.5" />
+            {isOos ? "Out of stock" : justAdded ? "Added to cart" : "Add to cart"}
+          </Button>
+        </div>
       </div>
     </Card>
   )
