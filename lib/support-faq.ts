@@ -45,6 +45,7 @@ export function normalize(text: string): string {
     .replace(/\bdem\b/g, 'they')
     .replace(/\bdey\b|\bde\b/g, 'are')
     .replace(/\bno be\b/g, 'not')
+    .replace(/\bno gree\b/g, 'not') // "e no gree work" -> "it not work" — common Pidgin for "refuses to / doesn't"
     .replace(/\bwey\b/g, 'where')
     .replace(/\bsabi\b/g, 'know')
     .replace(/\bfit\b/g, 'can')
@@ -55,10 +56,13 @@ export function normalize(text: string): string {
     .replace(/\bmake i\b/g, 'let me')
     .replace(/\be go\b/g, 'will it')
     .replace(/\be reach\b|\be don reach\b|\be reach me\b/g, 'has it arrived')
-    .replace(/\be never reach\b|\b(order|delivery|package|thing)\s+never\s+(reach|come)\b/g, 'order not arrived')
+    .replace(/\be never reach\b|\b(order|delivery|package|thing)\s+never\s+(reach|come|land)\b/g, 'order not arrived')
     .replace(/\bmoney never enter\b|\bmoney no enter\b|\bno money enter\b/g, 'payment not received')
     .replace(/\bdem deduct my money\b|\bmy money go\b|\bchop my money\b/g, 'i was charged')
-    .replace(/\bwithdraw[a]?l never land\b|\bwithdrawal never come\b|\bnever land\b/g, 'withdrawal not arrived')
+    // Scoped to "withdrawal"/"money" specifically — a bare "never land" alone is too broad and
+    // was previously false-matching unrelated things like "my package never land" (a delivery
+    // question, handled by the rule above) into the withdrawal-delayed FAQ entry.
+    .replace(/\bwithdraw[a]?l never land\b|\bwithdrawal never come\b/g, 'withdrawal not arrived')
     .replace(/\bdem never send\b|\bnever send\b/g, 'not sent')
     .replace(/\bwhere my thing\b|\bwia my order\b/g, 'where is my order')
     .replace(/\bi no sabi\b/g, "i don't know")
@@ -181,6 +185,18 @@ const FAQ: FaqEntry[] = [
     actions: {
       en: ['Check My Orders', 'Contact the vendor', 'Raise a dispute'],
       pcm: ['Check My Orders', 'Message the vendor', 'Raise dispute'],
+    },
+  },
+  {
+    id: 'delivery-fee',
+    keywords: ['delivery fee', 'shipping fee', 'shipping cost', 'delivery cost', 'delivery charge', 'how much delivery', 'how much is delivery'],
+    answer: {
+      en: "Delivery fee isn't one fixed amount — each vendor sets their own, and it's calculated automatically at checkout based on the vendor and your delivery address once you add items to cart.",
+      pcm: "Delivery fee no be one fixed amount — every vendor get their own, e go calculate am automatic for checkout based on the vendor and where you dey, once you add item for cart.",
+    },
+    actions: {
+      en: ['Go to checkout to see the fee', 'Track my order'],
+      pcm: ['Go checkout make you see the fee', 'Track my order'],
     },
   },
   {
@@ -365,7 +381,7 @@ const FAQ: FaqEntry[] = [
   },
   {
     id: 'login-account',
-    keywords: ['login issue', 'cant log in', "can't log in", 'forgot password', 'reset password', 'account locked', 'sign in'],
+    keywords: ['login issue', 'cant log in', "can't log in", 'cant login', "can't login", 'cannot login', 'forgot password', 'reset password', 'account locked', 'sign in', 'login'],
     answer: {
       en: "Click **\"Forgot Password\"** on the login page and enter your email — check spam folder for the reset link. If you're sure your details are correct but it still fails, try clearing your browser cache or an incognito window; those fix most login glitches.",
       pcm: "Click **\"Forgot Password\"** for the login page, enter your email — check spam folder for the reset link. If you sure say your details correct but e still no gree work, try clear your browser cache or open incognito window; e dey fix most login wahala.",

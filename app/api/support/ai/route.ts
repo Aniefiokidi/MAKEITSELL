@@ -36,8 +36,16 @@ export async function POST(request: NextRequest) {
     // surface real matching stores/providers instead. Never let a lookup failure
     // break the chat; just keep the FAQ-provided response.
     if (match.matchedEntryId === 'product-discovery' || match.matchedEntryId === null) {
+      // Whether the query actually signaled shopping/booking intent, vs. being an
+      // unrelated or gibberish message — used to decide whether a zero-result lookup
+      // is worth a specific "couldn't find X" reply or should fall back to the
+      // generic capability menu.
+      const hasIntentSignal =
+        match.matchedEntryId === 'product-discovery' ||
+        /\b(want|need|looking|buy|purchase|find|service|book)\b/.test(match.normalizedQuery)
+
       try {
-        const discoveryReply = await buildDiscoveryReply(query, match.lang, context.userName)
+        const discoveryReply = await buildDiscoveryReply(query, match.lang, context.userName, hasIntentSignal)
         if (discoveryReply) {
           responsePayload = discoveryReply
         }

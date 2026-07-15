@@ -25,6 +25,13 @@ const EXTRACTION_STOPWORDS = new Set([
   'with', 'from', 'there', 'be', 'it', 'know', 'tell', 'product', 'products', 'item',
   'items', 'something', 'anything', 'store', 'stores', 'vendor', 'vendors', 'service',
   'services', 'provider', 'providers', 'book', 'booking',
+  // Leftovers from Pidgin normalization (dem->they, dey->are, etc.) and other filler
+  // that isn't part of a product/service name — these were showing up in the search
+  // term echoed back to the customer ("I found **they shoe**") and, for short ones
+  // like "no"/"go", causing noisy substring matches against unrelated products.
+  'no', 'not', 'never', 'na', 'e', 'go', 'going', 'gone', 'they', 'them', 'these',
+  'those', 'will', 'would', 'should', 'much', 'many', 'let', 'app', 'apps',
+  'application', 'account', 'still', 'again', 'yet', 'also', 'us', 'our',
 ])
 
 function extractSearchTerm(rawQuery: string): string | null {
@@ -89,7 +96,12 @@ async function findMatchingServiceProviders(term: string, limit = 4): Promise<Se
   return []
 }
 
-export async function buildDiscoveryReply(rawQuery: string, lang: 'en' | 'pcm', userName?: string): Promise<FaqResponse | null> {
+export async function buildDiscoveryReply(
+  rawQuery: string,
+  lang: 'en' | 'pcm',
+  userName?: string,
+  hasIntentSignal?: boolean
+): Promise<FaqResponse | null> {
   const term = extractSearchTerm(rawQuery)
   if (!term) return null
 
@@ -98,9 +110,26 @@ export async function buildDiscoveryReply(rawQuery: string, lang: 'en' | 'pcm', 
     findMatchingServiceProviders(term),
   ])
 
-  if (stores.length === 0 && services.length === 0) return null
-
   const greeting = userName ? `${userName}, ` : ''
+
+  if (stores.length === 0 && services.length === 0) {
+    // Only worth saying something specific when the query actually signaled shopping/
+    // booking intent ("i want paint nails") — otherwise a truly unrelated or gibberish
+    // query is better served by the existing generic capability menu than by echoing
+    // back a search term that was never really a product/service name.
+    if (!hasIntentSignal) return null
+
+    const notFoundBody = lang === 'pcm'
+      ? `I no fit find anything wey match "**${term}**" right now. You fit search direct for **/products** or **/services**, or try another word.`
+      : `I couldn't find anything matching "**${term}**" right now. You can search directly at **/products** or **/services**, or try a different word.`
+
+    return {
+      canResolve: true,
+      response: greeting ? `${greeting}${notFoundBody}` : notFoundBody,
+      suggestedActions: ['Browse products', 'Browse services', 'Talk to a human agent'],
+      priority: 'low',
+    }
+  }
   const sections: string[] = []
 
   if (stores.length > 0) {
