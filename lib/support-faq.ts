@@ -43,12 +43,15 @@ function normalize(text: string): string {
     .replace(/\bna\b/g, 'is')
     .replace(/\babi\b/g, 'or')
     .replace(/\bdem\b/g, 'they')
-    .replace(/\bdey\b/g, 'are')
+    .replace(/\bdey\b|\bde\b/g, 'are')
     .replace(/\bno be\b/g, 'not')
     .replace(/\bwey\b/g, 'where')
     .replace(/\bsabi\b/g, 'know')
     .replace(/\bfit\b/g, 'can')
     .replace(/\bwan\b/g, 'want')
+    .replace(/\buna\b/g, 'you')
+    .replace(/\bwahala\b/g, 'problem')
+    .replace(/\bsha\b|\bshey\b|\bnau\b|\bnaw\b/g, '') // discourse fillers/particles — carry no lexical content for matching
     .replace(/\bmake i\b/g, 'let me')
     .replace(/\be go\b/g, 'will it')
     .replace(/\be reach\b|\be don reach\b|\be reach me\b/g, 'has it arrived')
@@ -59,14 +62,18 @@ function normalize(text: string): string {
     .replace(/\bdem never send\b|\bnever send\b/g, 'not sent')
     .replace(/\bwhere my thing\b|\bwia my order\b/g, 'where is my order')
     .replace(/\bi no sabi\b/g, "i don't know")
-    .replace(/\bhow i go\b|\bhow e go\b|\bhow e take\b/g, 'how do i')
+    .replace(/\bhow i go\b|\bhow e go\b|\bhow e take\b|\bhow i fit\b|\bhow you go\b/g, 'how do i')
+    .replace(/\bi wan\b/g, 'i want')
+    .replace(/\bwan buy\b|\bwant buy\b/g, 'want to buy')
+    .replace(/\bwan order\b|\bwant order\b/g, 'want to order')
+    .replace(/\bwan sell\b|\bwant sell\b/g, 'want to sell')
     .replace(/\bpls\b/g, 'please')
     .replace(/\bu\b/g, 'you')
 }
 
 // Checked against the RAW (pre-normalize) query — normalize() already translates these
 // away, so language detection has to happen before translation.
-const PIDGIN_MARKERS = /\b(wetin|abeg|dey|wan|sabi|na|dem|wey|abi|howfar|how far|how body|e dey|e no dey|no gree|don do|never enter|never land|never reach|never come|chop|kampe|omo)\b/i
+const PIDGIN_MARKERS = /\b(wetin|abeg|dey|de|wan|sabi|na|dem|wey|abi|una|wahala|howfar|how far|how body|e dey|e no dey|no gree|don do|never enter|never land|never reach|never come|chop|kampe|omo|shey|sha)\b/i
 
 function isPidgin(rawQuery: string): boolean {
   return PIDGIN_MARKERS.test(rawQuery)
@@ -76,17 +83,40 @@ function tokenize(text: string): string[] {
   return text.toLowerCase().match(/[a-z0-9']+/g) || []
 }
 
-// A keyword phrase matches if its words appear in the query IN ORDER, with any other
-// words allowed in between ("forgot password" matches "forgot my password"; "card
-// declined" matches "card was declined") — but every word of the phrase must actually
-// be present, so short generic phrases like "how are you" can't collapse down to a
-// single common word (e.g. "how") and false-match unrelated queries.
+// Light suffix stemming so word-form variants match each other ("booking"/"book",
+// "services"/"service", "orders"/"order") without needing every keyword phrase to
+// enumerate every conjugation. Tuned to this app's vocabulary rather than a general
+// English stemmer — good enough for consistent matching, not linguistically perfect.
+function stem(word: string): string {
+  let w = word
+  if (w.length > 5 && w.endsWith('ies')) return `${w.slice(0, -3)}y` // categories -> category
+  if (w.length > 4 && (w.endsWith('ing') || w.endsWith('ed'))) {
+    const suffixLen = w.endsWith('ing') ? 3 : 2
+    let root = w.slice(0, -suffixLen)
+    // doubled consonant: shipping -> ship, cancelled -> cancel
+    if (root.length > 2 && root[root.length - 1] === root[root.length - 2] && !/[aeiou]/.test(root[root.length - 1])) {
+      root = root.slice(0, -1)
+    }
+    return root
+  }
+  if (w.length > 4 && /(?:s|x|ch|sh)es$/.test(w)) return w.slice(0, -2) // boxes -> box, dishes -> dish
+  if (w.length > 3 && w.endsWith('s') && !w.endsWith('ss') && !w.endsWith('us') && !w.endsWith('is')) return w.slice(0, -1) // plural
+  return w
+}
+
+// A keyword phrase matches if its (stemmed) words appear in the query IN ORDER, with
+// any other words allowed in between ("forgot password" matches "forgot my password";
+// "card declined" matches "card was declined"; "book service" matches "book services"
+// or "booking a service") — but every word of the phrase must actually be present, so
+// short generic phrases like "how are you" can't collapse down to a single common word
+// (e.g. "how") and false-match unrelated queries.
 function matchesOrderedPhrase(queryTokens: string[], phrase: string): boolean {
-  const phraseTokens = tokenize(phrase)
+  const phraseTokens = tokenize(phrase).map(stem)
   if (phraseTokens.length === 0) return false
+  const stemmedQuery = queryTokens.map(stem)
   let cursor = 0
   for (const pt of phraseTokens) {
-    const idx = queryTokens.indexOf(pt, cursor)
+    const idx = stemmedQuery.indexOf(pt, cursor)
     if (idx === -1) return false
     cursor = idx + 1
   }
@@ -251,7 +281,7 @@ const FAQ: FaqEntry[] = [
   },
   {
     id: 'become-vendor',
-    keywords: ['become a seller', 'become vendor', 'become a vendor', 'start selling', 'sign up as vendor', 'sell on', 'open a store', 'vendor account', 'vendor'],
+    keywords: ['become seller', 'become vendor', 'start selling', 'sign up vendor', 'sell on', 'open a store', 'vendor account', 'want to sell', 'want sell', 'vendor'],
     answer: {
       en: "Tap **\"Become a Seller\"** in the menu, fill in your business details (or personal info if starting solo), and submit. Approval typically takes 1–3 business days. Once approved you get a vendor dashboard to list products/services, manage orders, and track earnings — commission on sales is disclosed during signup.",
       pcm: "Click **\"Become a Seller\"** for menu, fill your business details (or your personal info if na just you), submit am. E go take 1–3 working days for approval. Once dem approve you, you go get vendor dashboard to list your product/service, manage orders, track your earnings — commission on sales dem go show you during signup.",
@@ -263,7 +293,7 @@ const FAQ: FaqEntry[] = [
   },
   {
     id: 'services-booking',
-    keywords: ['book a service', 'how to book', 'service booking', 'booking fee', 'appointment'],
+    keywords: ['book service', 'find service', 'where book service', 'how to book', 'service booking', 'booking fee', 'appointment', 'book appointment'],
     answer: {
       en: "Go to **/services**, pick a provider, choose a package (Basic/Standard/Premium) and any add-ons, then tap \"Book Appointment\" and pick a date/time. A flat **₦500 booking fee** is charged to confirm the slot (this is a platform fee, separate from the service price itself). All your bookings appear under **/appointments**.",
       pcm: "Go **/services**, pick provider wey you want, choose package (Basic/Standard/Premium) plus any add-on, click \"Book Appointment\", pick date/time. Dem go charge flat **₦500 booking fee** to confirm the slot (na platform fee, e no be the service price). All your bookings dey show for **/appointments**.",
@@ -384,6 +414,24 @@ const AMBIGUOUS_TRIGGERS: AmbiguousTrigger[] = [
   },
 ]
 
+// Broad "where/how do I buy X" intent — kept out of the main FAQ array deliberately.
+// Its keywords are generic enough that they'd otherwise outscore and steal traffic from
+// more specific entries (e.g. "I want to order food" should hit the food entry, not
+// this one) — so it's only consulted as a fallback, after every specific entry above
+// has already had a chance to match.
+const PRODUCT_DISCOVERY: FaqEntry = {
+  id: 'product-discovery',
+  keywords: ['want to buy', 'want to order', 'want buy', 'want order', 'where can i buy', 'where can i find', 'where do i find', 'looking for', 'how to buy', 'how to order', 'how to purchase', 'how do i buy', 'how do i order', 'how do i shop', 'find product'],
+  answer: {
+    en: "You can browse everything at **/products**, or by category at **/categories** — use the search bar at the top to look for something specific (just type the product name, e.g. \"cosmetics\" or \"phone\"). Once you find what you want, add it to cart and checkout via Paystack — same flow for any vendor.",
+    pcm: "You fit browse everything for **/products**, or by category for **/categories** — use the search bar for top make you find wetin you want (just type the product name, e.g. \"cosmetics\" or \"phone\"). Once you see wetin you want, add am to cart, checkout with Paystack — same process for any vendor.",
+  },
+  actions: {
+    en: ['Browse products', 'Browse categories', 'Search for something specific'],
+    pcm: ['Browse products', 'Browse categories', 'Search for something specific'],
+  },
+}
+
 const DEFAULT_ANSWER: Record<'en' | 'pcm', string> = {
   en: "I don't have a specific answer for that one yet, but here's what I can help with:\n\n• Orders & delivery — tracking, cancellations, returns/refunds\n• Services & bookings — booking, price negotiation, cancellations\n• Wallet & payments — top-ups, withdrawals, Paystack issues\n• Becoming a seller, bidding, food orders, referrals\n\nIf your question isn't covered, tap below to reach a human agent.",
   pcm: "I no get direct answer for that one yet, but see wetin I fit help you with:\n\n• Order & delivery — tracking, cancel, return/refund\n• Service & booking — booking, negotiate price, cancel\n• Wallet & payment — top-up, withdrawal, Paystack wahala\n• Becoming seller, bidding, food order, referral\n\nIf your question no dey there, click below make we connect you to human agent.",
@@ -439,6 +487,10 @@ export function matchFaq(query: string, context?: { userName?: string }): FaqMat
           },
         }
       }
+    }
+
+    if (matchesEntry(queryTokens, PRODUCT_DISCOVERY) > 0) {
+      best = PRODUCT_DISCOVERY
     }
   }
 
