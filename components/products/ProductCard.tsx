@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Heart, ShoppingCart, Store } from "lucide-react"
+import { Heart, Store } from "lucide-react"
 import { useCart } from "@/contexts/CartContext"
 import { useWishlist } from "@/contexts/WishlistContext"
 import { useNotification } from "@/contexts/NotificationContext"
@@ -262,7 +262,11 @@ export function ProductCard({
             disabled={isOos || justAdded}
             className={`w-full h-7 sm:h-8 text-[11px] sm:text-xs font-semibold gap-1.5 hover:scale-[1.02] active:scale-95 transition-all ${justAdded ? "bg-green-600 hover:bg-green-600" : "bg-accent hover:bg-accent/90"} text-white`}
           >
-            <ShoppingCart className="w-3.5 h-3.5" />
+            <img
+              src="/images/cart-mascot-icon.png"
+              alt=""
+              className="h-4 sm:h-4.5 w-auto object-contain shrink-0"
+            />
             {isOos ? "Out of stock" : justAdded ? "Added to cart" : "Add to cart"}
           </Button>
         </div>
