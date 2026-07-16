@@ -348,6 +348,7 @@ const VendorProductsPage = () => {
                               src={product.images?.[0] || "/placeholder.svg"}
                               alt={product.title || product.name || "Product image"}
                               fill
+                              sizes="48px"
                               className="object-cover"
                             />
                           </div>

@@ -80,7 +80,7 @@ export default function CartSidebar() {
                 {items.map((item, index) => (
                   <div key={item.productId} className="flex items-center space-x-4 animate-slide-in-left" style={{ animationDelay: `${index * 0.05}s` }}>
                     <div className="relative h-16 w-16 rounded-md overflow-hidden bg-muted">
-                      <Image src={item.image || "/placeholder.svg"} alt={item.title} fill className="object-cover hover:scale-110 transition-transform duration-300" />
+                      <Image src={item.image || "/placeholder.svg"} alt={item.title} fill sizes="64px" className="object-cover hover:scale-110 transition-transform duration-300" />
                     </div>
                     <div className="flex-1 space-y-1">
                       <h4 className="text-sm font-medium line-clamp-2">{item.title}</h4>

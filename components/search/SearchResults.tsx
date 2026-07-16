@@ -289,7 +289,7 @@ export default function SearchResults({ query }: { query: string }) {
               <Card key={service.id} className="h-full hover:shadow-2xl hover:shadow-accent/40 hover:scale-[1.02] transition-all duration-300 group overflow-hidden border-none rounded-[2.5rem] relative">
                 <div className="aspect-9/16 relative overflow-hidden rounded-[2.5rem]">
                   {service.images && service.images.length > 0 ? (
-                    <Image src={service.images[0]} alt={service.title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <Image src={service.images[0]} alt={service.title} fill sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw" className="object-cover group-hover:scale-105 transition-transform duration-500" />
                   ) : (
                     <div className="flex items-center justify-center h-full bg-linear-to-br from-accent/90 via-accent/70 to-accent/50">
                       <svg className="h-12 w-12 sm:h-20 sm:w-20 text-white drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -358,6 +358,7 @@ export default function SearchResults({ query }: { query: string }) {
                       }
                       alt={store.name}
                       fill
+                      sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
                       className="object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                   ) : (

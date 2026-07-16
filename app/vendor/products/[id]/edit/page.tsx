@@ -341,6 +341,7 @@ export default function ProductEditPage() {
                         src={img}
                         alt={`Product ${index + 1}`}
                         fill
+                        sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                         className="object-cover"
                       />
                       <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs text-center py-1">
@@ -467,7 +468,7 @@ export default function ProductEditPage() {
                               <SelectItem key={index} value={index.toString()}>
                                 <div className="flex items-center gap-2">
                                   <div className="relative w-8 h-8 rounded overflow-hidden">
-                                    <Image src={img} alt={`Image ${index + 1}`} fill className="object-cover" />
+                                    <Image src={img} alt={`Image ${index + 1}`} fill sizes="32px" className="object-cover" />
                                   </div>
                                   Image {index + 1}
                                 </div>

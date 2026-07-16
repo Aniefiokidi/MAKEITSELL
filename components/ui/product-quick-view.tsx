@@ -236,6 +236,7 @@ export function ProductQuickView({
               src={displayImage}
               alt={displayName}
               fill
+              sizes="90vw"
               className="object-contain"
               priority
             />

@@ -323,7 +323,7 @@ export default function CustomerOrdersPage() {
                     <div className="p-4 border-b border-border/60 flex items-start gap-3">
                       <div className="relative h-14 w-14 rounded-xl overflow-hidden bg-muted shrink-0">
                         <Image
-                          src={productImage} alt={productName} fill className="object-cover"
+                          src={productImage} alt={productName} fill sizes="56px" className="object-cover"
                           onError={e => { (e.target as HTMLImageElement).src = '/images/placeholder-product.svg' }}
                         />
                       </div>

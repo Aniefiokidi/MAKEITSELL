@@ -779,6 +779,7 @@ export default function CheckoutPage() {
                                 src={item.image || "/placeholder.svg"}
                                 alt={item.title}
                                 fill
+                                sizes="48px"
                                 className="object-cover"
                               />
                             </div>
