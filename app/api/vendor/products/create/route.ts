@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createProduct } from '@/lib/mongodb-operations'
 import { cacheNamespaces, invalidateCacheNamespace } from '@/lib/cache-store'
 import { logApiPerformance } from '@/lib/performance-logs'
-import connectToDatabase from '@/lib/mongodb'
-import { VendorStreak } from '@/lib/models/VendorStreak'
-import { calculateStreakFloor } from '@/lib/streak/calculateFloor'
+import { syncStreakFloor } from '@/lib/streak/calculateFloor'
 
 export async function POST(request: NextRequest) {
   const startedAt = Date.now()
@@ -17,36 +15,14 @@ export async function POST(request: NextRequest) {
     await invalidateCacheNamespace(cacheNamespaces.productsList)
     await invalidateCacheNamespace(cacheNamespaces.productsDetail)
 
-    // After creating a product, recalculate streak floor if vendor still has the default floor.
-    // This converts the default 26-order floor to the real floor based on actual product prices.
+    // After creating a product, re-sync the streak floor — converts the default 26-order
+    // floor to a real one based on actual prices, and ratchets an already-real floor up
+    // if this new product is cheaper than the vendor's previous lowest.
     const vendorId = String(productData?.vendorId || '')
     if (vendorId) {
-      void (async () => {
-        try {
-          await connectToDatabase()
-          const streakDoc = await VendorStreak.findOne({ vendorId }).lean() as any
-          if (!streakDoc?.isDefaultFloor) return
-
-          const floor = await calculateStreakFloor(vendorId)
-          if (floor.isDefaultFloor) return
-
-          const needsTargetReview = streakDoc.hasSetTarget && streakDoc.targetOrderCount < floor.floorOrderCount
-          await VendorStreak.updateOne(
-            { vendorId },
-            {
-              $set: {
-                floorOrderCount: floor.floorOrderCount,
-                lowestProductPriceAtLock: floor.lowestPrice,
-                isDefaultFloor: false,
-                ...(needsTargetReview ? { needsTargetReview: true } : {}),
-                updatedAt: new Date(),
-              },
-            }
-          )
-        } catch {
-          // Floor recalculation is best-effort; never break product creation
-        }
-      })()
+      void syncStreakFloor(vendorId).catch(() => {
+        // Floor recalculation is best-effort; never break product creation
+      })
     }
 
     return NextResponse.json({ product: newProduct }, { status: 201 })

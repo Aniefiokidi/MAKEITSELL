@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getProductById, updateProduct, deleteProduct } from '@/lib/mongodb-operations'
 import { cacheNamespaces, invalidateCacheNamespace } from '@/lib/cache-store'
 import { logApiPerformance } from '@/lib/performance-logs'
+import { syncStreakFloor } from '@/lib/streak/calculateFloor'
 
 export async function GET(
   request: NextRequest,
@@ -49,6 +50,15 @@ export async function PUT(
 
     await invalidateCacheNamespace(cacheNamespaces.productsList)
     await invalidateCacheNamespace(cacheNamespaces.productsDetail)
+
+    // A price cut (or reactivating a cheap product) can lower this vendor's lowest active
+    // price — re-sync so a locked streak floor can't go stale against it.
+    const vendorId = String((updatedProduct as any)?.vendorId || '')
+    if (vendorId) {
+      void syncStreakFloor(vendorId).catch(() => {
+        // Floor recalculation is best-effort; never break the product update
+      })
+    }
 
     return NextResponse.json({ product: updatedProduct })
   } catch (error) {

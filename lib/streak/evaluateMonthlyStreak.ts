@@ -5,6 +5,7 @@ import { User } from '@/lib/models/User'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { pushToUser } from '@/lib/push-notifications'
 import { sendCustomSms } from '@/lib/sms'
+import { GMV_FLOOR } from '@/lib/streak/calculateFloor'
 import crypto from 'crypto'
 
 const SETTLED_STATUSES = ['confirmed', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'received', 'completed']
@@ -112,7 +113,13 @@ export async function evaluateMonthlyStreak(): Promise<{
 
       const actualOrderCount = orders.length
       const targetOrderCount = doc.targetOrderCount
-      const hit = actualOrderCount >= targetOrderCount
+      // Order count alone is a proxy for the GMV the floor formula is meant to protect
+      // (floorOrderCount = ceil(GMV_FLOOR / lowestPrice) at the time the target was set).
+      // Checking actual GMV here too — not just the count — closes the gap where a
+      // vendor locks an easy floor against a pricier product, then drops prices (or
+      // discounts orders) afterward: no matter how the target/floor ended up set, the
+      // vendor still has to have actually moved ~GMV_FLOOR of real product this month.
+      const hit = actualOrderCount >= targetOrderCount && gmvThatMonth >= GMV_FLOOR
       const platformFeeEarned = gmvThatMonth * PLATFORM_FEE_RATE
 
       const monthlyRecord = {

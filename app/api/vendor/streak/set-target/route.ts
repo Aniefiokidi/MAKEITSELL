@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 import { getUserBySessionToken } from '@/lib/auth'
 import connectToDatabase from '@/lib/mongodb'
 import { VendorStreak } from '@/lib/models/VendorStreak'
-import { calculateStreakFloor } from '@/lib/streak/calculateFloor'
+import { calculateStreakFloor, syncStreakFloor } from '@/lib/streak/calculateFloor'
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,14 +24,18 @@ export async function POST(request: NextRequest) {
     const vendorId = String(user.id)
     await connectToDatabase()
 
-    // If target already set, floor is already locked — preserve it
-    const existing = await VendorStreak.findOne({ vendorId }).lean() as any
+    // If target already set, the floor is normally preserved — but re-sync it first
+    // (ratchets up only) so a target change can't reuse a floor that's gone stale
+    // against price drops since it was originally locked.
+    let existing = await VendorStreak.findOne({ vendorId }).lean() as any
     let floorOrderCount: number
     let lowestProductPriceAtLock: number
     let isDefaultFloor: boolean
     let floorLockedAt: Date
 
     if (existing?.hasSetTarget) {
+      await syncStreakFloor(vendorId)
+      existing = await VendorStreak.findOne({ vendorId }).lean() as any
       floorOrderCount = existing.floorOrderCount
       lowestProductPriceAtLock = existing.lowestProductPriceAtLock
       isDefaultFloor = existing.isDefaultFloor

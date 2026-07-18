@@ -3,6 +3,7 @@ import { requireRoles } from "@/lib/server-route-auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import { Product } from "@/lib/models/Product"
 import { cacheNamespaces, invalidateCacheNamespace } from "@/lib/cache-store"
+import { syncStreakFloor } from "@/lib/streak/calculateFloor"
 
 type BulkPayload = {
   productIds?: string[]
@@ -66,6 +67,15 @@ export async function PATCH(request: NextRequest) {
 
     await invalidateCacheNamespace(cacheNamespaces.productsList)
     await invalidateCacheNamespace(cacheNamespaces.productsDetail)
+
+    // Price or active-status changed for these products — re-sync every affected vendor's
+    // streak floor so a bulk price cut can't leave a locked floor stale.
+    if ("price" in allowedUpdates || "status" in allowedUpdates) {
+      const vendorIds = await Product.distinct("vendorId", query) as string[]
+      void Promise.all(
+        vendorIds.filter(Boolean).map((id) => syncStreakFloor(String(id)).catch(() => {}))
+      )
+    }
 
     return NextResponse.json({
       success: true,
