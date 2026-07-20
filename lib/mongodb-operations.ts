@@ -404,6 +404,13 @@ const ServiceSchema = new mongoose.Schema({
   tags: { type: [String], default: [] },
 }, { timestamps: true });
 
+// Weighted text index for relevance-ranked search — see the matching comment on
+// ProductSchema in lib/models/Product.ts for why this replaces plain regex matching.
+ServiceSchema.index(
+  { title: 'text', category: 'text', subcategory: 'text', providerName: 'text', tags: 'text', description: 'text' },
+  { weights: { title: 10, category: 5, subcategory: 3, providerName: 3, tags: 3, description: 1 }, name: 'ServiceTextIndex' }
+);
+
 const ServiceModel = (mongoose.models.Service as any) || mongoose.model('Service', ServiceSchema);
 
 const slugifyPublic = (value: string): string => {
@@ -945,25 +952,39 @@ export const getServices = async (filters: ServiceFilters): Promise<Service[]> =
   if (filters?.providerId) query.providerId = filters.providerId;
   if (filters?.featured !== undefined) query.featured = filters.featured;
   if (filters?.locationType) query.locationType = filters.locationType;
+
+  let services: any[] = [];
+
+  // Relevance-ranked text search first — falls back to substring regex if it comes back
+  // empty (covers partial-word prefixes a $text index can't match).
   if (filters?.search) {
-    const searchRegex = new RegExp(String(filters.search).trim(), 'i');
-    query.$or = [
-      { title: searchRegex },
-      { description: searchRegex },
-      { category: searchRegex },
-      { subcategory: searchRegex },
-      { providerName: searchRegex },
-      { location: searchRegex },
-      { state: searchRegex },
-      { city: searchRegex },
-      { tags: searchRegex },
-    ];
+    const textQuery = { ...query, $text: { $search: String(filters.search).trim() } };
+    let textQ = ServiceModel.find(textQuery, { score: { $meta: 'textScore' } }).sort({ score: { $meta: 'textScore' } });
+    if (filters?.limitCount) textQ = textQ.limit(Number(filters.limitCount));
+    services = await textQ.lean().catch(() => []);
   }
 
-  let q = ServiceModel.find(query).sort({ createdAt: -1 });
-  if (filters?.limitCount) q = q.limit(Number(filters.limitCount));
+  if (services.length === 0) {
+    const fallbackQuery = { ...query };
+    if (filters?.search) {
+      const searchRegex = new RegExp(String(filters.search).trim(), 'i');
+      fallbackQuery.$or = [
+        { title: searchRegex },
+        { description: searchRegex },
+        { category: searchRegex },
+        { subcategory: searchRegex },
+        { providerName: searchRegex },
+        { location: searchRegex },
+        { state: searchRegex },
+        { city: searchRegex },
+        { tags: searchRegex },
+      ];
+    }
 
-  const services = await q.lean();
+    let q = ServiceModel.find(fallbackQuery).sort({ createdAt: -1 });
+    if (filters?.limitCount) q = q.limit(Number(filters.limitCount));
+    services = await q.lean();
+  }
   const servicesWithPublicSlugs = await Promise.all(services.map(async (service: any) => {
     if (service?.publicSlug) return service;
     const publicSlug = await ensureServicePublicSlug(service);
@@ -1064,7 +1085,6 @@ export const countProducts = async (filters?: any): Promise<number> => {
 
 export const getProducts = async (filters?: any): Promise<Product[]> => {
   await connectToDatabase();
-  const query = buildProductQuery(filters);
   const limitCount = Number(filters?.limitCount);
   const skipCount = Number(filters?.skipCount || 0);
   const hasLimit = Number.isFinite(limitCount) && limitCount > 0;
@@ -1076,6 +1096,22 @@ export const getProducts = async (filters?: any): Promise<Product[]> => {
     name: p.name || p.title || '',
   });
 
+  // Relevance-ranked text search first (stemmed, weighted by field) — falls back to the
+  // plain substring/regex path below if it comes back empty, which covers partial-word
+  // prefixes a $text index can't match (e.g. typing "sho" while aiming for "shoe").
+  if (filters?.search) {
+    const textFilterQuery = buildProductQuery({ ...filters, search: undefined });
+    const textQuery = { ...textFilterQuery, $text: { $search: String(filters.search).trim() } };
+    let textDbQuery = ProductModel.find(textQuery, { score: { $meta: 'textScore' } }).sort({
+      score: { $meta: 'textScore' },
+    });
+    if (hasSkip) textDbQuery = textDbQuery.skip(skipCount);
+    if (hasLimit) textDbQuery = textDbQuery.limit(limitCount);
+    const textResults = await textDbQuery.lean().catch(() => []);
+    if (textResults.length > 0) return textResults.map(mapProduct);
+  }
+
+  const query = buildProductQuery(filters);
   let dbQuery = ProductModel.find(query).sort(getProductSort(filters?.sortBy));
   if (hasSkip) dbQuery = dbQuery.skip(skipCount);
   if (hasLimit) dbQuery = dbQuery.limit(limitCount);

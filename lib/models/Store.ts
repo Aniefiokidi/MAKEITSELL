@@ -42,4 +42,11 @@ const StoreSchema = new Schema({
   linkedWalletUserId: { type: String }
 }, { timestamps: true });
 
+// Weighted text index for relevance-ranked search — see the matching comment on
+// ProductSchema in lib/models/Product.ts for why this replaces plain regex matching.
+StoreSchema.index(
+  { storeName: 'text', storeDescription: 'text', category: 'text', address: 'text' },
+  { weights: { storeName: 10, category: 5, address: 3, storeDescription: 1 }, name: 'StoreTextIndex' }
+);
+
 export const Store = models.Store || model('Store', StoreSchema);

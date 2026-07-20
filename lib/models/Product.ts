@@ -57,4 +57,12 @@ ProductSchema.index({ featured: 1, createdAt: -1 });
 ProductSchema.index({ status: 1, createdAt: -1 });
 ProductSchema.index({ vendorId: 1, status: 1, createdAt: -1 });
 
+// Weighted text index for relevance-ranked search (name matches count far more than a
+// hit buried in the description) — replaces plain substring regex matching, which has
+// no concept of relevance and no stemming (e.g. "shoes" vs "shoe").
+ProductSchema.index(
+  { name: 'text', category: 'text', subcategory: 'text', description: 'text', vendorName: 'text' },
+  { weights: { name: 10, category: 5, subcategory: 3, vendorName: 3, description: 1 }, name: 'ProductTextIndex' }
+);
+
 export const Product = models.Product || mongoose.model<IProduct>('Product', ProductSchema);
