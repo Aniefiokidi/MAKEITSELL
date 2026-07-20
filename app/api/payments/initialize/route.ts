@@ -23,9 +23,18 @@ async function deductStock(orderId: string) {
     for (const item of allItems) {
       if (!item.productId || !item.quantity) continue
       const current = await Product.findOne({ _id: item.productId }).lean() as any
-      if (!current || current.stock === 9999) continue
+      if (!current) continue
+      const qty = Math.abs(item.quantity)
+
+      // Every completed sale counts toward `sales` regardless of the stock/9999-sentinel
+      // branches below — this mirrors the Paystack path (app/api/payments/verify/route.ts),
+      // which already did this correctly. This wallet path never incremented sales at all,
+      // which is why every product showed 0 sales despite real completed wallet-paid orders.
+      await Product.updateOne({ _id: item.productId }, { $inc: { sales: qty } })
+
+      if (current.stock === 9999) continue
       const oldStock = current.stock || 0
-      const deduction = Math.min(Math.abs(item.quantity), oldStock)
+      const deduction = Math.min(qty, oldStock)
       if (deduction > 0) {
         await Product.updateOne({ _id: item.productId }, { $inc: { stock: -deduction } })
         const newStock = oldStock - deduction

@@ -29,10 +29,29 @@ export async function GET() {
 
   await connectToDatabase()
 
-  const topProductsRaw = await Product.find({ stock: { $gt: 0 } })
-    .sort({ sales: -1, createdAt: -1 })
-    .limit(12)
-    .lean()
+  // A wide candidate pool, independent of how many any given section on the page
+  // actually displays — the display layer slices down to whatever fits one row of its
+  // own grid (see app/page.tsx). A wider pool here just means more variety to draw from.
+  const CANDIDATE_POOL_SIZE = 24
+
+  // Sorting by sales only means something once at least one product actually has sales.
+  // Until then, every product ties at 0 and the sort silently collapses to its tiebreak
+  // (createdAt desc) — which quietly turns "bestsellers" into "newest first" without
+  // saying so. Detect that case and sample randomly instead, so the section is honest
+  // about not having real signal yet, and so exposure rotates across the catalog rather
+  // than permanently favoring the same handful of newest items (which also helps real
+  // sales data start accumulating more broadly once purchases begin).
+  const hasAnyRealSales = await Product.exists({ stock: { $gt: 0 }, sales: { $gt: 0 } })
+
+  const topProductsRaw = hasAnyRealSales
+    ? await Product.find({ stock: { $gt: 0 } })
+        .sort({ sales: -1, createdAt: -1 })
+        .limit(CANDIDATE_POOL_SIZE)
+        .lean()
+    : await Product.aggregate([
+        { $match: { stock: { $gt: 0 } } },
+        { $sample: { size: CANDIDATE_POOL_SIZE } },
+      ])
 
   const vendorIds = Array.from(
     new Set(topProductsRaw.map((product: any) => String(product.vendorId || "")).filter(Boolean))

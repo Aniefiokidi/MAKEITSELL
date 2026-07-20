@@ -111,11 +111,14 @@ function TrendingProducts() {
     fetchTrending()
   }, [visible])
 
-  // Run personalization once — re-ranks the full pool by user signals, then slice for each section
+  // Run personalization once — re-ranks the full pool by user signals, then slice for each
+  // section to exactly one row of its own grid (matched to each grid's widest breakpoint
+  // below) rather than an arbitrary fixed count that doesn't correspond to the layout.
   const personalizedProducts = personalizeProducts(products)
   const personalizedServices = personalizeServices(services)
-  const recommendedProducts = personalizedProducts.slice(0, 4)
+  const recommendedProducts = personalizedProducts.slice(0, 4) // "Recommended for You" grid: 4 products + 2 services = 6, divides evenly at every breakpoint (1/2/3 cols)
   const recommendedServices = personalizedServices.slice(0, 2)
+  const topItemsProducts = personalizedProducts.slice(0, 5) // "Top Items This Week" grid maxes out at xl:grid-cols-5
 
   // Load recently viewed from localStorage, then enrich any stale entries
   // (saved before image/price were tracked) with a server batch fetch.
@@ -350,7 +353,7 @@ function TrendingProducts() {
             <Link href="/products" className="text-xs sm:text-sm text-accent hover:underline">View all products</Link>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4 md:gap-6 stagger-grid">
-            {personalizedProducts.map((product: any) => (
+            {topItemsProducts.map((product: any) => (
               <ProductCard
                 key={product.id}
                 product={product}
