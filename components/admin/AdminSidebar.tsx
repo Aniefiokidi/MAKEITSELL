@@ -24,6 +24,7 @@ import {
   KeyRound,
   Megaphone,
   MessageCircleQuestion,
+  Flag,
 } from "lucide-react"
 
 const adminNavItems = [
@@ -96,6 +97,11 @@ const adminNavItems = [
     title: "Support Bot Gaps",
     href: "/admin/support-queries",
     icon: MessageCircleQuestion,
+  },
+  {
+    title: "Streak Flags",
+    href: "/admin/streak-flags",
+    icon: Flag,
   },
   {
     title: "Broadcast Email",
