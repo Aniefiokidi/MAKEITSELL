@@ -4,6 +4,7 @@ import { connectToDatabase } from "@/lib/mongodb"
 import { Product } from "@/lib/models/Product"
 import { cacheNamespaces, invalidateCacheNamespace } from "@/lib/cache-store"
 import { syncStreakFloor } from "@/lib/streak/calculateFloor"
+import { checkWishlistPriceDrops } from "@/lib/wishlist-price-alerts"
 
 type BulkPayload = {
   productIds?: string[]
@@ -63,10 +64,26 @@ export async function PATCH(request: NextRequest) {
       query.vendorId = user.id
     }
 
+    // Snapshot prices before the write — need the "before" price to know which of these
+    // are actually drops (a bulk update can apply the same new price to products that
+    // were both above and below it).
+    const beforePrices = ("price" in allowedUpdates)
+      ? await Product.find(query).select("price title name").lean()
+      : []
+
     const result = await Product.updateMany(query, { $set: allowedUpdates })
 
     await invalidateCacheNamespace(cacheNamespaces.productsList)
     await invalidateCacheNamespace(cacheNamespaces.productsDetail)
+
+    if ("price" in allowedUpdates) {
+      const newPrice = Number(allowedUpdates.price)
+      for (const p of beforePrices as any[]) {
+        if (newPrice > 0 && newPrice < Number(p.price || 0)) {
+          void checkWishlistPriceDrops(String(p._id), newPrice, p.title || p.name)
+        }
+      }
+    }
 
     // Price or active-status changed for these products — re-sync every affected vendor's
     // streak floor so a bulk price cut can't leave a locked floor stale.

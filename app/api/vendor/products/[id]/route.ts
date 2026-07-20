@@ -4,6 +4,7 @@ import { cacheNamespaces, invalidateCacheNamespace } from '@/lib/cache-store'
 import { logApiPerformance } from '@/lib/performance-logs'
 import { syncStreakFloor } from '@/lib/streak/calculateFloor'
 import { requireRoles } from '@/lib/server-route-auth'
+import { checkWishlistPriceDrops } from '@/lib/wishlist-price-alerts'
 
 export async function GET(
   request: NextRequest,
@@ -83,6 +84,12 @@ export async function PUT(
       void syncStreakFloor(vendorId).catch(() => {
         // Floor recalculation is best-effort; never break the product update
       })
+    }
+
+    const oldPrice = Number((existingProduct as any).price || 0)
+    const newPrice = Number((updatedProduct as any)?.price || 0)
+    if (newPrice > 0 && newPrice < oldPrice) {
+      void checkWishlistPriceDrops(id, newPrice, (updatedProduct as any)?.title || (updatedProduct as any)?.name)
     }
 
     return NextResponse.json({ product: updatedProduct })
