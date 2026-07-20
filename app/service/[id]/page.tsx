@@ -13,12 +13,13 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 // import { getServiceById, Service, createConversation, getConversations } from "@/lib/database"
 import type { Service } from "@/lib/database-client"
 import { useAuth } from "@/contexts/AuthContext"
-import { ArrowLeft, MapPin, Clock, Calendar, MessageCircle, CheckCircle, X, ChevronLeft, ChevronRight, Star, Hotel, Building2, Truck, Music2, Camera, Briefcase, ArrowLeftRight } from "lucide-react"
+import { ArrowLeft, MapPin, Clock, Calendar, MessageCircle, CheckCircle, X, ChevronLeft, ChevronRight, Hotel, Building2, Truck, Music2, Camera, Briefcase, ArrowLeftRight } from "lucide-react"
 import BookingModal from "@/components/services/BookingModal"
 import PriceNegotiationModal from "@/components/services/PriceNegotiationModal"
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 import { optimizedImageUrl } from "@/lib/cloudinary-url"
 import { buildPublicServicePath, extractEntityIdFromParam } from "@/lib/public-links"
+import { ReviewsSection } from "@/components/reviews/ReviewsSection"
 
 export default function ServiceDetailPage() {
     // Slide-out state for page transition
@@ -952,10 +953,7 @@ export default function ServiceDetailPage() {
               </TabsContent>
 
               <TabsContent value="reviews" className="mt-6">
-                <div className="text-center py-8 text-muted-foreground">
-                  <Star className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>No reviews yet. Be the first to book and review!</p>
-                </div>
+                <ReviewsSection targetType="service" targetId={String((service as any)?.id || (service as any)?._id || '')} />
               </TabsContent>
             </Tabs>
           </div>

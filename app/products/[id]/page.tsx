@@ -9,6 +9,7 @@ import { trackFunnelEvent } from "@/lib/funnel-tracker"
 import { trackProductQuickView } from "@/lib/personalization"
 import { useWishlist } from "@/contexts/WishlistContext"
 import Header from "@/components/Header"
+import { ReviewsSection } from "@/components/reviews/ReviewsSection"
 
 async function getProduct(id: string) {
   if (!id) return null
@@ -279,6 +280,10 @@ export default function ProductPage() {
               </button>
             </div>
           </div>
+        </div>
+
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-4 sm:p-6 mt-6">
+          <ReviewsSection targetType="product" targetId={String(product.id || productId)} />
         </div>
       </main>
     </div>
