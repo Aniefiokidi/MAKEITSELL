@@ -8,14 +8,37 @@ import { connectToDatabase } from "@/lib/mongodb"
 import { User as UserModel } from "@/lib/models/User"
 import { WalletTransaction } from "@/lib/models/WalletTransaction"
 import { sendBookingConfirmationSms } from "@/lib/sms"
+import { getSessionUserFromRequest } from "@/lib/server-route-auth"
 
 const BOOKING_FEE_NAIRA = 500
 
 export async function GET(request: NextRequest) {
   try {
+    const sessionUser = await getSessionUserFromRequest(request)
+    if (!sessionUser) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
     const providerId = searchParams.get('providerId')
     const customerId = searchParams.get('customerId')
+    const isAdmin = sessionUser.role === 'admin'
+
+    // Non-admins can only ever read their own bookings, either side — this used to
+    // accept any customerId/providerId from the query string with no session check at
+    // all, and returned every booking in the system (including customer names/addresses)
+    // when neither was given.
+    if (!isAdmin) {
+      if (providerId && providerId !== sessionUser.id) {
+        return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+      }
+      if (customerId && customerId !== sessionUser.id) {
+        return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+      }
+      if (!providerId && !customerId) {
+        return NextResponse.json({ success: false, error: 'customerId or providerId is required' }, { status: 400 })
+      }
+    }
 
     let bookings
     if (providerId) {
@@ -46,6 +69,11 @@ export async function POST(request: NextRequest) {
   let bookingFeeCustomerId = ''
 
   try {
+    const sessionUser = await getSessionUserFromRequest(request)
+    if (!sessionUser) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+
     const rangesOverlap = (startA: Date, endA: Date, startB: Date, endB: Date) => {
       return startA < endB && endA > startB
     }
@@ -103,6 +131,13 @@ export async function POST(request: NextRequest) {
 
     const normalizedBookingData = {
       ...bookingData,
+      // Always the caller's own session — never trust customerId from the body. This
+      // route debits a ₦500 booking fee straight from customerId's wallet with no
+      // external payment confirmation, so an unvalidated body value here would let
+      // anyone repeatedly drain any wallet by booking "as" someone else.
+      customerId: sessionUser.id,
+      customerName: bookingData?.customerName || sessionUser.name,
+      customerEmail: bookingData?.customerEmail || sessionUser.email,
       paymentMethod: 'wallet',
       estimatedPrice: locationAdjustedTotal,
       finalPrice: normalizedFinal,

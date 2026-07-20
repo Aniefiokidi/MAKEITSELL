@@ -1,14 +1,22 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import connectToDatabase from "@/lib/mongodb"
 import { Follow } from "@/lib/models/Follow"
+import { getSessionUserFromRequest } from "@/lib/server-route-auth"
 
 // POST - Follow or unfollow a store
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const sessionUser = await getSessionUserFromRequest(request)
+    if (!sessionUser) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    }
+
     await connectToDatabase()
 
     const body = await request.json()
-    const { storeId, vendorId, customerId, customerName, action } = body
+    const { storeId, vendorId, customerName, action } = body
+    // Always the caller's own account — never trust customerId from the body.
+    const customerId = sessionUser.id
 
     // Validate required fields
     if (!storeId || !vendorId || !customerId || !action) {
@@ -86,25 +94,29 @@ export async function POST(request: Request) {
 }
 
 // GET - Check if user is following a store
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
+    const sessionUser = await getSessionUserFromRequest(request)
+    if (!sessionUser) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    }
+
     await connectToDatabase()
 
     const { searchParams } = new URL(request.url)
     const storeId = searchParams.get("storeId")
-    const customerId = searchParams.get("customerId")
 
-    if (!storeId || !customerId) {
+    if (!storeId) {
       return NextResponse.json(
         {
           success: false,
-          error: "Missing storeId or customerId",
+          error: "Missing storeId",
         },
         { status: 400 }
       )
     }
 
-    const follow = await Follow.findOne({ customerId, storeId })
+    const follow = await Follow.findOne({ customerId: sessionUser.id, storeId })
 
     return NextResponse.json(
       {

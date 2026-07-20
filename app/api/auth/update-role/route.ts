@@ -1,23 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { updateUserProfileInDb, getUserById } from '@/lib/mongodb-operations'
+import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, role, vendorType } = await request.json()
-    
-    if (!userId || !role) {
-      return NextResponse.json({
-        success: false,
-        error: 'Missing userId or role'
-      }, { status: 400 })
+    const sessionUser = await getSessionUserFromRequest(request)
+    if (!sessionUser) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Update user role
-    const updateData: any = { role }
-    
-    // Add vendor-specific fields if upgrading to vendor
-    if (role === 'vendor') {
-      updateData.vendorInfo = {
+    const { role, vendorType } = await request.json()
+
+    // This endpoint only does one thing: a logged-in customer self-upgrading their own
+    // account to vendor. It never accepts a target userId from the body (always the
+    // caller's own session) and never accepts any other role value — this used to take
+    // both directly from the request body, which meant anyone could set role: 'admin'
+    // on any userId with a single unauthenticated request.
+    if (role !== 'vendor') {
+      return NextResponse.json({ success: false, error: 'Invalid role' }, { status: 400 })
+    }
+
+    const userId = sessionUser.id
+
+    const updateData: any = {
+      role: 'vendor',
+      vendorInfo: {
         businessType: vendorType || 'both',
         businessName: '', // Can be updated later
         isApproved: true

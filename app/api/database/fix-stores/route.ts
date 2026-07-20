@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectToDatabase from '@/lib/mongodb'
+import { requireAdminAccess } from '@/lib/server-route-auth'
 
 export async function POST(request: NextRequest) {
+  const unauthorized = await requireAdminAccess(request)
+  if (unauthorized) return unauthorized
+
   try {
     await connectToDatabase()
     const db = require('mongoose').connection.db

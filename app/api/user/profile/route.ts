@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserById } from '@/lib/mongodb-operations'
+import { getSessionUserFromRequest } from '@/lib/server-route-auth'
+import mongoose from 'mongoose'
 
 export async function GET(request: NextRequest) {
   try {
@@ -76,34 +78,42 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { userId, displayName, phone, address, city, state, postalCode } = body
+    const sessionUser = await getSessionUserFromRequest(request)
+    if (!sessionUser) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
 
-    if (!userId) {
-      return NextResponse.json(
-        { success: false, error: 'User ID is required' },
-        { status: 400 }
-      )
+    const body = await request.json()
+    const { displayName, phone, address, city, state, postalCode } = body
+
+    // Always the caller's own account — this used to take userId from the body with no
+    // session check, so any authenticated (or even unauthenticated) request could rewrite
+    // another user's name/phone/address.
+    const userId = sessionUser.id
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
     }
 
     const connectToDatabase = require('@/lib/mongodb').default
     await connectToDatabase()
     const db = require('mongoose').connection.db
-    
+    const objectId = new mongoose.Types.ObjectId(userId)
+
     // Update user profile
     const updateData: any = {}
-    
+
     if (displayName !== undefined) updateData.displayName = displayName
     if (phone !== undefined) updateData.phone = phone
     if (address !== undefined) updateData.address = address
     if (city !== undefined) updateData.city = city
     if (state !== undefined) updateData.state = state
     if (postalCode !== undefined) updateData.postalCode = postalCode
-    
+
     updateData.updatedAt = new Date()
 
     const result = await db.collection('users').updateOne(
-      { _id: userId },
+      { _id: objectId },
       { $set: updateData }
     )
 
@@ -115,7 +125,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Get updated user
-    const updatedUser = await db.collection('users').findOne({ _id: userId })
+    const updatedUser = await db.collection('users').findOne({ _id: objectId })
 
     return NextResponse.json({
       success: true,

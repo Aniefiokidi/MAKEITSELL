@@ -4,6 +4,7 @@ import { connectToDatabase } from '@/lib/mongodb'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { User } from '@/lib/models/User'
 import { paystackService } from '@/lib/payment'
+import { requireAdminAccess } from '@/lib/server-route-auth'
 
 const getAdminKeyFromRequest = (request: NextRequest, body: any) => {
   return (
@@ -38,9 +39,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}))
     const adminKey = getAdminKeyFromRequest(request, body)
     const expectedAdminKey = String(process.env.ADMIN_API_KEY || '').trim()
+    const hasValidAdminKey = Boolean(expectedAdminKey) && adminKey === expectedAdminKey
 
-    if (!expectedAdminKey || adminKey !== expectedAdminKey) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    // Kept the existing ADMIN_API_KEY header check (whatever operational tooling already
+    // uses it keeps working) but also accept a standard admin session/ADMIN_SECRET, same
+    // as every other admin route, so this doesn't require a separate secret to use from
+    // the admin UI.
+    if (!hasValidAdminKey) {
+      const unauthorized = await requireAdminAccess(request)
+      if (unauthorized) return unauthorized
     }
 
     const referenceFilter = String(body?.reference || '').trim()

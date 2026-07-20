@@ -13,6 +13,7 @@ import { getCanonicalAppBaseUrl } from '@/lib/app-url'
 import { sendOrderPlacementNotifications } from '@/lib/order-notifications'
 import { Product } from '@/lib/models/Product'
 import { maybeSendLowStockAlert } from '@/lib/stock-alerts'
+import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 
 async function deductStock(orderId: string) {
   try {
@@ -45,16 +46,26 @@ function isValidObjectIdString(value: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
+    const sessionUser = await getSessionUserFromRequest(request)
+    if (!sessionUser) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
     console.log('Payment API received:', body)
-    
+
     const {
       items,
       shippingInfo,
       paymentMethod,
-      customerId,
       totalAmount: clientTotalAmount
     } = body
+
+    // Always the caller's own session — never trust customerId from the body. This
+    // matters most on the wallet path below, which debits customerId's balance directly
+    // with no external payment-gateway confirmation step; an unvalidated body value there
+    // would let anyone drain any wallet by placing an order "paid" from someone else's ID.
+    const customerId = sessionUser.id
 
     const normalizedPaymentMethod = (paymentMethod === 'checkout') ? 'paystack' : paymentMethod
 
