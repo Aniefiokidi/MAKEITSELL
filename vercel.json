@@ -20,6 +20,14 @@
     {
       "path": "/api/admin/booking-reminder-job",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/admin/negotiation-expiry-job",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/admin/abandoned-cart-job",
+      "schedule": "0 10 * * *"
     }
   ]
 }
