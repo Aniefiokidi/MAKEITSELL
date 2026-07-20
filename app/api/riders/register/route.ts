@@ -18,7 +18,7 @@ const VALID_VEHICLE_TYPES = new Set(['bike', 'keke', 'car', 'van'])
 
 export async function POST(request: NextRequest) {
   try {
-    const rateLimitResponse = enforceRateLimit(request, {
+    const rateLimitResponse = await enforceRateLimit(request, {
       key: 'riders-register',
       maxRequests: 6,
       windowMs: 60_000,

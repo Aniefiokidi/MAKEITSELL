@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
     const originCheck = enforceSameOrigin(req)
     if (originCheck) return originCheck
 
-    const rateLimitResponse = enforceRateLimit(req, {
+    const rateLimitResponse = await enforceRateLimit(req, {
       key: 'vendor-resolve-account',
       maxRequests: 30,
       windowMs: 60_000,

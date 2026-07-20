@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     const originCheck = enforceSameOrigin(request)
     if (originCheck) return originCheck
 
-    const rateLimitResponse = enforceRateLimit(request, {
+    const rateLimitResponse = await enforceRateLimit(request, {
       key: 'wallet-withdraw',
       maxRequests: 8,
       windowMs: 60_000,

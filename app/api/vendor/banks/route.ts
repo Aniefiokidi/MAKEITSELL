@@ -78,7 +78,7 @@ const fetchPaystackBanks = async () => {
 export async function GET(request: NextRequest) {
   try {
     const forceRefresh = new URL(request.url).searchParams.get('refresh') === '1'
-    const rateLimitResponse = enforceRateLimit(request, {
+    const rateLimitResponse = await enforceRateLimit(request, {
       key: 'vendor-banks-list',
       maxRequests: 40,
       windowMs: 60_000,

@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     const originCheck = enforceSameOrigin(request)
     if (originCheck) return originCheck
 
-    const rateLimitResponse = enforceRateLimit(request, {
+    const rateLimitResponse = await enforceRateLimit(request, {
       key: 'vendor-wallet-pin-set',
       maxRequests: 10,
       windowMs: 60_000,

@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     const originCheck = enforceSameOrigin(request)
     if (originCheck) return originCheck
 
-    const rateLimitResponse = enforceRateLimit(request, {
+    const rateLimitResponse = await enforceRateLimit(request, {
       key: 'wallet-topup',
       maxRequests: 12,
       windowMs: 60_000,

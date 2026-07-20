@@ -29,7 +29,7 @@ const isValidContactPhone = (phoneInput: string) => {
 
 export async function POST(request: NextRequest) {
   try {
-    const rateLimitResponse = enforceRateLimit(request, {
+    const rateLimitResponse = await enforceRateLimit(request, {
       key: 'auth-signup',
       maxRequests: 6,
       windowMs: 60_000,
