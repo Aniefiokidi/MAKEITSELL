@@ -7,12 +7,21 @@ import { computeCancellationFee } from "@/lib/service-pricing"
 import { getServiceById } from "@/lib/mongodb-operations"
 import { getUserById } from "@/lib/mongodb-operations"
 import { sendBookingConfirmationSms } from "@/lib/sms"
+import { getSessionUserFromRequest } from "@/lib/server-route-auth"
 
 export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const sessionUser = await getSessionUserFromRequest(request)
+    if (!sessionUser) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      )
+    }
+
     const { id } = await context.params
     const data = await request.json()
 
@@ -23,6 +32,16 @@ export async function PATCH(
       return NextResponse.json(
         { success: false, error: "Booking not found" },
         { status: 404 }
+      )
+    }
+
+    const isOwner =
+      String((existingBooking as any).customerId || '') === sessionUser.id ||
+      String((existingBooking as any).providerId || '') === sessionUser.id
+    if (!isOwner && sessionUser.role !== 'admin') {
+      return NextResponse.json(
+        { success: false, error: "You do not have permission to update this booking" },
+        { status: 403 }
       )
     }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createService } from '@/lib/mongodb-operations'
 import { cacheNamespaces, invalidateCacheNamespace } from '@/lib/cache-store'
 import { logApiPerformance } from '@/lib/performance-logs'
+import { requireRoles } from '@/lib/server-route-auth'
 
 const allowedPricingTypes = new Set(['fixed', 'hourly', 'per-session', 'custom'])
 
@@ -268,8 +269,25 @@ export async function POST(request: NextRequest) {
   const startedAt = Date.now()
   let statusCode = 201
 
+  const { user, response } = await requireRoles(request, ['vendor', 'admin'])
+  if (response) {
+    statusCode = response.status
+    void logApiPerformance({
+      route: '/api/vendor/services/create',
+      method: request.method,
+      statusCode,
+      durationMs: Date.now() - startedAt,
+      cacheHit: false,
+    })
+    return response
+  }
+
   try {
     const serviceData = await request.json()
+    // Prevent a vendor from attributing a new service to a different provider.
+    if (user?.role === 'vendor') {
+      serviceData.providerId = user.id
+    }
     console.log('Creating service with data:', serviceData)
 
     const validation = validateServicePayload(serviceData)

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServices, deleteService } from '@/lib/mongodb-operations'
+import { getServices, getServiceById, deleteService } from '@/lib/mongodb-operations'
 import { cacheNamespaces, invalidateCacheNamespace } from '@/lib/cache-store'
 import { logApiPerformance } from '@/lib/performance-logs'
+import { requireRoles } from '@/lib/server-route-auth'
 
 export async function GET(request: NextRequest) {
   const startedAt = Date.now()
@@ -49,6 +50,19 @@ export async function DELETE(request: NextRequest) {
   const startedAt = Date.now()
   let statusCode = 200
 
+  const { user, response } = await requireRoles(request, ['vendor', 'admin'])
+  if (response) {
+    statusCode = response.status
+    void logApiPerformance({
+      route: '/api/vendor/services',
+      method: request.method,
+      statusCode,
+      durationMs: Date.now() - startedAt,
+      cacheHit: false,
+    })
+    return response
+  }
+
   try {
     const { searchParams } = new URL(request.url)
     const serviceId = searchParams.get('serviceId')
@@ -56,6 +70,16 @@ export async function DELETE(request: NextRequest) {
     if (!serviceId) {
       statusCode = 400
       return NextResponse.json({ error: 'Service ID is required' }, { status: 400 })
+    }
+
+    const existingService = await getServiceById(serviceId)
+    if (!existingService) {
+      statusCode = 404
+      return NextResponse.json({ error: 'Service not found' }, { status: 404 })
+    }
+    if (user?.role === 'vendor' && String((existingService as any).providerId) !== user.id) {
+      statusCode = 403
+      return NextResponse.json({ error: 'You do not have permission to delete this service' }, { status: 403 })
     }
 
     await deleteService(serviceId)

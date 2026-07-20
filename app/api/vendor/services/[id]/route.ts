@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServiceById, updateService } from '@/lib/mongodb-operations'
 import { cacheNamespaces, invalidateCacheNamespace } from '@/lib/cache-store'
 import { logApiPerformance } from '@/lib/performance-logs'
+import { requireRoles } from '@/lib/server-route-auth'
 
 export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const startedAt = Date.now()
@@ -40,11 +41,34 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
   const startedAt = Date.now()
   let statusCode = 200
 
+  const { user, response } = await requireRoles(request, ['vendor', 'admin'])
+  if (response) {
+    statusCode = response.status
+    void logApiPerformance({
+      route: '/api/vendor/services/[id]',
+      method: request.method,
+      statusCode,
+      durationMs: Date.now() - startedAt,
+      cacheHit: false,
+    })
+    return response
+  }
+
   try {
     const { id } = await context.params
     if (!id) {
       statusCode = 400
       return NextResponse.json({ error: 'Service ID is required' }, { status: 400 })
+    }
+
+    const existingService = await getServiceById(id)
+    if (!existingService) {
+      statusCode = 404
+      return NextResponse.json({ error: 'Service not found' }, { status: 404 })
+    }
+    if (user?.role === 'vendor' && String((existingService as any).providerId) !== user.id) {
+      statusCode = 403
+      return NextResponse.json({ error: 'You do not have permission to edit this service' }, { status: 403 })
     }
 
     const body = await request.json()
