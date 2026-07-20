@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
-  deleteStore,
+  deleteStoresByVendorId,
   deleteProductsByVendor,
   deleteOrdersByVendor,
   deleteUserCartItemsByVendor,
@@ -52,7 +52,7 @@ export async function DELETE(request: NextRequest) {
     try {
       // 1. Delete store
       console.log('Deleting store...')
-      await deleteStore(vendorId)
+      await deleteStoresByVendorId(vendorId)
       deletionResults.store = true
       console.log('Store deleted successfully')
 

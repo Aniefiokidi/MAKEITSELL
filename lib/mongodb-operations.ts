@@ -1193,13 +1193,19 @@ export const updateUserProfileInDb = async (userId: string, data: any) => {
 
   return { success: true, data: result };
 };
+// Deletes by the store document's own _id. Callers that only have the vendor's userId
+// (not the store's _id) must use deleteStoresByVendorId below instead — a vendorId is
+// also a valid ObjectId string, so the old single-function version silently matched the
+// wrong branch here and deleted nothing when called with a vendorId.
 export const deleteStore = async (id: string) => {
   await connectToDatabase();
-  if (mongoose.Types.ObjectId.isValid(id)) {
-    await StoreModel.findByIdAndDelete(id);
-  } else {
-    await StoreModel.deleteMany({ vendorId: id });
-  }
+  await StoreModel.findByIdAndDelete(id);
+  return true;
+};
+
+export const deleteStoresByVendorId = async (vendorId: string) => {
+  await connectToDatabase();
+  await StoreModel.deleteMany({ vendorId });
   return true;
 };
 export const deleteProductsByVendor = async (vendorId: string) => {
