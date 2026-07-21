@@ -53,6 +53,7 @@ const UserSchema = new Schema({
   referralCode: { type: String, sparse: true, index: true },
   referredByVendorId: { type: String },
   referralCreditIssued: { type: Boolean, default: false },
+  referralClickCount: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });

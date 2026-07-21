@@ -5,7 +5,8 @@ import VendorLayout from "@/components/vendor/VendorLayout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/contexts/AuthContext"
-import { BarChart3, TrendingUp, Users, Banknote, Package, ShoppingCart } from "lucide-react"
+import { BarChart3, TrendingUp, Users, Banknote, Package, ShoppingCart, Award, Clock, CalendarClock, Repeat2 } from "lucide-react"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 
 
 export default function VendorAnalyticsPage() {
@@ -68,6 +69,13 @@ export default function VendorAnalyticsPage() {
   const newProductsThisWeek = analytics?.newProductsThisWeek;
   const recentOrders = analytics?.recentOrders || [];
   const topProducts = analytics?.topProducts || [];
+  const bestSellingProduct = analytics?.bestSellingProduct || null;
+  const peakDay = analytics?.peakDay || null;
+  const peakHour = analytics?.peakHour || null;
+  const salesByDay = analytics?.salesByDay || [];
+  const repeatBuyerRate = analytics?.repeatBuyerRate ?? 0;
+  const totalUniqueCustomers = analytics?.totalUniqueCustomers ?? 0;
+  const repeatCustomerCount = analytics?.repeatCustomerCount ?? 0;
 
   return (
     <VendorLayout>
@@ -139,6 +147,92 @@ export default function VendorAnalyticsPage() {
               </div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Sales Patterns */}
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Sales Patterns</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0">
+                    <p className="text-lg font-bold truncate">{bestSellingProduct ? (bestSellingProduct.title || bestSellingProduct.name) : "—"}</p>
+                    <p className="text-sm text-muted-foreground">Best Seller</p>
+                    <p className="text-xs text-muted-foreground">
+                      {bestSellingProduct ? `${bestSellingProduct.sales || 0} sold` : "No sales yet"}
+                    </p>
+                  </div>
+                  <Award className="h-8 w-8 text-muted-foreground shrink-0" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-lg font-bold">{peakDay ? peakDay.day : "—"}</p>
+                    <p className="text-sm text-muted-foreground">Peak Sales Day</p>
+                    <p className="text-xs text-muted-foreground">
+                      {peakDay ? `${formatNaira(peakDay.revenue)} · ${peakDay.orders} orders` : "No orders yet"}
+                    </p>
+                  </div>
+                  <CalendarClock className="h-8 w-8 text-muted-foreground shrink-0" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-lg font-bold">{peakHour ? peakHour.label : "—"}</p>
+                    <p className="text-sm text-muted-foreground">Peak Sales Hour</p>
+                    <p className="text-xs text-muted-foreground">
+                      {peakHour ? `${formatNaira(peakHour.revenue)} · ${peakHour.orders} orders` : "No orders yet"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Nigeria time (WAT)</p>
+                  </div>
+                  <Clock className="h-8 w-8 text-muted-foreground shrink-0" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-lg font-bold">{repeatBuyerRate.toFixed(1)}%</p>
+                    <p className="text-sm text-muted-foreground">Repeat Buyer Rate</p>
+                    <p className="text-xs text-muted-foreground">
+                      {repeatCustomerCount} of {totalUniqueCustomers} customers
+                    </p>
+                  </div>
+                  <Repeat2 className="h-8 w-8 text-muted-foreground shrink-0" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {salesByDay.some((d: any) => d.revenue > 0) && (
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Revenue by Day of Week</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={salesByDay}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="day" tick={{ fontSize: 12 }} tickFormatter={(d: string) => d.slice(0, 3)} />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip formatter={(value: any) => `₦${Number(value).toLocaleString()}`} />
+                    <Bar dataKey="revenue" fill="#7f1d1d" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Recent Orders and Top Products */}

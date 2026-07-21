@@ -51,6 +51,8 @@ interface Store {
   id: string
   storeName: string
   storeDescription: string
+  storeStory?: string
+  accentColor?: string
   storeImage: string
   category: string
   vendorId: string
@@ -534,6 +536,10 @@ export default function StorePage() {
     )
   }
 
+  const validAccentColor = store.accentColor && /^#[0-9A-Fa-f]{6}$/.test(store.accentColor)
+    ? store.accentColor
+    : undefined
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <style jsx global>{`
@@ -600,7 +606,13 @@ export default function StorePage() {
             alt={store.storeName}
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/40 to-black/20" />
+          <div
+            className={validAccentColor ? undefined : "absolute inset-0 bg-linear-to-t from-black/80 via-black/40 to-black/20"}
+            style={validAccentColor ? {
+              position: 'absolute', inset: 0,
+              background: `linear-gradient(to top, ${validAccentColor}CC, ${validAccentColor}66 55%, rgba(0,0,0,0.15))`,
+            } : undefined}
+          />
         </div>
         
         {/* Navigation */}
@@ -620,7 +632,10 @@ export default function StorePage() {
             <div className="flex flex-col lg:flex-row items-start lg:items-end gap-4 sm:gap-6 store-header-mobile-fix">
               {/* Store Avatar (Logo) and Store Name beside each other on mobile */}
               <div className="flex flex-col sm:flex-row sm:items-start items-center gap-3 lg:flex-col lg:items-start w-full sm:w-auto">
-                <Avatar className="w-14 sm:w-16 h-14 sm:h-16 border-4 border-white/20 backdrop-blur-sm store-logo-mobile">
+                <Avatar
+                  className="w-14 sm:w-16 h-14 sm:h-16 border-4 backdrop-blur-sm store-logo-mobile"
+                  style={validAccentColor ? { borderColor: validAccentColor } : { borderColor: 'rgba(255,255,255,0.2)' }}
+                >
                   <AvatarImage src={isPdfAsset(store.storeImage) ? undefined : store.storeImage} alt={store.storeName} />
                   <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
                     {store.storeName.charAt(0)}
@@ -700,8 +715,9 @@ export default function StorePage() {
                     View Brand PDF
                   </Button>
                 )}
-                <Button 
-                  className={`${isFollowing ? "bg-green-600 hover:bg-green-700 hover:scale-105 transition-all" : "bg-primary hover:bg-primary/90 hover:scale-105 transition-all"} text-xs sm:text-sm py-2 sm:py-3`}
+                <Button
+                  className={`${isFollowing ? "bg-green-600 hover:bg-green-700 hover:scale-105 transition-all" : (validAccentColor ? "hover:scale-105 transition-all" : "bg-primary hover:bg-primary/90 hover:scale-105 transition-all")} text-xs sm:text-sm py-2 sm:py-3`}
+                  style={!isFollowing && validAccentColor ? { backgroundColor: validAccentColor } : undefined}
                   onClick={handleFollowToggle}
                   disabled={!user || followLoading}
                 >
@@ -988,7 +1004,17 @@ export default function StorePage() {
                   <h4 className="font-semibold mb-3 text-sm sm:text-base">Store Description</h4>
                   <p className="text-muted-foreground leading-relaxed text-sm">{store.storeDescription}</p>
                 </div>
-                
+
+                {store.storeStory && (
+                  <>
+                    <Separator />
+                    <div>
+                      <h4 className="font-semibold mb-3 text-sm sm:text-base">Our Story</h4>
+                      <p className="text-muted-foreground leading-relaxed text-sm whitespace-pre-line">{store.storeStory}</p>
+                    </div>
+                  </>
+                )}
+
                 <Separator />
                 
                 {/* Store Information Section */}

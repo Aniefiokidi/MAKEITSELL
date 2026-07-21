@@ -733,6 +733,9 @@ export default function VendorDashboardPage() {
               <div className="flex justify-between"><span>Dormant</span><Badge variant="outline">{segmentation.dormant}</Badge></div>
               <div className="flex justify-between"><span>High-Value</span><Badge variant="outline">{segmentation.highValue}</Badge></div>
               <div className="pt-2 border-t flex justify-between"><span>Auto Promos Today</span><Badge>{segmentation.autoPromosTriggeredToday}</Badge></div>
+              <Button variant="outline" size="sm" className="mt-2 w-full border-accent/40 text-accent hover:bg-accent hover:text-white" asChild>
+                <Link href="/vendor/customers/repeat">View Repeat Customers</Link>
+              </Button>
             </CardContent>
           </Card>
 

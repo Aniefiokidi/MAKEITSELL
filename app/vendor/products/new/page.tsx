@@ -90,6 +90,7 @@ export default function NewProduct() {
     category: "",
     subcategory: "",
     stock: "",
+    lowStockThreshold: "3",
     sku: "",
     featured: false,
     hasColorOptions: false,
@@ -287,6 +288,7 @@ export default function NewProduct() {
           vendorId: user.uid,
           vendorName: userProfile?.displayName || user.email || "Vendor",
           stock: formData.category === 'Food & Beverages' ? 9999 : (Number(formData.stock) || 0),
+          lowStockThreshold: formData.category === 'Food & Beverages' ? 3 : Math.max(0, Number(formData.lowStockThreshold) || 3),
           sku: formData.sku,
           featured: formData.featured,
           status: "active",
@@ -459,6 +461,23 @@ export default function NewProduct() {
                   />
                 </div>
               </div>
+
+              {formData.category !== 'Food & Beverages' && (
+                <div className="space-y-2">
+                  <Label htmlFor="lowStockThreshold">Low Stock Alert Threshold</Label>
+                  <Input
+                    id="lowStockThreshold"
+                    type="number"
+                    min="0"
+                    placeholder="3"
+                    value={formData.lowStockThreshold}
+                    onChange={(e) => handleInputChange("lowStockThreshold", e.target.value)}
+                    disabled={loading}
+                    className="max-w-40"
+                  />
+                  <p className="text-xs text-muted-foreground">We'll email and push-notify you when stock drops to this level or below.</p>
+                </div>
+              )}
 
               <div className="flex items-center space-x-2">
                 <Checkbox

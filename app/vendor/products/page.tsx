@@ -117,7 +117,11 @@ const VendorProductsPage = () => {
         candidates = filteredProducts
         break
       case "low_stock":
-        candidates = filteredProducts.filter((product: any) => Number(product.stock || 0) > 0 && Number(product.stock || 0) < 5)
+        candidates = filteredProducts.filter((product: any) => {
+          const stock = Number(product.stock || 0)
+          const threshold = Number.isFinite(Number(product.lowStockThreshold)) ? Number(product.lowStockThreshold) : 3
+          return stock > 0 && stock <= threshold
+        })
         break
       case "out_of_stock":
         candidates = filteredProducts.filter((product: any) => Number(product.stock || 0) === 0)
@@ -186,11 +190,12 @@ const VendorProductsPage = () => {
     }
   }
 
-  const getStatusBadge = (status: string, stock: number) => {
+  const getStatusBadge = (status: string, stock: number, lowStockThreshold?: number) => {
     if (stock === 0) {
       return <Badge variant="destructive">Out of Stock</Badge>
     }
-    if (stock < 5) {
+    const threshold = Number.isFinite(Number(lowStockThreshold)) ? Number(lowStockThreshold) : 3
+    if (stock <= threshold) {
       return <Badge variant="secondary">Low Stock</Badge>
     }
     return <Badge variant="default">Active</Badge>
@@ -361,7 +366,7 @@ const VendorProductsPage = () => {
                       <TableCell className="font-mono text-sm">{product.sku}</TableCell>
                       <TableCell className="font-medium">₦{product.price}</TableCell>
                       <TableCell>{product.category === 'Food & Beverages' ? <span className="text-xs text-muted-foreground italic">Made to order</span> : product.stock}</TableCell>
-                      <TableCell>{getStatusBadge(product.status, product.stock)}</TableCell>
+                      <TableCell>{getStatusBadge(product.status, product.stock, product.lowStockThreshold)}</TableCell>
                       <TableCell>{product.sales || 0} sold</TableCell>
                       <TableCell>
                         <DropdownMenu>

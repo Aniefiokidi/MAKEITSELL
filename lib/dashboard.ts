@@ -71,8 +71,11 @@ export async function getVendorDashboard(vendorId: string, options?: { funnelLoo
   const conversionRateLastMonth = ordersLastMonth.length === 0 ? 0 : (ordersLastMonth.length / (totalProducts || 1)) * 100;
   let conversionRateChange = conversionRateLastMonth === 0 ? null : ((conversionRate - conversionRateLastMonth) / conversionRateLastMonth) * 100;
 
-  // Low stock products (less than 10 items)
-  const lowStockProducts = products.filter(p => (p.stock || 0) < 10);
+  // Low stock products — each vendor's own per-product threshold (default 3 if unset)
+  const lowStockProducts = products.filter(p => {
+    const threshold = Number.isFinite(Number(p.lowStockThreshold)) ? Number(p.lowStockThreshold) : 3;
+    return (p.stock || 0) <= threshold;
+  });
 
   // Recent orders (last 5) - enriched with customer info and vendor items
   const recentOrdersData = orders.slice(0, 5); // Already sorted by DB query

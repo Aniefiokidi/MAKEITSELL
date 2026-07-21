@@ -4,6 +4,7 @@ import { cacheNamespaces, getCachedPayload, invalidateCacheNamespace, setCachedP
 import { logApiPerformance } from '@/lib/performance-logs'
 import { requireRoles } from '@/lib/server-route-auth'
 import { checkWishlistPriceDrops } from '@/lib/wishlist-price-alerts'
+import { checkWishlistRestock } from '@/lib/wishlist-restock-alerts'
 
 export async function GET(
   request: NextRequest,
@@ -140,6 +141,10 @@ export async function PUT(
     if (newPrice > 0 && newPrice < oldPrice) {
       void checkWishlistPriceDrops(id, newPrice, (updatedProduct as any).title || (updatedProduct as any).name)
     }
+
+    const oldStock = Number((existingProduct as any).stock || 0)
+    const newStock = Number((updatedProduct as any).stock || 0)
+    void checkWishlistRestock(id, oldStock, newStock, (updatedProduct as any).title || (updatedProduct as any).name)
 
     return NextResponse.json({
       success: true,

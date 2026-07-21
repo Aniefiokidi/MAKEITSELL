@@ -1,16 +1,18 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Copy, Check, Gift, Users, Share2 } from 'lucide-react'
+import { Copy, Check, Gift, Users, Share2, BarChart3 } from 'lucide-react'
 
 interface ReferralCardProps {
   referralCode: string | null | undefined
   role: 'vendor' | 'customer' | string
+  hideDashboardLink?: boolean
 }
 
-export function ReferralCard({ referralCode, role }: ReferralCardProps) {
+export function ReferralCard({ referralCode, role, hideDashboardLink }: ReferralCardProps) {
   const [copied, setCopied] = useState(false)
 
   if (!referralCode) return null
@@ -79,6 +81,13 @@ export function ReferralCard({ referralCode, role }: ReferralCardProps) {
         <p className="text-xs text-muted-foreground">
           Share your link with friends. When they sign up and complete their first transaction, ₦500 goes straight to your wallet.
         </p>
+
+        {!hideDashboardLink && (
+          <Link href="/referrals" className="flex items-center justify-center gap-1.5 text-xs font-medium text-accent hover:underline pt-1">
+            <BarChart3 className="h-3.5 w-3.5" />
+            View clicks, signups & earnings
+          </Link>
+        )}
       </CardContent>
     </Card>
   )

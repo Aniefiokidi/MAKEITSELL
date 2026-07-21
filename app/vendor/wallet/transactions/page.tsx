@@ -32,6 +32,14 @@ interface BalanceData {
   escrowBalance: number
 }
 
+interface PendingSettlement {
+  orderId: string
+  vendorAmount: number
+  paidAt: string | null
+  resolvesBy: string | null
+  isDisputed: boolean
+}
+
 interface WithdrawalBreakdown {
   amount: number
   withdrawFromDeposited: number
@@ -58,6 +66,7 @@ export default function VendorWalletTransactionsPage() {
   const [typeFilter, setTypeFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [balances, setBalances] = useState<BalanceData | null>(null)
+  const [pendingSettlements, setPendingSettlements] = useState<PendingSettlement[]>([])
 
   // Withdrawal form state
   const [showWithdraw, setShowWithdraw] = useState(false)
@@ -98,6 +107,7 @@ export default function VendorWalletTransactionsPage() {
           prizeBalance: typeof result.prizeBalance === 'number' ? result.prizeBalance : 0,
           escrowBalance: typeof result.escrowBalance === 'number' ? result.escrowBalance : 0,
         })
+        setPendingSettlements(Array.isArray(result.pendingSettlements) ? result.pendingSettlements : [])
       }
     } catch (error) {
       console.error('Failed to fetch transactions:', error)
@@ -303,6 +313,44 @@ export default function VendorWalletTransactionsPage() {
                   <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
                     Released to you once orders are marked as completed
                   </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Payout schedule preview */}
+            {pendingSettlements.length > 0 && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="text-base">Payout Schedule</CardTitle>
+                  <CardDescription>
+                    Each order pays out the moment your customer confirms receipt. If they never do, it resolves by
+                    the date shown — either way, not left open-ended.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {pendingSettlements.map((s) => {
+                    const resolvesByDate = s.resolvesBy ? new Date(s.resolvesBy) : null
+                    const hoursLeft = resolvesByDate ? Math.max(0, (resolvesByDate.getTime() - Date.now()) / 3_600_000) : null
+                    return (
+                      <div key={s.orderId} className="flex items-center justify-between gap-3 rounded-lg border border-border p-3 text-sm">
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">Order #{s.orderId.slice(0, 8).toUpperCase()}</p>
+                          {s.isDisputed ? (
+                            <p className="text-xs text-destructive mt-0.5">Under dispute review — on hold until resolved</p>
+                          ) : resolvesByDate ? (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Resolves by {resolvesByDate.toLocaleDateString('en-NG', { day: 'numeric', month: 'short' })}
+                              {hoursLeft !== null && hoursLeft > 0 && hoursLeft < 48 && ` (~${Math.ceil(hoursLeft)}h)`}
+                              {' '}— sooner if the customer confirms receipt first
+                            </p>
+                          ) : (
+                            <p className="text-xs text-muted-foreground mt-0.5">Awaiting customer confirmation</p>
+                          )}
+                        </div>
+                        <p className="font-bold text-accent shrink-0">{fmt.format(s.vendorAmount)}</p>
+                      </div>
+                    )
+                  })}
                 </CardContent>
               </Card>
             )}

@@ -2,6 +2,7 @@
 import Header from "@/components/Header"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { getPopularServiceLandingPages } from "@/lib/seo-category-pages"
 import {
   Camera,
   Briefcase,
@@ -61,7 +62,9 @@ const SERVICE_CATEGORIES = [
   { value: "other", label: "Other Services", description: "Browse all additional services", icon: Settings },
 ]
 
-export default function ServiceCategoriesPage() {
+export default async function ServiceCategoriesPage() {
+  const popularSearches = await getPopularServiceLandingPages(8).catch(() => [])
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
@@ -103,6 +106,23 @@ export default function ServiceCategoriesPage() {
             </Button>
           </Link>
         </div>
+
+        {popularSearches.length > 0 && (
+          <div className="mt-10">
+            <h2 className="text-base sm:text-lg font-semibold mb-3">Popular Searches</h2>
+            <div className="flex flex-wrap gap-2">
+              {popularSearches.map((p) => (
+                <Link
+                  key={`${p.category}-${p.state}`}
+                  href={`/book/${p.category}/${p.stateSlug}`}
+                  className="text-xs sm:text-sm px-3 py-1.5 rounded-full border border-border hover:border-accent hover:text-accent transition-colors"
+                >
+                  {p.categoryName} in {p.state}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )

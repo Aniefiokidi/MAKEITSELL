@@ -23,6 +23,7 @@ import {
   Wrench,
   ListChecks,
   ShoppingCart,
+  Users,
 } from "lucide-react"
 import AddProductModal from "./AddProductModal"
 import StreakTargetModal from "./StreakTargetModal"
@@ -37,6 +38,7 @@ const ALL_SEARCH_ITEMS = [
   { label: 'Add Service', description: 'Create a new service listing', href: '/vendor/services/new', icon: Plus, keywords: 'new service add create' },
   { label: 'Bookings', description: 'Manage service bookings and appointments', href: '/vendor/bookings', icon: CalendarDays, keywords: 'bookings appointments calendar schedule' },
   { label: 'Analytics', description: 'Sales charts, traffic, and performance data', href: '/vendor/analytics', icon: BarChart3, keywords: 'analytics charts traffic performance data sales report' },
+  { label: 'Repeat Customers', description: 'Customers who have bought from you more than once', href: '/vendor/customers/repeat', icon: Users, keywords: 'repeat customers loyal returning re-engagement contact' },
   { label: 'Conversion Funnel', description: 'Track how visitors convert to buyers', href: '/vendor/conversion-funnel', icon: TrendingUp, keywords: 'conversion funnel tracking visitors buyers performance' },
   { label: 'Store Settings', description: 'Edit store name, logo, description, and address', href: '/vendor/store-settings', icon: Store, keywords: 'store settings name logo banner description address phone update edit' },
   { label: 'Setup Wizard', description: 'Quick guided store setup', href: '/vendor/setup-wizard', icon: ListChecks, keywords: 'setup wizard guide onboarding configure' },
@@ -180,6 +182,7 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
     { name: "Orders", href: "/vendor/orders", icon: Store },
     { name: "Bookings", href: "/vendor/bookings", icon: CalendarDays },
     { name: "Analytics", href: "/vendor/analytics", icon: BarChart3 },
+    { name: "Repeat Customers", href: "/vendor/customers/repeat", icon: Users },
     { name: "Conversion Funnel", href: "/vendor/conversion-funnel", icon: TrendingUp },
     { name: "Store Settings", href: "/vendor/store-settings", icon: Store },
     { name: "Support", href: "/vendor/support", icon: MessageSquare },

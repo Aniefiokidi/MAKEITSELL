@@ -90,6 +90,8 @@ export default function VendorStoreSettingsPage() {
     email: userProfile?.email || "",
     storeName: "",
     storeDescription: "",
+    storeStory: "",
+    accentColor: "",
     contactEmail: "",
     contactPhone: "",
     businessAddress: "",
@@ -161,6 +163,8 @@ export default function VendorStoreSettingsPage() {
             ...prev,
             storeName: userProfile?.displayName || "",
             storeDescription: "",
+            storeStory: "",
+            accentColor: "",
             contactEmail: userProfile?.email || "",
             contactPhone: "",
             businessAddress: "",
@@ -187,6 +191,8 @@ export default function VendorStoreSettingsPage() {
             ...prev,
             storeName: userStore.storeName || "",
             storeDescription: userStore.storeDescription || "",
+            storeStory: userStore.storeStory || "",
+            accentColor: userStore.accentColor || "",
             contactEmail: userStore.email || userProfile?.email || "",
             contactPhone: userStore.phone || "",
             businessAddress: userStore.address || "",
@@ -352,6 +358,11 @@ export default function VendorStoreSettingsPage() {
       return
     }
 
+    if (settings.accentColor && !/^#[0-9A-Fa-f]{6}$/.test(settings.accentColor)) {
+      showNotificationBox("Accent colour must be a valid hex code, e.g. #7f1d1d", "error")
+      return
+    }
+
     setLoading(true);
     try {
       let bgUrl = backgroundImage;
@@ -395,6 +406,8 @@ export default function VendorStoreSettingsPage() {
         vendorId: user.uid,
         storeName: settings.storeName,
         storeDescription: settings.storeDescription,
+        storeStory: settings.storeStory,
+        accentColor: settings.accentColor,
         email: settings.contactEmail,
         phone: settings.contactPhone,
         address: settings.businessAddress,
@@ -536,6 +549,43 @@ export default function VendorStoreSettingsPage() {
                 <div>
                   <Label htmlFor="storeDescription">Store Description</Label>
                   <Textarea id="storeDescription" value={settings.storeDescription} onChange={e => handleInputChange("storeDescription", e.target.value)} rows={2} />
+                  <p className="text-xs text-muted-foreground mt-1">Short tagline shown on your store card and banner.</p>
+                </div>
+                <div>
+                  <Label htmlFor="storeStory">Our Story (Optional)</Label>
+                  <Textarea
+                    id="storeStory"
+                    value={settings.storeStory}
+                    onChange={e => handleInputChange("storeStory", e.target.value)}
+                    rows={5}
+                    placeholder="Tell customers how your store started, what makes it different, or what you stand for..."
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Shown on your store's "About" tab — a chance to build trust beyond the product list.</p>
+                </div>
+                <div>
+                  <Label htmlFor="accentColor">Store Accent Colour (Optional)</Label>
+                  <div className="flex items-center gap-3 mt-1">
+                    <input
+                      id="accentColor"
+                      type="color"
+                      value={settings.accentColor || "#7f1d1d"}
+                      onChange={e => handleInputChange("accentColor", e.target.value)}
+                      className="h-10 w-14 rounded-md border border-input cursor-pointer bg-transparent p-1"
+                    />
+                    <Input
+                      value={settings.accentColor}
+                      onChange={e => handleInputChange("accentColor", e.target.value)}
+                      placeholder="#7f1d1d"
+                      className="max-w-32 font-mono uppercase"
+                      maxLength={7}
+                    />
+                    {settings.accentColor && (
+                      <Button type="button" variant="ghost" size="sm" onClick={() => handleInputChange("accentColor", "")}>
+                        Reset
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Tints your store banner and "Follow" button. Leave blank to use the default Make It Sell colours.</p>
                 </div>
                 <div>
                   <Label htmlFor="contactPhone">Store Phone Number</Label>

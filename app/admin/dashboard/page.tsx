@@ -283,6 +283,14 @@ export default function AdminDashboard() {
                 <div className="space-y-3">
                   {(disputedEscrowOrders || []).slice(0, 6).map((order: any) => {
                     const claimedBy = String(order?.disputeClaimedByName || order?.disputeClaimedByEmail || '').trim()
+                    const reasonLabels: Record<string, string> = {
+                      item_not_received: 'Item not received',
+                      item_damaged: 'Item arrived damaged',
+                      item_different: 'Item different from description',
+                      other: 'Other issue',
+                    }
+                    const customerReason = String(order?.customerDisputeReason || '').trim()
+                    const evidence: string[] = Array.isArray(order?.customerDisputeEvidence) ? order.customerDisputeEvidence : []
                     return (
                       <div key={String(order?.orderId || order?._id)} className="rounded-md border p-3">
                         <div className="flex items-center justify-between gap-2">
@@ -290,6 +298,25 @@ export default function AdminDashboard() {
                           <p className="text-xs text-amber-700">Escrow Disputed</p>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">Amount: ₦{Number(order?.totalAmount || 0).toLocaleString()}</p>
+                        {customerReason ? (
+                          <div className="mt-2 rounded bg-amber-50 border border-amber-200 p-2">
+                            <p className="text-xs font-medium text-amber-900">{reasonLabels[customerReason] || customerReason}</p>
+                            {order?.customerDisputeDescription && (
+                              <p className="text-xs text-amber-800 mt-1 whitespace-pre-wrap">{order.customerDisputeDescription}</p>
+                            )}
+                            {evidence.length > 0 && (
+                              <div className="flex gap-1.5 mt-2 flex-wrap">
+                                {evidence.map((url: string, i: number) => (
+                                  <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                                    <img src={url} alt={`Evidence ${i + 1}`} className="w-12 h-12 object-cover rounded border border-amber-300" />
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground mt-1 italic">No customer-submitted details (payment-network dispute)</p>
+                        )}
                         {claimedBy ? (
                           <>
                             <p className="text-xs text-muted-foreground mt-1">Claimed by: {claimedBy}</p>

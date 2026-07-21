@@ -3,6 +3,8 @@ import mongoose, { Schema, model, models } from 'mongoose';
 const StoreSchema = new Schema({
   storeName: { type: String, required: true },
   storeDescription: { type: String },
+  storeStory: { type: String },
+  accentColor: { type: String },
   storeImage: { type: String },
   backgroundImage: { type: String },
   profileImage: { type: String },

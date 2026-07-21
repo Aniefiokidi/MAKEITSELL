@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -65,6 +66,38 @@ function getAvailableFoodSlots() {
   return result
 }
 
+const PRODUCT_TIME_WINDOWS = [
+  { label: "Morning · 8am–12pm" },
+  { label: "Afternoon · 12pm–4pm" },
+  { label: "Evening · 4pm–8pm" },
+]
+
+// Shipped goods can't be pinned to an hourly slot the way made-to-order food can — instead
+// this offers a preferred business day within the same min/max window already shown on the
+// order-tracking timeline (1-2 days same-state, 3-5 interstate), plus a rough time-of-day.
+function getAvailableProductDeliverySlots(minDays: number, maxDays: number) {
+  const result: { value: string; label: string; group: string }[] = []
+  const clampedMin = Math.max(1, Math.round(minDays) || 1)
+  const clampedMax = Math.max(clampedMin, Math.round(maxDays) || clampedMin)
+
+  const day = new Date()
+  let businessDaysPassed = 0
+  while (businessDaysPassed < clampedMax) {
+    day.setDate(day.getDate() + 1)
+    const dow = day.getDay()
+    if (dow === 0 || dow === 6) continue
+    businessDaysPassed++
+    if (businessDaysPassed < clampedMin) continue
+
+    const group = day.toLocaleDateString("en-NG", { weekday: "long", day: "numeric", month: "short" })
+    for (const window of PRODUCT_TIME_WINDOWS) {
+      result.push({ value: `${group}, ${window.label}`, label: window.label, group })
+    }
+  }
+
+  return result
+}
+
 function formatPhoneWithCountryCode(countryCode: string, phoneInput: string): string {
   const raw = String(phoneInput || "").trim()
   if (!raw) return ""
@@ -84,7 +117,7 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false)
   const [shippingLoading, setShippingLoading] = useState(false)
   const [error, setError] = useState("")
-  const [shippingEstimate, setShippingEstimate] = useState<{ cost: number; hasTbd?: boolean; source?: string } | null>(null)
+  const [shippingEstimate, setShippingEstimate] = useState<{ cost: number; hasTbd?: boolean; source?: string; minDays?: number; maxDays?: number } | null>(null)
   const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'checkout' | 'bach'>("wallet")
   const [checkoutTracked, setCheckoutTracked] = useState(false)
   const [showWalletTopupPrompt, setShowWalletTopupPrompt] = useState(false)
@@ -104,9 +137,13 @@ export default function CheckoutPage() {
     country: "Nigeria",
     deliveryInstructions: "",
     preferredDeliveryTime: "",
+    preferredDeliveryDay: "",
+    isGiftOrder: false,
+    payerPhoneCountryCode: "+234",
+    payerPhone: "",
   })
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | boolean) => {
     setShippingInfo((prev) => ({ ...prev, [field]: value }))
   }
 
@@ -115,6 +152,7 @@ export default function CheckoutPage() {
   }, [shippingInfo.state])
 
   const hasFoodItems = useMemo(() => items.some(i => i.category === 'Food & Beverages'), [items])
+  const hasNonFoodItems = useMemo(() => items.some(i => i.category !== 'Food & Beverages'), [items])
 
   // Calculate VAT at 7% of subtotal
   const calculateVAT = (amount: number) => {
@@ -227,6 +265,8 @@ export default function CheckoutPage() {
             cost: Number(estimate.cost),
             hasTbd: Boolean(estimate.hasTbd),
             source: String(estimate.source || ''),
+            minDays: Number.isFinite(Number(estimate.minDays)) ? Number(estimate.minDays) : undefined,
+            maxDays: Number.isFinite(Number(estimate.maxDays)) ? Number(estimate.maxDays) : undefined,
           })
         } else {
           setShippingEstimate(null)
@@ -262,7 +302,7 @@ export default function CheckoutPage() {
       const missingFields = []
       
       for (const field of requiredShippingFields) {
-        const value = shippingInfo[field as keyof typeof shippingInfo]
+        const value = String(shippingInfo[field as keyof typeof shippingInfo] ?? '')
         if (!value || value.trim() === "") {
           missingFields.push(field.replace(/([A-Z])/g, " $1").toLowerCase())
         }
@@ -287,6 +327,14 @@ export default function CheckoutPage() {
       const fullPhoneNumber = formatPhoneWithCountryCode(shippingInfo.phoneCountryCode, shippingInfo.phone)
       if (!fullPhoneNumber) {
         throw new Error("Please provide a valid phone number")
+      }
+
+      let fullPayerPhoneNumber = ''
+      if (shippingInfo.isGiftOrder) {
+        fullPayerPhoneNumber = formatPhoneWithCountryCode(shippingInfo.payerPhoneCountryCode, shippingInfo.payerPhone)
+        if (!fullPayerPhoneNumber) {
+          throw new Error("Please provide your own phone number so we can reach you about this order")
+        }
       }
 
       // Prepare order data for payment initialization
@@ -314,6 +362,9 @@ export default function CheckoutPage() {
           country: shippingInfo.country || '',
           deliveryInstructions: typeof shippingInfo.deliveryInstructions === 'string' ? shippingInfo.deliveryInstructions.trim() : '',
           preferredDeliveryTime: shippingInfo.preferredDeliveryTime || '',
+          preferredDeliveryDay: shippingInfo.preferredDeliveryDay || '',
+          isGiftOrder: shippingInfo.isGiftOrder,
+          payerPhone: fullPayerPhoneNumber || '',
         },
         subtotal: subtotal || 0,
         vat: vat || 0,
@@ -439,9 +490,61 @@ export default function CheckoutPage() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                      <div className="flex items-start gap-2.5 rounded-lg border border-border/60 bg-muted/30 p-3">
+                        <Checkbox
+                          id="isGiftOrder"
+                          checked={shippingInfo.isGiftOrder}
+                          onCheckedChange={(checked) => handleInputChange("isGiftOrder", checked as boolean)}
+                          disabled={loading}
+                        />
+                        <Label htmlFor="isGiftOrder" className="text-sm font-normal leading-snug cursor-pointer">
+                          This order is for someone else
+                          <span className="block text-xs text-muted-foreground mt-0.5">Enter the recipient's details below, plus your own phone number so we can still reach you.</span>
+                        </Label>
+                      </div>
+
+                      {shippingInfo.isGiftOrder && (
+                        <div className="space-y-2 rounded-lg border border-accent/25 bg-accent/5 p-3">
+                          <Label htmlFor="payerPhone">Your Phone Number *</Label>
+                          <div className="grid grid-cols-[90px_1fr] gap-2 sm:grid-cols-[110px_1fr]">
+                            <Select
+                              value={shippingInfo.payerPhoneCountryCode}
+                              onValueChange={(value) => handleInputChange("payerPhoneCountryCode", value)}
+                              disabled={loading}
+                            >
+                              <SelectTrigger
+                                id="payerPhoneCountryCode"
+                                className="min-w-0 w-full max-w-[90px] sm:max-w-[110px] text-[11px] sm:text-xs px-1 py-1"
+                              >
+                                <SelectValue placeholder="Code" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {COUNTRY_CODES.map((item) => (
+                                  <SelectItem key={item.code} value={item.code}>{item.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              id="payerPhone"
+                              type="tel"
+                              value={shippingInfo.payerPhone}
+                              onChange={(e) => handleInputChange("payerPhone", e.target.value)}
+                              required={shippingInfo.isGiftOrder}
+                              disabled={loading}
+                              className="min-w-0 w-full px-3 py-2 text-base tracking-widest"
+                              inputMode="numeric"
+                              maxLength={13}
+                              style={{ fontVariantNumeric: 'tabular-nums', letterSpacing: '0.08em' }}
+                              placeholder="8012345678"
+                            />
+                          </div>
+                          <p className="text-xs text-muted-foreground">Used for order updates and receipts — we'll never share it with the recipient.</p>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="firstName">First Name *</Label>
+                          <Label htmlFor="firstName">{shippingInfo.isGiftOrder ? "Recipient's First Name *" : "First Name *"}</Label>
                           <Input
                             id="firstName"
                             value={shippingInfo.firstName}
@@ -451,7 +554,7 @@ export default function CheckoutPage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="lastName">Last Name *</Label>
+                          <Label htmlFor="lastName">{shippingInfo.isGiftOrder ? "Recipient's Last Name *" : "Last Name *"}</Label>
                           <Input
                             id="lastName"
                             value={shippingInfo.lastName}
@@ -475,7 +578,7 @@ export default function CheckoutPage() {
                           />
                         </div>
                         <div className="space-y-2 col-span-2 sm:col-span-1">
-                          <Label htmlFor="phone">Phone *</Label>
+                          <Label htmlFor="phone">{shippingInfo.isGiftOrder ? "Recipient's Phone *" : "Phone *"}</Label>
                           <div className="grid grid-cols-[90px_1fr] gap-2 sm:grid-cols-[110px_1fr]">
                             <Select
                               value={shippingInfo.phoneCountryCode}
@@ -512,7 +615,7 @@ export default function CheckoutPage() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="address">Address *</Label>
+                        <Label htmlFor="address">{shippingInfo.isGiftOrder ? "Recipient's Address *" : "Address *"}</Label>
                         <Input
                           id="address"
                           value={shippingInfo.address}
@@ -662,6 +765,62 @@ export default function CheckoutPage() {
                                 )}
                               </div>
                             )}
+                          </div>
+                        )
+                      })()}
+
+                      {hasNonFoodItems && shippingEstimate && (() => {
+                        const slots = getAvailableProductDeliverySlots(
+                          shippingEstimate.minDays ?? 1,
+                          shippingEstimate.maxDays ?? 5
+                        )
+                        const groups = Array.from(new Set(slots.map(s => s.group)))
+                        return (
+                          <div className="space-y-3 rounded-lg border border-accent/20 bg-accent/5 p-3">
+                            <div>
+                              <Label className="font-semibold">📦 Preferred Delivery Day (optional)</Label>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                Estimated arrival: <span className="font-semibold">{shippingEstimate.minDays}–{shippingEstimate.maxDays} business days</span>. Pick a day that works best for you.
+                              </p>
+                            </div>
+                            <div className="space-y-2">
+                              {groups.map(group => (
+                                <div key={group}>
+                                  <p className="text-xs font-semibold text-foreground mb-1">{group}</p>
+                                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+                                    {slots.filter(s => s.group === group).map(slot => (
+                                      <button
+                                        key={slot.value}
+                                        type="button"
+                                        disabled={loading}
+                                        onClick={() => handleInputChange("preferredDeliveryDay", slot.value)}
+                                        className={`text-xs px-2 py-2 rounded-md border font-medium transition-all ${
+                                          shippingInfo.preferredDeliveryDay === slot.value
+                                            ? "bg-accent text-white border-accent shadow-sm"
+                                            : "bg-white border-border text-foreground hover:border-accent/50 hover:bg-accent/5"
+                                        }`}
+                                      >
+                                        {slot.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                              {shippingInfo.preferredDeliveryDay && (
+                                <div className="flex items-center justify-between pt-1">
+                                  <span className="text-xs text-muted-foreground">
+                                    Selected: <span className="font-semibold text-foreground">{shippingInfo.preferredDeliveryDay}</span>
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleInputChange("preferredDeliveryDay", "")}
+                                    className="text-xs text-muted-foreground hover:text-foreground underline"
+                                  >
+                                    Clear
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )
                       })()}
@@ -863,7 +1022,10 @@ export default function CheckoutPage() {
 
                       <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground">
                         <Shield className="h-4 w-4" />
-                        <span>Secure checkout with 256-bit SSL encryption</span>
+                        <span>
+                          Secure checkout · Payment held in escrow —{" "}
+                          <Link href="/trust" className="text-accent underline">how it works</Link>
+                        </span>
                       </div>
                     </CardContent>
                   </Card>

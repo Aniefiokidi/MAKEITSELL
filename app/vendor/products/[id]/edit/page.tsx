@@ -141,6 +141,7 @@ export default function ProductEditPage() {
           price: Number(product.price),
           category: product.category,
           stock: product.category === 'Food & Beverages' ? 9999 : (Number(product.stock) || 0),
+          lowStockThreshold: product.category === 'Food & Beverages' ? 3 : Math.max(0, Number(product.lowStockThreshold) || 3),
           sku: product.sku,
           featured: product.featured || false,
           hasColorOptions: colors.length > 0,
@@ -314,6 +315,22 @@ export default function ProductEditPage() {
                   />
                 </div>
               </div>
+
+              {product.category !== 'Food & Beverages' && (
+                <div className="space-y-2">
+                  <Label htmlFor="lowStockThreshold">Low Stock Alert Threshold</Label>
+                  <Input
+                    id="lowStockThreshold"
+                    type="number"
+                    min="0"
+                    value={product.lowStockThreshold ?? 3}
+                    onChange={(e) => handleInputChange("lowStockThreshold", e.target.value)}
+                    disabled={saving}
+                    className="max-w-40"
+                  />
+                  <p className="text-xs text-muted-foreground">We'll email and push-notify you when stock drops to this level or below.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

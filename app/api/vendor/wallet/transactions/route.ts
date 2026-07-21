@@ -286,6 +286,42 @@ export async function GET(request: NextRequest) {
       0
     )
 
+    // Payout schedule preview — this vendor's own portion of each order still in escrow,
+    // sorted by when it will resolve one way or another. There's no fixed "payout date":
+    // it releases the moment the customer confirms receipt, or auto-refunds to the
+    // *customer* (not the vendor) if they never respond within the ~96h window — so
+    // "resolvesBy" is the latest this stays undecided, not a guaranteed payout date.
+    const NINETY_SIX_HOURS_MS = 96 * 60 * 60 * 1000
+    const escrowOrdersDetailed = await Order.find({
+      paymentStatus: 'escrow',
+      'vendors.vendorId': String(currentUser.id),
+    }).select('orderId vendors paidAt createdAt disputeStatus disputeRaisedAt').lean()
+
+    const pendingSettlements = (escrowOrdersDetailed as any[])
+      .map((o) => {
+        const vendorLine = (o.vendors || []).find((v: any) => String(v?.vendorId) === String(currentUser.id))
+        const vendorAmount = Number(vendorLine?.total || 0)
+        if (vendorAmount <= 0) return null
+
+        const paidAt = o.paidAt || o.createdAt
+        const isDisputed = Boolean(o.disputeRaisedAt) || String(o.disputeStatus || '').toLowerCase() === 'active'
+        const resolvesBy = paidAt ? new Date(new Date(paidAt).getTime() + NINETY_SIX_HOURS_MS).toISOString() : null
+
+        return {
+          orderId: o.orderId,
+          vendorAmount,
+          paidAt: paidAt ? new Date(paidAt).toISOString() : null,
+          resolvesBy: isDisputed ? null : resolvesBy,
+          isDisputed,
+        }
+      })
+      .filter(Boolean)
+      .sort((a: any, b: any) => {
+        if (!a.resolvesBy) return 1
+        if (!b.resolvesBy) return -1
+        return new Date(a.resolvesBy).getTime() - new Date(b.resolvesBy).getTime()
+      })
+
     const data = transactions.map((tx: any) => {
       const isManualReview =
         tx?.type === 'withdrawal'
@@ -318,6 +354,7 @@ export async function GET(request: NextRequest) {
       depositedBalance,
       prizeBalance,
       escrowBalance,
+      pendingSettlements,
     })
   } catch (error: any) {
     return NextResponse.json(

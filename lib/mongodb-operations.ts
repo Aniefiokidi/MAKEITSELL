@@ -411,7 +411,7 @@ ServiceSchema.index(
   { weights: { title: 10, category: 5, subcategory: 3, providerName: 3, tags: 3, description: 1 }, name: 'ServiceTextIndex' }
 );
 
-const ServiceModel = (mongoose.models.Service as any) || mongoose.model('Service', ServiceSchema);
+export const ServiceModel = (mongoose.models.Service as any) || mongoose.model('Service', ServiceSchema);
 
 const slugifyPublic = (value: string): string => {
   return String(value || '')

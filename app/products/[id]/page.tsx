@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react"
 import { notFound, useParams } from "next/navigation"
 import Image from "next/image"
-import { Heart } from "lucide-react"
+import { Heart, Bell } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { trackFunnelEvent } from "@/lib/funnel-tracker"
 import { trackProductQuickView } from "@/lib/personalization"
@@ -272,12 +272,35 @@ export default function ProductPage() {
                 </span>
               </div>
 
-              <button
-                className="w-full bg-accent text-white font-bold py-3 px-4 rounded-lg hover:bg-accent/90 transition disabled:opacity-60 disabled:cursor-not-allowed"
-                disabled={isOutOfStock || product.status !== "active"}
-              >
-                {isOutOfStock ? "Out of Stock" : "Add to Cart"}
-              </button>
+              {isOutOfStock ? (
+                <button
+                  onClick={() =>
+                    wishlist.toggle({
+                      productId: String(product.id || productId),
+                      title: product.title || product.name,
+                      price: Number(product.price || 0),
+                      image: product.images?.[0] || "",
+                      vendorId: String(product.vendorId || ""),
+                      category: product.category || "",
+                    })
+                  }
+                  className={`w-full font-bold py-3 px-4 rounded-lg transition flex items-center justify-center gap-2 ${
+                    isInWishlist
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+                      : "bg-accent text-white hover:bg-accent/90"
+                  }`}
+                >
+                  <Bell className="w-4 h-4" />
+                  {isInWishlist ? "We'll notify you when it's back" : "Notify Me When Back In Stock"}
+                </button>
+              ) : (
+                <button
+                  className="w-full bg-accent text-white font-bold py-3 px-4 rounded-lg hover:bg-accent/90 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                  disabled={product.status !== "active"}
+                >
+                  Add to Cart
+                </button>
+              )}
             </div>
           </div>
         </div>

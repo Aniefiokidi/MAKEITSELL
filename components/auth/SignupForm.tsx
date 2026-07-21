@@ -111,6 +111,18 @@ export default function SignupForm() {
       if (stored) setPendingReferralVendorId(stored)
     } catch {}
   }, [])
+
+  // Track the referral link click itself (separate from attribution, which is only
+  // recorded once the referred person actually signs up)
+  useEffect(() => {
+    if (!urlRefCode) return
+    fetch('/api/referral/track-click', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: urlRefCode }),
+      keepalive: true,
+    }).catch(() => {})
+  }, [urlRefCode])
   const [error, setError] = useState(
     signupError ? "Your signup session could not be completed. Please try again." :
     ""

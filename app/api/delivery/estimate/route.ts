@@ -35,8 +35,22 @@ export async function POST(request: NextRequest) {
     let hasTbd = false
     const breakdown: Array<{ vendorId: string; storeName: string; cost: number | null; source: 'matrix' | 'tbd' }> = []
 
+    // Same min/max business-day windows shown on the order-tracking timeline (1-2 days
+    // same-state, 3-5 interstate) — aggregated across every vendor in the cart so the
+    // checkout day-picker covers the earliest-possible to latest-possible arrival.
+    let aggMinDays: number | null = null
+    let aggMaxDays: number | null = null
+    const customerState = String(customerAddress?.state || '').trim().toLowerCase()
+
     for (const vendorId of vendorIds) {
       const store = storeByVendorId.get(vendorId)
+      const vendorState = String(store?.state || '').trim().toLowerCase()
+      const isSameState = Boolean(vendorState && customerState && vendorState === customerState)
+      const vendorMinDays = isSameState ? 1 : 3
+      const vendorMaxDays = isSameState ? 2 : 5
+      aggMinDays = aggMinDays === null ? vendorMinDays : Math.min(aggMinDays, vendorMinDays)
+      aggMaxDays = aggMaxDays === null ? vendorMaxDays : Math.max(aggMaxDays, vendorMaxDays)
+
       const pickupAddressText = String(store?.address || '')
 
       const matrixCost = estimateShippingFee({
@@ -75,6 +89,8 @@ export async function POST(request: NextRequest) {
         hasTbd,
         source: hasTbd ? 'tbd' : 'matrix',
         breakdown,
+        minDays: aggMinDays ?? 1,
+        maxDays: aggMaxDays ?? 5,
       },
     })
   } catch (error) {

@@ -12,6 +12,7 @@ export interface IProduct extends Document {
   category?: string;
   subcategory?: string;
   stock?: number;
+  lowStockThreshold?: number;
   sku?: string;
   featured?: boolean;
   status?: 'active' | 'inactive' | 'out_of_stock';
@@ -37,6 +38,7 @@ const ProductSchema = new Schema<IProduct>({
   category: { type: String },
   subcategory: { type: String },
   stock: { type: Number, default: 0 },
+  lowStockThreshold: { type: Number, default: 3 },
   sku: { type: String },
   featured: { type: Boolean, default: false },
   status: { type: String, enum: ['active', 'inactive', 'out_of_stock'], default: 'active' },

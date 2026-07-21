@@ -26,6 +26,10 @@ export interface IOrder extends Document {
   disputeClaimedByEmail?: string;
   disputeClaimedByName?: string;
   disputeClaimedAt?: Date;
+  customerDisputeReason?: string;
+  customerDisputeDescription?: string;
+  customerDisputeEvidence?: string[];
+  customerDisputeSubmittedAt?: Date;
   escrowReminderSentAt?: Date;
   refundedAt?: Date;
   refundedByAdminId?: string;
@@ -65,6 +69,10 @@ const OrderSchema = new Schema<IOrder>({
   disputeClaimedByEmail: { type: String },
   disputeClaimedByName: { type: String },
   disputeClaimedAt: { type: Date },
+  customerDisputeReason: { type: String },
+  customerDisputeDescription: { type: String },
+  customerDisputeEvidence: { type: [String], default: [] },
+  customerDisputeSubmittedAt: { type: Date },
   escrowReminderSentAt: { type: Date, index: true },
   refundedAt: { type: Date },
   refundedByAdminId: { type: String, index: true },

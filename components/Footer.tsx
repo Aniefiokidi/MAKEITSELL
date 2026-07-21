@@ -1,10 +1,40 @@
 import Link from "next/link"
 import { Facebook, Instagram, Mail, Phone } from "lucide-react"
+import { getCachedPayload, setCachedPayload, cacheNamespaces } from "@/lib/cache-store"
+import { getPopularProductLandingPages, getPopularServiceLandingPages } from "@/lib/seo-category-pages"
 
 const SUPPORT_PHONE = "+234 707 826 7836"
 const SUPPORT_WHATSAPP_URL = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP_URL || "https://wa.me/2347078267836"
 
-export default function Footer() {
+// Footer renders on every page, so these SEO landing-page links are cached for an hour —
+// the underlying aggregations are too heavy to re-run on every single page view, and the
+// underlying inventory doesn't change fast enough to need anything fresher.
+async function getPopularSearchLinks() {
+  const cacheKey = 'v1'
+  const cached = await getCachedPayload<{ label: string; href: string }[]>(cacheNamespaces.popularLandingPages, cacheKey)
+  if (cached) return cached
+
+  try {
+    const [products, services] = await Promise.all([
+      getPopularProductLandingPages(6).catch(() => []),
+      getPopularServiceLandingPages(6).catch(() => []),
+    ])
+
+    const links = [
+      ...products.map((p) => ({ label: `Buy ${p.categoryName} in ${p.state}`, href: `/buy/${p.category}/${p.stateSlug}` })),
+      ...services.map((s) => ({ label: `Book a ${s.categoryName} in ${s.state}`, href: `/book/${s.category}/${s.stateSlug}` })),
+    ]
+
+    await setCachedPayload(cacheNamespaces.popularLandingPages, cacheKey, links, 3600)
+    return links
+  } catch {
+    return []
+  }
+}
+
+export default async function Footer() {
+  const popularSearches = await getPopularSearchLinks()
+
   return (
     <footer className="bg-muted/50 border-t">
       <div className="container mx-auto px-[clamp(0.875rem,3.8vw,1.5rem)] py-[clamp(1.75rem,7vw,2.5rem)]">
@@ -68,6 +98,7 @@ export default function Footer() {
               <li><Link href="/contact" className="text-accent">Help</Link></li>
               <li><Link href="/contact?tab=contact" className="text-accent">Contact Team</Link></li>
               <li><Link href="/contact?tab=support" className="text-accent">Support Center</Link></li>
+              <li><Link href="/trust" className="text-accent">Trust & Safety</Link></li>
               <li><Link href="/returns" className="text-accent">Returns & Refunds</Link></li>
               <li><Link href="/shipping" className="text-accent">Shipping Info</Link></li>
             </ul>
@@ -96,6 +127,20 @@ export default function Footer() {
             </ul>
           </div>
         </div>
+
+        {/* Popular Searches */}
+        {popularSearches.length > 0 && (
+          <div className="border-t mt-[clamp(1.5rem,6vw,2.5rem)] pt-[clamp(1rem,4vw,1.5rem)]">
+            <h3 className="font-semibold mb-3 text-[clamp(0.9rem,3.8vw,1rem)] text-center sm:text-left text-accent">Popular Searches</h3>
+            <div className="flex flex-wrap justify-center sm:justify-start gap-x-4 gap-y-1.5 text-[clamp(0.78rem,3.2vw,0.85rem)]">
+              {popularSearches.map((link) => (
+                <Link key={link.href} href={link.href} className="text-accent/80 hover:text-accent">
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Bottom Section */}
         <div className="border-t mt-[clamp(1.5rem,6vw,2.5rem)] pt-[clamp(1rem,4vw,1.5rem)] flex flex-col md:flex-row justify-between items-center text-center md:text-left gap-3">

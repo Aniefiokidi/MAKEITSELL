@@ -8,7 +8,18 @@ import { Button } from "@/components/ui/button"
 import Header from "@/components/Header"
 import Link from "next/link"
 import { useNotification } from "@/contexts/NotificationContext"
-import { Package, Truck, CheckCircle2, Clock, ShieldCheck, MapPin } from "lucide-react"
+import { Package, Truck, CheckCircle2, Clock, ShieldCheck, MapPin, AlertTriangle, Camera, X } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import { uploadToCloudinary } from "@/lib/cloudinary"
+
+const DISPUTE_REASONS = [
+  { value: 'item_not_received', label: 'Item not received' },
+  { value: 'item_damaged', label: 'Item arrived damaged' },
+  { value: 'item_different', label: 'Item different from description' },
+  { value: 'other', label: 'Other issue' },
+]
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -65,8 +76,81 @@ export default function CustomerOrdersPage() {
   const [cancellingId, setCancellingId] = useState<string | null>(null)
   const [tab, setTab] = useState<'ongoing' | 'completed' | 'cancelled'>('ongoing')
   const [trackingByRowId, setTrackingByRowId] = useState<Record<string, { trackingToken: string; status: string }>>({})
+  const [disputeModalOrderId, setDisputeModalOrderId] = useState<string | null>(null)
+  const [disputeReason, setDisputeReason] = useState('')
+  const [disputeDescription, setDisputeDescription] = useState('')
+  const [disputeFiles, setDisputeFiles] = useState<File[]>([])
+  const [disputePreviews, setDisputePreviews] = useState<string[]>([])
+  const [disputeSubmitting, setDisputeSubmitting] = useState(false)
 
   const formatCurrency = (amount: number) => amount.toLocaleString('en-NG')
+
+  const closeDisputeModal = () => {
+    setDisputeModalOrderId(null)
+    setDisputeReason('')
+    setDisputeDescription('')
+    setDisputeFiles([])
+    setDisputePreviews([])
+  }
+
+  const handleDisputeFileSelect = (files: FileList | null) => {
+    if (!files) return
+    const newFiles = Array.from(files).slice(0, 3 - disputeFiles.length)
+    if (newFiles.length === 0) return
+    setDisputeFiles(prev => [...prev, ...newFiles].slice(0, 3))
+    setDisputePreviews(prev => [...prev, ...newFiles.map(f => URL.createObjectURL(f))].slice(0, 3))
+  }
+
+  const removeDisputeFile = (idx: number) => {
+    setDisputeFiles(prev => prev.filter((_, i) => i !== idx))
+    setDisputePreviews(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  const submitDispute = async () => {
+    if (!disputeModalOrderId) return
+    if (!disputeReason) {
+      notifyError('Please select a reason')
+      return
+    }
+    if (!disputeDescription.trim()) {
+      notifyError('Please describe the issue')
+      return
+    }
+    setDisputeSubmitting(true)
+    try {
+      const evidenceUrls = disputeFiles.length > 0
+        ? await Promise.all(disputeFiles.map(f => uploadToCloudinary(f)))
+        : []
+
+      const res = await fetch('/api/orders/dispute', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: disputeModalOrderId,
+          reason: disputeReason,
+          description: disputeDescription.trim(),
+          evidenceUrls,
+        }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setOrders(prev => prev.map(o =>
+          (o.orderId || o.id) === disputeModalOrderId
+            ? { ...o, disputeStatus: 'active', disputeRaisedAt: new Date().toISOString() }
+            : o
+        ))
+        success('Dispute submitted', json.message)
+        closeDisputeModal()
+      } else {
+        notifyError(json.error || 'Failed to submit dispute')
+      }
+    } catch (e: any) {
+      notifyError(e?.message || 'Failed to submit dispute')
+    } finally {
+      setDisputeSubmitting(false)
+    }
+  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -362,7 +446,9 @@ export default function CustomerOrdersPage() {
                         {order.paymentStatus === 'escrow' && <ShieldCheck className="h-3.5 w-3.5 shrink-0" />}
                         {paymentBadge.label}
                         {order.paymentStatus === 'escrow' && (
-                          <span className="ml-auto opacity-70">Held securely</span>
+                          <Link href="/trust" className="ml-auto opacity-70 hover:opacity-100 underline underline-offset-2">
+                            Held securely
+                          </Link>
                         )}
                       </div>
                     )}
@@ -374,7 +460,8 @@ export default function CustomerOrdersPage() {
                           const stageIdx = statusOrder.indexOf(stage.key)
                           const isPast = isCancelled ? stage.key === 'pending' : stageIdx < currentIdx
                           const isCurrent = stage.key === order.status || (stage.key === 'shipped' && order.status === 'shipped_interstate')
-                          const stageDate = (order as any)[stage.dateField] || (stage.dateField === 'createdAt' ? order.createdAt : null)
+                          const vendorStageDate = order.vendor ? (order.vendor as any)[stage.dateField] : null
+                          const stageDate = vendorStageDate || (order as any)[stage.dateField] || (stage.dateField === 'createdAt' ? order.createdAt : null)
                           const formattedDate = stageDate
                             ? new Date(stageDate).toLocaleDateString('en-NG', { day: 'numeric', month: 'short' })
                             : null
@@ -438,6 +525,31 @@ export default function CustomerOrdersPage() {
                             </Button>
                           </Link>
                         )
+                      })()}
+                      {/* Report a problem / dispute status */}
+                      {(() => {
+                        const oid = order._parentOrderId || order.orderId || order.id
+                        const isDisputed = Boolean(order.disputeRaisedAt) || String(order.disputeStatus || '').toLowerCase() === 'active'
+                        if (isDisputed) {
+                          return (
+                            <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 flex items-start gap-2">
+                              <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                              <div>
+                                <p className="text-xs font-semibold text-amber-800">Dispute submitted — under review</p>
+                                <p className="text-[11px] text-amber-700 mt-0.5">Your payment is on hold while our team looks into this.</p>
+                              </div>
+                            </div>
+                          )
+                        }
+                        if (order.paymentStatus === 'escrow') {
+                          return (
+                            <Button size="sm" variant="outline" className="w-full border-amber-400/50 text-amber-700 hover:bg-amber-500 hover:text-white"
+                              onClick={() => setDisputeModalOrderId(oid)}>
+                              <AlertTriangle className="h-3.5 w-3.5 mr-1.5" /> Report a Problem
+                            </Button>
+                          )
+                        }
+                        return null
                       })()}
                       {/* Cancel */}
                       {!['out_for_delivery','delivered','received','cancelled','refunded','completed'].includes(order.status) && (
@@ -587,6 +699,81 @@ export default function CustomerOrdersPage() {
             </div>
           )}
         </main>
+
+        <Dialog open={!!disputeModalOrderId} onOpenChange={(open) => { if (!open) closeDisputeModal() }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Report a Problem</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                This puts your payment on hold and notifies our team — don't confirm receipt of this order until it's resolved.
+              </p>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">What went wrong? *</label>
+                <Select value={disputeReason} onValueChange={setDisputeReason}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a reason" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DISPUTE_REASONS.map(r => (
+                      <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Describe the issue *</label>
+                <Textarea
+                  rows={4}
+                  value={disputeDescription}
+                  onChange={(e) => setDisputeDescription(e.target.value)}
+                  placeholder="Tell us what happened..."
+                  disabled={disputeSubmitting}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Photo evidence (optional, up to 3)</label>
+                <div className="flex flex-wrap gap-2">
+                  {disputePreviews.map((src, idx) => (
+                    <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-border">
+                      <img src={src} alt={`Evidence ${idx + 1}`} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeDisputeFile(idx)}
+                        className="absolute top-0.5 right-0.5 bg-black/60 rounded-full p-0.5"
+                      >
+                        <X className="h-3 w-3 text-white" />
+                      </button>
+                    </div>
+                  ))}
+                  {disputeFiles.length < 3 && (
+                    <label className="w-16 h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center cursor-pointer hover:border-accent transition-colors">
+                      <Camera className="h-5 w-5 text-muted-foreground" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => handleDisputeFileSelect(e.target.files)}
+                        disabled={disputeSubmitting}
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={closeDisputeModal} disabled={disputeSubmitting}>Cancel</Button>
+              <Button onClick={submitDispute} disabled={disputeSubmitting} className="bg-amber-600 hover:bg-amber-700 text-white">
+                {disputeSubmitting ? 'Submitting…' : 'Submit Dispute'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
     </div>
   )
 }

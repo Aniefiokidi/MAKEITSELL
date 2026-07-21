@@ -65,11 +65,17 @@ export default function OrderDetailsSlider({ open, onOpenChange, order, onStatus
             <div className="text-sm text-muted-foreground mb-2">Placed on {order.createdAt ? (typeof order.createdAt === 'string' ? new Date(order.createdAt).toLocaleDateString() : order.createdAt?.toLocaleDateString?.()) : "Unknown date"}</div>
           </div>
           <div className="border-b border-white/10 pb-4 mb-4">
-            <div className="font-semibold text-lg mb-2 text-accent">Customer Info</div>
+            <div className="font-semibold text-lg mb-2 text-accent flex items-center gap-2">
+              {shipping.isGiftOrder ? "Recipient Info" : "Customer Info"}
+              {shipping.isGiftOrder && <Badge variant="secondary">🎁 Gift order</Badge>}
+            </div>
             <div className="mb-1"><span className="font-medium">Name:</span> {`${shipping.firstName || ""} ${shipping.lastName || ""}`.trim() || order.customerName || "N/A"}</div>
             <div className="mb-1"><span className="font-medium">Email:</span> {shipping.email || order.customerEmail || "N/A"}</div>
             <div className="mb-1"><span className="font-medium">Phone:</span> {shipping.phone || order.customerPhone || "N/A"}</div>
             <div className="mb-1"><span className="font-medium">Address:</span> {shipping.address || "N/A"}</div>
+            {shipping.isGiftOrder && shipping.payerPhone && (
+              <div className="mb-1"><span className="font-medium">Buyer's phone (if you need the account holder):</span> {shipping.payerPhone}</div>
+            )}
           </div>
           <div className="border-b border-white/10 pb-4 mb-4">
             <div className="font-semibold text-lg mb-2 text-accent">Order Items</div>

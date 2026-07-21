@@ -158,4 +158,5 @@ export const cacheNamespaces = {
   productsDetail: 'products-detail',
   servicesList: 'services-list',
   servicesDetail: 'services-detail',
+  popularLandingPages: 'popular-landing-pages',
 } as const

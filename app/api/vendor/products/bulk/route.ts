@@ -5,6 +5,7 @@ import { Product } from "@/lib/models/Product"
 import { cacheNamespaces, invalidateCacheNamespace } from "@/lib/cache-store"
 import { syncStreakFloor } from "@/lib/streak/calculateFloor"
 import { checkWishlistPriceDrops } from "@/lib/wishlist-price-alerts"
+import { checkWishlistRestock } from "@/lib/wishlist-restock-alerts"
 
 type BulkPayload = {
   productIds?: string[]
@@ -64,11 +65,14 @@ export async function PATCH(request: NextRequest) {
       query.vendorId = user.id
     }
 
-    // Snapshot prices before the write — need the "before" price to know which of these
-    // are actually drops (a bulk update can apply the same new price to products that
-    // were both above and below it).
+    // Snapshot prices/stock before the write — need the "before" values to know which of
+    // these actually crossed a threshold (a bulk update can apply the same new value to
+    // products that were on either side of it).
     const beforePrices = ("price" in allowedUpdates)
       ? await Product.find(query).select("price title name").lean()
+      : []
+    const beforeStocks = ("stock" in allowedUpdates)
+      ? await Product.find(query).select("stock title name").lean()
       : []
 
     const result = await Product.updateMany(query, { $set: allowedUpdates })
@@ -82,6 +86,13 @@ export async function PATCH(request: NextRequest) {
         if (newPrice > 0 && newPrice < Number(p.price || 0)) {
           void checkWishlistPriceDrops(String(p._id), newPrice, p.title || p.name)
         }
+      }
+    }
+
+    if ("stock" in allowedUpdates) {
+      const newStock = Number(allowedUpdates.stock)
+      for (const p of beforeStocks as any[]) {
+        void checkWishlistRestock(String(p._id), Number(p.stock || 0), newStock, p.title || p.name)
       }
     }
 
