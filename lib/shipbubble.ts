@@ -215,12 +215,14 @@ export async function getShipbubbleWalletBalance(): Promise<{ balance: number; c
 }
 
 /**
- * Verifies the x-ship-signature header (HMAC-SHA512, SHIPBUBBLE_WEBHOOK_SECRET as key)
- * against the raw request body — per Shipbubble's webhook docs. Must be computed over
- * the raw (unparsed) body, not the re-serialized JSON, or the signature won't match.
+ * Verifies the x-ship-signature header (HMAC-SHA512) against the raw request body — per
+ * Shipbubble's webhook docs. Their dashboard's API settings page has no separate webhook
+ * secret field (only the API key and the webhook URL), so the API key itself is the
+ * signing key. Must be computed over the raw (unparsed) body, not the re-serialized
+ * JSON, or the signature won't match.
  */
 export function verifyShipbubbleWebhookSignature(rawBody: string, signatureHeader: string | null): boolean {
-  const secret = String(process.env.SHIPBUBBLE_WEBHOOK_SECRET || '').trim()
+  const secret = getApiKey()
   if (!secret || !signatureHeader) return false
 
   const expected = crypto.createHmac('sha512', secret).update(rawBody).digest('hex')
