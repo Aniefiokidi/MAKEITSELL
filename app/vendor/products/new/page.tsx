@@ -95,6 +95,7 @@ export default function NewProduct() {
     featured: false,
     hasColorOptions: false,
     hasSizeOptions: false,
+    weightKg: "",
   })
   const [images, setImages] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
@@ -298,6 +299,7 @@ export default function NewProduct() {
           colors: colors,
           sizes: sizes,
           colorImages: colorImageUrls,
+          weightKg: formData.weightKg ? Number(formData.weightKg) : undefined,
         })
       })
 
@@ -478,6 +480,22 @@ export default function NewProduct() {
                   <p className="text-xs text-muted-foreground">We'll email and push-notify you when stock drops to this level or below.</p>
                 </div>
               )}
+
+              <div className="space-y-2">
+                <Label htmlFor="weightKg">Weight (kg)</Label>
+                <Input
+                  id="weightKg"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  placeholder="1"
+                  value={formData.weightKg}
+                  onChange={(e) => handleInputChange("weightKg", e.target.value)}
+                  disabled={loading}
+                  className="max-w-40"
+                />
+                <p className="text-xs text-muted-foreground">Optional — helps us quote accurate delivery rates. Leave blank to use a standard estimate.</p>
+              </div>
 
               <div className="flex items-center space-x-2">
                 <Checkbox

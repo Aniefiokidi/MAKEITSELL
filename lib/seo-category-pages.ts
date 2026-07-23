@@ -1,6 +1,7 @@
 import connectToDatabase from '@/lib/mongodb'
 import { Product } from '@/lib/models/Product'
 import { Store } from '@/lib/models/Store'
+import { Review } from '@/lib/models/Review'
 import { ServiceModel } from '@/lib/mongodb-operations'
 import { NIGERIA_STATES } from '@/lib/nigeria-locations'
 
@@ -285,4 +286,29 @@ export async function getStatesWithServiceInventory(categorySlug: string, exclud
     counts.set(state, (counts.get(state) || 0) + Number(row.count || 0))
   }
   return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, limit).map(([state]) => state)
+}
+
+export type RatingSummary = { average: number; count: number }
+
+// Real review aggregates only — structured data must never show a fabricated or
+// default rating, so callers should simply omit aggregateRating for any id missing
+// from the returned map rather than falling back to a placeholder value.
+export async function getProductRatings(productIds: string[]): Promise<Map<string, RatingSummary>> {
+  if (productIds.length === 0) return new Map()
+  await connectToDatabase()
+  const rows = await Review.aggregate([
+    { $match: { productId: { $in: productIds } } },
+    { $group: { _id: '$productId', average: { $avg: '$rating' }, count: { $sum: 1 } } },
+  ])
+  return new Map((rows as any[]).map((r) => [String(r._id), { average: Number(r.average.toFixed(1)), count: r.count }]))
+}
+
+export async function getServiceRatings(serviceIds: string[]): Promise<Map<string, RatingSummary>> {
+  if (serviceIds.length === 0) return new Map()
+  await connectToDatabase()
+  const rows = await Review.aggregate([
+    { $match: { serviceId: { $in: serviceIds } } },
+    { $group: { _id: '$serviceId', average: { $avg: '$rating' }, count: { $sum: 1 } } },
+  ])
+  return new Map((rows as any[]).map((r) => [String(r._id), { average: Number(r.average.toFixed(1)), count: r.count }]))
 }

@@ -17,6 +17,7 @@ import { createStore } from "@/lib/database-client"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import LocationPicker from "@/components/LocationPicker"
 import { NIGERIA_STATE_CITY_OPTIONS, NIGERIA_STATES } from "@/lib/nigeria-locations"
+import { trackReferralClick } from "@/lib/referral-attribution"
 
 const COUNTRY_CODES = [
   { code: "+234", label: "Nigeria (+234)" },
@@ -115,13 +116,7 @@ export default function SignupForm() {
   // Track the referral link click itself (separate from attribution, which is only
   // recorded once the referred person actually signs up)
   useEffect(() => {
-    if (!urlRefCode) return
-    fetch('/api/referral/track-click', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: urlRefCode }),
-      keepalive: true,
-    }).catch(() => {})
+    trackReferralClick(urlRefCode)
   }, [urlRefCode])
   const [error, setError] = useState(
     signupError ? "Your signup session could not be completed. Please try again." :

@@ -11,6 +11,7 @@ import { Loader2, MapPin, Phone, Package, RefreshCw } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import LogisticsLayout from "@/components/logistics/LogisticsLayout"
 import { logisticsEmailAllowedForRegion, resolveLogisticsRegion } from "@/lib/logistics-access"
+import RetiredFeatureNotice from "@/components/RetiredFeatureNotice"
 
 type LogisticsOrder = {
   rowId: string
@@ -43,6 +44,13 @@ type LogisticsOrder = {
 const region = resolveLogisticsRegion("lagos")
 
 export default function LogisticsReferencePage() {
+  return (
+    <RetiredFeatureNotice
+      title="Logistics reference retired"
+      message="Deliveries are now dispatched and tracked automatically through Shipbubble. This page is no longer in use."
+    />
+  )
+
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
 

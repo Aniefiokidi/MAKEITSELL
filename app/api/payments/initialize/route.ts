@@ -8,12 +8,12 @@ import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { Store } from '@/lib/models/Store'
 import crypto from 'crypto'
 import { calculatePaystackCheckoutAmounts } from '@/lib/paystack-charges'
-import { estimateShippingFee } from '@/lib/aco-logistics-rates'
 import { getCanonicalAppBaseUrl } from '@/lib/app-url'
 import { sendOrderPlacementNotifications } from '@/lib/order-notifications'
 import { Product } from '@/lib/models/Product'
 import { maybeSendLowStockAlert } from '@/lib/stock-alerts'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
+import { createShipmentsForOrder } from '@/lib/shipbubble-dispatch'
 
 async function deductStock(orderId: string) {
   try {
@@ -67,7 +67,8 @@ export async function POST(request: NextRequest) {
       items,
       shippingInfo,
       paymentMethod,
-      totalAmount: clientTotalAmount
+      totalAmount: clientTotalAmount,
+      shipbubbleSelections
     } = body
 
     // Always the caller's own session — never trust customerId from the body. This
@@ -161,41 +162,48 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const dropoffAddress = [
-      shippingInfo.address,
-      shippingInfo.city,
-      shippingInfo.state,
-      shippingInfo.country,
-    ].filter(Boolean).join(', ')
-
+    // Real courier selections captured at checkout (app/checkout/page.tsx) — each vendor
+    // must have picked a Shipbubble courier there before an order can be created. There is
+    // no server-side fallback rate lookup here: trusting the already-quoted total the
+    // customer saw at checkout mirrors how `resolvedShipping` already worked client-side.
     let shipping = 0
-    let hasTbdShipping = false
+    const missingCourierVendors: string[] = []
 
     for (const vendor of Array.from(vendorOrders.values()) as any[]) {
       const store = storeById.get(String(vendor?.storeId || '')) || storeByVendorId.get(String(vendor?.vendorId || ''))
       const pickupAddress = String(store?.address || '')
-      const shippingFee = estimateShippingFee({
-        pickupAddress,
-        dropoffAddress,
-        pickupCity: String(store?.city || ''),
-        pickupState: String(store?.state || ''),
-        dropoffCity: String(shippingInfo?.city || ''),
-        dropoffState: String(shippingInfo?.state || ''),
-      })
-
       vendor.storeId = vendor.storeId || store?._id?.toString?.() || ''
       vendor.storeAddress = pickupAddress || ''
       vendor.storeState = String(store?.state || '')
-      vendor.shippingFee = shippingFee
-      vendor.shippingFeeLabel = shippingFee == null ? 'TBD' : `NGN ${Number(shippingFee).toLocaleString('en-NG')}`
 
-      if (typeof shippingFee === 'number') {
-        shipping += shippingFee
-      } else {
-        hasTbdShipping = true
+      const selection = shipbubbleSelections?.[vendor.vendorId]
+      const requestToken = String(selection?.requestToken || '').trim()
+      const serviceCode = String(selection?.serviceCode || '').trim()
+      const courierId = String(selection?.courierId || '').trim()
+      const shippingFee = Number(selection?.total)
+
+      if (!requestToken || !serviceCode || !courierId || !Number.isFinite(shippingFee)) {
+        missingCourierVendors.push(vendor.vendorName || vendor.vendorId)
+        continue
       }
+
+      vendor.shippingFee = shippingFee
+      vendor.shippingFeeLabel = `NGN ${shippingFee.toLocaleString('en-NG')}`
+      vendor.shipbubbleRequestToken = requestToken
+      vendor.shipbubbleServiceCode = serviceCode
+      vendor.shipbubbleCourierId = courierId
+      vendor.shipbubbleCourierName = String(selection?.courierName || '')
+      shipping += shippingFee
     }
 
+    if (missingCourierVendors.length > 0) {
+      return NextResponse.json(
+        { success: false, error: `Please select a delivery courier for: ${missingCourierVendors.join(', ')}` },
+        { status: 400 }
+      )
+    }
+
+    const hasTbdShipping = false
     const computedTotalAmount = subtotal + vat + shipping
 
     const normalizedDropoffState = String(shippingInfo?.state || '').trim().toLowerCase()
@@ -436,6 +444,7 @@ export async function POST(request: NextRequest) {
 
       console.log('[WALLET] Order updated to confirmed')
       await deductStock(orderId)
+      await createShipmentsForOrder(orderId).catch((err) => console.error('[WALLET] Shipbubble dispatch failed:', err))
 
       const paidOrder = await getOrderById(orderId)
       if (paidOrder) {

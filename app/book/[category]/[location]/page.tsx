@@ -2,13 +2,17 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import Header from "@/components/Header"
+import { JsonLd } from "@/components/seo/JsonLd"
 import { optimizedImageUrl } from "@/lib/cloudinary-url"
 import {
   SERVICE_CATEGORY_NAMES,
+  getServiceRatings,
   getServicesForCategoryLocation,
   getStatesWithServiceInventory,
   resolveStateFromSlug,
 } from "@/lib/seo-category-pages"
+
+const SITE_URL = "https://www.makeitsell.ng"
 
 type Params = { category: string; location: string }
 
@@ -51,9 +55,56 @@ export default async function BookCategoryLocationPage({ params }: { params: Pro
   if (!data) notFound()
 
   const { categoryName, stateName, services, providerCount, otherStates } = data
+  const ratings = await getServiceRatings(services.map((s: any) => String(s._id)))
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+      { "@type": "ListItem", position: 2, name: "Services", item: `${SITE_URL}/services/categories` },
+      { "@type": "ListItem", position: 3, name: stateName, item: `${SITE_URL}/book/${resolved.category}/${resolved.location}` },
+    ],
+  }
+
+  const itemListJsonLd = services.length > 0 ? {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: services.map((s: any, idx: number) => {
+      const rating = ratings.get(String(s._id))
+      const serviceUrl = `${SITE_URL}/service/${String(s._id)}`
+      return {
+        "@type": "ListItem",
+        position: idx + 1,
+        item: {
+          "@type": "Service",
+          name: s.title || categoryName,
+          image: optimizedImageUrl(s.images?.[0], { width: 800 }),
+          url: serviceUrl,
+          areaServed: stateName,
+          ...(s.providerName ? { provider: { "@type": "Organization", name: s.providerName } } : {}),
+          offers: {
+            "@type": "Offer",
+            url: serviceUrl,
+            priceCurrency: "NGN",
+            price: Number(s.price || 0),
+          },
+          ...(rating ? {
+            aggregateRating: {
+              "@type": "AggregateRating",
+              ratingValue: rating.average,
+              reviewCount: rating.count,
+            },
+          } : {}),
+        },
+      }
+    }),
+  } : null
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      <JsonLd data={breadcrumbJsonLd} />
+      {itemListJsonLd && <JsonLd data={itemListJsonLd} />}
       <Header />
       <main className="flex-1">
         <div className="container mx-auto px-4 py-8 max-w-6xl">

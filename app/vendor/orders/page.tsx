@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Loader2, ShoppingCart, Package, Truck, CheckCircle, XCircle } from "lucide-react"
 import OrderDetailsSlider from "@/components/vendor/OrderDetailsSlider"
 import { useNotification } from "@/contexts/NotificationContext"
+import { computeVendorDeliveryFee } from "@/lib/order-display"
 
 export default function VendorOrdersPage() {
   const { user, loading: authLoading } = useAuth()
@@ -178,10 +179,7 @@ export default function VendorOrdersPage() {
                           return sum + (Number.isFinite(qty) ? qty : 0) * (Number.isFinite(unitPrice) ? unitPrice : 0)
                         }, 0)
                       : 0)
-                  const grossTotal = Number.isFinite(Number(order?.totalAmount)) ? Number(order.totalAmount) : productSubtotal
-                  const deliveryFee = Number.isFinite(Number(order?.deliveryFee))
-                    ? Number(order.deliveryFee)
-                    : Math.max(0, grossTotal - productSubtotal)
+                  const deliveryFee = computeVendorDeliveryFee(order, order.vendor)
                   const total = productSubtotal + deliveryFee
 
                   return (

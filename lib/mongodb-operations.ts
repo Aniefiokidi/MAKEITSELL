@@ -71,6 +71,14 @@ export const creditVendorWalletsForOrder = async (
 
   for (const vendorEntry of vendors) {
     try {
+      // A cancelled leg never gets paid, even once the rest of the order settles —
+      // legacy orders that never tracked a per-vendor status at all (status left
+      // undefined) still fall through and get credited as before.
+      if (String(vendorEntry?.status || '').trim().toLowerCase() === 'cancelled') {
+        skippedVendors += 1;
+        continue;
+      }
+
       const vendorId = String(vendorEntry?.vendorId || '').trim();
       if (!vendorId) {
         skippedVendors += 1;

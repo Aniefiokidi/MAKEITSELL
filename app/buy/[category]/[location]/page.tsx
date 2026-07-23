@@ -2,13 +2,17 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import Header from "@/components/Header"
+import { JsonLd } from "@/components/seo/JsonLd"
 import { optimizedImageUrl } from "@/lib/cloudinary-url"
 import {
+  getProductRatings,
   getProductsForCategoryLocation,
   getStatesWithProductInventory,
   resolveProductCategoryFromSlug,
   resolveStateFromSlug,
 } from "@/lib/seo-category-pages"
+
+const SITE_URL = "https://www.makeitsell.ng"
 
 type Params = { category: string; location: string }
 
@@ -52,9 +56,58 @@ export default async function BuyCategoryLocationPage({ params }: { params: Prom
   if (!data) notFound()
 
   const { categoryName, stateName, products, vendorCount, otherStates } = data
+  const ratings = await getProductRatings(products.map((p: any) => String(p._id)))
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+      { "@type": "ListItem", position: 2, name: categoryName, item: `${SITE_URL}/category/${resolved.category}` },
+      { "@type": "ListItem", position: 3, name: stateName, item: `${SITE_URL}/buy/${resolved.category}/${resolved.location}` },
+    ],
+  }
+
+  const itemListJsonLd = products.length > 0 ? {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: products.map((p: any, idx: number) => {
+      const rating = ratings.get(String(p._id))
+      const productUrl = `${SITE_URL}/products/${String(p._id)}`
+      return {
+        "@type": "ListItem",
+        position: idx + 1,
+        item: {
+          "@type": "Product",
+          name: p.name || p.title || categoryName,
+          image: optimizedImageUrl(p.images?.[0], { width: 800 }),
+          url: productUrl,
+          ...(p.vendorName ? { brand: { "@type": "Brand", name: p.vendorName } } : {}),
+          offers: {
+            "@type": "Offer",
+            url: productUrl,
+            priceCurrency: "NGN",
+            price: Number(p.price || 0),
+            availability: Number(p.stock || 0) > 0
+              ? "https://schema.org/InStock"
+              : "https://schema.org/OutOfStock",
+          },
+          ...(rating ? {
+            aggregateRating: {
+              "@type": "AggregateRating",
+              ratingValue: rating.average,
+              reviewCount: rating.count,
+            },
+          } : {}),
+        },
+      }
+    }),
+  } : null
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      <JsonLd data={breadcrumbJsonLd} />
+      {itemListJsonLd && <JsonLd data={itemListJsonLd} />}
       <Header />
       <main className="flex-1">
         <div className="container mx-auto px-4 py-8 max-w-6xl">

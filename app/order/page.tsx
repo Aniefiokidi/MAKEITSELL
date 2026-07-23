@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { uploadToCloudinary } from "@/lib/cloudinary"
+import { computeVendorDeliveryFee } from "@/lib/order-display"
 
 const DISPUTE_REASONS = [
   { value: 'item_not_received', label: 'Item not received' },
@@ -75,7 +76,6 @@ export default function CustomerOrdersPage() {
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null)
   const [cancellingId, setCancellingId] = useState<string | null>(null)
   const [tab, setTab] = useState<'ongoing' | 'completed' | 'cancelled'>('ongoing')
-  const [trackingByRowId, setTrackingByRowId] = useState<Record<string, { trackingToken: string; status: string }>>({})
   const [disputeModalOrderId, setDisputeModalOrderId] = useState<string | null>(null)
   const [disputeReason, setDisputeReason] = useState('')
   const [disputeDescription, setDisputeDescription] = useState('')
@@ -160,28 +160,6 @@ export default function CustomerOrdersPage() {
         const ordersResponse = await fetch(`/api/orders?customerId=${user.uid}`)
         const ordersResult = await ordersResponse.json()
         setOrders(Array.isArray(ordersResult) ? ordersResult : [])
-
-        const rowIds = new Set<string>();
-        (Array.isArray(ordersResult) ? ordersResult : []).forEach((order: any) => {
-          const orderId = order.orderId || order.id
-          if (Array.isArray(order.vendors)) {
-            order.vendors.forEach((vendor: any) => {
-              rowIds.add(`${orderId}:${vendor.vendorId || ''}`)
-            })
-          } else if (orderId) {
-            rowIds.add(`${orderId}:${order.storeId || ''}`)
-          }
-        })
-        if (rowIds.size > 0) {
-          fetch(`/api/riders/tracking-lookup?rowIds=${Array.from(rowIds).map(encodeURIComponent).join(',')}`, {
-            credentials: 'include',
-          })
-            .then((res) => res.json())
-            .then((json) => {
-              if (json?.success) setTrackingByRowId(json.tracking || {})
-            })
-            .catch(() => {})
-        }
 
         const productIds = new Set<string>()
         const vendorIds = new Set<string>();
@@ -374,9 +352,7 @@ export default function CustomerOrdersPage() {
                     ? Number(order.vendors.reduce((sum: number, v: any) => sum + Number(v?.total || 0), 0))
                     : Number(order.product?.price || 0) * Number(order.product?.quantity || 1))
                 const grossTotal = Number.isFinite(Number(order?.totalAmount)) ? Number(order.totalAmount) : productSubtotal
-                const deliveryFee = Number.isFinite(Number(order?.deliveryFee))
-                  ? Number(order.deliveryFee)
-                  : Math.max(0, grossTotal - productSubtotal)
+                const deliveryFee = computeVendorDeliveryFee(order, order.vendor)
                 const displayTotal = productSubtotal + deliveryFee
 
                 const paymentBadge = PAYMENT_BADGE[order.paymentStatus] || null
@@ -512,18 +488,17 @@ export default function CustomerOrdersPage() {
 
                     {/* Actions */}
                     <div className="px-4 pb-4 space-y-2">
-                      {/* Track delivery */}
+                      {/* Track delivery — Shipbubble's own tracking page for this vendor's shipment */}
                       {(() => {
-                        const rowVendorId = order.vendor?.vendorId || order.storeId || ''
-                        const rowId = `${order._parentOrderId}:${rowVendorId}`
-                        const tracking = trackingByRowId[rowId]
-                        if (!tracking || !['assigned', 'picked_up', 'en_route', 'arrived'].includes(tracking.status)) return null
+                        const trackingUrl = order.vendor?.shipbubbleTrackingUrl
+                        const shipStatus = String(order.vendor?.shipbubbleStatus || '').toLowerCase()
+                        if (!trackingUrl || !['confirmed', 'picked_up', 'in_transit'].includes(shipStatus)) return null
                         return (
-                          <Link href={`/track/${tracking.trackingToken}`}>
+                          <a href={trackingUrl} target="_blank" rel="noopener noreferrer">
                             <Button size="sm" variant="outline" className="w-full flex items-center gap-1.5">
                               <MapPin className="h-3.5 w-3.5" /> Track Your Delivery Live
                             </Button>
-                          </Link>
+                          </a>
                         )
                       })()}
                       {/* Report a problem / dispute status */}
@@ -552,32 +527,47 @@ export default function CustomerOrdersPage() {
                         return null
                       })()}
                       {/* Cancel */}
-                      {!['out_for_delivery','delivered','received','cancelled','refunded','completed'].includes(order.status) && (
-                        confirmCancelId === (order._parentOrderId || order.orderId || order.id) ? (
+                      {!['out_for_delivery','delivered','received','cancelled','refunded','completed'].includes(order.status) && (() => {
+                        const isMultiVendor = Array.isArray(order.vendors) && order.vendors.length > 1
+                        const rowVendorId = order.vendor?.vendorId || order.storeId || ''
+                        const cancelKey = `${order._parentOrderId || order.orderId || order.id}:${rowVendorId}`
+                        const cancelAmount = isMultiVendor ? productSubtotal : Number(order.totalAmount || 0)
+                        return confirmCancelId === cancelKey ? (
                           <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 space-y-2">
-                            <p className="text-xs font-semibold text-destructive">Cancel this order?</p>
+                            <p className="text-xs font-semibold text-destructive">{isMultiVendor ? 'Cancel this item?' : 'Cancel this order?'}</p>
                             <p className="text-xs text-muted-foreground">
                               {['escrow','completed','paid'].includes(order.paymentStatus)
-                                ? `₦${formatCurrency(Number(order.totalAmount || 0))} will be refunded to your wallet.`
+                                ? `₦${formatCurrency(cancelAmount)} will be refunded to your wallet.`
                                 : 'This action cannot be undone.'}
                             </p>
                             <div className="flex gap-2">
-                              <Button size="sm" variant="destructive" disabled={cancellingId === (order._parentOrderId || order.orderId || order.id)}
+                              <Button size="sm" variant="destructive" disabled={cancellingId === cancelKey}
                                 onClick={async () => {
                                   const oid = order._parentOrderId || order.orderId || order.id
-                                  setCancellingId(oid)
+                                  setCancellingId(cancelKey)
                                   try {
                                     const res = await fetch('/api/orders/cancel', {
                                       method: 'POST', credentials: 'include',
                                       headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ orderId: oid }),
+                                      body: JSON.stringify(isMultiVendor ? { orderId: oid, vendorId: rowVendorId } : { orderId: oid }),
                                     })
                                     const json = await res.json()
                                     if (json.success) {
-                                      setOrders(prev => prev.map(o =>
-                                        (o.orderId || o.id) === oid ? { ...o, status: 'cancelled', cancelledAt: new Date().toISOString() } : o
-                                      ))
-                                      success('Order cancelled', json.message)
+                                      setOrders(prev => prev.map(o => {
+                                        if ((o.orderId || o.id) !== oid) return o
+                                        if (isMultiVendor && Array.isArray(o.vendors)) {
+                                          return {
+                                            ...o,
+                                            vendors: o.vendors.map((v: any) =>
+                                              String(v.vendorId) === String(rowVendorId)
+                                                ? { ...v, status: 'cancelled', cancelledAt: new Date().toISOString() }
+                                                : v
+                                            ),
+                                          }
+                                        }
+                                        return { ...o, status: 'cancelled', cancelledAt: new Date().toISOString() }
+                                      }))
+                                      success(isMultiVendor ? 'Item cancelled' : 'Order cancelled', json.message)
                                     } else {
                                       notifyError(json.error || 'Failed to cancel order')
                                     }
@@ -588,35 +578,53 @@ export default function CustomerOrdersPage() {
                                     setConfirmCancelId(null)
                                   }
                                 }}>
-                                {cancellingId === (order._parentOrderId || order.orderId || order.id) ? 'Cancelling…' : 'Yes, Cancel'}
+                                {cancellingId === cancelKey ? 'Cancelling…' : 'Yes, Cancel'}
                               </Button>
                               <Button size="sm" variant="ghost" onClick={() => setConfirmCancelId(null)}>Keep Order</Button>
                             </div>
                           </div>
                         ) : (
                           <Button size="sm" variant="outline" className="w-full border-destructive/40 text-destructive hover:bg-destructive hover:text-white"
-                            onClick={() => setConfirmCancelId(order._parentOrderId || order.orderId || order.id)}>
-                            Cancel Order
+                            onClick={() => setConfirmCancelId(cancelKey)}>
+                            {isMultiVendor ? 'Cancel This Item' : 'Cancel Order'}
                           </Button>
                         )
-                      )}
+                      })()}
 
                       {/* Confirm receipt */}
                       {order.status === 'delivered' && (
                         <Button className="w-full bg-green-600 text-white hover:bg-green-700"
                           onClick={async () => {
+                            const isMultiVendor = Array.isArray(order.vendors) && order.vendors.length > 1
+                            const rowVendorId = order.vendor?.vendorId || order.storeId || ''
                             try {
                               const res = await fetch('/api/orders', {
                                 method: 'PATCH',
+                                credentials: 'include',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ orderId: order._parentOrderId || order.orderId || order.id, status: 'received' })
+                                body: JSON.stringify({
+                                  orderId: order._parentOrderId || order.orderId || order.id,
+                                  status: 'received',
+                                  ...(isMultiVendor ? { vendorId: rowVendorId } : {}),
+                                })
                               })
                               const json = await res.json()
                               if (json?.success) {
                                 const targetId = order._parentOrderId || order.orderId || order.id
-                                setOrders(prev => prev.map(o =>
-                                  (o.orderId || o.id) === targetId ? { ...o, status: 'received', receivedAt: new Date().toISOString() } : o
-                                ))
+                                setOrders(prev => prev.map(o => {
+                                  if ((o.orderId || o.id) !== targetId) return o
+                                  if (isMultiVendor && Array.isArray(o.vendors)) {
+                                    return {
+                                      ...o,
+                                      vendors: o.vendors.map((v: any) =>
+                                        String(v.vendorId) === String(rowVendorId)
+                                          ? { ...v, status: 'received', receivedAt: new Date().toISOString() }
+                                          : v
+                                      ),
+                                    }
+                                  }
+                                  return { ...o, status: 'received', receivedAt: new Date().toISOString() }
+                                }))
                                 success('Thanks! Marked as received')
                               } else {
                                 notifyError(json?.error || 'Failed to acknowledge receipt')

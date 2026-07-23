@@ -88,7 +88,7 @@ export async function sendOrderStatusChangeNotifications(orderId: string, order:
         items: vendor.items,
         total: vendor.total,
         productSubtotal: vendor.total,
-        deliveryFee: vendors.length === 1 ? overallDeliveryFee : 0,
+        deliveryFee: vendor.shippingFee ?? (vendors.length === 1 ? overallDeliveryFee : 0),
         shippingAddress: shippingInfo,
         role: 'vendor',
       })
@@ -112,6 +112,7 @@ type VendorBucket = {
   items: any[]
   total: number
   storeId?: string
+  shippingFee?: number
 }
 
 const toNumber = (value: unknown): number => {
@@ -173,6 +174,7 @@ const buildVendorBuckets = (order: OrderLike): VendorBucket[] => {
       items,
       total: toNumber(vendor?.total || sumItems(items)),
       storeId: String(vendor?.storeId || '').trim(),
+      shippingFee: Number.isFinite(Number(vendor?.shippingFee)) ? Number(vendor.shippingFee) : undefined,
     }
   }).filter((vendor: VendorBucket) => vendor.vendorId)
 }
@@ -296,7 +298,7 @@ export async function sendOrderPlacementNotifications(orderId: string, order: Or
         items: vendor.items,
         total: vendor.total,
         productSubtotal: vendor.total,
-        deliveryFee: vendors.length === 1 ? overallDeliveryFee : 0,
+        deliveryFee: vendor.shippingFee ?? (vendors.length === 1 ? overallDeliveryFee : 0),
         shippingAddress: shippingInfo,
         sendCustomerCopy: false,
         sendVendorCopy: true,
@@ -321,7 +323,7 @@ export async function sendOrderPlacementNotifications(orderId: string, order: Or
           orderId,
           amount: vendor.total,
           productSubtotal: vendor.total,
-          deliveryFee: vendors.length === 1 ? overallDeliveryFee : 0,
+          deliveryFee: vendor.shippingFee ?? (vendors.length === 1 ? overallDeliveryFee : 0),
           recipient: 'vendor',
           itemCount: vendorItemCount,
           counterpartyName: customerName,

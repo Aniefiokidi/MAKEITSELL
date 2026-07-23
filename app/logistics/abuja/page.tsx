@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import LogisticsLayout from "@/components/logistics/LogisticsLayout"
 import { logisticsEmailAllowedForRegion, resolveLogisticsRegion } from "@/lib/logistics-access"
 import AssignRiderModal from "@/components/logistics/AssignRiderModal"
+import RetiredFeatureNotice from "@/components/RetiredFeatureNotice"
 
 type LogisticsOrder = {
   rowId: string
@@ -47,6 +48,15 @@ type LogisticsOrder = {
 const region = resolveLogisticsRegion("abuja")
 
 export default function LogisticsPage() {
+  // Retired — deliveries are now dispatched automatically via Shipbubble. The manual
+  // Orah dashboard below is kept in place (not deleted) for a clean revert if ever needed.
+  return (
+    <RetiredFeatureNotice
+      title="Logistics dashboard retired"
+      message="Deliveries are now dispatched and tracked automatically through Shipbubble. This manual Orah dispatch dashboard is no longer in use."
+    />
+  )
+
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
 
@@ -320,10 +330,10 @@ export default function LogisticsPage() {
             if (!next) setAssignModalOrder(null)
           }}
           region="abuja"
-          orderId={assignModalOrder.orderId}
-          vendorId={assignModalOrder.vendorId}
-          storeId={assignModalOrder.storeId}
-          dropoffLocationHint={assignModalOrder.dropoffLocation}
+          orderId={assignModalOrder!.orderId}
+          vendorId={assignModalOrder!.vendorId}
+          storeId={assignModalOrder!.storeId}
+          dropoffLocationHint={assignModalOrder!.dropoffLocation}
           onAssigned={fetchOrders}
         />
       ) : null}

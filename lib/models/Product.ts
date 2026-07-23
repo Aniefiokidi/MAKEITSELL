@@ -22,6 +22,8 @@ export interface IProduct extends Document {
   colors?: string[];
   sizes?: string[];
   colorImages?: { [key: string]: string };
+  weightKg?: number;
+  dimensions?: { length: number; width: number; height: number };
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -48,6 +50,16 @@ const ProductSchema = new Schema<IProduct>({
   colors: { type: [String], default: [] },
   sizes: { type: [String], default: [] },
   colorImages: { type: Schema.Types.Mixed, default: {} },
+  // Optional — used for real shipping-rate quotes (Shipbubble). Left unset, rate
+  // requests fall back to a sensible default box + weight rather than failing.
+  weightKg: { type: Number },
+  dimensions: {
+    type: {
+      length: { type: Number },
+      width: { type: Number },
+      height: { type: Number },
+    },
+  },
 }, { timestamps: true });
 
 // Query indexes for high-traffic product listing/filter endpoints.

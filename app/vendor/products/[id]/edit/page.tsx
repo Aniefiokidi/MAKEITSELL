@@ -150,6 +150,7 @@ export default function ProductEditPage() {
           sizes: sizes,
           colorImages: colorImageUrls,
           images: product.images, // <-- persist reordered images
+          weightKg: product.weightKg !== undefined && product.weightKg !== "" ? Number(product.weightKg) : undefined,
         })
       })
       
@@ -331,6 +332,22 @@ export default function ProductEditPage() {
                   <p className="text-xs text-muted-foreground">We'll email and push-notify you when stock drops to this level or below.</p>
                 </div>
               )}
+
+              <div className="space-y-2">
+                <Label htmlFor="weightKg">Weight (kg)</Label>
+                <Input
+                  id="weightKg"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  placeholder="1"
+                  value={product.weightKg ?? ""}
+                  onChange={(e) => handleInputChange("weightKg", e.target.value)}
+                  disabled={saving}
+                  className="max-w-40"
+                />
+                <p className="text-xs text-muted-foreground">Optional — helps us quote accurate delivery rates. Leave blank to use a standard estimate.</p>
+              </div>
             </CardContent>
           </Card>
 

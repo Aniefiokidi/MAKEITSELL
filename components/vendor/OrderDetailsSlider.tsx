@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { computeVendorDeliveryFee } from "@/lib/order-display";
 
 export default function OrderDetailsSlider({ open, onOpenChange, order, onStatusUpdated }: { open: boolean; onOpenChange: (v: boolean) => void; order: any; onStatusUpdated?: () => void }) {
   if (!order) return null;
@@ -15,10 +16,7 @@ export default function OrderDetailsSlider({ open, onOpenChange, order, onStatus
           return sum + (Number.isFinite(qty) ? qty : 0) * (Number.isFinite(unitPrice) ? unitPrice : 0)
         }, 0)
       : 0)
-  const grossTotal = Number.isFinite(Number(order?.totalAmount)) ? Number(order.totalAmount) : productSubtotal
-  const deliveryFee = Number.isFinite(Number(order?.deliveryFee))
-    ? Number(order.deliveryFee)
-    : Math.max(0, grossTotal - productSubtotal)
+  const deliveryFee = computeVendorDeliveryFee(order, order.vendor)
   const total = productSubtotal + deliveryFee
 
   // Countdown timer for escrow auto-release

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getOrders, getOrderById, releaseEscrowForOrder, updateOrder } from '@/lib/mongodb-operations'
 import { sendOrderStatusChangeNotifications } from '@/lib/order-notifications'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
+import { applyOrderVendorStatus, resolveOrderVendorTarget } from '@/lib/order-vendor-status'
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,7 +40,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { orderId, status } = body || {}
+    const { orderId, status, vendorId: rawVendorId, storeId: rawStoreId } = body || {}
     if (!orderId || !status) {
       return NextResponse.json({ error: 'orderId and status are required' }, { status: 400 })
     }
@@ -59,6 +60,36 @@ export async function PATCH(request: NextRequest) {
     // Customers are only allowed to confirm receipt of their own orders.
     if (!isAdmin && status !== 'received') {
       return NextResponse.json({ error: 'Customers can only mark orders as received' }, { status: 403 })
+    }
+
+    const vendorId = String(rawVendorId || '').trim()
+    const storeId = String(rawStoreId || '').trim()
+    const hasMultipleVendorLegs = Array.isArray(existingOrder.vendors) && existingOrder.vendors.length > 1
+
+    // Multi-vendor orders must only advance the one vendor leg the caller identified —
+    // otherwise confirming receipt of one vendor's item releases escrow (and pays out)
+    // every vendor on the order, including ones whose items haven't even shipped yet.
+    // Single-vendor orders keep the original whole-order update below unchanged.
+    if ((vendorId || storeId) && hasMultipleVendorLegs) {
+      const target = await resolveOrderVendorTarget(orderId, vendorId, storeId)
+      if (!target) {
+        return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+      }
+
+      const updated = await applyOrderVendorStatus({
+        orderId,
+        vendorId,
+        storeId,
+        status,
+        existingOrder: target.existingOrder,
+        targetStore: target.targetStore,
+      })
+
+      if (!updated) {
+        return NextResponse.json({ error: 'Failed to update this vendor\'s item' }, { status: 500 })
+      }
+
+      return NextResponse.json({ success: true, order: updated })
     }
 
     const now = new Date()

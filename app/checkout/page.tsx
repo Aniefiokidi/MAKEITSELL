@@ -118,6 +118,17 @@ export default function CheckoutPage() {
   const [shippingLoading, setShippingLoading] = useState(false)
   const [error, setError] = useState("")
   const [shippingEstimate, setShippingEstimate] = useState<{ cost: number; hasTbd?: boolean; source?: string; minDays?: number; maxDays?: number } | null>(null)
+  const [shipbubbleRates, setShipbubbleRates] = useState<Record<string, {
+    storeName: string
+    couriers: any[]
+    cheapestCourier: any
+    fastestCourier: any
+    requestToken: string | null
+    error: string | null
+  }>>({})
+  const [selectedCouriers, setSelectedCouriers] = useState<Record<string, {
+    courierId: string; serviceCode: string; total: number; courierName: string
+  }>>({})
   const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'checkout' | 'bach'>("wallet")
   const [checkoutTracked, setCheckoutTracked] = useState(false)
   const [showWalletTopupPrompt, setShowWalletTopupPrompt] = useState(false)
@@ -154,6 +165,18 @@ export default function CheckoutPage() {
   const hasFoodItems = useMemo(() => items.some(i => i.category === 'Food & Beverages'), [items])
   const hasNonFoodItems = useMemo(() => items.some(i => i.category !== 'Food & Beverages'), [items])
 
+  // Each vendor ships separately from their own pickup address — one courier choice per
+  // vendor, not one shared choice for the whole cart.
+  const vendorGroups = useMemo(() => {
+    const map = new Map<string, { vendorId: string; vendorName: string }>()
+    for (const item of items) {
+      if (item.vendorId && !map.has(item.vendorId)) {
+        map.set(item.vendorId, { vendorId: item.vendorId, vendorName: item.vendorName || 'Store' })
+      }
+    }
+    return Array.from(map.values())
+  }, [items])
+
   // Calculate VAT at 7% of subtotal
   const calculateVAT = (amount: number) => {
     return Math.round(amount * 0.07)
@@ -166,10 +189,11 @@ export default function CheckoutPage() {
 
   const subtotal = totalPrice
   const vat = calculateVAT(subtotal)
-  const resolvedShipping = shippingEstimate && !shippingEstimate.hasTbd && Number.isFinite(Number(shippingEstimate.cost))
-    ? Number(shippingEstimate.cost)
+  const allVendorsHaveCourierSelected = vendorGroups.length > 0 && vendorGroups.every((v) => selectedCouriers[v.vendorId])
+  const resolvedShipping = allVendorsHaveCourierSelected
+    ? vendorGroups.reduce((sum, v) => sum + Number(selectedCouriers[v.vendorId]?.total || 0), 0)
     : 0
-  const shippingIsTbd = !shippingEstimate || Boolean(shippingEstimate.hasTbd)
+  const shippingIsTbd = !allVendorsHaveCourierSelected
   const total = subtotal + vat + resolvedShipping
   const checkoutPayableTotal = total
   const walletBalance = Number(userProfile?.walletBalance || 0)
@@ -220,15 +244,21 @@ export default function CheckoutPage() {
   }, [checkoutTracked, items, subtotal])
 
   useEffect(() => {
-    // Only require state and city for delivery fee estimation
-    const hasLocationFields = Boolean(
-      
-      shippingInfo.state.trim() &&
+    // Real courier rates need a full receiver address to validate against (name, phone,
+    // full address) — not just state/city like the old flat-rate matrix did.
+    const fullPhone = formatPhoneWithCountryCode(shippingInfo.phoneCountryCode, shippingInfo.phone)
+    const hasRequiredFields = Boolean(
+      shippingInfo.firstName.trim() &&
+      shippingInfo.lastName.trim() &&
+      shippingInfo.address.trim() &&
       shippingInfo.city.trim() &&
-      shippingInfo.country.trim()
+      shippingInfo.state.trim() &&
+      fullPhone
     )
 
-    if (!hasLocationFields || items.length === 0) {
+    if (!hasRequiredFields || items.length === 0) {
+      setShipbubbleRates({})
+      setSelectedCouriers({})
       setShippingEstimate(null)
       return
     }
@@ -236,50 +266,63 @@ export default function CheckoutPage() {
     const timer = setTimeout(async () => {
       try {
         setShippingLoading(true)
-        const response = await fetch('/api/delivery/estimate', {
+        const response = await fetch('/api/delivery/shipbubble-rates', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             customerAddress: {
-              address: shippingInfo.address || '',
+              name: `${shippingInfo.firstName} ${shippingInfo.lastName}`.trim(),
+              email: shippingInfo.email,
+              phone: fullPhone,
+              address: shippingInfo.address,
               city: shippingInfo.city,
               state: shippingInfo.state,
-              country: shippingInfo.country,
             },
             items: items.map((item) => ({
               vendorId: item.vendorId,
               productId: item.productId,
+              quantity: item.quantity,
+              price: item.price,
             })),
           }),
         })
 
         const result = await response.json().catch(() => ({}))
         if (!response.ok || !result?.success) {
-          setShippingEstimate(null)
+          setShipbubbleRates({})
+          setSelectedCouriers({})
           return
         }
 
-        const estimate = result?.estimate
-        if (estimate && Number.isFinite(Number(estimate.cost))) {
-          setShippingEstimate({
-            cost: Number(estimate.cost),
-            hasTbd: Boolean(estimate.hasTbd),
-            source: String(estimate.source || ''),
-            minDays: Number.isFinite(Number(estimate.minDays)) ? Number(estimate.minDays) : undefined,
-            maxDays: Number.isFinite(Number(estimate.maxDays)) ? Number(estimate.maxDays) : undefined,
-          })
-        } else {
-          setShippingEstimate(null)
+        const nextRates: typeof shipbubbleRates = {}
+        const nextSelected: typeof selectedCouriers = {}
+        for (const v of (result.vendors || [])) {
+          nextRates[v.vendorId] = v
+          if (v.cheapestCourier) {
+            nextSelected[v.vendorId] = {
+              courierId: v.cheapestCourier.courier_id,
+              serviceCode: v.cheapestCourier.service_code,
+              total: Number(v.cheapestCourier.total || 0),
+              courierName: v.cheapestCourier.courier_name,
+            }
+          }
         }
+        setShipbubbleRates(nextRates)
+        setSelectedCouriers(nextSelected)
+        // Real per-vendor ETAs vary by courier now rather than the old flat matrix —
+        // this just keeps the "preferred delivery day" picker below populated with a
+        // reasonable window; it's advisory, not tied to a specific courier's quote.
+        setShippingEstimate({ cost: 0, minDays: 1, maxDays: 3 })
       } catch {
-        setShippingEstimate(null)
+        setShipbubbleRates({})
+        setSelectedCouriers({})
       } finally {
         setShippingLoading(false)
       }
-    }, 450)
+    }, 600)
 
     return () => clearTimeout(timer)
-  }, [items, shippingInfo.city, shippingInfo.state, shippingInfo.country, shippingInfo.address])
+  }, [items, shippingInfo.firstName, shippingInfo.lastName, shippingInfo.address, shippingInfo.city, shippingInfo.state, shippingInfo.email, shippingInfo.phone, shippingInfo.phoneCountryCode])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -329,6 +372,10 @@ export default function CheckoutPage() {
         throw new Error("Please provide a valid phone number")
       }
 
+      if (!allVendorsHaveCourierSelected) {
+        throw new Error("Please select a delivery courier for every store in your cart before continuing")
+      }
+
       let fullPayerPhoneNumber = ''
       if (shippingInfo.isGiftOrder) {
         fullPayerPhoneNumber = formatPhoneWithCountryCode(shippingInfo.payerPhoneCountryCode, shippingInfo.payerPhone)
@@ -369,7 +416,19 @@ export default function CheckoutPage() {
         subtotal: subtotal || 0,
         vat: vat || 0,
         shipping: resolvedShipping || 0,
-        totalAmount: total || 0
+        totalAmount: total || 0,
+        shipbubbleSelections: Object.fromEntries(
+          Object.entries(selectedCouriers).map(([vendorId, sel]) => [
+            vendorId,
+            {
+              requestToken: shipbubbleRates[vendorId]?.requestToken || null,
+              serviceCode: sel.serviceCode,
+              courierId: sel.courierId,
+              total: sel.total,
+              courierName: sel.courierName,
+            },
+          ])
+        ),
       }
       console.log('DEBUG orderData:', JSON.stringify(orderData, null, 2))
 
@@ -827,12 +886,85 @@ export default function CheckoutPage() {
                     </CardContent>
                   </Card>
 
+                  {/* Delivery Courier Selection */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Truck className="h-5 w-5" />
+                        2. Choose Delivery
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {vendorGroups.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">Your cart is empty.</p>
+                      ) : Object.keys(shipbubbleRates).length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          {shippingLoading
+                            ? "Fetching delivery rates..."
+                            : "Fill in your delivery address above to see courier options and rates."}
+                        </p>
+                      ) : (
+                        vendorGroups.map((v) => {
+                          const rate = shipbubbleRates[v.vendorId]
+                          const selected = selectedCouriers[v.vendorId]
+                          return (
+                            <div key={v.vendorId} className="rounded-lg border border-border p-3 space-y-2">
+                              <p className="font-semibold text-sm">{rate?.storeName || v.vendorName}</p>
+                              {!rate ? (
+                                <p className="text-xs text-muted-foreground">Waiting for delivery rates...</p>
+                              ) : rate.error ? (
+                                <p className="text-xs text-destructive">{rate.error}</p>
+                              ) : (
+                                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                                  {rate.couriers.map((c: any) => {
+                                    const isSelected = selected?.courierId === c.courier_id && selected?.serviceCode === c.service_code
+                                    return (
+                                      <button
+                                        key={`${c.courier_id}-${c.service_code}`}
+                                        type="button"
+                                        disabled={loading}
+                                        onClick={() =>
+                                          setSelectedCouriers((prev) => ({
+                                            ...prev,
+                                            [v.vendorId]: {
+                                              courierId: c.courier_id,
+                                              serviceCode: c.service_code,
+                                              total: Number(c.total || 0),
+                                              courierName: c.courier_name,
+                                            },
+                                          }))
+                                        }
+                                        className={`text-left text-xs px-3 py-2 rounded-md border transition-all ${
+                                          isSelected
+                                            ? "bg-accent/10 border-accent ring-1 ring-accent/60"
+                                            : "bg-white border-border hover:border-accent/40"
+                                        }`}
+                                      >
+                                        <div className="flex items-center justify-between">
+                                          <span className="font-medium">{c.courier_name}</span>
+                                          <span className="font-semibold">₦{Number(c.total || 0).toLocaleString()}</span>
+                                        </div>
+                                        {c.delivery_eta && (
+                                          <span className="text-muted-foreground">{c.delivery_eta}</span>
+                                        )}
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })
+                      )}
+                    </CardContent>
+                  </Card>
+
                   {/* Payment Information */}
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <CreditCard className="h-5 w-5" />
-                        2. Payment
+                        3. Payment
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -976,11 +1108,11 @@ export default function CheckoutPage() {
                         </div>
                         {shippingIsTbd ? (
                           <div className="text-xs text-muted-foreground mt-1">
-                            *Delivery fee will be finalized for unmatched routes.
+                            *Select a delivery courier for each store above to calculate the delivery fee.
                           </div>
                         ) : (
                           <div className="text-xs text-muted-foreground mt-1">
-                            *Calculated from A&CO route rates via mapped address.
+                            *Live courier rate from Shipbubble.
                           </div>
                         )}
                         <div className="flex justify-between">
@@ -1003,9 +1135,25 @@ export default function CheckoutPage() {
                         </div>
                       </div>
 
-                      <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2.5 text-xs text-blue-800">
-                        <span className="font-semibold">Estimated Delivery:</span> Same state — <span className="font-semibold">1–2 business days</span> &nbsp;·&nbsp; Inter-state — <span className="font-semibold">3–5 business days</span>
-                      </div>
+                      {allVendorsHaveCourierSelected ? (
+                        <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2.5 text-xs text-blue-800 space-y-1">
+                          <span className="font-semibold">Estimated Delivery:</span>
+                          {vendorGroups.map((v) => {
+                            const sel = selectedCouriers[v.vendorId]
+                            const rate = shipbubbleRates[v.vendorId]
+                            const eta = rate?.couriers?.find((c: any) => c.courier_id === sel?.courierId && c.service_code === sel?.serviceCode)?.delivery_eta
+                            return (
+                              <div key={v.vendorId}>
+                                {rate?.storeName || v.vendorName}: <span className="font-semibold">{eta || 'ETA provided by courier after booking'}</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2.5 text-xs text-blue-800">
+                          Select a courier for each store above to see estimated delivery times.
+                        </div>
+                      )}
 
                       <div className="pt-4 hidden md:block">
                         <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-white" size="lg" disabled={loading}>

@@ -161,9 +161,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       updateData.profileImage = body.profileImage;
     }
     
+    // Pickup address changed — the cached Shipbubble address_code no longer reflects
+    // reality, so clear it and let the next rate request re-validate.
+    const addressFieldsChanged = ['address', 'city', 'state'].some(
+      (field) => field in updateData && String(updateData[field] || '') !== String(existingStore[field] || '')
+    )
+    if (addressFieldsChanged) {
+      updateData.shipbubbleAddressCode = null
+      updateData.shipbubbleAddressVerifiedAt = null
+    }
+
     // DEBUG: Log updateData
     console.log('PATCH /stores/[id] updateData:', JSON.stringify(updateData, null, 2));
-    
+
     const result = await updateStore(id, updateData);
     
     if (!result) {

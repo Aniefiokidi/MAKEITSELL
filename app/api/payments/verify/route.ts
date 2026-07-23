@@ -7,6 +7,7 @@ import mongoose from 'mongoose'
 import { getCanonicalAppBaseUrl } from '@/lib/app-url'
 import { sendOrderPlacementNotifications } from '@/lib/order-notifications'
 import { maybeSendLowStockAlert } from '@/lib/stock-alerts'
+import { createShipmentsForOrder } from '@/lib/shipbubble-dispatch'
 
 type NormalizedVerification = {
   success: boolean
@@ -164,6 +165,7 @@ export async function GET(request: NextRequest) {
       paymentData: paymentData,
       paidAt: new Date()
     })
+    await createShipmentsForOrder(orderId).catch((err) => console.error('[verify GET] Shipbubble dispatch failed:', err))
 
     // Update product stock and sales (supports both top-level items and vendor items)
     if (order && (order.items || order.vendors)) {
@@ -296,6 +298,7 @@ export async function POST(request: NextRequest) {
         paymentData: paymentData,
         paidAt: new Date()
       })
+      await createShipmentsForOrder(orderId).catch((err) => console.error('[verify POST] Shipbubble dispatch failed:', err))
 
       // Update product stock and sales (supports both top-level items and vendor items)
       if (order && (order.items || order.vendors)) {

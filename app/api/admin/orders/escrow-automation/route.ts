@@ -132,7 +132,19 @@ const processEscrowOrders = async () => {
     if (FULFILLED_STATUSES.has(orderStatus)) continue
 
     const customerId = String(order.customerId || '')
-    const refundAmount = Number(order.totalAmount || 0)
+
+    // A multi-vendor order can have already had one vendor's leg individually
+    // cancelled and refunded (see app/api/orders/cancel/route.ts) while another
+    // vendor's leg is still active — refunding the full original totalAmount here
+    // would refund that already-cancelled portion a second time. Only the active
+    // (non-cancelled) vendors' totals are still genuinely at stake.
+    const vendorEntries: any[] = Array.isArray(order.vendors) ? order.vendors : []
+    const hasCancelledLeg = vendorEntries.some((v) => String(v?.status || '').toLowerCase() === 'cancelled')
+    const refundAmount = hasCancelledLeg
+      ? vendorEntries
+          .filter((v) => String(v?.status || '').toLowerCase() !== 'cancelled')
+          .reduce((sum, v) => sum + Number(v?.total || 0), 0)
+      : Number(order.totalAmount || 0)
     if (!customerId || refundAmount <= 0) continue
 
     // Idempotent reference — safe to run multiple times

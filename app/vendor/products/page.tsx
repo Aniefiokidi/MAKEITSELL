@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Plus, Search, MoreHorizontal, Edit, Trash2, Eye, Package, Loader2 } from "lucide-react"
+import { Plus, Search, MoreHorizontal, Edit, Trash2, Eye, Package, Loader2, Copy, Share2 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
@@ -45,7 +45,7 @@ const VendorProductsPage = () => {
   const [bulkCategory, setBulkCategory] = useState("")
   const [selectionPreset, setSelectionPreset] = useState("all_filtered")
   const [bulkUpdating, setBulkUpdating] = useState(false)
-  const { user } = useAuth()
+  const { user, userProfile } = useAuth()
 
   const fetchProducts = async () => {
     setLoading(true)
@@ -107,6 +107,29 @@ const VendorProductsPage = () => {
     setSelectedProductIds((prev) =>
       prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]
     )
+  }
+
+  const referralCode = (userProfile as any)?.referralCode as string | undefined
+
+  const buildProductReferralLink = (productId: string) => {
+    const base = `https://makeitsell.ng/products/${productId}`
+    return referralCode ? `${base}?ref=${referralCode}` : base
+  }
+
+  const copyProductReferralLink = async (productId: string, productTitle: string) => {
+    const link = buildProductReferralLink(productId)
+    try {
+      await navigator.clipboard.writeText(link)
+      success('Referral link copied', `Share this to earn ₦500 when someone buys "${productTitle}" for the first time.`)
+    } catch {
+      error('Could not copy link', 'Please try again')
+    }
+  }
+
+  const shareProductOnWhatsApp = (productId: string, productTitle: string) => {
+    const link = buildProductReferralLink(productId)
+    const text = encodeURIComponent(`Check this out on Make It Sell: ${productTitle} — ${link}`)
+    window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer')
   }
 
   const applySelectionPreset = () => {
@@ -387,6 +410,20 @@ const VendorProductsPage = () => {
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit
                               </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="cursor-pointer"
+                              onClick={() => copyProductReferralLink(product.id, product.title || product.name)}
+                            >
+                              <Copy className="mr-2 h-4 w-4" />
+                              Copy Referral Link
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="cursor-pointer"
+                              onClick={() => shareProductOnWhatsApp(product.id, product.title || product.name)}
+                            >
+                              <Share2 className="mr-2 h-4 w-4" />
+                              Share on WhatsApp
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               className="text-destructive cursor-pointer"

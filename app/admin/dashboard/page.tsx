@@ -23,6 +23,11 @@ export default function AdminDashboard() {
   })
   const [claimingOrderId, setClaimingOrderId] = useState('')
   const [refundingOrderId, setRefundingOrderId] = useState('')
+  const [shipbubbleWallet, setShipbubbleWallet] = useState<{ loading: boolean; balance: number | null; currency: string }>({
+    loading: true,
+    balance: null,
+    currency: '₦',
+  })
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -69,6 +74,17 @@ export default function AdminDashboard() {
       }
     }
     fetchData()
+
+    fetch('/api/admin/shipbubble-wallet')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json?.success) {
+          setShipbubbleWallet({ loading: false, balance: Number(json.balance || 0), currency: json.currency === 'NGN' ? '₦' : (json.currency || '₦') })
+        } else {
+          setShipbubbleWallet({ loading: false, balance: null, currency: '₦' })
+        }
+      })
+      .catch(() => setShipbubbleWallet({ loading: false, balance: null, currency: '₦' }))
   }, [user])
 
   const claimDispute = async (orderId: string) => {
@@ -267,6 +283,27 @@ export default function AdminDashboard() {
                   <p className="text-xl font-bold text-green-900">{escrowSummary.releasedTodayCount}</p>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className={shipbubbleWallet.balance !== null && shipbubbleWallet.balance <= 0 ? "border-red-200 bg-red-50 md:col-span-3" : "border-blue-200 bg-blue-50 md:col-span-3"}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-xs lg:text-sm font-medium">Shipbubble Wallet</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              {shipbubbleWallet.loading ? (
+                <p className="text-xs text-muted-foreground">Loading...</p>
+              ) : shipbubbleWallet.balance === null ? (
+                <p className="text-xs text-muted-foreground">Could not reach Shipbubble.</p>
+              ) : (
+                <>
+                  <div className="text-xl lg:text-2xl font-bold">{shipbubbleWallet.currency}{shipbubbleWallet.balance.toLocaleString()}</div>
+                  {shipbubbleWallet.balance <= 0 && (
+                    <p className="text-xs text-red-700 mt-1">Empty — fund the Shipbubble wallet so shipments can be created and delivery rates keep working.</p>
+                  )}
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

@@ -1,12 +1,13 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { notFound, useParams } from "next/navigation"
+import { notFound, useParams, useSearchParams } from "next/navigation"
 import Image from "next/image"
 import { Heart, Bell } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { trackFunnelEvent } from "@/lib/funnel-tracker"
 import { trackProductQuickView } from "@/lib/personalization"
+import { setPendingReferralVendor, trackReferralClick } from "@/lib/referral-attribution"
 import { useWishlist } from "@/contexts/WishlistContext"
 import Header from "@/components/Header"
 import { ReviewsSection } from "@/components/reviews/ReviewsSection"
@@ -21,6 +22,7 @@ async function getProduct(id: string) {
 
 export default function ProductPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const productId = String(params.id || "")
 
   const wishlist = useWishlist()
@@ -56,7 +58,11 @@ export default function ProductPage() {
     })
     setViewTracked(true)
     void trackFunnelEvent(product.vendorId, "product_view", { productId: product.id || productId })
-  }, [product, productId, viewTracked])
+    // Referral attribution — same "any listing is a referral link" model as store
+    // pages, previously missing here entirely (only store visits set this)
+    setPendingReferralVendor(product.vendorId)
+    trackReferralClick(searchParams.get('ref'))
+  }, [product, productId, viewTracked, searchParams])
 
   if (loading) {
     return (

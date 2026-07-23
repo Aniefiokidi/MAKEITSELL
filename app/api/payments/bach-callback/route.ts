@@ -6,6 +6,7 @@ import { sendOrderPlacementNotifications } from '@/lib/order-notifications'
 import connectToDatabase from '@/lib/mongodb'
 import mongoose from 'mongoose'
 import { maybeSendLowStockAlert } from '@/lib/stock-alerts'
+import { createShipmentsForOrder } from '@/lib/shipbubble-dispatch'
 
 const BACH_PAID_STATUSES = new Set(['PAID', 'COMPLETE', 'COMPLETED', 'SUCCESS', 'SUCCEEDED'])
 
@@ -45,6 +46,7 @@ export async function GET(request: NextRequest) {
       paymentData: { provider: 'bach', checkoutId, sessionStatus: session.status },
       paidAt: new Date(),
     })
+    await createShipmentsForOrder(orderId).catch((err) => console.error('[bach-callback] Shipbubble dispatch failed:', err))
 
     if (order && (order.items || order.vendors)) {
       try {

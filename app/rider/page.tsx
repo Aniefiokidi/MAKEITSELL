@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Loader2, MapPin, Phone, Package, RefreshCw, Navigation } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
+import RetiredFeatureNotice from "@/components/RetiredFeatureNotice"
 
 type RiderAssignment = {
   id: string
@@ -32,6 +33,16 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 export default function RiderDashboardPage() {
+  // Retired — deliveries are now dispatched and tracked automatically via Shipbubble's
+  // own courier network. The custom rider system below is kept in place (not deleted)
+  // for a clean revert if ever needed.
+  return (
+    <RetiredFeatureNotice
+      title="Rider dashboard retired"
+      message="Deliveries are now handled by Shipbubble's courier network instead of MakeItSell's own riders. This dashboard is no longer in use."
+    />
+  )
+
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
 
@@ -195,7 +206,7 @@ export default function RiderDashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  if (authLoading || (user && user.role !== "rider")) {
+  if (authLoading || (user && user!.role !== "rider")) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />

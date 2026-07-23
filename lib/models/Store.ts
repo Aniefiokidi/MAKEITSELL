@@ -41,7 +41,12 @@ const StoreSchema = new Schema({
   accountName: { type: String },
   accountVerified: { type: Boolean, default: false },
   walletBalance: { type: Number, default: 0 },
-  linkedWalletUserId: { type: String }
+  linkedWalletUserId: { type: String },
+  // Cached Shipbubble address_code for this store's pickup address, so checkout
+  // doesn't re-validate the same address on every rate request. Cleared whenever
+  // address/city/state changes (see app/api/database/stores/[id]/route.ts).
+  shipbubbleAddressCode: { type: Number },
+  shipbubbleAddressVerifiedAt: { type: Date },
 }, { timestamps: true });
 
 // Weighted text index for relevance-ranked search — see the matching comment on

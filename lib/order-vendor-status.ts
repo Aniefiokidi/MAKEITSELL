@@ -57,9 +57,11 @@ export async function applyOrderVendorStatus(params: {
   vendorId?: string
   storeId?: string
   status: string
-  region: LogisticsRegionConfig
+  // Only needed for the 'delivered' branch's logistics-wallet credit — the customer
+  // "confirm receipt" path only ever requests 'received' and never touches these.
+  region?: LogisticsRegionConfig
   existingOrder: any
-  targetStore: any
+  targetStore?: any
 }) {
   const { orderId, status: requestedStatus, region, existingOrder, targetStore } = params
   const vendorId = String(params.vendorId || '').trim()
@@ -76,6 +78,10 @@ export async function applyOrderVendorStatus(params: {
   if (requestedStatus === 'cancelled') timestampUpdates.cancelledAt = now
 
   let updatedOrder: any = null
+  // Whether every active vendor leg now agrees on requestedStatus — i.e. this is a
+  // whole-order transition, not just one vendor's leg. Starts true for the no-vendorId
+  // (whole-order) path below; only the per-vendor branch can set it false.
+  let allActiveVendorsAgree = true
 
   if (vendorId || storeId) {
     const query: any = { orderId }
@@ -111,11 +117,17 @@ export async function applyOrderVendorStatus(params: {
     if (updated) {
       updatedOrder = updated
 
-      const vendorStatuses = (Array.isArray((updated as any).vendors) ? (updated as any).vendors : [])
+      // Cancelled legs must not count against the rollup — otherwise a partially
+      // cancelled order can never reach 'received' for the vendor(s) who actually
+      // fulfilled their part, permanently stranding their payout in escrow.
+      const activeVendorStatuses = (Array.isArray((updated as any).vendors) ? (updated as any).vendors : [])
         .map((entry: any) => String(entry?.status || '').trim().toLowerCase())
-        .filter(Boolean)
+        .filter((value: string) => Boolean(value) && value !== 'cancelled')
 
-      if (vendorStatuses.length > 0 && vendorStatuses.every((value: string) => value === requestedStatus.toLowerCase())) {
+      allActiveVendorsAgree = activeVendorStatuses.length > 0
+        && activeVendorStatuses.every((value: string) => value === requestedStatus.toLowerCase())
+
+      if (allActiveVendorsAgree) {
         updatedOrder = await updateOrder(orderId, {
           status: requestedStatus,
           ...timestampUpdates,
@@ -137,7 +149,7 @@ export async function applyOrderVendorStatus(params: {
     console.error('[order-status-notification] Failed:', notifyErr)
   }
 
-  if (requestedStatus === 'delivered') {
+  if (requestedStatus === 'delivered' && region) {
     try {
       const order: any = existingOrder
       const pickupLocation = targetStore?.address || ''
@@ -198,7 +210,11 @@ export async function applyOrderVendorStatus(params: {
     }
   }
 
-  if (requestedStatus === 'received') {
+  // allActiveVendorsAgree guards this — without it, a partial per-vendor update (only
+  // some legs reached 'received') would still read the order's top-level paymentStatus
+  // as 'escrow' (that field is untouched by a partial update) and release the *whole*
+  // order's escrow after just one vendor's leg was confirmed.
+  if (requestedStatus === 'received' && allActiveVendorsAgree) {
     const paymentStatus = String((updatedOrder as any)?.paymentStatus || '').toLowerCase()
     const isDisputed = Boolean((updatedOrder as any)?.disputeRaisedAt)
       || String((updatedOrder as any)?.disputeStatus || '').toLowerCase() === 'active'

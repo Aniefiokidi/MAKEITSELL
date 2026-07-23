@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Wallet, TrendingUp, Package, RefreshCw, ArrowDownToLine, CheckCircle2 } from "lucide-react"
+import RetiredFeatureNotice from "@/components/RetiredFeatureNotice"
 
 const BANKS = [
   { name: "Access Bank", code: "044" },
@@ -57,6 +58,13 @@ interface LogisticsTx {
 }
 
 export default function LogisticsAbujaWalletPage() {
+  return (
+    <RetiredFeatureNotice
+      title="Logistics wallet retired"
+      message="Deliveries are now dispatched and tracked automatically through Shipbubble. This page is no longer in use."
+    />
+  )
+
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [walletBalance, setWalletBalance] = useState(0)

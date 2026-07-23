@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
+import { setPendingReferralVendor, trackReferralClick } from "@/lib/referral-attribution"
 import Header from "@/components/Header"
 import "./store-mobile-fix.css"
 import { Button } from "@/components/ui/button"
@@ -84,6 +85,7 @@ interface Store {
 export default function StorePage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const rawStoreParam = String(params.id || "")
   const storeId = extractEntityIdFromParam(rawStoreParam)
   const [mounted, setMounted] = useState(false)
@@ -177,10 +179,11 @@ export default function StorePage() {
     setStoreVisitTracked(true)
     void trackFunnelEvent(store.vendorId, "store_visit", { storeId })
     // Store vendor ID for referral attribution if visitor signs up later
-    try {
-      localStorage.setItem('misReferralVendorId', store.vendorId)
-    } catch {}
-  }, [store?.vendorId, storeId, storeVisitTracked])
+    setPendingReferralVendor(store.vendorId)
+    // A vendor-tagged link (?ref=CODE) also logs a click for their referral dashboard —
+    // attribution above works regardless, this is purely the click-count signal
+    trackReferralClick(searchParams.get('ref'))
+  }, [store?.vendorId, storeId, storeVisitTracked, searchParams])
 
   const fetchStoreData = async () => {
     setLoading(true)

@@ -18,9 +18,13 @@ import {
   Plus,
   CreditCard,
   Phone,
+  Copy,
+  Share2,
 } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
+import { useNotification } from "@/contexts/NotificationContext"
 import { getSessionToken } from "@/lib/auth-client"
+import { buildPublicStorePath } from "@/lib/public-links"
 import Link from "next/link"
 import VendorLayout from "@/components/vendor/VendorLayout"
 import { VendorWalletModal } from "@/components/vendor/VendorWalletModal"
@@ -31,6 +35,7 @@ import { optimizedImageUrl } from "@/lib/cloudinary-url"
 
 export default function VendorDashboardPage() {
   const { user, userProfile, loading } = useAuth();
+  const { success: notifySuccess, error: notifyError } = useNotification();
   const [dashboard, setDashboard] = useState<any>(null);
   const [dataLoading, setDataLoading] = useState(true);
   // Popup for new vendors
@@ -607,6 +612,53 @@ export default function VendorDashboardPage() {
 
         {/* Referral card */}
         <ReferralCard referralCode={(userProfile as any)?.referralCode} role="vendor" />
+
+        {/* Per-store referral link — visiting this store page already attributes any
+            later signup to this vendor; the ?ref= code on top of that also logs a click
+            for the referral dashboard. */}
+        {storeData && (
+          <Card className="border-accent/20 bg-linear-to-br from-accent/5 to-transparent">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base lg:text-lg">Share Your Store</CardTitle>
+              <CardDescription className="text-sm">
+                Anyone who visits your store link and later buys or signs up earns you ₦500 — separate from your general referral code.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col sm:flex-row gap-2">
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={async () => {
+                  const referralCode = (userProfile as any)?.referralCode
+                  const path = buildPublicStorePath(storeData)
+                  const link = `https://makeitsell.ng${path}${referralCode ? `?ref=${referralCode}` : ''}`
+                  try {
+                    await navigator.clipboard.writeText(link)
+                    notifySuccess('Store link copied', 'Share it anywhere to start earning referrals.')
+                  } catch {
+                    notifyError('Could not copy link', 'Please try again')
+                  }
+                }}
+              >
+                <Copy className="h-4 w-4" />
+                Copy Store Link
+              </Button>
+              <Button
+                className="gap-2 bg-[#25D366] hover:bg-[#20b858] text-white"
+                onClick={() => {
+                  const referralCode = (userProfile as any)?.referralCode
+                  const path = buildPublicStorePath(storeData)
+                  const link = `https://makeitsell.ng${path}${referralCode ? `?ref=${referralCode}` : ''}`
+                  const text = encodeURIComponent(`Check out my store on Make It Sell: ${storeData.storeName} — ${link}`)
+                  window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer')
+                }}
+              >
+                <Share2 className="h-4 w-4" />
+                Share on WhatsApp
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Recent Orders and Low Stock */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
