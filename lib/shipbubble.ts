@@ -8,6 +8,7 @@
 import crypto from 'crypto'
 import connectToDatabase from '@/lib/mongodb'
 import { Store } from '@/lib/models/Store'
+import { User } from '@/lib/models/User'
 import { getCachedPayload, setCachedPayload } from '@/lib/cache-store'
 
 const BASE_URL = 'https://api.shipbubble.com/v1'
@@ -64,6 +65,20 @@ export async function validateShipbubbleAddress(
   return { addressCode: result.data.address_code, formattedAddress: result.data.formatted_address }
 }
 
+// Shipbubble's address validator expects a person-style "full name" (letters + a space,
+// e.g. "John Doe") in the `name` field and 422s on anything else — including a single-word
+// business name like "Asani", even though it has no digits or symbols. Store names are
+// often one word or a brand name, so they can't be trusted to pass as-is.
+function sanitizeContactName(input: string): string {
+  return String(input || '').replace(/[^a-zA-Z\s]/g, '').trim().replace(/\s+/g, ' ')
+}
+
+function ensureTwoWordName(input: string, fallbackSuffix: string): string {
+  const cleaned = sanitizeContactName(input)
+  if (cleaned.split(' ').filter(Boolean).length >= 2) return cleaned
+  return cleaned ? `${cleaned} ${fallbackSuffix}` : `Store ${fallbackSuffix}`
+}
+
 /**
  * Returns the store's pickup address_code, validating and caching it on the Store
  * document if it hasn't been validated yet (or was invalidated by an address edit —
@@ -84,8 +99,14 @@ export async function getOrCreateStoreAddressCode(storeId: string): Promise<numb
   const email = String(store.email || '').trim()
   if (!address || !phone || !email) return null
 
+  const vendorUser: any = store.vendorId ? await User.findOne({ _id: store.vendorId }).select('displayName').lean() : null
+  const ownerName = sanitizeContactName(vendorUser?.displayName || '')
+  const contactName = ownerName.split(' ').filter(Boolean).length >= 2
+    ? ownerName
+    : ensureTwoWordName(store.storeName || 'Vendor', 'Store')
+
   const validated = await validateShipbubbleAddress({
-    name: String(store.storeName || 'Vendor').trim(),
+    name: contactName,
     email,
     phone,
     address,
