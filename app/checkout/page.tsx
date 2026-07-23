@@ -66,38 +66,6 @@ function getAvailableFoodSlots() {
   return result
 }
 
-const PRODUCT_TIME_WINDOWS = [
-  { label: "Morning · 8am–12pm" },
-  { label: "Afternoon · 12pm–4pm" },
-  { label: "Evening · 4pm–8pm" },
-]
-
-// Shipped goods can't be pinned to an hourly slot the way made-to-order food can — instead
-// this offers a preferred business day within the same min/max window already shown on the
-// order-tracking timeline (1-2 days same-state, 3-5 interstate), plus a rough time-of-day.
-function getAvailableProductDeliverySlots(minDays: number, maxDays: number) {
-  const result: { value: string; label: string; group: string }[] = []
-  const clampedMin = Math.max(1, Math.round(minDays) || 1)
-  const clampedMax = Math.max(clampedMin, Math.round(maxDays) || clampedMin)
-
-  const day = new Date()
-  let businessDaysPassed = 0
-  while (businessDaysPassed < clampedMax) {
-    day.setDate(day.getDate() + 1)
-    const dow = day.getDay()
-    if (dow === 0 || dow === 6) continue
-    businessDaysPassed++
-    if (businessDaysPassed < clampedMin) continue
-
-    const group = day.toLocaleDateString("en-NG", { weekday: "long", day: "numeric", month: "short" })
-    for (const window of PRODUCT_TIME_WINDOWS) {
-      result.push({ value: `${group}, ${window.label}`, label: window.label, group })
-    }
-  }
-
-  return result
-}
-
 function formatPhoneWithCountryCode(countryCode: string, phoneInput: string): string {
   const raw = String(phoneInput || "").trim()
   if (!raw) return ""
@@ -117,7 +85,6 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false)
   const [shippingLoading, setShippingLoading] = useState(false)
   const [error, setError] = useState("")
-  const [shippingEstimate, setShippingEstimate] = useState<{ cost: number; hasTbd?: boolean; source?: string; minDays?: number; maxDays?: number } | null>(null)
   const [shipbubbleRates, setShipbubbleRates] = useState<Record<string, {
     storeName: string
     couriers: any[]
@@ -163,7 +130,6 @@ export default function CheckoutPage() {
   }, [shippingInfo.state])
 
   const hasFoodItems = useMemo(() => items.some(i => i.category === 'Food & Beverages'), [items])
-  const hasNonFoodItems = useMemo(() => items.some(i => i.category !== 'Food & Beverages'), [items])
 
   // Each vendor ships separately from their own pickup address — one courier choice per
   // vendor, not one shared choice for the whole cart.
@@ -259,7 +225,6 @@ export default function CheckoutPage() {
     if (!hasRequiredFields || items.length === 0) {
       setShipbubbleRates({})
       setSelectedCouriers({})
-      setShippingEstimate(null)
       return
     }
 
@@ -309,10 +274,6 @@ export default function CheckoutPage() {
         }
         setShipbubbleRates(nextRates)
         setSelectedCouriers(nextSelected)
-        // Real per-vendor ETAs vary by courier now rather than the old flat matrix —
-        // this just keeps the "preferred delivery day" picker below populated with a
-        // reasonable window; it's advisory, not tied to a specific courier's quote.
-        setShippingEstimate({ cost: 0, minDays: 1, maxDays: 3 })
       } catch {
         setShipbubbleRates({})
         setSelectedCouriers({})
@@ -828,61 +789,6 @@ export default function CheckoutPage() {
                         )
                       })()}
 
-                      {hasNonFoodItems && shippingEstimate && (() => {
-                        const slots = getAvailableProductDeliverySlots(
-                          shippingEstimate.minDays ?? 1,
-                          shippingEstimate.maxDays ?? 5
-                        )
-                        const groups = Array.from(new Set(slots.map(s => s.group)))
-                        return (
-                          <div className="space-y-3 rounded-lg border border-accent/20 bg-accent/5 p-3">
-                            <div>
-                              <Label className="font-semibold">📦 Preferred Delivery Day (optional)</Label>
-                              <p className="text-xs text-muted-foreground mt-0.5">
-                                Estimated arrival: <span className="font-semibold">{shippingEstimate.minDays}–{shippingEstimate.maxDays} business days</span>. Pick a day that works best for you.
-                              </p>
-                            </div>
-                            <div className="space-y-2">
-                              {groups.map(group => (
-                                <div key={group}>
-                                  <p className="text-xs font-semibold text-foreground mb-1">{group}</p>
-                                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
-                                    {slots.filter(s => s.group === group).map(slot => (
-                                      <button
-                                        key={slot.value}
-                                        type="button"
-                                        disabled={loading}
-                                        onClick={() => handleInputChange("preferredDeliveryDay", slot.value)}
-                                        className={`text-xs px-2 py-2 rounded-md border font-medium transition-all ${
-                                          shippingInfo.preferredDeliveryDay === slot.value
-                                            ? "bg-accent text-white border-accent shadow-sm"
-                                            : "bg-white border-border text-foreground hover:border-accent/50 hover:bg-accent/5"
-                                        }`}
-                                      >
-                                        {slot.label}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                              ))}
-                              {shippingInfo.preferredDeliveryDay && (
-                                <div className="flex items-center justify-between pt-1">
-                                  <span className="text-xs text-muted-foreground">
-                                    Selected: <span className="font-semibold text-foreground">{shippingInfo.preferredDeliveryDay}</span>
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleInputChange("preferredDeliveryDay", "")}
-                                    className="text-xs text-muted-foreground hover:text-foreground underline"
-                                  >
-                                    Clear
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )
-                      })()}
                     </CardContent>
                   </Card>
 
@@ -959,100 +865,6 @@ export default function CheckoutPage() {
                     </CardContent>
                   </Card>
 
-                  {/* Payment Information */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <CreditCard className="h-5 w-5" />
-                        3. Payment
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="mb-2">
-                        <Label className="block mb-2 font-semibold text-base">Choose payment method</Label>
-                        <div className="grid grid-cols-3 gap-3">
-                          <button
-                            type="button"
-                            className={`border rounded-lg p-3 flex flex-col items-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/60 focus:border-accent/60 shadow-sm
-                              ${paymentMethod === 'wallet' ? 'border-accent bg-accent/10 ring-2 ring-accent/60' : 'border-muted bg-card hover:border-accent/40'}`}
-                            onClick={() => setPaymentMethod('wallet')}
-                            aria-pressed={paymentMethod === 'wallet'}
-                          >
-                            <Shield className="h-5 w-5 mb-1 text-accent" />
-                            <span className="font-medium text-sm">Wallet</span>
-                            <span className="text-xs text-muted-foreground mt-0.5 text-center leading-tight">From wallet balance</span>
-                          </button>
-                          <button
-                            type="button"
-                            className={`border rounded-lg p-3 flex flex-col items-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/60 focus:border-accent/60 shadow-sm
-                              ${paymentMethod === 'checkout' ? 'border-accent bg-accent/10 ring-2 ring-accent/60' : 'border-muted bg-card hover:border-accent/40'}`}
-                            onClick={() => setPaymentMethod('checkout')}
-                            aria-pressed={paymentMethod === 'checkout'}
-                          >
-                            <CreditCard className="h-5 w-5 mb-1 text-accent" />
-                            <span className="font-medium text-sm">Card / Bank</span>
-                            <span className="text-xs text-muted-foreground mt-0.5 text-center leading-tight">Naira (₦) only</span>
-                          </button>
-                          <button
-                            type="button"
-                            className={`border rounded-lg p-3 flex flex-col items-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/60 focus:border-accent/60 shadow-sm
-                              ${paymentMethod === 'bach' ? 'border-accent bg-accent/10 ring-2 ring-accent/60' : 'border-muted bg-card hover:border-accent/40'}`}
-                            onClick={() => setPaymentMethod('bach')}
-                            aria-pressed={paymentMethod === 'bach'}
-                          >
-                            <CreditCard className="h-5 w-5 mb-1 text-accent" />
-                            <span className="font-medium text-sm">Bach</span>
-                            <span className="text-xs text-muted-foreground mt-0.5 text-center leading-tight">USD, EUR & more</span>
-                          </button>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Paying in Naira? Use <span className="font-medium text-foreground">Card / Bank</span>. Paying in USD, EUR, GBP or another currency? Use <span className="font-medium text-foreground">Bach</span> — it supports international cards, bank transfers, and crypto.
-                        </p>
-                      </div>
-                      {paymentMethod === 'wallet' && (
-                        <div className="rounded-lg border border-accent/35 p-3 bg-accent/10 text-sm">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="font-medium text-foreground">Wallet payment</p>
-                            <Shield className="h-4 w-4 text-accent" />
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Available wallet balance: ₦{formatCurrency(walletBalance)}
-                          </p>
-                          {walletInsufficient ? (
-                            <Alert variant="destructive" className="mt-3">
-                              <AlertDescription>
-                                Insufficient wallet balance. You need ₦{formatCurrency(walletShortfall)} more to place this order.
-                              </AlertDescription>
-                            </Alert>
-                          ) : (
-                            <p className="text-xs text-green-700 mt-2">Sufficient balance available for this order.</p>
-                          )}
-                        </div>
-                      )}
-                      {paymentMethod === 'checkout' && (
-                        <div className="rounded-lg border border-accent/35 p-3 bg-accent/10 text-sm">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="font-medium text-foreground">Pay with Card / Bank — Naira (₦) only</p>
-                            <CreditCard className="h-4 w-4 text-accent" />
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            For Nigerian Naira payments. You will be redirected to Paystack to complete your order securely.
-                          </p>
-                        </div>
-                      )}
-                      {paymentMethod === 'bach' && (
-                        <div className="rounded-lg border border-accent/35 p-3 bg-accent/10 text-sm">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="font-medium text-foreground">Pay with Bach — International currencies</p>
-                            <CreditCard className="h-4 w-4 text-accent" />
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            For USD, EUR, GBP and other currencies. Supports international cards, bank transfer, and crypto. You will be redirected to Bach's secure checkout.
-                          </p>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
                 </div>
 
                 {/* Order Summary */}
@@ -1152,6 +964,92 @@ export default function CheckoutPage() {
                       ) : (
                         <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2.5 text-xs text-blue-800">
                           Select a courier for each store above to see estimated delivery times.
+                        </div>
+                      )}
+
+                      <Separator />
+
+                      <div>
+                        <Label className="block mb-2 font-semibold text-base">Payment Method</Label>
+                        <div className="grid grid-cols-3 gap-3">
+                          <button
+                            type="button"
+                            className={`border rounded-lg p-3 flex flex-col items-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/60 focus:border-accent/60 shadow-sm
+                              ${paymentMethod === 'wallet' ? 'border-accent bg-accent/10 ring-2 ring-accent/60' : 'border-muted bg-card hover:border-accent/40'}`}
+                            onClick={() => setPaymentMethod('wallet')}
+                            aria-pressed={paymentMethod === 'wallet'}
+                          >
+                            <Shield className="h-5 w-5 mb-1 text-accent" />
+                            <span className="font-medium text-sm">Wallet</span>
+                            <span className="text-xs text-muted-foreground mt-0.5 text-center leading-tight">From wallet balance</span>
+                          </button>
+                          <button
+                            type="button"
+                            className={`border rounded-lg p-3 flex flex-col items-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/60 focus:border-accent/60 shadow-sm
+                              ${paymentMethod === 'checkout' ? 'border-accent bg-accent/10 ring-2 ring-accent/60' : 'border-muted bg-card hover:border-accent/40'}`}
+                            onClick={() => setPaymentMethod('checkout')}
+                            aria-pressed={paymentMethod === 'checkout'}
+                          >
+                            <CreditCard className="h-5 w-5 mb-1 text-accent" />
+                            <span className="font-medium text-sm">Card / Bank</span>
+                            <span className="text-xs text-muted-foreground mt-0.5 text-center leading-tight">Naira (₦) only</span>
+                          </button>
+                          <button
+                            type="button"
+                            className={`border rounded-lg p-3 flex flex-col items-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/60 focus:border-accent/60 shadow-sm
+                              ${paymentMethod === 'bach' ? 'border-accent bg-accent/10 ring-2 ring-accent/60' : 'border-muted bg-card hover:border-accent/40'}`}
+                            onClick={() => setPaymentMethod('bach')}
+                            aria-pressed={paymentMethod === 'bach'}
+                          >
+                            <CreditCard className="h-5 w-5 mb-1 text-accent" />
+                            <span className="font-medium text-sm">Bach</span>
+                            <span className="text-xs text-muted-foreground mt-0.5 text-center leading-tight">USD, EUR & more</span>
+                          </button>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Paying in Naira? Use <span className="font-medium text-foreground">Card / Bank</span>. Paying in USD, EUR, GBP or another currency? Use <span className="font-medium text-foreground">Bach</span> — it supports international cards, bank transfers, and crypto.
+                        </p>
+                      </div>
+                      {paymentMethod === 'wallet' && (
+                        <div className="rounded-lg border border-accent/35 p-3 bg-accent/10 text-sm">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-medium text-foreground">Wallet payment</p>
+                            <Shield className="h-4 w-4 text-accent" />
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Available wallet balance: ₦{formatCurrency(walletBalance)}
+                          </p>
+                          {walletInsufficient ? (
+                            <Alert variant="destructive" className="mt-3">
+                              <AlertDescription>
+                                Insufficient wallet balance. You need ₦{formatCurrency(walletShortfall)} more to place this order.
+                              </AlertDescription>
+                            </Alert>
+                          ) : (
+                            <p className="text-xs text-green-700 mt-2">Sufficient balance available for this order.</p>
+                          )}
+                        </div>
+                      )}
+                      {paymentMethod === 'checkout' && (
+                        <div className="rounded-lg border border-accent/35 p-3 bg-accent/10 text-sm">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-medium text-foreground">Pay with Card / Bank — Naira (₦) only</p>
+                            <CreditCard className="h-4 w-4 text-accent" />
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            For Nigerian Naira payments. You will be redirected to Paystack to complete your order securely.
+                          </p>
+                        </div>
+                      )}
+                      {paymentMethod === 'bach' && (
+                        <div className="rounded-lg border border-accent/35 p-3 bg-accent/10 text-sm">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-medium text-foreground">Pay with Bach — International currencies</p>
+                            <CreditCard className="h-4 w-4 text-accent" />
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            For USD, EUR, GBP and other currencies. Supports international cards, bank transfer, and crypto. You will be redirected to Bach's secure checkout.
+                          </p>
                         </div>
                       )}
 
