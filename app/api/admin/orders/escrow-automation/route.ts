@@ -7,6 +7,7 @@ import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { requireCronOrAdminAccess } from '@/lib/server-route-auth'
 import { emailService } from '@/lib/email'
 import { getCanonicalAppBaseUrl } from '@/lib/app-url'
+import { releaseEscrowForOrder } from '@/lib/mongodb-operations'
 
 const FIVE_HOURS_MS = 5 * 60 * 60 * 1000
 const NINETY_SIX_HOURS_MS = 96 * 60 * 60 * 1000
@@ -83,6 +84,52 @@ const trySendReceiptReminder = async (order: any) => {
     `,
     text: `Have you received order #${orderId.slice(0, 8).toUpperCase()}? Confirm receipt: ${receiptLink}. If you do not respond within 96 hours, we will refund your payment to your wallet.`,
   })
+}
+
+// Auto-release escrow to the vendor(s) once every active leg is confirmed delivered
+// (by the Shipbubble webhook, or a manual vendor/logistics update) and the buyer's
+// dispute grace period has passed with no dispute raised. This is a new, separate path
+// from the customer manually clicking "confirm received" — it exists because Shipbubble
+// gives no proof of delivery (just a self-reported courier status, confirmed via
+// research), so we don't release the instant they say "completed"; we wait out the same
+// grace window applied when escrowReleaseAt was first set or tightened (see
+// app/api/payments/initialize and app/api/webhooks/shipbubble).
+const processDeliveredOrderAutoRelease = async () => {
+  const now = new Date()
+  const orders = await Order.find({
+    paymentStatus: 'escrow',
+    status: 'delivered',
+    escrowReleaseAt: { $lte: now },
+  }).limit(500).lean()
+
+  let released = 0
+
+  for (const order of orders as any[]) {
+    const isDisputed =
+      Boolean(order?.disputeRaisedAt) ||
+      String(order?.disputeStatus || '').toLowerCase() === 'active'
+    if (isDisputed) continue
+
+    try {
+      const result = await releaseEscrowForOrder(order.orderId, {
+        paymentReference: order.paymentReference,
+        provider: order.paymentMethod,
+        source: 'shipbubble_delivery_auto_release',
+      })
+
+      if (result?.success) {
+        await Order.updateOne(
+          { _id: order._id },
+          { $set: { status: 'completed', confirmedAt: new Date() } }
+        )
+        released += 1
+      }
+    } catch (err) {
+      console.error('[escrow-automation] Auto-release failed for order:', order.orderId, err)
+    }
+  }
+
+  return { totalScanned: orders.length, released }
 }
 
 const processEscrowOrders = async () => {
@@ -260,8 +307,9 @@ export async function POST(request: NextRequest) {
 
   try {
     await connectToDatabase()
+    const releaseSummary = await processDeliveredOrderAutoRelease()
     const summary = await processEscrowOrders()
-    return NextResponse.json({ success: true, summary })
+    return NextResponse.json({ success: true, summary: { ...summary, autoReleased: releaseSummary.released } })
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error?.message || 'Escrow automation failed' },

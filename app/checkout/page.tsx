@@ -94,7 +94,7 @@ export default function CheckoutPage() {
     error: string | null
   }>>({})
   const [selectedCouriers, setSelectedCouriers] = useState<Record<string, {
-    courierId: string; serviceCode: string; total: number; courierName: string
+    courierId: string; serviceCode: string; total: number; courierName: string; deliveryEta: string
   }>>({})
   const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'checkout' | 'bach'>("wallet")
   const [checkoutTracked, setCheckoutTracked] = useState(false)
@@ -269,6 +269,7 @@ export default function CheckoutPage() {
               serviceCode: v.cheapestCourier.service_code,
               total: Number(v.cheapestCourier.total || 0),
               courierName: v.cheapestCourier.courier_name,
+              deliveryEta: String(v.cheapestCourier.delivery_eta || ''),
             }
           }
         }
@@ -387,6 +388,7 @@ export default function CheckoutPage() {
               courierId: sel.courierId,
               total: sel.total,
               courierName: sel.courierName,
+              deliveryEta: sel.deliveryEta,
             },
           ])
         ),
@@ -837,6 +839,7 @@ export default function CheckoutPage() {
                                               serviceCode: c.service_code,
                                               total: Number(c.total || 0),
                                               courierName: c.courier_name,
+                                              deliveryEta: String(c.delivery_eta || ''),
                                             },
                                           }))
                                         }

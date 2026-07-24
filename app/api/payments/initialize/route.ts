@@ -14,6 +14,7 @@ import { Product } from '@/lib/models/Product'
 import { maybeSendLowStockAlert } from '@/lib/stock-alerts'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { createShipmentsForOrder } from '@/lib/shipbubble-dispatch'
+import { parseDeliveryEtaToHours, ESCROW_DISPUTE_GRACE_HOURS } from '@/lib/shipbubble'
 
 async function deductStock(orderId: string) {
   try {
@@ -168,6 +169,9 @@ export async function POST(request: NextRequest) {
     // customer saw at checkout mirrors how `resolvedShipping` already worked client-side.
     let shipping = 0
     const missingCourierVendors: string[] = []
+    // Highest parsed courier ETA across all vendors in this order — release can't happen
+    // until every vendor's leg is confirmed delivered, so the slowest courier governs.
+    let maxCourierEtaHours: number | null = null
 
     for (const vendor of Array.from(vendorOrders.values()) as any[]) {
       const store = storeById.get(String(vendor?.storeId || '')) || storeByVendorId.get(String(vendor?.vendorId || ''))
@@ -194,6 +198,12 @@ export async function POST(request: NextRequest) {
       vendor.shipbubbleCourierId = courierId
       vendor.shipbubbleCourierName = String(selection?.courierName || '')
       shipping += shippingFee
+
+      const etaHours = parseDeliveryEtaToHours(selection?.deliveryEta)
+      vendor.shipbubbleDeliveryEtaHours = etaHours
+      if (etaHours != null && (maxCourierEtaHours == null || etaHours > maxCourierEtaHours)) {
+        maxCourierEtaHours = etaHours
+      }
     }
 
     if (missingCourierVendors.length > 0) {
@@ -215,7 +225,15 @@ export async function POST(request: NextRequest) {
       && vendorStates.length > 0
       && vendorStates.every((state) => state === normalizedDropoffState)
     ) ? 'local' : 'interstate'
-    const escrowReleaseAt = new Date(Date.now() + (deliveryType === 'local' ? 14 : 72) * 60 * 60 * 1000)
+
+    // Escrow release timing: courier ETA (from the rate the customer actually picked at
+    // checkout) plus a fixed dispute grace period, rather than the old flat local/
+    // interstate matrix. Falls back to that matrix only if no courier ETA could be
+    // parsed — Shipbubble's delivery_eta is free text and not always parseable (see
+    // parseDeliveryEtaToHours). This is just the initial estimate; the Shipbubble webhook
+    // tightens it once delivery is actually confirmed (see app/api/webhooks/shipbubble).
+    const estimatedDeliveryHours = maxCourierEtaHours ?? (deliveryType === 'local' ? 14 : 72)
+    const escrowReleaseAt = new Date(Date.now() + (estimatedDeliveryHours + ESCROW_DISPUTE_GRACE_HOURS) * 60 * 60 * 1000)
 
     // Create order record in database
     // Collect all unique storeIds from vendorOrders

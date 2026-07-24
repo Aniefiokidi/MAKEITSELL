@@ -186,6 +186,28 @@ export async function fetchShipbubbleRates(params: {
   }
 }
 
+// Buyer dispute window after delivery is confirmed (by Shipbubble webhook, or as the
+// initial courier-ETA-based estimate) before escrow auto-releases to the vendor.
+export const ESCROW_DISPUTE_GRACE_HOURS = 24
+
+// Shipbubble's `delivery_eta` is free text, not a structured field (confirmed via their
+// docs and live responses — examples: "Within 23 hrs", "Within 1 - 4 working days",
+// "24 Hours after logistics pickup"). Parses the upper-bound number out of it for use as
+// an escrow-release estimate. Returns null when the text can't be parsed at all, so the
+// caller can fall back to a safe default rather than silently treating it as 0.
+export function parseDeliveryEtaToHours(etaText: string | undefined | null): number | null {
+  const text = String(etaText || '').toLowerCase()
+  if (!text) return null
+
+  const numbers = (text.match(/\d+(\.\d+)?/g) || []).map(Number)
+  if (numbers.length === 0) return null
+  const value = numbers[numbers.length - 1] // last number = upper bound of a range, or the only number
+
+  if (text.includes('hr') || text.includes('hour')) return value
+  if (text.includes('day')) return value * 24
+  return null
+}
+
 export type ShipbubbleShipment = {
   orderId: string
   trackingUrl: string

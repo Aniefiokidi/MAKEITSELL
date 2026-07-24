@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import connectToDatabase from '@/lib/mongodb'
 import { Order } from '@/lib/models/Order'
 import { Store } from '@/lib/models/Store'
-import { verifyShipbubbleWebhookSignature } from '@/lib/shipbubble'
+import { verifyShipbubbleWebhookSignature, ESCROW_DISPUTE_GRACE_HOURS } from '@/lib/shipbubble'
 import { applyOrderVendorStatus } from '@/lib/order-vendor-status'
 
 // Shipbubble → MakeItSell vendor-leg status. "completed" maps to 'delivered', not
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     if (storeId) targetStore = await Store.findById(storeId).lean()
     if (!targetStore && vendorId) targetStore = await Store.findOne({ vendorId }).lean()
 
-    await applyOrderVendorStatus({
+    const updatedOrder: any = await applyOrderVendorStatus({
       orderId: order.orderId,
       vendorId,
       storeId,
@@ -89,6 +89,22 @@ export async function POST(request: NextRequest) {
       { $set: { 'vendors.$[entry].shipbubbleStatus': extracted.status } },
       { arrayFilters: [{ 'entry.vendorId': vendorId }] }
     )
+
+    // Every active vendor leg just rolled up to 'delivered' (applyOrderVendorStatus only
+    // sets the order's top-level status once all of them agree) — real, courier-confirmed
+    // delivery beats the pessimistic ETA-based estimate set at checkout, so pull the
+    // release date in to start-of-delivery + the buyer's dispute grace period, but never
+    // push it out later than what was already promised.
+    if (mappedStatus === 'delivered' && updatedOrder?.status === 'delivered') {
+      const tightenedReleaseAt = new Date(Date.now() + ESCROW_DISPUTE_GRACE_HOURS * 60 * 60 * 1000)
+      const currentReleaseAt = updatedOrder?.escrowReleaseAt ? new Date(updatedOrder.escrowReleaseAt) : null
+      if (!currentReleaseAt || tightenedReleaseAt < currentReleaseAt) {
+        await Order.updateOne(
+          { orderId: order.orderId },
+          { $set: { escrowReleaseAt: tightenedReleaseAt } }
+        )
+      }
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {
