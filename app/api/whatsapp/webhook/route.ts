@@ -1,0 +1,92 @@
+import { NextRequest, NextResponse } from 'next/server'
+import crypto from 'crypto'
+
+// WhatsApp Cloud API webhook — Meta's dashboard verification handshake (GET) plus the
+// message/status event receiver (POST). Docs:
+// https://developers.facebook.com/docs/whatsapp/cloud-api/guides/set-up-webhooks
+// Foundation only — logs incoming messages, no bot/reply logic yet.
+
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url)
+  const mode = searchParams.get('hub.mode')
+  const token = searchParams.get('hub.verify_token')
+  const challenge = searchParams.get('hub.challenge')
+
+  const verifyToken = String(process.env.WHATSAPP_VERIFY_TOKEN || '').trim()
+
+  if (mode === 'subscribe' && verifyToken && token === verifyToken) {
+    return new NextResponse(String(challenge ?? ''), { status: 200 })
+  }
+
+  return new NextResponse('Forbidden', { status: 403 })
+}
+
+/**
+ * Verifies the X-Hub-Signature-256 header (HMAC-SHA256, WHATSAPP_APP_SECRET as key)
+ * against the raw request body — per Meta's webhook docs. Must be computed over the raw
+ * (unparsed) body, not the re-serialized JSON, or the signature won't match. Meta's
+ * header format is "sha256=<hex>", unlike a bare hex digest.
+ */
+function verifySignature(rawBody: string, signatureHeader: string | null): boolean {
+  const secret = String(process.env.WHATSAPP_APP_SECRET || '').trim()
+  if (!secret || !signatureHeader) return false
+
+  const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(rawBody).digest('hex')
+  try {
+    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signatureHeader))
+  } catch {
+    return false // length mismatch etc. — not a valid signature
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const rawBody = await request.text()
+  const signature = request.headers.get('x-hub-signature-256')
+
+  if (!verifySignature(rawBody, signature)) {
+    console.error('[whatsapp-webhook] Signature verification failed')
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+  }
+
+  let payload: any
+  try {
+    payload = JSON.parse(rawBody)
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+
+  try {
+    const entries = Array.isArray(payload?.entry) ? payload.entry : []
+    for (const entry of entries) {
+      const changes = Array.isArray(entry?.changes) ? entry.changes : []
+      for (const change of changes) {
+        const value = change?.value || {}
+
+        // Incoming user messages
+        const messages = Array.isArray(value?.messages) ? value.messages : []
+        for (const message of messages) {
+          const waId = String(message?.from || 'unknown')
+          const text = message?.text?.body
+          if (text) {
+            console.log(`[whatsapp-webhook] Message from ${waId}: ${text}`)
+          } else {
+            console.log(`[whatsapp-webhook] Message from ${waId} (type: ${message?.type || 'unknown'}, no text body)`)
+          }
+        }
+
+        // Delivery/read status updates for messages we sent — no message content here,
+        // handled separately so it never falls through to the "no text body" log above.
+        const statuses = Array.isArray(value?.statuses) ? value.statuses : []
+        for (const status of statuses) {
+          console.log(`[whatsapp-webhook] Status update for ${status?.recipient_id}: ${status?.status}`)
+        }
+      }
+    }
+  } catch (error) {
+    // Log and still 200 below — Meta retries on non-200, and a processing error here
+    // isn't something a retry will fix.
+    console.error('[whatsapp-webhook] Failed to process payload:', error)
+  }
+
+  return NextResponse.json({ success: true })
+}
