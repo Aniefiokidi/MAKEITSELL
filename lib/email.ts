@@ -504,8 +504,24 @@ class EmailService {
   }
 
 
-  async sendEmail(emailData: EmailData): Promise<boolean> {
+  async sendEmail(rawEmailData: EmailData): Promise<boolean> {
     this.lastDeliveryError = null
+
+    // Pre-launch safety valve: every email in the app funnels through this one method
+    // (verified — all 16 send* methods above ultimately call this, and both delivery
+    // paths below read emailData.to from here), so redirecting here is the single place
+    // that guarantees real customers/vendors never receive a test email while the app
+    // hasn't launched yet. The original subject is prefixed with the real intended
+    // recipient so they're still reviewable. Unset EMAIL_TEST_MODE_RECIPIENT at launch.
+    const testModeRecipient = this.getEnv('EMAIL_TEST_MODE_RECIPIENT')
+    const emailData: EmailData = testModeRecipient
+      ? { ...rawEmailData, to: testModeRecipient, subject: `[TEST → ${rawEmailData.to}] ${rawEmailData.subject}` }
+      : rawEmailData
+
+    if (testModeRecipient) {
+      console.log(`[emailService.sendEmail] TEST MODE: redirecting email originally addressed to ${rawEmailData.to} -> ${testModeRecipient}`)
+    }
+
     const provider = this.getEnv('EMAIL_DELIVERY_PROVIDER').toLowerCase()
 
     if (provider === 'resend' || (!!this.getEnv('RESEND_API_KEY') && provider !== 'smtp-only')) {
