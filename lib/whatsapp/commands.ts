@@ -9,6 +9,7 @@ import connectToDatabase from '@/lib/mongodb'
 import { WhatsAppLink } from '@/lib/models/WhatsAppLink'
 import { Store } from '@/lib/models/Store'
 import { Order } from '@/lib/models/Order'
+import { User } from '@/lib/models/User'
 import { applyOrderVendorStatus, resolveOrderVendorTarget } from '@/lib/order-vendor-status'
 import { sendTextMessage } from '@/lib/whatsapp/client'
 
@@ -16,6 +17,8 @@ const CODE_PATTERN = /^[A-Z0-9]{6}$/i
 // Matches the same orderId.slice(0, 8).toUpperCase() convention used for the order ref
 // in outbound notifications (lib/whatsapp/notifications.ts) and elsewhere in the app.
 const DISPATCH_PATTERN = /^dispatched\s+([a-z0-9]{8})$/i
+
+const NOT_LINKED_MESSAGE = 'You need to connect your account first. Get a connection code from your Make It Sell vendor dashboard and send it here.'
 
 // Every reply goes through here so a delivery failure (e.g. recipient not reachable,
 // outside the 24h window) never stops the outcome from being logged — the business-logic
@@ -45,7 +48,10 @@ export async function handleInboundMessage(waId: string, text: string): Promise<
     return
   }
 
-  // TODO Feature 3: route the "balance" command here before falling through to help.
+  if (trimmed.toLowerCase() === 'balance') {
+    await handleBalanceCommand(waId)
+    return
+  }
 
   await sendHelpMenu(waId)
 }
@@ -102,7 +108,7 @@ async function handleDispatchedCommand(waId: string, ref: string): Promise<void>
   const vendorId = await resolveLinkedVendor(waId)
   if (!vendorId) {
     console.log(`[whatsapp-commands] dispatched: rejected — ${waId} is not a linked vendor`)
-    await trySend(waId, 'You need to connect your account first. Get a connection code from your Make It Sell vendor dashboard and send it here.')
+    await trySend(waId, NOT_LINKED_MESSAGE)
     return
   }
 
@@ -157,13 +163,55 @@ async function handleDispatchedCommand(waId: string, ref: string): Promise<void>
   await trySend(waId, `Order ${ref} marked as dispatched. The buyer will be notified.`)
 }
 
+function formatNaira(amount: number): string {
+  return `NGN ${Math.max(0, Number(amount) || 0).toLocaleString('en-NG')}`
+}
+
+// Wallet data must never leave the bot for anything but a currently-linked vendor.
+// resolveLinkedVendor is the ONLY resolution path here — it reads exclusively from
+// WhatsAppLink, never from a phone number on the User/Store record, so a wa_id can never
+// be matched to the wrong vendor's wallet. Read-only: no mutation happens in this command.
+async function handleBalanceCommand(waId: string): Promise<void> {
+  const vendorId = await resolveLinkedVendor(waId)
+  if (!vendorId) {
+    console.log(`[whatsapp-commands] balance: rejected — ${waId} is not a linked vendor`)
+    await trySend(waId, NOT_LINKED_MESSAGE)
+    return
+  }
+
+  await connectToDatabase()
+  const vendor: any = await User.findById(vendorId)
+    .select('walletBalance earnedBalance depositedBalance prizeBalance')
+    .lean()
+
+  // Missing wallet fields (or no User doc at all, which shouldn't happen for a linked
+  // vendor but isn't worth erroring over) default to 0 rather than failing the request.
+  const earned = Number(vendor?.earnedBalance || 0)
+  const deposited = Number(vendor?.depositedBalance || 0)
+  const prize = Number(vendor?.prizeBalance || 0)
+  // Total comes from walletBalance, NOT earned+deposited+prize — confirmed via
+  // app/api/vendor/wallet/withdraw/preview/route.ts that walletBalance is the field
+  // actually trusted as the spendable total elsewhere in the app. They're supposed to
+  // stay in sync, but accounts funded before the three-bucket split (walletBalance set,
+  // sub-balances never populated) prove they can drift — summing the sub-balances here
+  // would silently show a real balance as zero for exactly those accounts.
+  const total = Number(vendor?.walletBalance || 0)
+
+  console.log(`[whatsapp-commands] balance: sending balance to vendor ${vendorId} (total ${total})`)
+
+  await trySend(
+    waId,
+    `Wallet Balance\n\nEarned: ${formatNaira(earned)}\nDeposited: ${formatNaira(deposited)}\nPrize: ${formatNaira(prize)}\n\nTotal: ${formatNaira(total)}`
+  )
+}
+
 async function sendHelpMenu(waId: string): Promise<void> {
   const vendorId = await resolveLinkedVendor(waId)
 
   if (vendorId) {
     await trySend(
       waId,
-      "Hi! I didn't recognize that message.\n\nAvailable commands:\n- dispatched [order ref] — mark an order as shipped"
+      "Hi! I didn't recognize that message.\n\nAvailable commands:\n- dispatched [order ref] — mark an order as shipped\n- balance — check your wallet balance"
     )
     return
   }
