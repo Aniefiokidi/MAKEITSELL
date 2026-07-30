@@ -375,7 +375,7 @@ export default function VendorSetupWizardPage() {
               <span>{progressPercent}%</span>
             </div>
             <div className="h-2 w-full rounded-full bg-muted">
-              <div className="h-2 rounded-full bg-primary transition-all" style={{ width: `${progressPercent}%` }} />
+              <div className="h-2 rounded-full bg-accent transition-all" style={{ width: `${progressPercent}%` }} />
             </div>
             <div className="mt-4 grid gap-2 md:grid-cols-5">
               {stepOrder.map((step, index) => (
@@ -383,7 +383,7 @@ export default function VendorSetupWizardPage() {
                   key={step.key}
                   type="button"
                   onClick={() => setStepIndex(index)}
-                  className={`rounded border px-3 py-2 text-left text-xs transition ${index === stepIndex ? "border-primary bg-primary/5" : "border-border"}`}
+                  className={`rounded border px-3 py-2 text-left text-xs transition ${index === stepIndex ? "border-accent bg-accent/5" : "border-border"}`}
                 >
                   <p className="font-semibold">{index + 1}. {step.title}</p>
                   <p className="text-muted-foreground">{stepCompletion[step.key] ? "Complete" : "Pending"}</p>
@@ -425,6 +425,9 @@ export default function VendorSetupWizardPage() {
                 <div className="space-y-2">
                   <Label htmlFor="storeDescription">Store Description</Label>
                   <Textarea id="storeDescription" rows={4} value={settings.storeDescription} onChange={(e) => setSettings((prev) => ({ ...prev, storeDescription: e.target.value }))} />
+                  <p className={`text-xs ${settings.storeDescription.trim().length > 10 ? "text-muted-foreground" : "text-destructive"}`}>
+                    {settings.storeDescription.trim().length}/10 characters minimum for this step to count as complete
+                  </p>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
@@ -447,7 +450,7 @@ export default function VendorSetupWizardPage() {
                     ) : null}
                     {settings.profileImage ? (
                       isPdfAsset(settings.profileImage) ? (
-                        <a href={settings.profileImage} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline underline-offset-4">
+                        <a href={settings.profileImage} target="_blank" rel="noopener noreferrer" className="text-xs text-accent underline underline-offset-4">
                           View uploaded profile PDF
                         </a>
                       ) : (
@@ -475,7 +478,7 @@ export default function VendorSetupWizardPage() {
                     ) : null}
                     {settings.storeImage ? (
                       isPdfAsset(settings.storeImage) ? (
-                        <a href={settings.storeImage} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline underline-offset-4">
+                        <a href={settings.storeImage} target="_blank" rel="noopener noreferrer" className="text-xs text-accent underline underline-offset-4">
                           View uploaded banner PDF
                         </a>
                       ) : (
