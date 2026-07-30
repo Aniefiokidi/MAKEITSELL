@@ -30,6 +30,7 @@ import VendorLayout from "@/components/vendor/VendorLayout"
 import { VendorWalletModal } from "@/components/vendor/VendorWalletModal"
 import StreakGate from "@/components/vendor/StreakGate"
 import { ReferralCard } from "@/components/shared/ReferralCard"
+import { ConnectWhatsAppCard } from "@/components/vendor/ConnectWhatsAppCard"
 import { optimizedImageUrl } from "@/lib/cloudinary-url"
 
 
@@ -609,6 +610,9 @@ export default function VendorDashboardPage() {
 
         {/* Streak widget / onboarding gate */}
         <StreakGate />
+
+        {/* Connect WhatsApp */}
+        <ConnectWhatsAppCard />
 
         {/* Referral card */}
         <ReferralCard referralCode={(userProfile as any)?.referralCode} role="vendor" />

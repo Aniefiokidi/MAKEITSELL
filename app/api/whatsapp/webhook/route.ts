@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
+import { handleInboundMessage } from '@/lib/whatsapp/commands'
 
 // WhatsApp Cloud API webhook — Meta's dashboard verification handshake (GET) plus the
 // message/status event receiver (POST). Docs:
 // https://developers.facebook.com/docs/whatsapp/cloud-api/guides/set-up-webhooks
-// Foundation only — logs incoming messages, no bot/reply logic yet.
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
           const text = message?.text?.body
           if (text) {
             console.log(`[whatsapp-webhook] Message from ${waId}: ${text}`)
+            await handleInboundMessage(waId, text)
           } else {
             console.log(`[whatsapp-webhook] Message from ${waId} (type: ${message?.type || 'unknown'}, no text body)`)
           }
