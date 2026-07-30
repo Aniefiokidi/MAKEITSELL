@@ -70,6 +70,10 @@ export async function POST(request: NextRequest) {
     user.resetToken = undefined
     user.resetTokenExpiry = undefined
     user.sessionToken = crypto.randomBytes(32).toString('hex')
+    // A normal reset is a complete fix — clear any leftover forced-change state from the
+    // old temp-password flow so this account isn't still flagged as pending afterward.
+    user.mustChangePassword = false
+    user.temporaryPasswordIssuedAt = undefined
     await user.save()
 
     console.log(`[auth/reset-password] Reset password for user: ${normalizedEmail}`)

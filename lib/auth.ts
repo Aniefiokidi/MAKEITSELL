@@ -144,9 +144,6 @@ export async function signIn({ email, password }: { email: string, password: str
     shouldRehash = false
   } else if (user.passwordHash) {
     if (!verifyPassword(password, user.passwordHash)) {
-      if (pendingReset) {
-        throw new Error('PASSWORD_WAS_RESET')
-      }
       throw new Error('Invalid credentials')
     }
     shouldRehash = needsPasswordRehash(user.passwordHash)

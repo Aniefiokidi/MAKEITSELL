@@ -74,11 +74,6 @@ export default function LoginForm() {
 
       console.log('Login successful:', result)
 
-      if (result.userProfile?.mustChangePassword) {
-        router.push('/account/complete-setup')
-        return
-      }
-
       const redirectTo = searchParams.get("redirect")
 
       if (redirectTo) {
@@ -122,8 +117,6 @@ export default function LoginForm() {
           console.error('Failed to send verification email:', emailError)
           setError('Your account needs email verification. Please contact support for assistance.')
         }
-      } else if (error.message === 'PASSWORD_WAS_RESET') {
-        setError("Your password was recently updated by an administrator. Please check your email for your temporary password and use that to sign in.")
       } else {
         const raw = String(error.message || "")
         const isConnectionError = /ssl|tls|socket|econnrefused|econnreset|etimeout|querysrv|mongodb|0a000438|alert internal/i.test(raw)
