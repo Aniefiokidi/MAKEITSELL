@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import VendorLayout from "@/components/vendor/VendorLayout"
 import { useAuth } from "@/contexts/AuthContext"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -72,7 +73,14 @@ const initialSettings: WizardSettings = {
 
 export default function VendorSetupWizardPage() {
   const { user, userProfile } = useAuth()
-  const [stepIndex, setStepIndex] = useState(0)
+  const searchParams = useSearchParams()
+  const [stepIndex, setStepIndex] = useState(() => {
+    // Resuming after leaving the wizard mid-flow (e.g. to add a product from the
+    // Catalog step) — jump back to that step instead of restarting at Branding.
+    const stepParam = searchParams.get("step")
+    const foundIndex = stepOrder.findIndex((s) => s.key === stepParam)
+    return foundIndex >= 0 ? foundIndex : 0
+  })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState("")
@@ -487,7 +495,7 @@ export default function VendorSetupWizardPage() {
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <Button asChild variant="outline" className="w-full sm:w-auto">
-                    <Link href="/vendor/products/new">Add Product</Link>
+                    <Link href="/vendor/products/new?returnTo=setup-wizard&step=catalog">Add Product</Link>
                   </Button>
                   <Button asChild variant="outline" className="w-full sm:w-auto">
                     <Link href="/vendor/products">Manage Products</Link>

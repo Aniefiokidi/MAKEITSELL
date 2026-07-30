@@ -6,7 +6,7 @@ import { useState } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { useNotification } from "@/contexts/NotificationContext"
 import { uploadToCloudinary } from "@/lib/cloudinary"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import VendorLayout from "@/components/vendor/VendorLayout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -79,6 +79,7 @@ const predefinedColors = [
 
 export default function NewProduct() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, userProfile } = useAuth()
   const { success, error: showError, warning, info } = useNotification()
   const [loading, setLoading] = useState(false)
@@ -309,7 +310,13 @@ export default function NewProduct() {
       }
 
       success('Product created successfully!', 'Your product is now live')
-      router.push("/vendor/products")
+      const returnTo = searchParams.get("returnTo")
+      const returnStep = searchParams.get("step")
+      if (returnTo === "setup-wizard") {
+        router.push(`/vendor/setup-wizard${returnStep ? `?step=${returnStep}` : ""}`)
+      } else {
+        router.push("/vendor/products")
+      }
     } catch (error: any) {
       const errorMessage = error.message || "Failed to create product"
       setError(errorMessage)
