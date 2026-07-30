@@ -584,8 +584,12 @@ export async function POST(request: NextRequest) {
 
     console.log('Mapped store data:', mappedStoreData)
 
-    // Validate required fields
-    const requiredFields = ['vendorId', 'storeName', 'storeDescription', 'storeImage', 'category', 'deliveryTime', 'address']
+    // Validate required fields — only what the Store schema itself actually requires
+    // (storeName, vendorId). The setup wizard creates the store on its first step
+    // ("Branding": name/description/category) and fills in the rest — address,
+    // deliveryTime, etc. — via PATCH on later steps, so requiring them here blocked
+    // every vendor from ever getting past step 1.
+    const requiredFields = ['vendorId', 'storeName']
     const missingFields = requiredFields.filter(field => !mappedStoreData[field as keyof typeof mappedStoreData])
     
     if (missingFields.length > 0) {
