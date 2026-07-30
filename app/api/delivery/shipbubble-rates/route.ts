@@ -132,12 +132,23 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        // Test-account delivery-fee waiver (display side — see the matching, actually
+        // security-enforced check in app/api/payments/initialize/route.ts, keyed off the
+        // authenticated customerId rather than this client-supplied email). This just
+        // keeps checkout showing the same NGN 0 the customer will actually be charged,
+        // rather than a real quote that gets silently zeroed at payment time.
+        const isTestAccountWaiver =
+          email.toLowerCase() === 'arnoldidiong@icloud.com' && vendorId === '69d24fc04347cde8a871f457'
+        const couriers = isTestAccountWaiver ? rates.couriers.map((c) => ({ ...c, total: 0 })) : rates.couriers
+        const cheapestCourier = isTestAccountWaiver && rates.cheapestCourier ? { ...rates.cheapestCourier, total: 0 } : rates.cheapestCourier
+        const fastestCourier = isTestAccountWaiver && rates.fastestCourier ? { ...rates.fastestCourier, total: 0 } : rates.fastestCourier
+
         return {
           vendorId,
           storeName: store.storeName || 'Store',
-          couriers: rates.couriers,
-          cheapestCourier: rates.cheapestCourier,
-          fastestCourier: rates.fastestCourier,
+          couriers,
+          cheapestCourier,
+          fastestCourier,
           requestToken: rates.requestToken,
           error: null,
         }

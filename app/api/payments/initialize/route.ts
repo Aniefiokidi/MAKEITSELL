@@ -192,13 +192,22 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      vendor.shippingFee = shippingFee
-      vendor.shippingFeeLabel = `NGN ${shippingFee.toLocaleString('en-NG')}`
+      // Test-account delivery-fee waiver: arnoldidiong@icloud.com ordering from the
+      // "test" store (vendor arnoldeee123@gmail.com) never pays a delivery fee, so
+      // order-flow testing between these two accounts is free. Narrow and hardcoded on
+      // purpose — this is a testing convenience for two specific accounts, not a
+      // general coupon/waiver feature.
+      const isTestAccountWaiver =
+        customerId === '69c936ba3caa7cb730ca1ed6' && vendor.vendorId === '69d24fc04347cde8a871f457'
+      const effectiveShippingFee = isTestAccountWaiver ? 0 : shippingFee
+
+      vendor.shippingFee = effectiveShippingFee
+      vendor.shippingFeeLabel = effectiveShippingFee === 0 ? 'FREE' : `NGN ${effectiveShippingFee.toLocaleString('en-NG')}`
       vendor.shipbubbleRequestToken = requestToken
       vendor.shipbubbleServiceCode = serviceCode
       vendor.shipbubbleCourierId = courierId
       vendor.shipbubbleCourierName = String(selection?.courierName || '')
-      shipping += shippingFee
+      shipping += effectiveShippingFee
 
       const etaHours = parseDeliveryEtaToHours(selection?.deliveryEta)
       vendor.shipbubbleDeliveryEtaHours = etaHours
