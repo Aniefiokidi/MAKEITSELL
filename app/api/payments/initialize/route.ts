@@ -14,6 +14,7 @@ import { Product } from '@/lib/models/Product'
 import { maybeSendLowStockAlert } from '@/lib/stock-alerts'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { createShipmentsForOrder } from '@/lib/shipbubble-dispatch'
+import { notifyVendorsNewOrder } from '@/lib/whatsapp/notifications'
 import { parseDeliveryEtaToHours, ESCROW_DISPUTE_GRACE_HOURS } from '@/lib/shipbubble'
 
 async function deductStock(orderId: string) {
@@ -463,6 +464,7 @@ export async function POST(request: NextRequest) {
       console.log('[WALLET] Order updated to confirmed')
       await deductStock(orderId)
       await createShipmentsForOrder(orderId).catch((err) => console.error('[WALLET] Shipbubble dispatch failed:', err))
+      notifyVendorsNewOrder(orderId)
 
       const paidOrder = await getOrderById(orderId)
       if (paidOrder) {

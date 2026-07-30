@@ -3,29 +3,49 @@
 // parse, extract) and all command/parsing logic in one place, per the cross-cutting
 // requirement that inbound parsing lives in the POST handler or a dispatcher it calls.
 //
-// Feature 0 (this file, for now): WhatsApp account linking via one-time code. Later
-// features (order notifications are outbound-only so don't need this dispatcher; mark-
-// dispatched and balance-check are inbound and will be added here) all depend on this
-// linking step, since no vendor data may leave the bot for an unresolved wa_id.
+// Every command below except code-linking requires a resolved, linked vendor first — no
+// vendor data may ever leave the bot for an unresolved wa_id.
 import connectToDatabase from '@/lib/mongodb'
 import { WhatsAppLink } from '@/lib/models/WhatsAppLink'
 import { Store } from '@/lib/models/Store'
+import { Order } from '@/lib/models/Order'
+import { applyOrderVendorStatus, resolveOrderVendorTarget } from '@/lib/order-vendor-status'
 import { sendTextMessage } from '@/lib/whatsapp/client'
 
 const CODE_PATTERN = /^[A-Z0-9]{6}$/i
+// Matches the same orderId.slice(0, 8).toUpperCase() convention used for the order ref
+// in outbound notifications (lib/whatsapp/notifications.ts) and elsewhere in the app.
+const DISPATCH_PATTERN = /^dispatched\s+([a-z0-9]{8})$/i
+
+// Every reply goes through here so a delivery failure (e.g. recipient not reachable,
+// outside the 24h window) never stops the outcome from being logged — the business-logic
+// log line for each branch below always fires first, independent of whether the reply
+// itself actually reaches the vendor.
+async function trySend(waId: string, body: string): Promise<void> {
+  try {
+    await sendTextMessage(waId, body)
+  } catch (error) {
+    console.error(`[whatsapp-commands] Reply send failed for ${waId}:`, error)
+  }
+}
 
 export async function handleInboundMessage(waId: string, text: string): Promise<void> {
   const trimmed = String(text || '').trim()
 
   // A bare 6-char code is checked first — it's the one command that must work for an
-  // as-yet-unlinked number. Everything else will require a resolved vendor once added.
+  // as-yet-unlinked number. Everything else requires a resolved vendor.
   if (CODE_PATTERN.test(trimmed)) {
     const handled = await tryHandleLinkCode(waId, trimmed.toUpperCase())
     if (handled) return
   }
 
-  // TODO Feature 2/3: resolve wa_id -> linked vendor and route "balance" /
-  // "dispatched <ref>" commands here, before falling through to the help menu.
+  const dispatchMatch = trimmed.match(DISPATCH_PATTERN)
+  if (dispatchMatch) {
+    await handleDispatchedCommand(waId, dispatchMatch[1].toUpperCase())
+    return
+  }
+
+  // TODO Feature 3: route the "balance" command here before falling through to help.
 
   await sendHelpMenu(waId)
 }
@@ -36,14 +56,14 @@ async function tryHandleLinkCode(waId: string, code: string): Promise<boolean> {
   if (!link) return false // not a real code at all — let the caller fall through to help
 
   if (link.status === 'linked') {
-    await sendTextMessage(waId, 'That code has already been used. If you need to (re)connect, generate a new one from your vendor dashboard.')
     console.log(`[whatsapp-commands] Rejected already-used code for vendor ${link.vendorId}`)
+    await trySend(waId, 'That code has already been used. If you need to (re)connect, generate a new one from your vendor dashboard.')
     return true
   }
 
   if (!link.codeExpiresAt || new Date(link.codeExpiresAt) <= new Date()) {
-    await sendTextMessage(waId, 'That code has expired (codes are valid for 10 minutes). Generate a new one from your vendor dashboard.')
     console.log(`[whatsapp-commands] Rejected expired code for vendor ${link.vendorId}`)
+    await trySend(waId, 'That code has expired (codes are valid for 10 minutes). Generate a new one from your vendor dashboard.')
     return true
   }
 
@@ -62,13 +82,93 @@ async function tryHandleLinkCode(waId: string, code: string): Promise<boolean> {
 
   const store: any = await Store.findOne({ vendorId: link.vendorId }).select('storeName').lean()
   const storeName = store?.storeName || 'your store'
-  await sendTextMessage(waId, `Connected! This WhatsApp number is now linked to ${storeName} on Make It Sell.`)
   console.log(`[whatsapp-commands] Linked wa_id ${waId} to vendor ${link.vendorId}`)
+  await trySend(waId, `Connected! This WhatsApp number is now linked to ${storeName} on Make It Sell.`)
   return true
 }
 
+async function resolveLinkedVendor(waId: string): Promise<string | null> {
+  await connectToDatabase()
+  const link: any = await WhatsAppLink.findOne({ waId, status: 'linked' }).lean()
+  const vendorId = String(link?.vendorId || '').trim()
+  return vendorId || null
+}
+
+// Statuses a vendor's leg can already be at where "dispatched" no longer applies — the
+// item has already moved past that point, or the leg is cancelled entirely.
+const PAST_DISPATCH_STATUSES = new Set(['shipped', 'out_for_delivery', 'delivered', 'received', 'cancelled'])
+
+async function handleDispatchedCommand(waId: string, ref: string): Promise<void> {
+  const vendorId = await resolveLinkedVendor(waId)
+  if (!vendorId) {
+    console.log(`[whatsapp-commands] dispatched: rejected — ${waId} is not a linked vendor`)
+    await trySend(waId, 'You need to connect your account first. Get a connection code from your Make It Sell vendor dashboard and send it here.')
+    return
+  }
+
+  await connectToDatabase()
+  // `ref` is pre-validated as exactly 8 [a-z0-9] chars by DISPATCH_PATTERN, so it's safe
+  // to use directly in a regex — no injection surface.
+  const order: any = await Order.findOne({ orderId: { $regex: `^${ref}`, $options: 'i' } }).lean()
+  if (!order) {
+    console.log(`[whatsapp-commands] dispatched: no order found for ref ${ref} (vendor ${vendorId})`)
+    await trySend(waId, `Couldn't find an order matching ${ref}. Double-check the reference and try again.`)
+    return
+  }
+
+  const vendorEntries = Array.isArray(order.vendors) ? order.vendors : []
+  const targetEntry = vendorEntries.find((entry: any) => String(entry?.vendorId || '') === vendorId)
+  if (!targetEntry) {
+    console.log(`[whatsapp-commands] dispatched: order ${order.orderId} does not belong to vendor ${vendorId}`)
+    await trySend(waId, `Order ${ref} doesn't belong to your store.`)
+    return
+  }
+
+  const currentStatus = String(targetEntry.status || '').toLowerCase()
+  if (PAST_DISPATCH_STATUSES.has(currentStatus)) {
+    console.log(`[whatsapp-commands] dispatched: order ${order.orderId} already ${currentStatus} for vendor ${vendorId}`)
+    await trySend(waId, `Order ${ref} is already ${currentStatus.replace(/_/g, ' ')} — nothing to update.`)
+    return
+  }
+
+  const target = await resolveOrderVendorTarget(order.orderId, vendorId, String(targetEntry.storeId || ''))
+  if (!target) {
+    console.error(`[whatsapp-commands] dispatched: resolveOrderVendorTarget failed — order ${order.orderId}, vendor ${vendorId}`)
+    await trySend(waId, `Something went wrong updating order ${ref}. Please try again or use your vendor dashboard.`)
+    return
+  }
+
+  const updated = await applyOrderVendorStatus({
+    orderId: order.orderId,
+    vendorId,
+    storeId: String(targetEntry.storeId || ''),
+    status: 'shipped',
+    existingOrder: target.existingOrder,
+    targetStore: target.targetStore,
+  })
+
+  if (!updated) {
+    console.error(`[whatsapp-commands] dispatched: applyOrderVendorStatus returned null — order ${order.orderId}, vendor ${vendorId}`)
+    await trySend(waId, `Couldn't update order ${ref}. Please try again or use your vendor dashboard.`)
+    return
+  }
+
+  console.log(`[whatsapp-commands] Vendor ${vendorId} marked order ${order.orderId} as dispatched via WhatsApp`)
+  await trySend(waId, `Order ${ref} marked as dispatched. The buyer will be notified.`)
+}
+
 async function sendHelpMenu(waId: string): Promise<void> {
-  await sendTextMessage(
+  const vendorId = await resolveLinkedVendor(waId)
+
+  if (vendorId) {
+    await trySend(
+      waId,
+      "Hi! I didn't recognize that message.\n\nAvailable commands:\n- dispatched [order ref] — mark an order as shipped"
+    )
+    return
+  }
+
+  await trySend(
     waId,
     "Hi! I didn't recognize that message.\n\nIf your Make It Sell vendor dashboard gave you a connection code, send just that code here to link your account."
   )

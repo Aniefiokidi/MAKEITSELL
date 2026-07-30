@@ -5,6 +5,7 @@ import { User } from '@/lib/models/User'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { releaseEscrowForOrder, updateOrder } from '@/lib/mongodb-operations'
 import { sendOrderStatusChangeNotifications } from '@/lib/order-notifications'
+import { notifyVendorStageChange } from '@/lib/whatsapp/notifications'
 import { estimateShippingFee } from '@/lib/aco-logistics-rates'
 import type { LogisticsRegionConfig } from '@/lib/logistics-access'
 
@@ -116,6 +117,18 @@ export async function applyOrderVendorStatus(params: {
 
     if (updated) {
       updatedOrder = updated
+
+      // Captured here (not re-derived from updatedOrder below) because updatedOrder
+      // may get reassigned to the whole-order rollup result a few lines down, which
+      // has the same vendors[] data but there's no reason to search it twice.
+      const targetVendorEntry = (Array.isArray((updated as any).vendors) ? (updated as any).vendors : [])
+        .find((entry: any) =>
+          (vendorId && String(entry?.vendorId || '') === vendorId) ||
+          (storeId && String(entry?.storeId || '') === storeId)
+        )
+      if (targetVendorEntry) {
+        notifyVendorStageChange(orderId, targetVendorEntry, requestedStatus)
+      }
 
       // Cancelled legs must not count against the rollup — otherwise a partially
       // cancelled order can never reach 'received' for the vendor(s) who actually
