@@ -1,13 +1,26 @@
-// Buyer-facing WhatsApp flow — product search/browsing for an UNLINKED sender (i.e. not
-// a linked vendor, see resolveLinkedVendor in lib/whatsapp/commands.ts). v1 is browsing
-// only: no cart, no checkout, no payment. Every product read goes through the existing
-// getProducts() (lib/mongodb-operations.ts) with status: 'active' explicitly passed, so
-// this never surfaces inactive/out-of-stock inventory.
+// Buyer-facing WhatsApp flow — product search/browsing, cart, and checkout for an
+// UNLINKED sender (i.e. not a linked vendor, see resolveLinkedVendor in
+// lib/whatsapp/commands.ts). Every product read goes through the existing getProducts()
+// (lib/mongodb-operations.ts) with status: 'active' explicitly passed, so this never
+// surfaces inactive/out-of-stock inventory. Cart/checkout logic itself lives in
+// lib/whatsapp/checkout.ts — this file is the router that decides whether a message is
+// browsing/search or a checkout action.
 import connectToDatabase from '@/lib/mongodb'
 import { getProducts } from '@/lib/mongodb-operations'
 import { WhatsAppBrowseState } from '@/lib/models/WhatsAppBrowseState'
 import { sendTextMessage, sendImageMessage, sendInteractiveListMessage, type WhatsAppListRow } from '@/lib/whatsapp/client'
 import { PRODUCT_CATEGORIES } from '@/lib/product-categories'
+import {
+  BLOCKING_CHECKOUT_STAGES,
+  trackProductMessage,
+  tryHandleProductReply,
+  tryHandleCommaSeparatedAdd,
+  sendCartSummary,
+  handleRemoveCommand,
+  handleCheckoutStart,
+  handleCancelCommand,
+  handleCheckoutStageMessage,
+} from '@/lib/whatsapp/checkout'
 
 const RESULTS_PER_PAGE = 4
 // Fetch one extra beyond the display page so "are there more results" can be answered
@@ -27,11 +40,12 @@ const GREETING_KEYWORDS = new Set([
   'abeg', 'wassup', 'whats up', "what's up", 'sup',
 ])
 const CATEGORY_KEYWORDS = new Set(['menu', 'categories', 'category'])
-// Conservative: only treated as buy-intent on short messages, so a legitimate longer
-// product search that happens to contain one of these words (rare, but possible) isn't
-// misrouted to the placeholder.
+// Now doubles as a checkout trigger (see handleBuyerMessage) rather than a coming-soon
+// placeholder — ordering is live. Still conservative: only short messages, so a longer
+// legitimate product search containing one of these words isn't misrouted.
 const BUY_INTENT_PATTERN = /\b(buy|purchase|checkout|order)\b/i
 const BUY_INTENT_MAX_LENGTH = 40
+const REMOVE_PATTERN = /^remove\s+(\d+)$/
 
 // Mostly clear English with a light Pidgin touch ("how far") rather than full Pidgin
 // throughout — warm and local without reading as a caricature or excluding buyers who
@@ -39,9 +53,6 @@ const BUY_INTENT_MAX_LENGTH = 40
 // so this plainly spells out the three things they can actually do.
 const GREETING_MESSAGE =
   'Hey, how far! I\'m the Make It Sell shopping bot.\n\nHere\'s how to use me:\n- Type a product name to search (e.g. "sneakers")\n- Reply "categories" to browse by category\n- Reply "more" to see more results\n\nWhat are you looking for today?'
-
-const BUY_PLACEHOLDER_MESSAGE =
-  "Ordering through WhatsApp isn't available yet — that's coming soon. For now, please complete your purchase on the Make It Sell website or app."
 
 // Every reply goes through one of these so a delivery failure never throws back up into
 // the webhook handler — matches the trySend discipline in lib/whatsapp/commands.ts.
@@ -53,11 +64,14 @@ async function trySendText(waId: string, body: string): Promise<void> {
   }
 }
 
-async function trySendImage(waId: string, imageUrl: string, caption: string): Promise<void> {
+// Returns the raw send result (needed to persist a message->product mapping for
+// reply-to-select) rather than void — callers that don't need it just ignore it.
+async function trySendImage(waId: string, imageUrl: string, caption: string): Promise<any | null> {
   try {
-    await sendImageMessage(waId, imageUrl, caption)
+    return await sendImageMessage(waId, imageUrl, caption)
   } catch (error) {
     console.error(`[whatsapp-buyer] Image send failed for ${waId}:`, error)
+    return null
   }
 }
 
@@ -90,6 +104,29 @@ function buildProductCaption(product: any): string {
   return `${name}\n${price}\nSold by ${vendorName}`
 }
 
+// Sends one result (image+caption, or text if no photo) and records the message->product
+// mapping so a later reply to it can be resolved back to this product (checkout.ts's
+// tryHandleProductReply — the primary add-to-cart path).
+async function sendResultItem(waId: string, product: any): Promise<void> {
+  const caption = buildProductCaption(product)
+  const rawImage = Array.isArray(product?.images) ? product.images[0] : undefined
+  const productId = String(product?.id || product?._id || '')
+
+  if (!rawImage) {
+    // No product photo on file — fall back to text so the listing still shows up
+    // rather than silently disappearing from the results. Not tracked for reply-to-
+    // select: a reply to a text result is rarer, and skipping it keeps this simple.
+    await trySendText(waId, caption)
+    return
+  }
+
+  const result = await trySendImage(waId, buildWhatsAppImageUrl(rawImage), caption)
+  const messageId = String(result?.messages?.[0]?.id || '').trim()
+  if (messageId && productId) {
+    await trackProductMessage(waId, messageId, productId)
+  }
+}
+
 // Runs a product search (free text or a category name) and sends up to RESULTS_PER_PAGE
 // results as image+caption messages, persisting paging state so a later "more" picks up
 // where this left off. `offset` is the number of results already shown for this query.
@@ -119,23 +156,21 @@ async function runSearchAndReply(waId: string, query: string, offset: number): P
 
   console.log(`[whatsapp-buyer] search: sending ${pageItems.length} result(s) for "${query}" (offset ${offset}, hasMore ${hasMore}) — ${waId}`)
 
-  for (const product of pageItems) {
-    const caption = buildProductCaption(product)
-    const rawImage = Array.isArray(product?.images) ? product.images[0] : undefined
-    if (rawImage) {
-      await trySendImage(waId, buildWhatsAppImageUrl(rawImage), caption)
-    } else {
-      // No product photo on file — fall back to text so the listing still shows up
-      // rather than silently disappearing from the results.
-      await trySendText(waId, caption)
-    }
-  }
-
-  await WhatsAppBrowseState.findOneAndUpdate(
-    { waId },
-    { $set: { lastQuery: query, offset: offset + pageItems.length, updatedAt: new Date() } },
-    { upsert: true }
-  )
+  // Fire all result sends and the browse-state write concurrently instead of one at a
+  // time — each send is a real network round-trip to Meta's API, so awaiting them
+  // sequentially was the dominant source of the bot's reply latency (up to 4 back-to-
+  // back round-trips before the buyer saw the last image). Individual sends already
+  // catch their own errors, so one failure can't fail this Promise.all or block the
+  // others. Minor trade-off: results can now arrive on the buyer's phone in a slightly
+  // different order than pageItems — acceptable for a burst of results.
+  await Promise.all([
+    ...pageItems.map((product) => sendResultItem(waId, product)),
+    WhatsAppBrowseState.findOneAndUpdate(
+      { waId },
+      { $set: { lastQuery: query, offset: offset + pageItems.length, updatedAt: new Date() } },
+      { upsert: true }
+    ),
+  ])
 
   if (hasMore) {
     await trySendText(waId, `Reply "more" to see more results for "${query}".`)
@@ -179,18 +214,45 @@ export async function handleCategorySelection(waId: string, rowId: string): Prom
 }
 
 // Entry point for any inbound text from a sender who isn't a linked vendor — called from
-// the restructured handleInboundMessage in lib/whatsapp/commands.ts. Simplification, made
-// transparently rather than tracked as true "is this their first-ever message": greeting
-// fires off an explicit keyword set plus an empty message, not a genuine first-contact
-// check.
+// the restructured handleInboundMessage in lib/whatsapp/commands.ts. `contextMessageId`
+// is set when this message is a reply/quote of a previous one (present on both this and
+// the webhook's existing 'button'/'interactive' branches) — used here to resolve
+// reply-to-select cart adds.
 //
-// Dispatch order is deliberate: explicit commands ("more", the category keywords) are
-// checked first since they're unambiguous, then the explicit greeting list, then
-// buy-intent, and only then does anything remaining fall through to search. This keeps
-// "hair" or "how much for iPhone" reaching search while "hey"/"howfar" still greet.
-export async function handleBuyerMessage(waId: string, text: string): Promise<void> {
+// Dispatch order, top to bottom:
+// 1. "cancel" — works at any non-browsing stage, checked first.
+// 2. Blocking checkout stages (awaiting_name/address/couriers/confirm/payment) own the
+//    whole message — everything below is skipped entirely while mid-checkout.
+// 3. Reply-to-a-product-result — a reply is a stronger, more specific signal than
+//    parsing the reply's text, so it's checked before any keyword.
+// 4. "more" / category keywords — existing, unambiguous commands.
+// 5. "cart" / "remove N" / "checkout" (or buy-intent phrasing) — cart management.
+// 6. Comma-separated fuzzy add ("sneakers, iphone case").
+// 7. Greeting list.
+// 8. Fallback: product search — this keeps "hair" or "how much for iPhone" reaching
+//    search while "hey"/"howfar" still greet, exactly as before.
+export async function handleBuyerMessage(waId: string, text: string, contextMessageId?: string): Promise<void> {
   const trimmed = String(text || '').trim()
   const lower = trimmed.toLowerCase()
+
+  await connectToDatabase()
+  const state: any = await WhatsAppBrowseState.findOne({ waId }).lean()
+  const stage = String(state?.stage || 'browsing')
+
+  if (lower === 'cancel') {
+    const handled = await handleCancelCommand(waId, stage)
+    if (handled) return
+  }
+
+  if (BLOCKING_CHECKOUT_STAGES.has(stage)) {
+    await handleCheckoutStageMessage(waId, trimmed, stage)
+    return
+  }
+
+  if (contextMessageId) {
+    const handled = await tryHandleProductReply(waId, contextMessageId, trimmed)
+    if (handled) return
+  }
 
   if (lower === 'more') {
     await handleMoreCommand(waId)
@@ -202,13 +264,29 @@ export async function handleBuyerMessage(waId: string, text: string): Promise<vo
     return
   }
 
-  if (!trimmed || GREETING_KEYWORDS.has(lower)) {
-    await trySendText(waId, GREETING_MESSAGE)
+  if (lower === 'cart') {
+    await sendCartSummary(waId)
     return
   }
 
-  if (trimmed.length <= BUY_INTENT_MAX_LENGTH && BUY_INTENT_PATTERN.test(trimmed)) {
-    await trySendText(waId, BUY_PLACEHOLDER_MESSAGE)
+  const removeMatch = lower.match(REMOVE_PATTERN)
+  if (removeMatch) {
+    await handleRemoveCommand(waId, Number(removeMatch[1]))
+    return
+  }
+
+  if (lower === 'checkout' || (trimmed.length <= BUY_INTENT_MAX_LENGTH && BUY_INTENT_PATTERN.test(trimmed))) {
+    await handleCheckoutStart(waId)
+    return
+  }
+
+  if (trimmed.includes(',')) {
+    const handled = await tryHandleCommaSeparatedAdd(waId, trimmed)
+    if (handled) return
+  }
+
+  if (!trimmed || GREETING_KEYWORDS.has(lower)) {
+    await trySendText(waId, GREETING_MESSAGE)
     return
   }
 

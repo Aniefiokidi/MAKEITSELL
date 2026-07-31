@@ -11,6 +11,7 @@ import mongoose from 'mongoose'
 import { Order } from '@/lib/models/Order'
 import { createShipmentsForOrder } from '@/lib/shipbubble-dispatch'
 import { notifyVendorsNewOrder } from '@/lib/whatsapp/notifications'
+import { notifyWaBuyerOrderPaid } from '@/lib/whatsapp/checkout'
 import { sendOrderPlacementNotifications } from '@/lib/order-notifications'
 import { maybeSendLowStockAlert } from '@/lib/stock-alerts'
 
@@ -120,6 +121,7 @@ export async function handleOrderPaid(
 
   await createShipmentsForOrder(orderId).catch((err) => console.error('[order-payment] Shipbubble dispatch failed:', err))
   notifyVendorsNewOrder(orderId)
+  notifyWaBuyerOrderPaid(String(claimedOrder.customerId || ''), orderId)
   await decrementStockAndSales(claimedOrder)
   await sendOrderPlacementNotifications(orderId, claimedOrder)
 

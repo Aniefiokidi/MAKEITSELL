@@ -75,12 +75,15 @@ export async function validateShipbubbleAddress(
 // Shipbubble's address validator expects a person-style "full name" (letters + a space,
 // e.g. "John Doe") in the `name` field and 422s on anything else — including a single-word
 // business name like "Asani", even though it has no digits or symbols. Store names are
-// often one word or a brand name, so they can't be trusted to pass as-is.
-function sanitizeContactName(input: string): string {
+// often one word or a brand name, so they can't be trusted to pass as-is. Exported so the
+// same fix applies to the RECEIVER (buyer) name in lib/delivery-quotes.ts — a WhatsApp
+// buyer typically has just one free-text name, not separate first/last fields like the
+// website checkout form, so it's exactly as likely to trip this as a single-word store name.
+export function sanitizeContactName(input: string): string {
   return String(input || '').replace(/[^a-zA-Z\s]/g, '').trim().replace(/\s+/g, ' ')
 }
 
-function ensureTwoWordName(input: string, fallbackSuffix: string): string {
+export function ensureTwoWordName(input: string, fallbackSuffix: string): string {
   const cleaned = sanitizeContactName(input)
   if (cleaned.split(' ').filter(Boolean).length >= 2) return cleaned
   return cleaned ? `${cleaned} ${fallbackSuffix}` : `Store ${fallbackSuffix}`

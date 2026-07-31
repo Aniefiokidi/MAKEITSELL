@@ -16,6 +16,8 @@
 // that signature — which requires a secret that never leaves the server.
 import { buildOrder, type BuildOrderResult } from '@/lib/order-creation'
 import { findOrCreateBuyerForWaId, placeholderEmailForWaId } from '@/lib/whatsapp/buyer-identity'
+import { calculatePaystackCheckoutAmounts } from '@/lib/paystack-charges'
+import { paystackService } from '@/lib/payment'
 
 export type CreateOrderForWaBuyerInput = {
   waId: string
@@ -50,4 +52,61 @@ export async function createOrderForWaBuyer(input: CreateOrderForWaBuyerInput): 
     paymentMethod,
     shipbubbleSelections,
   })
+}
+
+export type InitiateWaBuyerPaystackCheckoutInput = Omit<CreateOrderForWaBuyerInput, 'paymentMethod'>
+
+export type InitiateWaBuyerPaystackCheckoutResult =
+  | { success: true; orderId: string; totalAmount: number; authorizationUrl: string }
+  | { success: false; error: string }
+
+// Order creation + Paystack link generation for the bot's checkout confirmation step.
+// Deliberately reuses the exact same pieces the web checkout's Paystack branch uses
+// (calculatePaystackCheckoutAmounts, paystackService.initializePayment) — no separate
+// fee math or payment logic. This is the ONE place that composes them for a WhatsApp
+// buyer; lib/whatsapp/checkout.ts never talks to Paystack directly.
+export async function initiateWaBuyerPaystackCheckout(
+  input: InitiateWaBuyerPaystackCheckoutInput
+): Promise<InitiateWaBuyerPaystackCheckoutResult> {
+  const orderResult = await createOrderForWaBuyer({ ...input, paymentMethod: 'paystack' })
+  if (!orderResult.success) {
+    return { success: false, error: orderResult.error }
+  }
+
+  const { customerId } = await findOrCreateBuyerForWaId(input.waId, input.name)
+  const email = String(input.shippingInfo?.email || '').trim() || placeholderEmailForWaId(input.waId)
+
+  const paystackAmounts = calculatePaystackCheckoutAmounts(Number(orderResult.totalAmount))
+  if (paystackAmounts.payableAmount <= 0) {
+    return { success: false, error: 'Invalid order amount for payment initialization' }
+  }
+
+  const paymentResult = await paystackService.initializePayment({
+    email,
+    amount: paystackAmounts.payableAmount,
+    orderId: orderResult.orderId,
+    customerId,
+    items: [
+      ...input.items,
+      {
+        productId: 'paystack-processing-charge',
+        title: 'Paystack Processing Charge',
+        quantity: 1,
+        price: paystackAmounts.chargeAmount,
+        vendorId: 'system',
+        vendorName: 'Make It Sell',
+      },
+    ],
+  })
+
+  if (!paymentResult.success || !paymentResult.authUrl) {
+    return { success: false, error: paymentResult.message || 'Payment initialization failed' }
+  }
+
+  return {
+    success: true,
+    orderId: orderResult.orderId,
+    totalAmount: paystackAmounts.orderAmount,
+    authorizationUrl: paymentResult.authUrl,
+  }
 }

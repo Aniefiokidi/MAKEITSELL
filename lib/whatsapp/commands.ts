@@ -34,7 +34,11 @@ async function trySend(waId: string, body: string): Promise<void> {
   }
 }
 
-export async function handleInboundMessage(waId: string, text: string): Promise<void> {
+// `contextMessageId` is set when the inbound text is a reply/quote of a previous
+// message (message.context.id in the webhook payload) — passed through to the buyer
+// flow for reply-to-select cart adds. Never meaningful for vendor commands below, so it
+// isn't threaded any further than handleBuyerMessage.
+export async function handleInboundMessage(waId: string, text: string, contextMessageId?: string): Promise<void> {
   const trimmed = String(text || '').trim()
 
   // A bare 6-char code is checked first — it's the one command that must work for an
@@ -50,7 +54,7 @@ export async function handleInboundMessage(waId: string, text: string): Promise<
   // the same number; there's no mode-switch.
   const vendorId = await resolveLinkedVendor(waId)
   if (!vendorId) {
-    await handleBuyerMessage(waId, trimmed)
+    await handleBuyerMessage(waId, trimmed, contextMessageId)
     return
   }
 

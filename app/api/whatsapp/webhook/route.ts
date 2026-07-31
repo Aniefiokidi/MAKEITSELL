@@ -69,8 +69,13 @@ export async function POST(request: NextRequest) {
           const waId = String(message?.from || 'unknown')
           const text = message?.text?.body
           if (text) {
-            console.log(`[whatsapp-webhook] Message from ${waId}: ${text}`)
-            await handleInboundMessage(waId, text)
+            // A text message that's a reply/quote of a previous one (e.g. a buyer
+            // replying to a product-result image to add it to cart) carries the same
+            // context.id shape Meta uses for button/list replies — confirmed against
+            // Meta's official webhook docs (context: {from, id}).
+            const contextMessageId = message?.context?.id ? String(message.context.id) : undefined
+            console.log(`[whatsapp-webhook] Message from ${waId}: ${text}${contextMessageId ? ` (reply to ${contextMessageId})` : ''}`)
+            await handleInboundMessage(waId, text, contextMessageId)
           } else if (message?.type === 'button' && message?.context?.id) {
             // Quick-reply button tap on a template we sent (e.g. "Mark as dispatched" on
             // order_received) — distinct from type "interactive", which is only for
