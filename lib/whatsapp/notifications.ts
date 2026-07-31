@@ -6,11 +6,16 @@
 // been sent (so it never adds latency the caller waits on) while still keeping the
 // serverless function alive long enough to finish, which a bare un-awaited promise on
 // Vercel is not guaranteed to do.
+//
+// Both sends use approved message templates (order_received, order_status_update)
+// rather than free-form text, so they deliver even outside Meta's 24h customer-service
+// window — see lib/whatsapp/client.ts's sendTemplateMessage.
 import { after } from 'next/server'
 import connectToDatabase from '@/lib/mongodb'
 import { Order } from '@/lib/models/Order'
 import { WhatsAppLink } from '@/lib/models/WhatsAppLink'
-import { sendTextMessage } from '@/lib/whatsapp/client'
+import { WhatsAppMessageMap } from '@/lib/models/WhatsAppMessageMap'
+import { sendTemplateMessage } from '@/lib/whatsapp/client'
 
 function shortRef(orderId: string): string {
   return String(orderId || '').slice(0, 8).toUpperCase()
@@ -23,6 +28,10 @@ function formatItemSummary(items: any[]): string {
   return (parts.join(', ') || 'items') + extra
 }
 
+function formatNaira(amount: number): string {
+  return `NGN ${Math.max(0, Number(amount) || 0).toLocaleString('en-NG')}`
+}
+
 async function getLinkedWaId(vendorId: string): Promise<string | null> {
   await connectToDatabase()
   const link: any = await WhatsAppLink.findOne({ vendorId, status: 'linked' }).lean()
@@ -30,26 +39,31 @@ async function getLinkedWaId(vendorId: string): Promise<string | null> {
   return waId || null
 }
 
-// TODO(whatsapp-templates): these are free-form text sends, only deliverable within
-// Meta's 24h customer-service window (measured from the vendor's last message to the
-// bot). Outside that window, sendTextMessage will fail (Meta returns an error, e.g.
-// code 131047) and the send below is skipped after logging — nothing crashes, but the
-// vendor won't get it. Fixing that needs an approved message template, a separate
-// process not built here (per spec).
-async function trySendToVendor(vendorId: string, orderId: string, body: string, context: string): Promise<void> {
+// Every send goes through here so a delivery failure never stops the outcome from being
+// logged — the business-logic log line fires first, independent of whether the send
+// itself succeeds. Returns the raw API response (or null on skip/failure) so callers
+// that need the sent message ID — just the new-order send, for the button mapping — can
+// read it back.
+async function trySendToVendor(
+  vendorId: string,
+  orderId: string,
+  sendFn: (waId: string) => Promise<any>,
+  context: string
+): Promise<any | null> {
   try {
     const waId = await getLinkedWaId(vendorId)
     if (!waId) {
       console.log(`[whatsapp-notify] Skipping ${context} — order ${orderId}, vendor ${vendorId} not linked`)
-      return
+      return null
     }
-    await sendTextMessage(waId, body)
+    const result = await sendFn(waId)
     console.log(`[whatsapp-notify] Sent ${context} — order ${orderId}, vendor ${vendorId}`)
+    return result
   } catch (error) {
-    // Covers real API errors (including the outside-24h-window case above) and any
-    // lookup failure. Never rethrown — a notification failure must never surface back
-    // onto the order/stage change it's reporting on.
+    // Covers real API errors and any lookup failure. Never rethrown — a notification
+    // failure must never surface back onto the order/stage change it's reporting on.
     console.error(`[whatsapp-notify] Failed to send ${context} — order ${orderId}, vendor ${vendorId}:`, error)
+    return null
   }
 }
 
@@ -67,10 +81,25 @@ export function notifyVendorsNewOrder(orderId: string): void {
 
       const ref = shortRef(orderId)
       const summary = formatItemSummary(vendor.items)
-      const earnings = Number(vendor?.total || 0)
-      const body = `New order! Ref: ${ref}\n${summary}\nYour earnings: NGN ${earnings.toLocaleString('en-NG')}`
+      const earnings = formatNaira(Number(vendor?.total || 0))
 
-      await trySendToVendor(vendorId, orderId, body, 'new-order notification')
+      const result = await trySendToVendor(
+        vendorId,
+        orderId,
+        (waId) => sendTemplateMessage(waId, 'order_received', [ref, summary, earnings]),
+        'order_received template'
+      )
+
+      const messageId = String(result?.messages?.[0]?.id || '').trim()
+      if (messageId) {
+        try {
+          await WhatsAppMessageMap.create({ messageId, orderId, vendorId })
+        } catch (error) {
+          // Best-effort — if this fails, the button tap just falls back to the typed
+          // "dispatched [ref]" command instead of resolving automatically.
+          console.error(`[whatsapp-notify] Failed to persist message map for order ${orderId}, vendor ${vendorId}:`, error)
+        }
+      }
     }
   })
 }
@@ -96,7 +125,11 @@ export function notifyVendorStageChange(orderId: string, vendorEntry: any, statu
   after(async () => {
     const ref = shortRef(orderId)
     const summary = formatItemSummary(vendorEntry?.items)
-    const body = `Order ${ref} (${summary}) is now: ${label}`
-    await trySendToVendor(vendorId, orderId, body, `stage-change (${status}) notification`)
+    await trySendToVendor(
+      vendorId,
+      orderId,
+      (waId) => sendTemplateMessage(waId, 'order_status_update', [ref, summary, label]),
+      `order_status_update template (${status})`
+    )
   })
 }

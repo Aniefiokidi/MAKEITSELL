@@ -44,6 +44,55 @@ export async function getBotDisplayPhoneNumber(): Promise<string | null> {
   }
 }
 
+// Sends an approved WhatsApp message template by name with an ordered list of body
+// text-variable values. These deliver even outside Meta's 24h customer-service window,
+// unlike sendTextMessage — that's the whole reason to use one. A static Quick Reply
+// button (as opposed to a dynamic-URL button) needs no components entry of its own: it's
+// baked into the approved template and Meta renders it automatically whenever the
+// template is sent, so `components` here only ever carries the body parameters.
+export async function sendTemplateMessage(
+  to: string,
+  templateName: string,
+  bodyParams: string[],
+  languageCode: string = 'en'
+): Promise<any> {
+  const { accessToken, phoneNumberId } = getConfig()
+  if (!accessToken || !phoneNumberId) {
+    throw new Error('WhatsApp is not configured — set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID')
+  }
+
+  const components = bodyParams.length > 0
+    ? [{ type: 'body', parameters: bodyParams.map((text) => ({ type: 'text', text })) }]
+    : []
+
+  const response = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to,
+      type: 'template',
+      template: {
+        name: templateName,
+        language: { code: languageCode },
+        components,
+      },
+    }),
+  })
+
+  const data = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    console.error('[whatsapp-client] sendTemplateMessage failed:', JSON.stringify(data))
+    throw new Error(data?.error?.message || `WhatsApp API request failed with status ${response.status}`)
+  }
+
+  return data
+}
+
 export async function sendTextMessage(to: string, body: string): Promise<any> {
   const { accessToken, phoneNumberId } = getConfig()
   if (!accessToken || !phoneNumberId) {

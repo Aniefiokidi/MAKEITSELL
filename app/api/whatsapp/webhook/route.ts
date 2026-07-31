@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
-import { handleInboundMessage } from '@/lib/whatsapp/commands'
+import { handleInboundMessage, handleButtonReply } from '@/lib/whatsapp/commands'
 
 // WhatsApp Cloud API webhook — Meta's dashboard verification handshake (GET) plus the
 // message/status event receiver (POST). Docs:
@@ -70,6 +70,13 @@ export async function POST(request: NextRequest) {
           if (text) {
             console.log(`[whatsapp-webhook] Message from ${waId}: ${text}`)
             await handleInboundMessage(waId, text)
+          } else if (message?.type === 'button' && message?.context?.id) {
+            // Quick-reply button tap on a template we sent (e.g. "Mark as dispatched" on
+            // order_received) — distinct from type "interactive", which is only for
+            // buttons we send ourselves via the Interactive API, not template-embedded
+            // ones. context.id is the WhatsApp message ID of that original template send.
+            console.log(`[whatsapp-webhook] Button reply from ${waId}: "${message.button?.text}" (context: ${message.context.id})`)
+            await handleButtonReply(waId, String(message.context.id))
           } else {
             console.log(`[whatsapp-webhook] Message from ${waId} (type: ${message?.type || 'unknown'}, no text body)`)
           }

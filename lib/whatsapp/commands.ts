@@ -10,6 +10,7 @@ import { WhatsAppLink } from '@/lib/models/WhatsAppLink'
 import { Store } from '@/lib/models/Store'
 import { Order } from '@/lib/models/Order'
 import { User } from '@/lib/models/User'
+import { WhatsAppMessageMap } from '@/lib/models/WhatsAppMessageMap'
 import { applyOrderVendorStatus, resolveOrderVendorTarget } from '@/lib/order-vendor-status'
 import { sendTextMessage } from '@/lib/whatsapp/client'
 
@@ -104,7 +105,7 @@ async function resolveLinkedVendor(waId: string): Promise<string | null> {
 // item has already moved past that point, or the leg is cancelled entirely.
 const PAST_DISPATCH_STATUSES = new Set(['shipped', 'out_for_delivery', 'delivered', 'received', 'cancelled'])
 
-async function handleDispatchedCommand(waId: string, ref: string): Promise<void> {
+export async function handleDispatchedCommand(waId: string, ref: string): Promise<void> {
   const vendorId = await resolveLinkedVendor(waId)
   if (!vendorId) {
     console.log(`[whatsapp-commands] dispatched: rejected — ${waId} is not a linked vendor`)
@@ -161,6 +162,31 @@ async function handleDispatchedCommand(waId: string, ref: string): Promise<void>
 
   console.log(`[whatsapp-commands] Vendor ${vendorId} marked order ${order.orderId} as dispatched via WhatsApp`)
   await trySend(waId, `Order ${ref} marked as dispatched. The buyer will be notified.`)
+}
+
+// Handles a "Mark as dispatched" quick-reply button tap on an order_received template.
+// The tap arrives with only message.context.id (the WhatsApp message ID of the template
+// we sent) — no order info of its own — so the whole job here is resolving that back to
+// an order/vendor via the persistent mapping, then handing off to the EXACT SAME
+// handleDispatchedCommand used by the typed command above. That's deliberate: it's what
+// gives the button the same linked-vendor, ownership, and already-shipped gates the
+// typed command already has, with no separate copy of that logic to keep in sync.
+export async function handleButtonReply(waId: string, contextMessageId: string): Promise<void> {
+  await connectToDatabase()
+  const mapping: any = await WhatsAppMessageMap.findOne({ messageId: contextMessageId }).lean()
+
+  if (!mapping) {
+    // Expired (past the mapping's 90-day TTL) or predates this feature — not an error,
+    // just nothing to resolve automatically. Name the fallback explicitly so the vendor
+    // has a way forward instead of a dead end.
+    console.log(`[whatsapp-commands] button reply: no mapping for message ${contextMessageId} (vendor lookup pending)`)
+    await trySend(waId, "I couldn't match that to an order. Please reply: dispatched [order ref]")
+    return
+  }
+
+  const ref = String(mapping.orderId || '').slice(0, 8).toUpperCase()
+  console.log(`[whatsapp-commands] button reply: resolved message ${contextMessageId} -> order ${mapping.orderId} (ref ${ref})`)
+  await handleDispatchedCommand(waId, ref)
 }
 
 function formatNaira(amount: number): string {
