@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { paystackService } from '@/lib/payment'
-import { createOrder, getOrderById, updateOrder } from '@/lib/mongodb-operations'
-import { v4 as uuidv4 } from 'uuid'
+import { getOrderById, updateOrder } from '@/lib/mongodb-operations'
 import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
-import { Store } from '@/lib/models/Store'
 import crypto from 'crypto'
 import { calculatePaystackCheckoutAmounts } from '@/lib/paystack-charges'
 import { getCanonicalAppBaseUrl } from '@/lib/app-url'
@@ -15,7 +13,7 @@ import { maybeSendLowStockAlert } from '@/lib/stock-alerts'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { createShipmentsForOrder } from '@/lib/shipbubble-dispatch'
 import { notifyVendorsNewOrder } from '@/lib/whatsapp/notifications'
-import { parseDeliveryEtaToHours, ESCROW_DISPUTE_GRACE_HOURS, TEST_STORE_VENDOR_ID } from '@/lib/shipbubble'
+import { buildOrder } from '@/lib/order-creation'
 
 async function deductStock(orderId: string) {
   try {
@@ -49,12 +47,6 @@ async function deductStock(orderId: string) {
   }
 }
 
-const OBJECT_ID_REGEX = /^[a-fA-F0-9]{24}$/
-
-function isValidObjectIdString(value: string): boolean {
-  return OBJECT_ID_REGEX.test(String(value || '').trim())
-}
-
 export async function POST(request: NextRequest) {
   try {
     const sessionUser = await getSessionUserFromRequest(request)
@@ -65,13 +57,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     console.log('Payment API received:', body)
 
-    const {
-      items,
-      shippingInfo,
-      paymentMethod,
-      totalAmount: clientTotalAmount,
-      shipbubbleSelections
-    } = body
+    const { items, shippingInfo, paymentMethod, shipbubbleSelections } = body
 
     // Always the caller's own session — never trust customerId from the body. This
     // matters most on the wallet path below, which debits customerId's balance directly
@@ -81,202 +67,19 @@ export async function POST(request: NextRequest) {
 
     const normalizedPaymentMethod = (paymentMethod === 'checkout') ? 'paystack' : paymentMethod
 
-    // Validate required fields
-    if (!items || !shippingInfo || !customerId || !shippingInfo.email || !String(shippingInfo.deliveryInstructions || '').trim()) {
-      console.error('Missing fields:', {
-        items,
-        shippingInfo,
-        customerId,
-        clientTotalAmount,
-        email: shippingInfo?.email,
-        deliveryInstructions: shippingInfo?.deliveryInstructions,
-      })
-      return NextResponse.json(
-        { success: false, error: 'Missing required fields (items, shippingInfo, customerId, email, deliveryInstructions)' },
-        { status: 400 }
-      )
-    }
-
-    // Generate unique order ID
-    const orderId = uuidv4()
-
-    // Group items by store first (fallback to vendor) so each store gets its own payout bucket.
-    const vendorOrders = new Map()
-    
-    for (const item of items) {
-      const vendorId = String(item?.vendorId || '').trim()
-      // Try to get storeId from item, fallback to product lookup if missing
-      let storeId = String(item?.storeId || '').trim()
-      if (!storeId && item.productId) {
-        // Fetch product to get storeId
-        try {
-          const productRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/database/products/${item.productId}`)
-          if (productRes.ok) {
-            const productJson = await productRes.json();
-            if (productJson.success && productJson.data && productJson.data.storeId) {
-              storeId = String(productJson.data.storeId || '').trim();
-            }
-          }
-        } catch {}
-      }
-      const groupingKey = storeId ? `store:${storeId}` : `vendor:${vendorId}`
-      if (!vendorOrders.has(groupingKey)) {
-        vendorOrders.set(groupingKey, {
-          vendorId,
-          vendorName: item.vendorName,
-          storeId,
-          items: [],
-          total: 0
-        })
-      }
-      const vendor = vendorOrders.get(groupingKey)
-      if (!vendor.storeId && storeId) {
-        vendor.storeId = storeId
-      }
-      vendor.items.push({ ...item, storeId })
-      vendor.total += Number(item?.price || 0) * Number(item?.quantity || 0)
-    }
-
-    const subtotal = (Array.isArray(items) ? items : []).reduce((sum: number, item: any) => {
-      return sum + (Number(item?.price || 0) * Number(item?.quantity || 0))
-    }, 0)
-    const vat = Math.round(subtotal * 0.07)
-
-    const vendorEntries = Array.from(vendorOrders.values()) as any[]
-    const vendorIdList = Array.from(new Set(vendorEntries.map((v) => String(v?.vendorId || '').trim()).filter(Boolean)))
-    const storeIdList = Array.from(new Set(vendorEntries.map((v) => String(v?.storeId || '').trim()).filter(isValidObjectIdString)))
-
-    const storeQueryOr: any[] = []
-    if (storeIdList.length > 0) storeQueryOr.push({ _id: { $in: storeIdList } })
-    if (vendorIdList.length > 0) storeQueryOr.push({ vendorId: { $in: vendorIdList } })
-
-    let stores: any[] = []
-    if (storeQueryOr.length > 0) {
-      stores = await Store.find({ $or: storeQueryOr }).lean()
-    }
-
-    const storeById = new Map<string, any>()
-    const storeByVendorId = new Map<string, any>()
-    for (const store of stores || []) {
-      storeById.set(String(store?._id || ''), store)
-      if (store?.vendorId && !storeByVendorId.has(String(store.vendorId))) {
-        storeByVendorId.set(String(store.vendorId), store)
-      }
-    }
-
-    // Real courier selections captured at checkout (app/checkout/page.tsx) — each vendor
-    // must have picked a Shipbubble courier there before an order can be created. There is
-    // no server-side fallback rate lookup here: trusting the already-quoted total the
-    // customer saw at checkout mirrors how `resolvedShipping` already worked client-side.
-    let shipping = 0
-    const missingCourierVendors: string[] = []
-    // Highest parsed courier ETA across all vendors in this order — release can't happen
-    // until every vendor's leg is confirmed delivered, so the slowest courier governs.
-    let maxCourierEtaHours: number | null = null
-
-    for (const vendor of Array.from(vendorOrders.values()) as any[]) {
-      const store = storeById.get(String(vendor?.storeId || '')) || storeByVendorId.get(String(vendor?.vendorId || ''))
-      const pickupAddress = String(store?.address || '')
-      vendor.storeId = vendor.storeId || store?._id?.toString?.() || ''
-      vendor.storeAddress = pickupAddress || ''
-      vendor.storeState = String(store?.state || '')
-
-      const selection = shipbubbleSelections?.[vendor.vendorId]
-      const requestToken = String(selection?.requestToken || '').trim()
-      const serviceCode = String(selection?.serviceCode || '').trim()
-      const courierId = String(selection?.courierId || '').trim()
-      const shippingFee = Number(selection?.total)
-
-      if (!requestToken || !serviceCode || !courierId || !Number.isFinite(shippingFee)) {
-        missingCourierVendors.push(vendor.vendorName || vendor.vendorId)
-        continue
-      }
-
-      // Test-store delivery-fee waiver: anyone ordering from the "test" store never pays
-      // a delivery fee, regardless of which customer is buying. Server-enforced here
-      // (not trusting whatever total the client submitted) so this holds even if the
-      // client-side quote in app/api/delivery/shipbubble-rates is ever bypassed.
-      const isTestStoreWaiver = vendor.vendorId === TEST_STORE_VENDOR_ID
-      const effectiveShippingFee = isTestStoreWaiver ? 0 : shippingFee
-
-      vendor.shippingFee = effectiveShippingFee
-      vendor.shippingFeeLabel = effectiveShippingFee === 0 ? 'FREE' : `NGN ${effectiveShippingFee.toLocaleString('en-NG')}`
-      vendor.shipbubbleRequestToken = requestToken
-      vendor.shipbubbleServiceCode = serviceCode
-      vendor.shipbubbleCourierId = courierId
-      vendor.shipbubbleCourierName = String(selection?.courierName || '')
-      shipping += effectiveShippingFee
-
-      const etaHours = parseDeliveryEtaToHours(selection?.deliveryEta)
-      vendor.shipbubbleDeliveryEtaHours = etaHours
-      if (etaHours != null && (maxCourierEtaHours == null || etaHours > maxCourierEtaHours)) {
-        maxCourierEtaHours = etaHours
-      }
-    }
-
-    if (missingCourierVendors.length > 0) {
-      return NextResponse.json(
-        { success: false, error: `Please select a delivery courier for: ${missingCourierVendors.join(', ')}` },
-        { status: 400 }
-      )
-    }
-
-    const hasTbdShipping = false
-    const computedTotalAmount = subtotal + vat + shipping
-
-    const normalizedDropoffState = String(shippingInfo?.state || '').trim().toLowerCase()
-    const vendorStates = vendorEntries
-      .map((entry: any) => String(entry?.storeState || entry?.state || '').trim().toLowerCase())
-      .filter(Boolean)
-    const deliveryType: 'local' | 'interstate' = (
-      normalizedDropoffState
-      && vendorStates.length > 0
-      && vendorStates.every((state) => state === normalizedDropoffState)
-    ) ? 'local' : 'interstate'
-
-    // Escrow release timing: courier ETA (from the rate the customer actually picked at
-    // checkout) plus a fixed dispute grace period, rather than the old flat local/
-    // interstate matrix. Falls back to that matrix only if no courier ETA could be
-    // parsed — Shipbubble's delivery_eta is free text and not always parseable (see
-    // parseDeliveryEtaToHours). This is just the initial estimate; the Shipbubble webhook
-    // tightens it once delivery is actually confirmed (see app/api/webhooks/shipbubble).
-    const estimatedDeliveryHours = maxCourierEtaHours ?? (deliveryType === 'local' ? 14 : 72)
-    const escrowReleaseAt = new Date(Date.now() + (estimatedDeliveryHours + ESCROW_DISPUTE_GRACE_HOURS) * 60 * 60 * 1000)
-
-    // Create order record in database
-    // Collect all unique storeIds from vendorOrders
-    const storeIds = Array.from(vendorOrders.values()).map(v => v.storeId).filter(Boolean)
-    const orderData = {
-      orderId,
+    const buildResult = await buildOrder({
       customerId,
       items,
       shippingInfo,
-      shippingAddress: {
-        street: shippingInfo.address,
-        city: shippingInfo.city,
-        state: shippingInfo.state,
-        zipCode: shippingInfo.zipCode,
-        country: shippingInfo.country,
-        instructions: shippingInfo.deliveryInstructions,
-      },
       paymentMethod: normalizedPaymentMethod,
-      subtotal,
-      vat,
-      shipping,
-      hasTbdShipping,
-      totalAmount: computedTotalAmount,
-      status: 'pending_payment',
-      paymentStatus: 'pending',
-      deliveryType,
-      escrowReleaseAt,
-      vendors: Array.from(vendorOrders.values()),
-      storeIds,
-      createdAt: new Date()
+      shipbubbleSelections,
+    })
+
+    if (!buildResult.success) {
+      return NextResponse.json({ success: false, error: buildResult.error }, { status: buildResult.status })
     }
 
-    console.log('Creating order with data:', orderData)
-    const order = await createOrder(orderData)
-    console.log('Order created successfully:', order)
+    const { orderId, totalAmount: computedTotalAmount } = buildResult
 
     // Initialize payment with Paystack
     if (normalizedPaymentMethod === 'paystack') {
