@@ -5,14 +5,7 @@
 // confirmed" choke point; see each call site for why.
 import connectToDatabase from '@/lib/mongodb'
 import { Order } from '@/lib/models/Order'
-import { createShipbubbleShipment } from '@/lib/shipbubble'
-
-// Test-account bypass: orders placed by this customer (arnoldidiong@icloud.com, the
-// account used for testing the WhatsApp bot end to end) never create a real Shipbubble
-// shipment — that endpoint dispatches an actual courier and spends real money from the
-// Shipbubble wallet. Narrow and hardcoded on purpose, same reasoning as the delivery-fee
-// waiver in app/api/payments/initialize/route.ts.
-const TEST_CUSTOMER_ID = '69c936ba3caa7cb730ca1ed6'
+import { createShipbubbleShipment, TEST_STORE_VENDOR_ID } from '@/lib/shipbubble'
 
 export async function createShipmentsForOrder(orderId: string): Promise<void> {
   await connectToDatabase()
@@ -20,13 +13,18 @@ export async function createShipmentsForOrder(orderId: string): Promise<void> {
   const order: any = await Order.findOne({ orderId }).lean()
   if (!order || !Array.isArray(order.vendors)) return
 
-  if (String(order.customerId || '') === TEST_CUSTOMER_ID) {
-    console.log(`[shipbubble-dispatch] Skipping real shipment creation for order ${orderId} — test customer account`)
-    return
-  }
-
   for (const vendor of order.vendors) {
     const vendorId = String(vendor?.vendorId || '').trim()
+
+    // Test-store bypass: this vendor's leg never creates a real Shipbubble shipment —
+    // that endpoint dispatches an actual courier and spends real money from the
+    // Shipbubble wallet. Per-vendor (not whole-order) so a mixed cart's real vendor legs
+    // still dispatch normally.
+    if (vendorId === TEST_STORE_VENDOR_ID) {
+      console.log(`[shipbubble-dispatch] Skipping real shipment creation for order ${orderId}, vendor ${vendorId} — test store`)
+      continue
+    }
+
     const requestToken = String(vendor?.shipbubbleRequestToken || '').trim()
     const serviceCode = String(vendor?.shipbubbleServiceCode || '').trim()
     const courierId = String(vendor?.shipbubbleCourierId || '').trim()

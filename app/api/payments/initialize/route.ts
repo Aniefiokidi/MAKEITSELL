@@ -15,7 +15,7 @@ import { maybeSendLowStockAlert } from '@/lib/stock-alerts'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { createShipmentsForOrder } from '@/lib/shipbubble-dispatch'
 import { notifyVendorsNewOrder } from '@/lib/whatsapp/notifications'
-import { parseDeliveryEtaToHours, ESCROW_DISPUTE_GRACE_HOURS } from '@/lib/shipbubble'
+import { parseDeliveryEtaToHours, ESCROW_DISPUTE_GRACE_HOURS, TEST_STORE_VENDOR_ID } from '@/lib/shipbubble'
 
 async function deductStock(orderId: string) {
   try {
@@ -192,14 +192,12 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      // Test-account delivery-fee waiver: arnoldidiong@icloud.com ordering from the
-      // "test" store (vendor arnoldeee123@gmail.com) never pays a delivery fee, so
-      // order-flow testing between these two accounts is free. Narrow and hardcoded on
-      // purpose — this is a testing convenience for two specific accounts, not a
-      // general coupon/waiver feature.
-      const isTestAccountWaiver =
-        customerId === '69c936ba3caa7cb730ca1ed6' && vendor.vendorId === '69d24fc04347cde8a871f457'
-      const effectiveShippingFee = isTestAccountWaiver ? 0 : shippingFee
+      // Test-store delivery-fee waiver: anyone ordering from the "test" store never pays
+      // a delivery fee, regardless of which customer is buying. Server-enforced here
+      // (not trusting whatever total the client submitted) so this holds even if the
+      // client-side quote in app/api/delivery/shipbubble-rates is ever bypassed.
+      const isTestStoreWaiver = vendor.vendorId === TEST_STORE_VENDOR_ID
+      const effectiveShippingFee = isTestStoreWaiver ? 0 : shippingFee
 
       vendor.shippingFee = effectiveShippingFee
       vendor.shippingFeeLabel = effectiveShippingFee === 0 ? 'FREE' : `NGN ${effectiveShippingFee.toLocaleString('en-NG')}`

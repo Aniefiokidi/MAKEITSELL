@@ -8,8 +8,25 @@ import {
   fetchShipbubbleRates,
   mapProductCategoryToShipbubbleCategoryId,
   DEFAULT_WEIGHT_KG,
+  TEST_STORE_VENDOR_ID,
   type ShipbubblePackageItem,
+  type ShipbubbleCourierOption,
 } from '@/lib/shipbubble'
+
+// Synthetic zero-cost "courier" for the test store — never comes from a real Shipbubble
+// call, so it needs no real courier_id/service_code. initialize/route.ts only checks
+// these for presence, not that they're real Shipbubble values.
+const TEST_STORE_COURIER: ShipbubbleCourierOption = {
+  courier_id: 'test-store-free-delivery',
+  courier_name: 'Free Delivery (Test Store)',
+  service_code: 'test-store-free',
+  service_type: 'standard',
+  is_cod_available: false,
+  delivery_eta: 'No real courier — test store',
+  total: 0,
+  currency: 'NGN',
+}
+const TEST_STORE_REQUEST_TOKEN = 'test-store-no-shipbubble'
 
 // Next business-ish day in Lagos time — Shipbubble wants pickup_date as yyyy-mm-dd.
 // Same day is usually too tight for a vendor to have a package ready for pickup.
@@ -40,24 +57,33 @@ export async function POST(request: NextRequest) {
 
     await connectToDatabase()
 
-    const fullAddress = [address, city, state, 'Nigeria'].filter(Boolean).join(', ')
-    const receiverValidation = await validateShipbubbleAddress({
-      name,
-      email: email || 'customer@makeitsell.ng',
-      phone,
-      address: fullAddress,
-    })
-
-    if (!receiverValidation) {
-      return NextResponse.json({
-        success: false,
-        error: 'Could not validate this delivery address. Please check it and try again.',
-      }, { status: 422 })
-    }
-
     // Group items by vendor — each vendor ships separately from their own pickup address
     const vendorIds = Array.from(new Set(items.map((i) => String(i?.vendorId || '')).filter(Boolean)))
     const productIds = Array.from(new Set(items.map((i) => String(i?.productId || '')).filter(Boolean)))
+
+    // The receiver-address validation below is itself a real Shipbubble API call. Skip it
+    // too when every vendor in this request is the test store — no real vendor needs it.
+    // A mixed cart (test store + a real vendor) still validates it, since the real vendor
+    // needs a genuine receiverAddressCode.
+    const hasNonTestVendors = vendorIds.some((id) => id !== TEST_STORE_VENDOR_ID)
+
+    let receiverValidation: { addressCode: number; formattedAddress: string } | null = null
+    if (hasNonTestVendors) {
+      const fullAddress = [address, city, state, 'Nigeria'].filter(Boolean).join(', ')
+      receiverValidation = await validateShipbubbleAddress({
+        name,
+        email: email || 'customer@makeitsell.ng',
+        phone,
+        address: fullAddress,
+      })
+
+      if (!receiverValidation) {
+        return NextResponse.json({
+          success: false,
+          error: 'Could not validate this delivery address. Please check it and try again.',
+        }, { status: 422 })
+      }
+    }
 
     const [stores, products] = await Promise.all([
       Store.find({ vendorId: { $in: vendorIds } }).lean(),
@@ -72,8 +98,29 @@ export async function POST(request: NextRequest) {
     const vendorResults = await Promise.all(
       vendorIds.map(async (vendorId) => {
         const store: any = storeByVendorId.get(vendorId)
+
+        if (vendorId === TEST_STORE_VENDOR_ID) {
+          // Free delivery, no real Shipbubble call at all — no address validation, no
+          // rate-fetch. Applies to whoever is buying, not just a specific test customer.
+          return {
+            vendorId,
+            storeName: store?.storeName || 'Test Store',
+            couriers: [TEST_STORE_COURIER],
+            cheapestCourier: TEST_STORE_COURIER,
+            fastestCourier: TEST_STORE_COURIER,
+            requestToken: TEST_STORE_REQUEST_TOKEN,
+            error: null,
+          }
+        }
+
         if (!store) {
           return { vendorId, storeName: 'Store', couriers: [], requestToken: null, error: 'Store not found' }
+        }
+
+        if (!receiverValidation) {
+          // Unreachable in practice — hasNonTestVendors guarantees this was validated
+          // before we get here for any non-test vendor. Defensive only.
+          return { vendorId, storeName: store.storeName || 'Store', couriers: [], requestToken: null, error: 'Could not validate delivery address' }
         }
 
         const senderAddressCode = await getOrCreateStoreAddressCode(String(store._id))
@@ -132,23 +179,12 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Test-account delivery-fee waiver (display side — see the matching, actually
-        // security-enforced check in app/api/payments/initialize/route.ts, keyed off the
-        // authenticated customerId rather than this client-supplied email). This just
-        // keeps checkout showing the same NGN 0 the customer will actually be charged,
-        // rather than a real quote that gets silently zeroed at payment time.
-        const isTestAccountWaiver =
-          email.toLowerCase() === 'arnoldidiong@icloud.com' && vendorId === '69d24fc04347cde8a871f457'
-        const couriers = isTestAccountWaiver ? rates.couriers.map((c) => ({ ...c, total: 0 })) : rates.couriers
-        const cheapestCourier = isTestAccountWaiver && rates.cheapestCourier ? { ...rates.cheapestCourier, total: 0 } : rates.cheapestCourier
-        const fastestCourier = isTestAccountWaiver && rates.fastestCourier ? { ...rates.fastestCourier, total: 0 } : rates.fastestCourier
-
         return {
           vendorId,
           storeName: store.storeName || 'Store',
-          couriers,
-          cheapestCourier,
-          fastestCourier,
+          couriers: rates.couriers,
+          cheapestCourier: rates.cheapestCourier,
+          fastestCourier: rates.fastestCourier,
           requestToken: rates.requestToken,
           error: null,
         }

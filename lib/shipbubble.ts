@@ -13,6 +13,13 @@ import { getCachedPayload, setCachedPayload } from '@/lib/cache-store'
 
 const BASE_URL = 'https://api.shipbubble.com/v1'
 
+// The "test" store — any order from this vendor gets free delivery and never touches the
+// real Shipbubble API (no rate-fetch, no address validation, no shipment/courier
+// booking), regardless of which customer is buying. Every other vendor is unaffected:
+// real rates, real dispatch, no waiver. Narrow and hardcoded on purpose — this exists
+// purely so order-flow testing never costs real Shipbubble money or quota.
+export const TEST_STORE_VENDOR_ID = '69d24fc04347cde8a871f457'
+
 function getApiKey(): string {
   return String(process.env.SHIPBUBBLE_API_KEY || '').trim()
 }
