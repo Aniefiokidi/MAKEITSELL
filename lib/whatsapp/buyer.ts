@@ -16,13 +16,15 @@ const FETCH_PER_PAGE = RESULTS_PER_PAGE + 1
 // Meta's interactive list hard cap is 10 rows total across all sections combined.
 const MAX_LIST_ROWS = 10
 
-// Covers standard English greetings plus common Nigerian Pidgin ones — the reply is sent
-// back in Pidgin regardless of which of these matched, per the bot's tone for buyers.
+// Deliberately an explicit, exact-match list — NOT a fuzzy/substring check. A buyer
+// typing a product name (e.g. "hair", "how much for iPhone") must always reach search,
+// never get misfired into a greeting reply. When in doubt, it's a search.
 const GREETING_KEYWORDS = new Set([
-  'hi', 'hello', 'hey', 'start', 'help',
+  'hi', 'hello', 'hey', 'hiya', 'howdy', 'yo', 'start', 'help',
+  'good morning', 'good afternoon', 'good evening', 'gm',
   'howfar', 'how far', 'how far now',
-  'wetin dey happen', 'wetin dey sup', 'wetin sup', 'wassup', 'whats up', "what's up", 'sup',
-  'yo', 'good morning', 'good afternoon', 'good evening', 'gm',
+  'wetin dey', 'wetin dey happen', 'wetin dey sup', 'wetin sup',
+  'abeg', 'wassup', 'whats up', "what's up", 'sup',
 ])
 const CATEGORY_KEYWORDS = new Set(['menu', 'categories', 'category'])
 // Conservative: only treated as buy-intent on short messages, so a legitimate longer
@@ -31,11 +33,12 @@ const CATEGORY_KEYWORDS = new Set(['menu', 'categories', 'category'])
 const BUY_INTENT_PATTERN = /\b(buy|purchase|checkout|order)\b/i
 const BUY_INTENT_MAX_LENGTH = 40
 
-// Pidgin greeting — doubles as the "what are you here for" prompt so a first-time buyer
-// who has no idea what to type gets pointed straight at the two things they actually can
-// do (search by name, or browse categories).
+// Mostly clear English with a light Pidgin touch ("how far") rather than full Pidgin
+// throughout — warm and local without reading as a caricature or excluding buyers who
+// don't speak Pidgin. Doubles as onboarding: a first-time buyer has no idea what to type,
+// so this plainly spells out the three things they can actually do.
 const GREETING_MESSAGE =
-  'How far! Welcome to Make It Sell — I fit help you find something to buy sharp sharp.\n\nWetin you dey find today? Type the product name (e.g. "blue sneakers") make I show you, or type "categories" make I show you everything wey dey.'
+  'Hey, how far! I\'m the Make It Sell shopping bot.\n\nHere\'s how to use me:\n- Type a product name to search (e.g. "sneakers")\n- Reply "categories" to browse by category\n- Reply "more" to see more results\n\nWhat are you looking for today?'
 
 const BUY_PLACEHOLDER_MESSAGE =
   "Ordering through WhatsApp isn't available yet — that's coming soon. For now, please complete your purchase on the Make It Sell website or app."
@@ -178,14 +181,19 @@ export async function handleCategorySelection(waId: string, rowId: string): Prom
 // Entry point for any inbound text from a sender who isn't a linked vendor — called from
 // the restructured handleInboundMessage in lib/whatsapp/commands.ts. Simplification, made
 // transparently rather than tracked as true "is this their first-ever message": greeting
-// fires off a small keyword set (hi/hello/hey/start/help) plus an empty message, not a
-// genuine first-contact check.
+// fires off an explicit keyword set plus an empty message, not a genuine first-contact
+// check.
+//
+// Dispatch order is deliberate: explicit commands ("more", the category keywords) are
+// checked first since they're unambiguous, then the explicit greeting list, then
+// buy-intent, and only then does anything remaining fall through to search. This keeps
+// "hair" or "how much for iPhone" reaching search while "hey"/"howfar" still greet.
 export async function handleBuyerMessage(waId: string, text: string): Promise<void> {
   const trimmed = String(text || '').trim()
   const lower = trimmed.toLowerCase()
 
-  if (!trimmed || GREETING_KEYWORDS.has(lower)) {
-    await trySendText(waId, GREETING_MESSAGE)
+  if (lower === 'more') {
+    await handleMoreCommand(waId)
     return
   }
 
@@ -194,8 +202,8 @@ export async function handleBuyerMessage(waId: string, text: string): Promise<vo
     return
   }
 
-  if (lower === 'more') {
-    await handleMoreCommand(waId)
+  if (!trimmed || GREETING_KEYWORDS.has(lower)) {
+    await trySendText(waId, GREETING_MESSAGE)
     return
   }
 
