@@ -5,11 +5,12 @@ import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import Header from "@/components/Header"
-import { 
-  Smartphone, 
-  Shirt, 
-  Home, 
-  Watch, 
+import { PRODUCT_CATEGORIES } from "@/lib/product-categories"
+import {
+  Smartphone,
+  Shirt,
+  Home,
+  Watch,
   Dumbbell,
   Headphones,
   Camera,
@@ -28,148 +29,36 @@ import {
   Settings,
 } from "lucide-react"
 
-const categories = [
-  {
-    slug: "electronics",
-    name: "Electronics",
-    description: "Latest gadgets, smartphones, computers and more",
-    icon: Smartphone,
-    color: "bg-blue-500"
-  },
-  {
-    slug: "fashion",
-    name: "Fashion",
-    description: "Clothing, shoes, bags and accessories",
-    icon: Shirt,
-    color: "bg-pink-500"
-  },
-  {
-    slug: "home",
-    name: "Home & Garden",
-    description: "Furniture, decor, kitchen and garden items",
-    icon: Home,
-    color: "bg-green-500"
-  },
-  {
-    slug: "accessories",
-    name: "Accessories",
-    description: "Watches, jewelry, bags and more",
-    icon: Watch,
-    color: "bg-purple-500"
-  },
-  {
-    slug: "sports",
-    name: "Sports & Fitness",
-    description: "Exercise equipment, sportswear and outdoor gear",
-    icon: Dumbbell,
-    color: "bg-orange-500"
-  },
-  {
-    slug: "audio",
-    name: "Audio & Music",
-    description: "Headphones, speakers, instruments",
-    icon: Headphones,
-    color: "bg-red-500"
-  },
-  {
-    slug: "photography",
-    name: "Photography",
-    description: "Cameras, lenses, lighting equipment",
-    icon: Camera,
-    color: "bg-indigo-500"
-  },
-  {
-    slug: "books",
-    name: "Books & Media",
-    description: "Books, magazines, digital content",
-    icon: Book,
-    color: "bg-amber-500"
-  },
-  {
-    slug: "gaming",
-    name: "Gaming",
-    description: "Video games, consoles, accessories",
-    icon: Gamepad2,
-    color: "bg-teal-500"
-  },
-  {
-    slug: "automotive",
-    name: "Automotive",
-    description: "Car accessories, tools, parts",
-    icon: Car,
-    color: "bg-slate-500"
-  },
-  {
-    slug: "home-services",
-    name: "Home Services",
-    description: "Repairs, maintenance, installation and cleaning",
-    icon: Wrench,
-    color: "bg-cyan-500"
-  },
-  {
-    slug: "logistics-delivery",
-    name: "Logistics & Delivery",
-    description: "Moving, delivery and transport services",
-    icon: Truck,
-    color: "bg-lime-500"
-  },
-  {
-    slug: "health-wellness",
-    name: "Health & Wellness",
-    description: "Healthcare, wellness and personal care",
-    icon: HeartPulse,
-    color: "bg-rose-500"
-  },
-  {
-    slug: "business-services",
-    name: "Business Services",
-    description: "Consulting, accounting and virtual support",
-    icon: Briefcase,
-    color: "bg-sky-500"
-  },
-  {
-    slug: "events",
-    name: "Events & Catering",
-    description: "Event planning, catering and coordination",
-    icon: Music2,
-    color: "bg-fuchsia-500"
-  },
-  {
-    slug: "pet-care",
-    name: "Pet Care",
-    description: "Pet products, grooming and sitter services",
-    icon: Sparkles,
-    color: "bg-emerald-500"
-  },
-  {
-    slug: "groceries",
-    name: "Groceries",
-    description: "Fresh produce, pantry and daily essentials",
-    icon: Coffee,
-    color: "bg-yellow-600"
-  },
-  {
-    slug: "pharmacy",
-    name: "Pharmacy",
-    description: "Medicines, wellness and health supplies",
-    icon: Shield,
-    color: "bg-red-600"
-  },
-  {
-    slug: "furniture",
-    name: "Furniture",
-    description: "Home and office furniture stores",
-    icon: Home,
-    color: "bg-stone-500"
-  },
-  {
-    slug: "toys-baby",
-    name: "Toys & Baby",
-    description: "Kids essentials, toys and baby products",
-    icon: Gamepad2,
-    color: "bg-violet-500"
-  }
-]
+// icon/color are React-/Tailwind-specific presentation, kept here rather than in the
+// shared lib/product-categories.ts constant (which non-React consumers, e.g. the
+// WhatsApp bot, also import).
+const CATEGORY_PRESENTATION: Record<string, { icon: any; color: string }> = {
+  electronics: { icon: Smartphone, color: "bg-blue-500" },
+  fashion: { icon: Shirt, color: "bg-pink-500" },
+  home: { icon: Home, color: "bg-green-500" },
+  accessories: { icon: Watch, color: "bg-purple-500" },
+  sports: { icon: Dumbbell, color: "bg-orange-500" },
+  audio: { icon: Headphones, color: "bg-red-500" },
+  photography: { icon: Camera, color: "bg-indigo-500" },
+  books: { icon: Book, color: "bg-amber-500" },
+  gaming: { icon: Gamepad2, color: "bg-teal-500" },
+  automotive: { icon: Car, color: "bg-slate-500" },
+  "home-services": { icon: Wrench, color: "bg-cyan-500" },
+  "logistics-delivery": { icon: Truck, color: "bg-lime-500" },
+  "health-wellness": { icon: HeartPulse, color: "bg-rose-500" },
+  "business-services": { icon: Briefcase, color: "bg-sky-500" },
+  events: { icon: Music2, color: "bg-fuchsia-500" },
+  "pet-care": { icon: Sparkles, color: "bg-emerald-500" },
+  groceries: { icon: Coffee, color: "bg-yellow-600" },
+  pharmacy: { icon: Shield, color: "bg-red-600" },
+  furniture: { icon: Home, color: "bg-stone-500" },
+  "toys-baby": { icon: Gamepad2, color: "bg-violet-500" },
+}
+
+const categories = PRODUCT_CATEGORIES.map((category) => ({
+  ...category,
+  ...CATEGORY_PRESENTATION[category.slug],
+}))
 
 const serviceSystemCategories = [
   { slug: "photography", name: "Photography", description: "Photo and video sessions", icon: Camera, color: "bg-indigo-500" },

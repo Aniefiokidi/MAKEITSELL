@@ -13,6 +13,7 @@ import { User } from '@/lib/models/User'
 import { WhatsAppMessageMap } from '@/lib/models/WhatsAppMessageMap'
 import { applyOrderVendorStatus, resolveOrderVendorTarget } from '@/lib/order-vendor-status'
 import { sendTextMessage } from '@/lib/whatsapp/client'
+import { handleBuyerMessage } from '@/lib/whatsapp/buyer'
 
 const CODE_PATTERN = /^[A-Z0-9]{6}$/i
 // Matches the same orderId.slice(0, 8).toUpperCase() convention used for the order ref
@@ -37,10 +38,20 @@ export async function handleInboundMessage(waId: string, text: string): Promise<
   const trimmed = String(text || '').trim()
 
   // A bare 6-char code is checked first — it's the one command that must work for an
-  // as-yet-unlinked number. Everything else requires a resolved vendor.
+  // as-yet-unlinked number. Everything else branches on whether waId currently resolves
+  // to a linked vendor.
   if (CODE_PATTERN.test(trimmed)) {
     const handled = await tryHandleLinkCode(waId, trimmed.toUpperCase())
     if (handled) return
+  }
+
+  // Not a linked vendor — route into buyer product browsing instead of the vendor help
+  // menu. Known v1 limitation (accepted): a linked vendor can't also browse as a buyer on
+  // the same number; there's no mode-switch.
+  const vendorId = await resolveLinkedVendor(waId)
+  if (!vendorId) {
+    await handleBuyerMessage(waId, trimmed)
+    return
   }
 
   const dispatchMatch = trimmed.match(DISPATCH_PATTERN)

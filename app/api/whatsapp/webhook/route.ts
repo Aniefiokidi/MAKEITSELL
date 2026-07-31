@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { handleInboundMessage, handleButtonReply } from '@/lib/whatsapp/commands'
+import { handleCategorySelection } from '@/lib/whatsapp/buyer'
 
 // WhatsApp Cloud API webhook — Meta's dashboard verification handshake (GET) plus the
 // message/status event receiver (POST). Docs:
@@ -77,6 +78,13 @@ export async function POST(request: NextRequest) {
             // ones. context.id is the WhatsApp message ID of that original template send.
             console.log(`[whatsapp-webhook] Button reply from ${waId}: "${message.button?.text}" (context: ${message.context.id})`)
             await handleButtonReply(waId, String(message.context.id))
+          } else if (message?.type === 'interactive' && message?.interactive?.type === 'list_reply') {
+            // Tap on a list message we sent ourselves via the Interactive API (e.g. the
+            // buyer category menu) — distinct from the template-embedded "button" type
+            // above. The row id carries the selection (e.g. "category:electronics").
+            const rowId = String(message.interactive.list_reply?.id || '')
+            console.log(`[whatsapp-webhook] List reply from ${waId}: "${message.interactive.list_reply?.title}" (id: ${rowId})`)
+            await handleCategorySelection(waId, rowId)
           } else {
             console.log(`[whatsapp-webhook] Message from ${waId} (type: ${message?.type || 'unknown'}, no text body)`)
           }

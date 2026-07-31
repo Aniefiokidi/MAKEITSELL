@@ -1,6 +1,5 @@
 // WhatsApp Cloud API client — thin wrapper for sending messages via Meta's Graph API.
 // Docs: https://developers.facebook.com/docs/whatsapp/cloud-api/reference/messages
-// Foundation only — just sendTextMessage for now, no template/media senders yet.
 
 const GRAPH_API_VERSION = 'v23.0'
 
@@ -117,6 +116,92 @@ export async function sendTextMessage(to: string, body: string): Promise<any> {
 
   if (!response.ok) {
     console.error('[whatsapp-client] sendTextMessage failed:', JSON.stringify(data))
+    throw new Error(data?.error?.message || `WhatsApp API request failed with status ${response.status}`)
+  }
+
+  return data
+}
+
+// Sends a product photo with a caption — used by the buyer-browsing flow to present
+// search/category results. `imageUrl` must be a publicly fetchable link (WhatsApp fetches
+// it server-side); the caller is responsible for keeping it under WhatsApp's 5MB media
+// limit (see buildWhatsAppImageUrl's Cloudinary transform in lib/whatsapp/buyer.ts).
+export async function sendImageMessage(to: string, imageUrl: string, caption: string): Promise<any> {
+  const { accessToken, phoneNumberId } = getConfig()
+  if (!accessToken || !phoneNumberId) {
+    throw new Error('WhatsApp is not configured — set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID')
+  }
+
+  const response = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to,
+      type: 'image',
+      image: { link: imageUrl, caption },
+    }),
+  })
+
+  const data = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    console.error('[whatsapp-client] sendImageMessage failed:', JSON.stringify(data))
+    throw new Error(data?.error?.message || `WhatsApp API request failed with status ${response.status}`)
+  }
+
+  return data
+}
+
+export interface WhatsAppListRow {
+  id: string
+  title: string
+  description?: string
+}
+
+// Sends an interactive list message (e.g. the category menu). Meta hard-caps this at 10
+// rows total across ALL sections combined, row title <=24 chars, row description <=72
+// chars, section title <=24 chars, button text <=20 chars, body <=1024 chars — callers
+// must stay within these or the send will be rejected by the Graph API.
+export async function sendInteractiveListMessage(
+  to: string,
+  bodyText: string,
+  buttonText: string,
+  rows: WhatsAppListRow[]
+): Promise<any> {
+  const { accessToken, phoneNumberId } = getConfig()
+  if (!accessToken || !phoneNumberId) {
+    throw new Error('WhatsApp is not configured — set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID')
+  }
+
+  const response = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to,
+      type: 'interactive',
+      interactive: {
+        type: 'list',
+        body: { text: bodyText },
+        action: {
+          button: buttonText,
+          sections: [{ rows }],
+        },
+      },
+    }),
+  })
+
+  const data = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    console.error('[whatsapp-client] sendInteractiveListMessage failed:', JSON.stringify(data))
     throw new Error(data?.error?.message || `WhatsApp API request failed with status ${response.status}`)
   }
 
