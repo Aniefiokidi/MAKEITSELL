@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { paystackService } from '@/lib/payment'
-import { updateOrder, getOrderById } from '@/lib/mongodb-operations'
+import { getOrderById } from '@/lib/mongodb-operations'
 import { Order } from '@/lib/models/Order'
 import connectToDatabase from '@/lib/mongodb'
-import mongoose from 'mongoose'
 import { getCanonicalAppBaseUrl } from '@/lib/app-url'
-import { sendOrderPlacementNotifications } from '@/lib/order-notifications'
-import { maybeSendLowStockAlert } from '@/lib/stock-alerts'
-import { createShipmentsForOrder } from '@/lib/shipbubble-dispatch'
-import { notifyVendorsNewOrder } from '@/lib/whatsapp/notifications'
+import { handleOrderPaid } from '@/lib/order-payment-confirmation'
 
 type NormalizedVerification = {
   success: boolean
@@ -155,97 +151,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(errorUrl.toString())
     }
 
-    // Get order details before updating
-    const order = await getOrderById(orderId)
-
-    // Update order status
-    await updateOrder(orderId, {
-      status: 'confirmed',
-      paymentStatus: 'escrow',
-      paymentReference: reference,
-      paymentData: paymentData,
-      paidAt: new Date()
-    })
-    await createShipmentsForOrder(orderId).catch((err) => console.error('[verify GET] Shipbubble dispatch failed:', err))
-    notifyVendorsNewOrder(orderId)
-
-    // Update product stock and sales (supports both top-level items and vendor items)
-    if (order && (order.items || order.vendors)) {
-      try {
-        console.log('=== UPDATING PRODUCT STOCK ===');
-        console.log('Order items:', JSON.stringify(order.items, null, 2));
-        console.log('Order vendors:', JSON.stringify(order.vendors, null, 2));
-        
-        await connectToDatabase()
-        const db = mongoose.connection.db
-
-        if (db) {
-          // Combine items from top-level and vendor-scoped arrays
-          const items: any[] = [
-            ...(Array.isArray(order.items) ? order.items : []),
-            ...(Array.isArray(order.vendors)
-              ? order.vendors.flatMap((v: any) => Array.isArray(v.items) ? v.items : [])
-              : [])
-          ]
-
-          for (const item of items) {
-            const qty = item.quantity || 1
-
-            // Build filters to handle ObjectId and string identifiers
-            const filters: any[] = []
-            if (item.productId) {
-              if (mongoose.Types.ObjectId.isValid(item.productId)) {
-                filters.push({ _id: new mongoose.Types.ObjectId(item.productId) })
-              }
-              filters.push({ productId: item.productId })
-              filters.push({ id: item.productId })
-            }
-
-            if (filters.length === 0) {
-              console.warn('Skipping stock update; no valid productId on item', item)
-              continue
-            }
-
-            // First check current stock to prevent negative values
-            const currentProduct = await db.collection('products').findOne({ $or: filters })
-            const currentStock = currentProduct?.stock || 0
-            const stockDeduction = Math.min(qty, currentStock) // Don't deduct more than available stock
-
-            if (stockDeduction > 0) {
-              const result = await db.collection('products').updateOne(
-                { $or: filters },
-                {
-                  $inc: {
-                    stock: -stockDeduction,
-                    sales: qty
-                  }
-                }
-              )
-              console.log(`Updated product ${item.productId}: deducted ${stockDeduction} stock (requested ${qty}), added ${qty} sales; matched ${result?.matchedCount}`)
-              if (currentProduct) void maybeSendLowStockAlert(currentProduct, currentStock, currentStock - stockDeduction)
-            } else {
-              // Still record the sale even if no stock to deduct
-              const result = await db.collection('products').updateOne(
-                { $or: filters },
-                {
-                  $inc: {
-                    sales: qty
-                  }
-                }
-              )
-              console.log(`Product ${item.productId} out of stock - recorded ${qty} sales only; matched ${result?.matchedCount}`)
-            }
-          }
-          console.log('Product stock and sales updated successfully')
-        }
-      } catch (stockError) {
-        console.error('Error updating product stock/sales:', stockError)
-        // Continue anyway - order is confirmed even if stock update fails
-      }
-    }
-    if (order) {
-      await sendOrderPlacementNotifications(orderId, order)
-    }
+    await handleOrderPaid(orderId, reference, paymentData)
 
     // Redirect to order confirmation page with absolute URL
     const redirectUrl = new URL('/order-confirmation', appBaseUrl)
@@ -289,98 +195,7 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Get order details before updating
-      const order = await getOrderById(orderId)
-
-      // Update order status
-      await updateOrder(orderId, {
-        status: 'confirmed',
-        paymentStatus: 'escrow',
-        paymentReference: reference,
-        paymentData: paymentData,
-        paidAt: new Date()
-      })
-      await createShipmentsForOrder(orderId).catch((err) => console.error('[verify POST] Shipbubble dispatch failed:', err))
-      notifyVendorsNewOrder(orderId)
-
-      // Update product stock and sales (supports both top-level items and vendor items)
-      if (order && (order.items || order.vendors)) {
-        try {
-          await connectToDatabase()
-          const db = mongoose.connection.db
-          
-          if (db) {
-            // Combine items from top-level and vendor-scoped arrays
-            const items: any[] = [
-              ...(Array.isArray(order.items) ? order.items : []),
-              ...(Array.isArray(order.vendors)
-                ? order.vendors.flatMap((v: any) => Array.isArray(v.items) ? v.items : [])
-                : [])
-            ]
-
-            for (const item of items) {
-              const qty = item.quantity || 1
-
-              // Build filters to handle ObjectId and string identifiers
-              const filters: any[] = []
-              if (item.productId) {
-                if (mongoose.Types.ObjectId.isValid(item.productId)) {
-                  filters.push({ _id: new mongoose.Types.ObjectId(item.productId) })
-                }
-                filters.push({ productId: item.productId })
-                filters.push({ id: item.productId })
-              }
-
-              if (filters.length === 0) {
-                console.warn('Skipping stock update; no valid productId on item', item)
-                continue
-              }
-
-              // First check current stock to prevent negative values
-              const currentProduct = await db.collection('products').findOne({ $or: filters })
-              // Skip made-to-order food products (sentinel 9999)
-              if (currentProduct?.stock === 9999) {
-                await db.collection('products').updateOne({ $or: filters }, { $inc: { sales: qty } })
-                continue
-              }
-              const currentStock = currentProduct?.stock || 0
-              const stockDeduction = Math.min(qty, currentStock) // Don't deduct more than available stock
-
-              if (stockDeduction > 0) {
-                const result = await db.collection('products').updateOne(
-                  { $or: filters },
-                  {
-                    $inc: {
-                      stock: -stockDeduction,
-                      sales: qty
-                    }
-                  }
-                )
-                console.log(`Updated product ${item.productId}: deducted ${stockDeduction} stock (requested ${qty}), added ${qty} sales; matched ${result?.matchedCount}`)
-                if (currentProduct) void maybeSendLowStockAlert(currentProduct, currentStock, currentStock - stockDeduction)
-              } else {
-                // Still record the sale even if no stock to deduct
-                const result = await db.collection('products').updateOne(
-                  { $or: filters },
-                  {
-                    $inc: {
-                      sales: qty
-                    }
-                  }
-                )
-                console.log(`Product ${item.productId} out of stock - recorded ${qty} sales only; matched ${result?.matchedCount}`)
-              }
-            }
-            console.log('Product stock and sales updated successfully')
-          }
-        } catch (stockError) {
-          console.error('Error updating product stock/sales:', stockError)
-          // Continue anyway - order is confirmed even if stock update fails
-        }
-      }
-      if (order) {
-        await sendOrderPlacementNotifications(orderId, order)
-      }
+      await handleOrderPaid(orderId, reference, paymentData)
 
       return NextResponse.json({
         success: true,

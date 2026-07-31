@@ -8,7 +8,7 @@ import { Order } from '@/lib/models/Order'
 import { User } from '@/lib/models/User'
 import { connectToDatabase } from '@/lib/mongodb'
 import mongoose from 'mongoose'
-import { sendOrderPlacementNotifications } from '@/lib/order-notifications'
+import { handleOrderPaid } from '@/lib/order-payment-confirmation'
 
 const pickFirstString = (source: any, keys: string[]) => {
   for (const key of keys) {
@@ -525,21 +525,7 @@ async function handleSuccessfulPayment(data: any) {
       return
     }
 
-    // Update order status
-    await updateOrder(orderId, {
-      status: 'confirmed',
-      paymentStatus: 'escrow',
-      paymentReference: data.reference,
-      paymentData: data,
-      paidAt: new Date()
-    })
-
-    // Get order details for notifications
-    const order = await getOrderById(orderId)
-    
-    if (order) {
-      await sendOrderPlacementNotifications(orderId, order)
-    }
+    await handleOrderPaid(orderId, data.reference, data)
 
     console.log(`Payment successful for order: ${orderId}`)
   } catch (error) {
