@@ -90,8 +90,13 @@ export async function getOrCreateStoreAddressCode(storeId: string): Promise<numb
   const store: any = await Store.findById(storeId).lean()
   if (!store) return null
 
-  if (Number.isFinite(Number(store.shipbubbleAddressCode))) {
-    return Number(store.shipbubbleAddressCode)
+  // `Number(null) === 0`, and Number.isFinite(0) is true — so a cache explicitly
+  // cleared to null (every time a vendor edits their address, see the invalidation in
+  // app/api/database/stores/[id]/route.ts) was being misread as a "valid" cached
+  // address_code of 0, skipping re-validation forever afterward. Must check the type
+  // directly rather than relying on Number() coercion.
+  if (typeof store.shipbubbleAddressCode === 'number' && Number.isFinite(store.shipbubbleAddressCode)) {
+    return store.shipbubbleAddressCode
   }
 
   const address = String(store.address || '').trim()
