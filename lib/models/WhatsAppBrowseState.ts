@@ -16,6 +16,16 @@ import mongoose, { Schema, model, models } from 'mongoose';
 const WhatsAppBrowseStateSchema = new Schema({
   waId: { type: String, required: true, unique: true, index: true },
   lastQuery: { type: String },
+  // Set instead of lastQuery when the last "search" was a buyer photo (see
+  // lib/whatsapp/image-search.ts) — mutually exclusive with lastQuery, whichever was set
+  // most recently is what "more" continues paging through. matchMode distinguishes a
+  // dHash near-duplicate hit (lastImageHash) from an embedding-similarity search
+  // (lastImageEmbedding + lastVisualCategory), since "more" pages through each
+  // differently.
+  matchMode: { type: String, enum: ['duplicate', 'embedding'] },
+  lastImageHash: { type: String },
+  lastImageEmbedding: { type: [Number] },
+  lastVisualCategory: { type: String },
   offset: { type: Number, default: 0 },
 
   stage: {
@@ -29,6 +39,10 @@ const WhatsAppBrowseStateSchema = new Schema({
   cart: { type: [Schema.Types.Mixed], default: [] },
   // Collected during awaiting_address: { address, city, state, deliveryInstructions }.
   pendingShippingInfo: { type: Schema.Types.Mixed, default: {} },
+  // Set to a SavedAddress subdocument _id when pendingShippingInfo came from picking a
+  // saved address (rather than being freshly typed) — checkout.ts's confirm step uses
+  // this to skip auto-saving an address that's already saved.
+  pendingShippingInfoFromSavedId: { type: String },
   // Raw per-vendor quote results from the last getDeliveryQuotesForCart call — kept so
   // "choosing_couriers" can redisplay/re-validate options without re-fetching.
   deliveryQuotes: { type: Schema.Types.Mixed, default: {} },

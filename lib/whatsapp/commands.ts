@@ -14,6 +14,7 @@ import { WhatsAppMessageMap } from '@/lib/models/WhatsAppMessageMap'
 import { applyOrderVendorStatus, resolveOrderVendorTarget } from '@/lib/order-vendor-status'
 import { sendTextMessage } from '@/lib/whatsapp/client'
 import { handleBuyerMessage } from '@/lib/whatsapp/buyer'
+import { handleBuyerImageMessage } from '@/lib/whatsapp/image-search'
 
 const CODE_PATTERN = /^[A-Z0-9]{6}$/i
 // Matches the same orderId.slice(0, 8).toUpperCase() convention used for the order ref
@@ -70,6 +71,20 @@ export async function handleInboundMessage(waId: string, text: string, contextMe
   }
 
   await sendHelpMenu(waId)
+}
+
+// Entry point for an inbound image (photo) message — called from the webhook route's
+// 'image' branch. A linked vendor has no photo-based command today, so this only ever
+// does something for an unresolved (buyer) sender.
+export async function handleInboundImageMessage(waId: string, mediaId: string): Promise<void> {
+  const vendorId = await resolveLinkedVendor(waId)
+  if (!vendorId) {
+    // Self-defers via after() — classification takes several seconds and must never
+    // block this webhook's response to Meta, so this is a fire-and-forget call, not awaited.
+    handleBuyerImageMessage(waId, mediaId)
+    return
+  }
+  await trySend(waId, "I can't do anything with a photo right now. Try: dispatched [order ref] or balance.")
 }
 
 async function tryHandleLinkCode(waId: string, code: string): Promise<boolean> {

@@ -42,6 +42,7 @@ import connectToDatabase from './mongodb';
 import mongoose from 'mongoose';
 // @ts-ignore
 import { Product as ProductModel } from './models/Product';
+import { scheduleProductImageAnalysis } from './product-image-analysis';
 // @ts-ignore
 import { Store as StoreModel } from './models/Store';
 // @ts-ignore
@@ -675,7 +676,16 @@ export const updateStore = async (id: string, data: any) => {
 export const createProduct = async (productData: any): Promise<string> => {
   await connectToDatabase();
   const product: any = await ProductModel.create(productData as any);
-  return product?._id?.toString?.() || '';
+  const productId = product?._id?.toString?.() || '';
+
+  const firstImage = Array.isArray(productData?.images) ? productData.images[0] : undefined;
+  if (productId && firstImage) {
+    // Deferred (next/server's after()) — hashing + classification take a few seconds and
+    // must never block the vendor's product-save response. See product-image-analysis.ts.
+    scheduleProductImageAnalysis(productId, firstImage);
+  }
+
+  return productId;
 };
 
 export const getVendorProducts = async (vendorId: string) => {
@@ -1130,8 +1140,47 @@ export const getProducts = async (filters?: any): Promise<Product[]> => {
 
 export const updateProduct = async (id: string, data: any) => {
   await connectToDatabase();
-  const product = await ProductModel.findByIdAndUpdate(id, data, { new: true }).lean();
+
+  // imageHash/visualCategory/imageEmbedding are only ever written by
+  // scheduleProductImageAnalysis below — strip them here so a caller can't reintroduce a
+  // stale value by echoing back whatever getProductById returned.
+  delete data.imageHash;
+  delete data.visualCategory;
+  delete data.imageEmbedding;
+
+  // Only re-analyze when images[0] actually changed — most updates (price, stock,
+  // status) touch this same function and shouldn't pay for a re-fetch+classify on every
+  // save. When it has changed (or images were cleared entirely), $unset the OLD image's
+  // analysis fields so the product is never matched against a stale hash/category/
+  // embedding from a photo it no longer shows, then schedule fresh analysis in the
+  // background if there's a new image to analyze.
+  let pendingAnalysisImage: string | undefined;
+  let clearAnalysisFields = false;
+
+  if (Array.isArray(data?.images)) {
+    const newFirstImage = data.images[0];
+    const existing: any = await ProductModel.findById(id).select('images').lean();
+    const existingFirstImage = Array.isArray(existing?.images) ? existing.images[0] : undefined;
+
+    if (newFirstImage && newFirstImage !== existingFirstImage) {
+      pendingAnalysisImage = newFirstImage;
+      clearAnalysisFields = true;
+    } else if (!newFirstImage && existingFirstImage) {
+      clearAnalysisFields = true;
+    }
+  }
+
+  const update: any = clearAnalysisFields
+    ? { $set: data, $unset: { imageHash: '', visualCategory: '', imageEmbedding: '' } }
+    : data;
+
+  const product = await ProductModel.findByIdAndUpdate(id, update, { new: true }).lean();
   if (!product) return null;
+
+  if (pendingAnalysisImage) {
+    scheduleProductImageAnalysis(id, pendingAnalysisImage);
+  }
+
   const { _id, ...rest } = product as any;
   return { ...rest, id: _id.toString() };
 };

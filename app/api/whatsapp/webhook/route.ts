@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
-import { handleInboundMessage, handleButtonReply } from '@/lib/whatsapp/commands'
+import { handleInboundMessage, handleButtonReply, handleInboundImageMessage } from '@/lib/whatsapp/commands'
 import { handleCategorySelection } from '@/lib/whatsapp/buyer'
+import { handleSavedAddressListReply } from '@/lib/whatsapp/checkout'
 
 // WhatsApp Cloud API webhook — Meta's dashboard verification handshake (GET) plus the
 // message/status event receiver (POST). Docs:
@@ -84,12 +85,23 @@ export async function POST(request: NextRequest) {
             console.log(`[whatsapp-webhook] Button reply from ${waId}: "${message.button?.text}" (context: ${message.context.id})`)
             await handleButtonReply(waId, String(message.context.id))
           } else if (message?.type === 'interactive' && message?.interactive?.type === 'list_reply') {
-            // Tap on a list message we sent ourselves via the Interactive API (e.g. the
-            // buyer category menu) — distinct from the template-embedded "button" type
-            // above. The row id carries the selection (e.g. "category:electronics").
+            // Tap on a list message we sent ourselves via the Interactive API — distinct
+            // from the template-embedded "button" type above. Two possible sources today,
+            // distinguished by the row id prefix: "category:electronics" (buyer category
+            // menu, lib/whatsapp/buyer.ts) or "address:<id|new>" (saved-address picker,
+            // lib/whatsapp/checkout.ts).
             const rowId = String(message.interactive.list_reply?.id || '')
             console.log(`[whatsapp-webhook] List reply from ${waId}: "${message.interactive.list_reply?.title}" (id: ${rowId})`)
-            await handleCategorySelection(waId, rowId)
+            if (rowId.startsWith('address:')) {
+              await handleSavedAddressListReply(waId, rowId)
+            } else {
+              await handleCategorySelection(waId, rowId)
+            }
+          } else if (message?.type === 'image' && message?.image?.id) {
+            // A buyer's photo — matched against the catalog via perceptual hashing (see
+            // lib/whatsapp/image-search.ts), no AI/vision API involved.
+            console.log(`[whatsapp-webhook] Image message from ${waId} (media id: ${message.image.id})`)
+            await handleInboundImageMessage(waId, String(message.image.id))
           } else {
             console.log(`[whatsapp-webhook] Message from ${waId} (type: ${message?.type || 'unknown'}, no text body)`)
           }

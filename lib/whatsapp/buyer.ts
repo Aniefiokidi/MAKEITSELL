@@ -7,13 +7,13 @@
 // browsing/search or a checkout action.
 import connectToDatabase from '@/lib/mongodb'
 import { getProducts } from '@/lib/mongodb-operations'
-import { Store } from '@/lib/models/Store'
 import { WhatsAppBrowseState } from '@/lib/models/WhatsAppBrowseState'
-import { sendTextMessage, sendImageMessage, sendInteractiveListMessage, type WhatsAppListRow } from '@/lib/whatsapp/client'
+import { sendTextMessage, sendInteractiveListMessage, type WhatsAppListRow } from '@/lib/whatsapp/client'
 import { PRODUCT_CATEGORIES } from '@/lib/product-categories'
+import { sendProductResults } from '@/lib/whatsapp/product-results'
+import { continueImageMatchPaging } from '@/lib/whatsapp/image-search'
 import {
   BLOCKING_CHECKOUT_STAGES,
-  trackProductMessage,
   tryHandleProductReply,
   tryHandleCommaSeparatedAdd,
   sendCartSummary,
@@ -72,70 +72,11 @@ async function trySendText(waId: string, body: string): Promise<void> {
   }
 }
 
-// Returns the raw send result (needed to persist a message->product mapping for
-// reply-to-select) rather than void — callers that don't need it just ignore it.
-async function trySendImage(waId: string, imageUrl: string, caption: string): Promise<any | null> {
-  try {
-    return await sendImageMessage(waId, imageUrl, caption)
-  } catch (error) {
-    console.error(`[whatsapp-buyer] Image send failed for ${waId}:`, error)
-    return null
-  }
-}
-
 async function trySendList(waId: string, bodyText: string, buttonText: string, rows: WhatsAppListRow[]): Promise<void> {
   try {
     await sendInteractiveListMessage(waId, bodyText, buttonText, rows)
   } catch (error) {
     console.error(`[whatsapp-buyer] List send failed for ${waId}:`, error)
-  }
-}
-
-function formatNaira(amount: number): string {
-  return `NGN ${Math.max(0, Number(amount) || 0).toLocaleString('en-NG')}`
-}
-
-// Cloudinary images are plain public res.cloudinary.com URLs (unsigned upload flow, no
-// authenticated delivery type anywhere in this codebase) — directly fetchable by
-// WhatsApp. Inserting a transform keeps the file well under WhatsApp's 5MB image limit;
-// no-op for anything that isn't a Cloudinary /upload/ URL (e.g. a non-Cloudinary image
-// host, however unlikely in this codebase today).
-function buildWhatsAppImageUrl(url: string): string {
-  if (!url || !url.includes('res.cloudinary.com') || !url.includes('/upload/')) return url
-  return url.replace('/upload/', '/upload/w_800,q_auto,f_auto/')
-}
-
-// `storeName` is the vendor's actual STORE brand (e.g. "Munch"), resolved by the caller
-// from a batched Store lookup — falls back to Product.vendorName (the vendor's personal
-// account name, denormalized on the product at creation time) only if that lookup
-// couldn't resolve one, so a caption is never blank.
-function buildProductCaption(product: any, storeName?: string): string {
-  const name = String(product?.name || 'Product')
-  const price = formatNaira(Number(product?.price || 0))
-  const sellerName = storeName || String(product?.vendorName || 'Make It Sell')
-  return `${name}\n${price}\nSold by ${sellerName}`
-}
-
-// Sends one result (image+caption, or text if no photo) and records the message->product
-// mapping so a later reply to it can be resolved back to this product (checkout.ts's
-// tryHandleProductReply — the primary add-to-cart path).
-async function sendResultItem(waId: string, product: any, storeName?: string): Promise<void> {
-  const caption = buildProductCaption(product, storeName)
-  const rawImage = Array.isArray(product?.images) ? product.images[0] : undefined
-  const productId = String(product?.id || product?._id || '')
-
-  if (!rawImage) {
-    // No product photo on file — fall back to text so the listing still shows up
-    // rather than silently disappearing from the results. Not tracked for reply-to-
-    // select: a reply to a text result is rarer, and skipping it keeps this simple.
-    await trySendText(waId, caption)
-    return
-  }
-
-  const result = await trySendImage(waId, buildWhatsAppImageUrl(rawImage), caption)
-  const messageId = String(result?.messages?.[0]?.id || '').trim()
-  if (messageId && productId) {
-    await trackProductMessage(waId, messageId, productId)
   }
 }
 
@@ -168,14 +109,6 @@ async function runSearchAndReply(waId: string, query: string, offset: number): P
 
   console.log(`[whatsapp-buyer] search: sending ${pageItems.length} result(s) for "${query}" (offset ${offset}, hasMore ${hasMore}) — ${waId}`)
 
-  // "Sold by {vendorName}" was showing the vendor's personal account name
-  // (Product.vendorName, denormalized at product-creation time), not their store's
-  // brand — batch-resolve real store names by storeId so the caption matches what the
-  // buyer would see on the website.
-  const storeIds = Array.from(new Set(pageItems.map((p) => String((p as any)?.storeId || '')).filter(Boolean)))
-  const stores = storeIds.length > 0 ? await Store.find({ _id: { $in: storeIds } }).select('storeName').lean() : []
-  const storeNameById = new Map((stores as any[]).map((s) => [String(s._id), String(s.storeName || '')]))
-
   // Fire all result sends and the browse-state write concurrently instead of one at a
   // time — each send is a real network round-trip to Meta's API, so awaiting them
   // sequentially was the dominant source of the bot's reply latency (up to 4 back-to-
@@ -183,11 +116,16 @@ async function runSearchAndReply(waId: string, query: string, offset: number): P
   // catch their own errors, so one failure can't fail this Promise.all or block the
   // others. Minor trade-off: results can now arrive on the buyer's phone in a slightly
   // different order than pageItems — acceptable for a burst of results.
+  // $unset clears any in-progress image-search paging state — this is a text search,
+  // so "more" from here on should continue paging THIS query, not a stale photo match.
   await Promise.all([
-    ...pageItems.map((product) => sendResultItem(waId, product, storeNameById.get(String((product as any)?.storeId || '')))),
+    sendProductResults(waId, pageItems),
     WhatsAppBrowseState.findOneAndUpdate(
       { waId },
-      { $set: { lastQuery: query, offset: offset + pageItems.length, updatedAt: new Date() } },
+      {
+        $set: { lastQuery: query, offset: offset + pageItems.length, updatedAt: new Date() },
+        $unset: { matchMode: '', lastImageHash: '', lastImageEmbedding: '', lastVisualCategory: '' },
+      },
       { upsert: true }
     ),
   ])
@@ -200,6 +138,12 @@ async function runSearchAndReply(waId: string, query: string, offset: number): P
 async function handleMoreCommand(waId: string): Promise<void> {
   await connectToDatabase()
   const state: any = await WhatsAppBrowseState.findOne({ waId }).lean()
+
+  if (state?.matchMode) {
+    await continueImageMatchPaging(waId, state)
+    return
+  }
+
   if (!state?.lastQuery) {
     console.log(`[whatsapp-buyer] more: no prior search for ${waId}`)
     await trySendText(waId, 'Nothing to continue — search for a product by typing its name, or type "categories" to browse.')

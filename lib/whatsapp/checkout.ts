@@ -21,7 +21,8 @@ import { getProducts } from '@/lib/mongodb-operations'
 import { WhatsAppBrowseState } from '@/lib/models/WhatsAppBrowseState'
 import { WhatsAppProductMessageMap } from '@/lib/models/WhatsAppProductMessageMap'
 import { WhatsAppBuyer } from '@/lib/models/WhatsAppBuyer'
-import { sendTextMessage } from '@/lib/whatsapp/client'
+import { SavedAddress } from '@/lib/models/SavedAddress'
+import { sendTextMessage, sendInteractiveListMessage, type WhatsAppListRow } from '@/lib/whatsapp/client'
 import { findOrCreateBuyerForWaId, setBuyerName, placeholderEmailForWaId, PLACEHOLDER_BUYER_NAME } from '@/lib/whatsapp/buyer-identity'
 import { initiateWaBuyerPaystackCheckout } from '@/lib/whatsapp/buyer-orders'
 import { getDeliveryQuotesForCart } from '@/lib/delivery-quotes'
@@ -32,6 +33,7 @@ import { getDeliveryQuotesForCart } from '@/lib/delivery-quotes'
 // or add more, exactly like plain browsing.
 export const BLOCKING_CHECKOUT_STAGES = new Set([
   'awaiting_name',
+  'choosing_saved_address',
   'awaiting_address',
   'quoting_delivery',
   'choosing_couriers',
@@ -44,6 +46,14 @@ async function trySendText(waId: string, body: string): Promise<void> {
     await sendTextMessage(waId, body)
   } catch (error) {
     console.error(`[whatsapp-checkout] Text send failed for ${waId}:`, error)
+  }
+}
+
+async function trySendList(waId: string, bodyText: string, buttonText: string, rows: WhatsAppListRow[]): Promise<void> {
+  try {
+    await sendInteractiveListMessage(waId, bodyText, buttonText, rows)
+  } catch (error) {
+    console.error(`[whatsapp-checkout] List send failed for ${waId}:`, error)
   }
 }
 
@@ -221,6 +231,7 @@ export async function handleCancelCommand(waId: string, stage: string): Promise<
     stage: 'browsing',
     cart: [],
     pendingShippingInfo: {},
+    pendingShippingInfoFromSavedId: null,
     deliveryQuotes: {},
     selectedCouriers: {},
     pendingOrderId: null,
@@ -239,6 +250,58 @@ const ADDRESS_PROMPT =
 async function beginAddressCollection(waId: string): Promise<void> {
   await saveState(waId, { stage: 'awaiting_address' })
   await trySendText(waId, ADDRESS_PROMPT)
+}
+
+// Shows saved addresses as a native list picker (same mechanism as the category menu,
+// see lib/whatsapp/buyer.ts's sendCategoryMenu) plus an "Add new address" row. Returns
+// false (and sends nothing) when the buyer has no saved addresses, so the caller can fall
+// straight through to the existing free-text collection flow.
+async function presentSavedAddressPicker(waId: string, customerId: string): Promise<boolean> {
+  await connectToDatabase()
+  const doc: any = await SavedAddress.findOne({ userId: customerId }).lean()
+  const addresses: any[] = doc?.addresses || []
+  if (addresses.length === 0) return false
+
+  // Meta's interactive list hard-caps at 10 rows total — reserve one for "Add new".
+  const rows: WhatsAppListRow[] = addresses.slice(0, 9).map((a) => ({
+    id: `address:${a._id}`,
+    title: String(a.label || 'Address').slice(0, 24),
+    description: `${a.address}, ${a.city}`.slice(0, 72),
+  }))
+  rows.push({ id: 'address:new', title: 'Add new address', description: 'Enter a different delivery address' })
+
+  await saveState(waId, { stage: 'choosing_saved_address' })
+  await trySendList(waId, 'Choose a delivery address:', 'Addresses', rows)
+  return true
+}
+
+// Handles a tap on the picker above — called from the webhook's list_reply branch for
+// any row id prefixed "address:" (as opposed to "category:", handled by
+// lib/whatsapp/buyer.ts's handleCategorySelection).
+export async function handleSavedAddressListReply(waId: string, rowId: string): Promise<void> {
+  const idPart = rowId.replace(/^address:/, '')
+
+  if (idPart === 'new') {
+    await beginAddressCollection(waId)
+    return
+  }
+
+  const { customerId } = await findOrCreateBuyerForWaId(waId)
+  await connectToDatabase()
+  const doc: any = await SavedAddress.findOne({ userId: customerId }).lean()
+  const addr = (doc?.addresses || []).find((a: any) => String(a._id) === idPart)
+
+  if (!addr) {
+    await trySendText(waId, "Couldn't find that saved address — let's try again.")
+    await beginAddressCollection(waId)
+    return
+  }
+
+  const parsed = { address: addr.address, city: addr.city, state: addr.state, deliveryInstructions: addr.deliveryInstructions || '' }
+  // Marks this address as already-saved so handleConfirmReply's auto-save skips it.
+  await saveState(waId, { stage: 'quoting_delivery', pendingShippingInfo: parsed, pendingShippingInfoFromSavedId: idPart })
+  await trySendText(waId, 'One moment, checking delivery options for your address...')
+  await fetchAndPresentQuotes(waId, parsed)
 }
 
 // Entry point for the "checkout" keyword / buy-intent messages from lib/whatsapp/buyer.ts.
@@ -260,7 +323,10 @@ export async function handleCheckoutStart(waId: string): Promise<void> {
     return
   }
 
-  await beginAddressCollection(waId)
+  const shownPicker = await presentSavedAddressPicker(waId, customerId)
+  if (!shownPicker) {
+    await beginAddressCollection(waId)
+  }
 }
 
 async function handleNameReply(waId: string, text: string): Promise<void> {
@@ -480,6 +546,54 @@ async function handleCourierReply(waId: string, text: string, state: any): Promi
   await trySendText(waId, 'Reply "yes" to go with the current selections, or "change <seller #> <option #>" to pick a different courier (e.g. "change 1 2").')
 }
 
+// Silently saves a freshly-typed address after a successful order, so it shows up in the
+// picker next time — deliberately no extra "save this?" round-trip before payment (that
+// friction outweighs the benefit in a chat flow); dedup means re-ordering to the same
+// place repeatedly doesn't pile up copies. Returns the label used, or null if it was a
+// duplicate of an already-saved address (nothing written).
+async function maybeAutoSaveAddress(
+  customerId: string,
+  shippingInfo: { address: string; city: string; state: string; deliveryInstructions: string }
+): Promise<string | null> {
+  await connectToDatabase()
+  const doc: any = await SavedAddress.findOne({ userId: customerId }).lean()
+  const addresses: any[] = doc?.addresses || []
+
+  const isDuplicate = addresses.some((a: any) =>
+    String(a.address).trim().toLowerCase() === shippingInfo.address.trim().toLowerCase() &&
+    String(a.city).trim().toLowerCase() === shippingInfo.city.trim().toLowerCase() &&
+    String(a.state).trim().toLowerCase() === shippingInfo.state.trim().toLowerCase()
+  )
+  if (isDuplicate) return null
+
+  const label = `WhatsApp Address ${addresses.length + 1}`
+  const makeDefault = addresses.length === 0
+
+  if (makeDefault) {
+    await SavedAddress.updateOne({ userId: customerId }, { $set: { 'addresses.$[].isDefault': false } })
+  }
+
+  await SavedAddress.updateOne(
+    { userId: customerId },
+    {
+      $push: {
+        addresses: {
+          label,
+          address: shippingInfo.address,
+          city: shippingInfo.city,
+          state: shippingInfo.state,
+          deliveryInstructions: shippingInfo.deliveryInstructions || '',
+          isDefault: makeDefault,
+          createdAt: new Date(),
+        },
+      },
+    },
+    { upsert: true }
+  )
+
+  return label
+}
+
 async function handleConfirmReply(waId: string, text: string): Promise<void> {
   const lower = String(text || '').trim().toLowerCase()
   if (lower !== 'confirm' && lower !== 'yes') {
@@ -538,9 +652,17 @@ async function handleConfirmReply(waId: string, text: string): Promise<void> {
 
   await saveState(waId, { stage: 'awaiting_payment', pendingOrderId: result.orderId })
 
+  // Only auto-save when this address was freshly typed, not when it was already picked
+  // from the saved list (pendingShippingInfoFromSavedId set) — no point re-saving it.
+  let savedLabel: string | null = null
+  if (!state?.pendingShippingInfoFromSavedId) {
+    savedLabel = await maybeAutoSaveAddress(customerId, pendingShippingInfo).catch(() => null)
+  }
+
   await trySendText(
     waId,
     `Almost there! Tap the link below to pay ${formatNaira(result.totalAmount)} securely:\n\n${result.authorizationUrl}\n\nOnce payment is confirmed we'll message you here.`
+    + (savedLabel ? `\n\n(Saved this address as "${savedLabel}" for next time.)` : '')
   )
 }
 
@@ -552,6 +674,16 @@ export async function handleCheckoutStageMessage(waId: string, text: string, sta
   switch (stage) {
     case 'awaiting_name':
       await handleNameReply(waId, text)
+      return
+    case 'choosing_saved_address':
+      // Normally resolved via the list picker's tap (routed straight to
+      // handleSavedAddressListReply by the webhook, never reaching here) — this only
+      // fires if the buyer typed instead of tapping.
+      if (String(text || '').trim().toLowerCase() === 'new') {
+        await beginAddressCollection(waId)
+        return
+      }
+      await trySendText(waId, 'Please tap one of the address options above, or reply "new" to enter a different address.')
       return
     case 'awaiting_address':
       await handleAddressReply(waId, text)

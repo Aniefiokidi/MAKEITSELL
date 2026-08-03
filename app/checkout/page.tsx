@@ -129,6 +129,48 @@ export default function CheckoutPage() {
     return shippingInfo.state ? (NIGERIA_STATE_CITY_OPTIONS[shippingInfo.state] || []) : []
   }, [shippingInfo.state])
 
+  const [savedAddresses, setSavedAddresses] = useState<Array<{
+    _id: string; label: string; firstName: string; lastName: string
+    phoneCountryCode: string; phone: string; address: string; city: string; state: string
+    zipCode: string; deliveryInstructions: string; isDefault: boolean
+  }>>([])
+  const [selectedSavedAddressId, setSelectedSavedAddressId] = useState<string>("")
+  const [saveNewAddress, setSaveNewAddress] = useState(false)
+  const [newAddressLabel, setNewAddressLabel] = useState("")
+
+  useEffect(() => {
+    if (!user) return
+    fetch('/api/user/addresses')
+      .then((res) => res.json())
+      .then((data) => {
+        const addresses = data.addresses || []
+        setSavedAddresses(addresses)
+        // Pre-fill from the default address so a returning customer doesn't have to
+        // pick it explicitly — still fully editable, and "Add a new address" remains
+        // one click away in the picker below.
+        const defaultAddr = addresses.find((a: any) => a.isDefault)
+        if (defaultAddr) applySavedAddress(defaultAddr)
+      })
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
+
+  const applySavedAddress = (addr: typeof savedAddresses[0]) => {
+    setSelectedSavedAddressId(addr._id)
+    setShippingInfo((prev) => ({
+      ...prev,
+      firstName: addr.firstName || prev.firstName,
+      lastName: addr.lastName || prev.lastName,
+      phoneCountryCode: addr.phoneCountryCode || prev.phoneCountryCode,
+      phone: addr.phone || prev.phone,
+      address: addr.address,
+      city: addr.city,
+      state: addr.state,
+      zipCode: addr.zipCode || "",
+      deliveryInstructions: addr.deliveryInstructions || prev.deliveryInstructions,
+    }))
+  }
+
   const hasFoodItems = useMemo(() => items.some(i => i.category === 'Food & Beverages'), [items])
 
   // Each vendor ships separately from their own pickup address — one courier choice per
@@ -432,7 +474,29 @@ export default function CheckoutPage() {
         const fallbackMessage = `Failed to initialize payment (HTTP ${response.status})`
         throw new Error(result.error || result.message || fallbackMessage)
       }
-      
+
+      // Order was successfully created with this address — safe to save it regardless
+      // of payment method/outcome from here. Best-effort: a failure here shouldn't block
+      // an otherwise-successful checkout.
+      if (saveNewAddress && newAddressLabel.trim() && !shippingInfo.isGiftOrder) {
+        fetch('/api/user/addresses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            label: newAddressLabel.trim(),
+            firstName: shippingInfo.firstName,
+            lastName: shippingInfo.lastName,
+            phoneCountryCode: shippingInfo.phoneCountryCode,
+            phone: shippingInfo.phone,
+            address: shippingInfo.address,
+            city: shippingInfo.city,
+            state: shippingInfo.state,
+            zipCode: shippingInfo.zipCode,
+            deliveryInstructions: shippingInfo.deliveryInstructions,
+          }),
+        }).catch(() => {})
+      }
+
       if (paymentMethod === 'wallet') {
         if (!result.success) {
           throw new Error(result.error || 'Wallet payment failed')
@@ -512,6 +576,45 @@ export default function CheckoutPage() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                      {!shippingInfo.isGiftOrder && savedAddresses.length > 0 && (
+                        <div className="space-y-2">
+                          <Label>Delivery Address</Label>
+                          <div className="space-y-2">
+                            {savedAddresses.map((addr) => (
+                              <button
+                                type="button"
+                                key={addr._id}
+                                onClick={() => applySavedAddress(addr)}
+                                disabled={loading}
+                                className={`w-full text-left rounded-lg border p-3 text-sm transition-colors ${
+                                  selectedSavedAddressId === addr._id
+                                    ? "border-accent bg-accent/5"
+                                    : "border-border/60 hover:border-border"
+                                }`}
+                              >
+                                <span className="font-medium">{addr.label}</span>
+                                {addr.isDefault && <span className="ml-2 text-[11px] text-accent">Default</span>}
+                                <span className="block text-xs text-muted-foreground mt-0.5">
+                                  {addr.address}, {addr.city}, {addr.state}
+                                </span>
+                              </button>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSavedAddressId("")}
+                              disabled={loading}
+                              className={`w-full text-left rounded-lg border p-3 text-sm transition-colors ${
+                                selectedSavedAddressId === ""
+                                  ? "border-accent bg-accent/5"
+                                  : "border-border/60 hover:border-border"
+                              }`}
+                            >
+                              <span className="font-medium">Use a new address</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex items-start gap-2.5 rounded-lg border border-border/60 bg-muted/30 p-3">
                         <Checkbox
                           id="isGiftOrder"
@@ -733,6 +836,30 @@ export default function CheckoutPage() {
                           Delivery instruction is required (use nearest landmark / gate note).
                         </p>
                       </div>
+
+                      {!shippingInfo.isGiftOrder && (
+                        <div className="space-y-2 rounded-lg border border-border/60 bg-muted/30 p-3">
+                          <div className="flex items-start gap-2.5">
+                            <Checkbox
+                              id="saveNewAddress"
+                              checked={saveNewAddress}
+                              onCheckedChange={(checked) => setSaveNewAddress(checked as boolean)}
+                              disabled={loading}
+                            />
+                            <Label htmlFor="saveNewAddress" className="text-sm font-normal leading-snug cursor-pointer">
+                              Save this address for next time
+                            </Label>
+                          </div>
+                          {saveNewAddress && (
+                            <Input
+                              placeholder="Label this address (e.g. Home, Office)"
+                              value={newAddressLabel}
+                              onChange={(e) => setNewAddressLabel(e.target.value)}
+                              disabled={loading}
+                            />
+                          )}
+                        </div>
+                      )}
 
                       {hasFoodItems && (() => {
                         const slots = getAvailableFoodSlots()

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { useAuth } from "@/contexts/AuthContext"
 import Header from "@/components/Header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,16 +11,17 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
-import { 
-  Settings, 
-  Bell, 
-  Lock, 
-  Trash2, 
-  Mail, 
-  Eye, 
+import {
+  Settings,
+  Bell,
+  Lock,
+  Trash2,
+  Mail,
+  Eye,
   EyeOff,
   AlertTriangle,
-  Shield
+  Shield,
+  MapPin
 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
@@ -211,6 +213,22 @@ export default function SettingsPage() {
         )}
 
         <div className="space-y-6">
+          {/* Delivery Addresses */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                Delivery Addresses
+              </CardTitle>
+              <CardDescription>Manage saved addresses for faster checkout</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button variant="outline" asChild>
+                <Link href="/user/addresses">Manage Addresses</Link>
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Security Settings */}
           <Card>
             <CardHeader>

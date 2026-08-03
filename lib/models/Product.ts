@@ -24,6 +24,15 @@ export interface IProduct extends Document {
   colorImages?: { [key: string]: string };
   weightKg?: number;
   dimensions?: { length: number; width: number; height: number };
+  // Perceptual hash (dHash, 16 hex chars = 64 bits) of images[0] — near-duplicate
+  // matching (a buyer forwarding a saved/screenshotted product photo).
+  imageHash?: string;
+  // Broad visual bucket (clothing, food, beauty-personal-care, ...) from a locally-run
+  // MobileNet classifier — no AI/vision API call. See lib/image-classify.ts.
+  visualCategory?: string;
+  // MobileNet embedding (512-dim) of images[0] — cosine-similarity ranking for "similar,
+  // not identical" items, which a pixel-level hash can't generalize to.
+  imageEmbedding?: number[];
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -60,6 +69,9 @@ const ProductSchema = new Schema<IProduct>({
       height: { type: Number },
     },
   },
+  imageHash: { type: String },
+  visualCategory: { type: String },
+  imageEmbedding: { type: [Number] },
 }, { timestamps: true });
 
 // Query indexes for high-traffic product listing/filter endpoints.
