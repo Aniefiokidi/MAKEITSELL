@@ -15,7 +15,8 @@ import connectToDatabase from '@/lib/mongodb'
 import { Order } from '@/lib/models/Order'
 import { WhatsAppLink } from '@/lib/models/WhatsAppLink'
 import { WhatsAppMessageMap } from '@/lib/models/WhatsAppMessageMap'
-import { sendTemplateMessage } from '@/lib/whatsapp/client'
+import { WhatsAppBuyer } from '@/lib/models/WhatsAppBuyer'
+import { sendTemplateMessage, sendTextMessage } from '@/lib/whatsapp/client'
 
 function shortRef(orderId: string): string {
   return String(orderId || '').slice(0, 8).toUpperCase()
@@ -131,5 +132,50 @@ export function notifyVendorStageChange(orderId: string, vendorEntry: any, statu
       (waId) => sendTemplateMessage(waId, 'order_status_update', [ref, summary, label]),
       `order_status_update template (${status})`
     )
+  })
+}
+
+// Buyer-facing wording differs from STAGE_LABELS above — "Received — payment released
+// to your wallet" is meaningful to a vendor being paid, not to the buyer who just
+// triggered that by confirming receipt.
+const BUYER_STAGE_LABELS: Record<string, string> = {
+  confirmed: 'Confirmed',
+  shipped: 'Shipped',
+  out_for_delivery: 'Out for delivery',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+}
+
+// Same trigger point as notifyVendorStageChange (applyOrderVendorStatus, per vendor-leg
+// change) but targets the BUYER — this was missing entirely, which is why a buyer never
+// heard "shipped" on WhatsApp even though the vendor's own dispatch confirmation fired
+// correctly. No-ops immediately for a non-WhatsApp (website) customerId, or for a
+// status with no buyer-relevant label (e.g. 'received', which the buyer just set
+// themselves — notifying them of their own action is redundant).
+export function notifyWaBuyerStageChange(orderId: string, customerId: string, vendorEntry: any, status: string): void {
+  const label = BUYER_STAGE_LABELS[status]
+  const trimmedCustomerId = String(customerId || '').trim()
+  if (!label || !trimmedCustomerId) return
+
+  after(async () => {
+    try {
+      await connectToDatabase()
+      const mapping: any = await WhatsAppBuyer.findOne({ customerId: trimmedCustomerId }).lean()
+      const waId = String(mapping?.waId || '').trim()
+      if (!waId) {
+        console.log(`[whatsapp-notify] Skipping buyer stage-change — order ${orderId}, customer ${trimmedCustomerId} not a WhatsApp buyer`)
+        return
+      }
+
+      const ref = shortRef(orderId)
+      const summary = formatItemSummary(vendorEntry?.items)
+      // Best-effort, free text — no approved buyer-facing status-update template exists
+      // yet (same TODO as the order-paid confirmation in lib/whatsapp/checkout.ts), so
+      // this only reliably delivers within Meta's 24h customer-service window.
+      await sendTextMessage(waId, `Order ${ref} update: ${summary} is now ${label}.`)
+      console.log(`[whatsapp-notify] Sent buyer stage-change — order ${orderId}, customer ${trimmedCustomerId} (${status})`)
+    } catch (error) {
+      console.error(`[whatsapp-notify] Failed to send buyer stage-change — order ${orderId}, customer ${trimmedCustomerId}:`, error)
+    }
   })
 }

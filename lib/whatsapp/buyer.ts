@@ -7,6 +7,7 @@
 // browsing/search or a checkout action.
 import connectToDatabase from '@/lib/mongodb'
 import { getProducts } from '@/lib/mongodb-operations'
+import { Store } from '@/lib/models/Store'
 import { WhatsAppBrowseState } from '@/lib/models/WhatsAppBrowseState'
 import { sendTextMessage, sendImageMessage, sendInteractiveListMessage, type WhatsAppListRow } from '@/lib/whatsapp/client'
 import { PRODUCT_CATEGORIES } from '@/lib/product-categories'
@@ -46,6 +47,13 @@ const CATEGORY_KEYWORDS = new Set(['menu', 'categories', 'category'])
 const BUY_INTENT_PATTERN = /\b(buy|purchase|checkout|order)\b/i
 const BUY_INTENT_MAX_LENGTH = 40
 const REMOVE_PATTERN = /^remove\s+(\d+)$/
+// Broadened from an exact "cart" match after real buyers asked "what is in my cart",
+// "show my cart", and Pidgin phrasing like "wetin dey inside my cart" — none of which
+// matched the old exact-keyword check and fell through to a failed product search
+// instead. "cart" as a whole word is a strong, low-risk signal for this catalog (no
+// product category here is likely to be literally named "cart"), so a plain substring/
+// word-boundary match is a reasonable trade-off without adding an NLU layer.
+const CART_VIEW_PATTERN = /\bcart\b/i
 
 // Mostly clear English with a light Pidgin touch ("how far") rather than full Pidgin
 // throughout — warm and local without reading as a caricature or excluding buyers who
@@ -97,18 +105,22 @@ function buildWhatsAppImageUrl(url: string): string {
   return url.replace('/upload/', '/upload/w_800,q_auto,f_auto/')
 }
 
-function buildProductCaption(product: any): string {
+// `storeName` is the vendor's actual STORE brand (e.g. "Munch"), resolved by the caller
+// from a batched Store lookup — falls back to Product.vendorName (the vendor's personal
+// account name, denormalized on the product at creation time) only if that lookup
+// couldn't resolve one, so a caption is never blank.
+function buildProductCaption(product: any, storeName?: string): string {
   const name = String(product?.name || 'Product')
   const price = formatNaira(Number(product?.price || 0))
-  const vendorName = String(product?.vendorName || 'Make It Sell')
-  return `${name}\n${price}\nSold by ${vendorName}`
+  const sellerName = storeName || String(product?.vendorName || 'Make It Sell')
+  return `${name}\n${price}\nSold by ${sellerName}`
 }
 
 // Sends one result (image+caption, or text if no photo) and records the message->product
 // mapping so a later reply to it can be resolved back to this product (checkout.ts's
 // tryHandleProductReply — the primary add-to-cart path).
-async function sendResultItem(waId: string, product: any): Promise<void> {
-  const caption = buildProductCaption(product)
+async function sendResultItem(waId: string, product: any, storeName?: string): Promise<void> {
+  const caption = buildProductCaption(product, storeName)
   const rawImage = Array.isArray(product?.images) ? product.images[0] : undefined
   const productId = String(product?.id || product?._id || '')
 
@@ -156,6 +168,14 @@ async function runSearchAndReply(waId: string, query: string, offset: number): P
 
   console.log(`[whatsapp-buyer] search: sending ${pageItems.length} result(s) for "${query}" (offset ${offset}, hasMore ${hasMore}) — ${waId}`)
 
+  // "Sold by {vendorName}" was showing the vendor's personal account name
+  // (Product.vendorName, denormalized at product-creation time), not their store's
+  // brand — batch-resolve real store names by storeId so the caption matches what the
+  // buyer would see on the website.
+  const storeIds = Array.from(new Set(pageItems.map((p) => String((p as any)?.storeId || '')).filter(Boolean)))
+  const stores = storeIds.length > 0 ? await Store.find({ _id: { $in: storeIds } }).select('storeName').lean() : []
+  const storeNameById = new Map((stores as any[]).map((s) => [String(s._id), String(s.storeName || '')]))
+
   // Fire all result sends and the browse-state write concurrently instead of one at a
   // time — each send is a real network round-trip to Meta's API, so awaiting them
   // sequentially was the dominant source of the bot's reply latency (up to 4 back-to-
@@ -164,7 +184,7 @@ async function runSearchAndReply(waId: string, query: string, offset: number): P
   // others. Minor trade-off: results can now arrive on the buyer's phone in a slightly
   // different order than pageItems — acceptable for a burst of results.
   await Promise.all([
-    ...pageItems.map((product) => sendResultItem(waId, product)),
+    ...pageItems.map((product) => sendResultItem(waId, product, storeNameById.get(String((product as any)?.storeId || '')))),
     WhatsAppBrowseState.findOneAndUpdate(
       { waId },
       { $set: { lastQuery: query, offset: offset + pageItems.length, updatedAt: new Date() } },
@@ -264,7 +284,7 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
     return
   }
 
-  if (lower === 'cart') {
+  if (CART_VIEW_PATTERN.test(trimmed)) {
     await sendCartSummary(waId)
     return
   }

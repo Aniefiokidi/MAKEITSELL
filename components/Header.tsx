@@ -638,7 +638,12 @@ export default function Header({ homeBg = false }: { homeBg?: boolean }) {
           </Link>
 
           {/* Desktop search bar */}
-          <div className="hidden xl:flex flex-1 max-w-sm mx-4">
+          {/* min-w guards against the nav (7 links, can't shrink below its text width)
+              squeezing this flex-1 item down to near-zero width near the xl breakpoint
+              edge — SmartSearch's dropdown sizes itself to match this container, so a
+              collapsed container meant a collapsed, truncated dropdown overlapping the
+              page instead of the search bar itself. */}
+          <div className="hidden xl:flex flex-1 min-w-[10rem] max-w-sm mx-4">
             <SmartSearch
               placeholder={pathname.startsWith("/services") ? "Search services…" : "Search products…"}
               scope={pathname.startsWith("/services") ? "services" : "products"}

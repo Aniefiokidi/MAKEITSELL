@@ -5,7 +5,7 @@ import { User } from '@/lib/models/User'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { releaseEscrowForOrder, updateOrder } from '@/lib/mongodb-operations'
 import { sendOrderStatusChangeNotifications } from '@/lib/order-notifications'
-import { notifyVendorStageChange } from '@/lib/whatsapp/notifications'
+import { notifyVendorStageChange, notifyWaBuyerStageChange } from '@/lib/whatsapp/notifications'
 import { estimateShippingFee } from '@/lib/aco-logistics-rates'
 import type { LogisticsRegionConfig } from '@/lib/logistics-access'
 
@@ -128,6 +128,7 @@ export async function applyOrderVendorStatus(params: {
         )
       if (targetVendorEntry) {
         notifyVendorStageChange(orderId, targetVendorEntry, requestedStatus)
+        notifyWaBuyerStageChange(orderId, String((existingOrder as any)?.customerId || ''), targetVendorEntry, requestedStatus)
       }
 
       // Cancelled legs must not count against the rollup — otherwise a partially
