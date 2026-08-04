@@ -14,7 +14,6 @@ import { WhatsAppMessageMap } from '@/lib/models/WhatsAppMessageMap'
 import { applyOrderVendorStatus, resolveOrderVendorTarget } from '@/lib/order-vendor-status'
 import { sendTextMessage } from '@/lib/whatsapp/client'
 import { handleBuyerMessage } from '@/lib/whatsapp/buyer'
-import { handleBuyerImageMessage } from '@/lib/whatsapp/image-search'
 
 const CODE_PATTERN = /^[A-Z0-9]{6}$/i
 // Matches the same orderId.slice(0, 8).toUpperCase() convention used for the order ref
@@ -79,8 +78,14 @@ export async function handleInboundMessage(waId: string, text: string, contextMe
 export async function handleInboundImageMessage(waId: string, mediaId: string): Promise<void> {
   const vendorId = await resolveLinkedVendor(waId)
   if (!vendorId) {
-    // Self-defers via after() — classification takes several seconds and must never
-    // block this webhook's response to Meta, so this is a fire-and-forget call, not awaited.
+    // Dynamic import — image-search.ts pulls in TensorFlow.js, which must not be a
+    // load-time dependency of this whole file (commands.ts is imported directly by the
+    // webhook route, so a top-level import here would mean EVERY inbound message of any
+    // type pays for loading TF.js, not just images). The import itself is awaited so it
+    // resolves before this function returns, but the call into handleBuyerImageMessage is
+    // NOT awaited — it self-defers via after() internally, since classification takes
+    // several seconds and must never block this webhook's response to Meta.
+    const { handleBuyerImageMessage } = await import('@/lib/whatsapp/image-search')
     handleBuyerImageMessage(waId, mediaId)
     return
   }

@@ -11,7 +11,6 @@ import { WhatsAppBrowseState } from '@/lib/models/WhatsAppBrowseState'
 import { sendTextMessage, sendInteractiveListMessage, type WhatsAppListRow } from '@/lib/whatsapp/client'
 import { PRODUCT_CATEGORIES } from '@/lib/product-categories'
 import { sendProductResults } from '@/lib/whatsapp/product-results'
-import { continueImageMatchPaging } from '@/lib/whatsapp/image-search'
 import {
   BLOCKING_CHECKOUT_STAGES,
   tryHandleProductReply,
@@ -140,6 +139,11 @@ async function handleMoreCommand(waId: string): Promise<void> {
   const state: any = await WhatsAppBrowseState.findOne({ waId }).lean()
 
   if (state?.matchMode) {
+    // Dynamic import — image-search.ts pulls in TensorFlow.js (via lib/image-classify.ts),
+    // which must not be a load-time dependency of this whole file (buyer.ts is imported by
+    // lib/whatsapp/commands.ts, itself imported by the webhook route hit by EVERY inbound
+    // message). Only actually loaded when a buyer is paging through image-search results.
+    const { continueImageMatchPaging } = await import('@/lib/whatsapp/image-search')
     await continueImageMatchPaging(waId, state)
     return
   }

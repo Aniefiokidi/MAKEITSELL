@@ -42,7 +42,6 @@ import connectToDatabase from './mongodb';
 import mongoose from 'mongoose';
 // @ts-ignore
 import { Product as ProductModel } from './models/Product';
-import { scheduleProductImageAnalysis } from './product-image-analysis';
 // @ts-ignore
 import { Store as StoreModel } from './models/Store';
 // @ts-ignore
@@ -680,8 +679,16 @@ export const createProduct = async (productData: any): Promise<string> => {
 
   const firstImage = Array.isArray(productData?.images) ? productData.images[0] : undefined;
   if (productId && firstImage) {
-    // Deferred (next/server's after()) — hashing + classification take a few seconds and
-    // must never block the vendor's product-save response. See product-image-analysis.ts.
+    // Dynamic (awaited) import — product-image-analysis.ts pulls in TensorFlow.js, which
+    // must never load as a side effect of importing this file (mongodb-operations.ts is
+    // imported by nearly every route in the app; a top-level import here would make TF.js's
+    // load a transitive dependency of all of them, not just product create/update). Must be
+    // awaited (not fire-and-forget) so the module is loaded before this function returns —
+    // scheduleProductImageAnalysis calls next/server's after() internally, which has to run
+    // synchronously within the request's lifecycle, before the response is sent, or it can
+    // fail with "after() called outside a request context". The heavy part (model weight
+    // load + inference) still only happens later, inside that deferred after() callback.
+    const { scheduleProductImageAnalysis } = await import('./product-image-analysis');
     scheduleProductImageAnalysis(productId, firstImage);
   }
 
@@ -1178,6 +1185,11 @@ export const updateProduct = async (id: string, data: any) => {
   if (!product) return null;
 
   if (pendingAnalysisImage) {
+    // See createProduct's comment above — must be an awaited dynamic import, not a
+    // top-level one, so TF.js isn't a load-time dependency of every mongodb-operations.ts
+    // caller, and must be awaited (not fire-and-forget) so after() inside it still runs
+    // within this request's lifecycle.
+    const { scheduleProductImageAnalysis } = await import('./product-image-analysis');
     scheduleProductImageAnalysis(id, pendingAnalysisImage);
   }
 
