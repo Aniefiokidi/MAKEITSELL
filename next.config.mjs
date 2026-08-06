@@ -4,6 +4,12 @@ const nextConfig = {
     ignoreBuildErrors: false,
   },
 
+  // tesseract.js spawns its recognition worker via a __dirname-relative require() that
+  // Turbopack/webpack's build tracing rewrites incorrectly when the package is bundled —
+  // confirmed live (MODULE_NOT_FOUND for worker-script/node/index.js). Marking it external
+  // leaves it to plain Node `require` at runtime, which resolves correctly.
+  serverExternalPackages: ["tesseract.js"],
+
   // If you're hosting on Vercel, you DO NOT need this:
   // output: "export",
 

@@ -35,13 +35,24 @@ const IMAGE_SIZE = 224
 
 let modelPromise: Promise<mobilenetLib.MobileNet> | null = null
 
+// Confirmed live: model weights load from Kaggle Models (TF Hub's content migrated there;
+// mobilenetLib.load() fetches from www.kaggle.com internally) on first use, and a
+// transient network hiccup reaching it (observed: a 10s connect timeout) rejects that
+// fetch. Without clearing modelPromise on failure, that rejection would be cached
+// forever — every later call would just re-await the same already-rejected promise and
+// get the identical stale error, even though a fresh attempt might succeed immediately.
+// Clearing it here lets the NEXT call retry from scratch instead of staying permanently
+// broken for the rest of this process's lifetime.
 function getModel(): Promise<mobilenetLib.MobileNet> {
   if (!modelPromise) {
     modelPromise = (async () => {
       await tf.setBackend('cpu')
       await tf.ready()
       return mobilenetLib.load({ version: 2, alpha: 1.0 })
-    })()
+    })().catch((error) => {
+      modelPromise = null
+      throw error
+    })
   }
   return modelPromise
 }

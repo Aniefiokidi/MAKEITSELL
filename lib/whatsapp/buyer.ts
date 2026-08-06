@@ -8,6 +8,8 @@
 import connectToDatabase from '@/lib/mongodb'
 import { getProducts } from '@/lib/mongodb-operations'
 import { WhatsAppBrowseState } from '@/lib/models/WhatsAppBrowseState'
+import { WhatsAppBuyer } from '@/lib/models/WhatsAppBuyer'
+import { Order } from '@/lib/models/Order'
 import { sendTextMessage, sendInteractiveListMessage, type WhatsAppListRow } from '@/lib/whatsapp/client'
 import { PRODUCT_CATEGORIES } from '@/lib/product-categories'
 import { sendProductResults } from '@/lib/whatsapp/product-results'
@@ -32,13 +34,24 @@ const MAX_LIST_ROWS = 10
 // Deliberately an explicit, exact-match list — NOT a fuzzy/substring check. A buyer
 // typing a product name (e.g. "hair", "how much for iPhone") must always reach search,
 // never get misfired into a greeting reply. When in doubt, it's a search.
+// Broadened after real usage turned up common variants the original short list missed
+// (typo'd/doubled letters, bare "morning"/"afternoon"/"evening", "hola", Pidgin group
+// phrasing) — same "expand keyword coverage" direction as the earlier cart-phrasing fix,
+// deliberately kept as an explicit list rather than adding an NLU layer.
 const GREETING_KEYWORDS = new Set([
   'hi', 'hello', 'hey', 'hiya', 'howdy', 'yo', 'start', 'help',
+  'hii', 'hiii', 'heyy', 'heyyy', 'hola',
   'good morning', 'good afternoon', 'good evening', 'gm',
-  'howfar', 'how far', 'how far now',
+  'morning', 'afternoon', 'evening',
+  'howfar', 'how far', 'how far now', 'how una dey', 'how you dey',
   'wetin dey', 'wetin dey happen', 'wetin dey sup', 'wetin sup',
   'abeg', 'wassup', 'whats up', "what's up", 'sup',
 ])
+// A buyer wrapping up a conversation ("thanks", "thank you", Pidgin "God bless") with no
+// further question — previously fell through to a failed product search for the literal
+// word "thanks", a visibly wrong reply for what's really just a sign-off.
+const THANKS_PATTERN = /^(thanks?( you| u)?|thank\s*you|tanx|tnx|God bless( you)?|much appreciated)[\s!.]*$/i
+const THANKS_REPLY = "You're welcome! Search anytime you need something else."
 const CATEGORY_KEYWORDS = new Set(['menu', 'categories', 'category'])
 // Now doubles as a checkout trigger (see handleBuyerMessage) rather than a coming-soon
 // placeholder — ordering is live. Still conservative: only short messages, so a longer
@@ -53,6 +66,12 @@ const REMOVE_PATTERN = /^remove\s+(\d+)$/
 // product category here is likely to be literally named "cart"), so a plain substring/
 // word-boundary match is a reasonable trade-off without adding an NLU layer.
 const CART_VIEW_PATTERN = /\bcart\b/i
+// A buyer asking about an EXISTING order — must be checked before BUY_INTENT_PATTERN, or
+// the bare word "order" in "where is my order" would misroute into STARTING a new
+// checkout instead of answering the question (a real, confirmed gap: nothing handled
+// this before). Requires "order"/"delivery"/"package" together with a query word, so a
+// genuine product search mentioning "order" in passing (rare, but possible) isn't caught.
+const ORDER_STATUS_PATTERN = /\b(order|delivery|package|parcel)\b[\s\S]*\b(status|where|track|shipped?|arriv(ed|ing)?|coming|dey)\b|\b(where|status|track)\b[\s\S]*\b(order|delivery|package|parcel)\b|wetin.*order/i
 
 // Mostly clear English with a light Pidgin touch ("how far") rather than full Pidgin
 // throughout — warm and local without reading as a caricature or excluding buyers who
@@ -181,6 +200,77 @@ export async function handleCategorySelection(waId: string, rowId: string): Prom
   await runSearchAndReply(waId, category.name, 0)
 }
 
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  pending: 'Pending',
+  pending_payment: 'Awaiting payment',
+  confirmed: 'Confirmed',
+  shipped: 'Shipped',
+  out_for_delivery: 'Out for delivery',
+  delivered: 'Delivered',
+  received: 'Received',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+}
+
+function shortOrderRef(orderId: string): string {
+  return String(orderId || '').slice(0, 8).toUpperCase()
+}
+
+function formatOrderItemsSummary(items: any[]): string {
+  const list = Array.isArray(items) ? items : []
+  const parts = list.slice(0, 2).map((item: any) => `${Math.max(1, Number(item?.quantity || 1))}x ${String(item?.title || item?.name || 'Item')}`)
+  const extra = list.length > 2 ? ` +${list.length - 2} more` : ''
+  return (parts.join(', ') || 'items') + extra
+}
+
+// Answers "where is my order" / "track my order" and similar — previously unhandled, so
+// this fell through to BUY_INTENT_PATTERN's bare "order" match and misrouted into
+// starting a NEW checkout. Reports the buyer's most recent orders (up to 3), with a
+// per-vendor breakdown when a multi-vendor order's legs have diverged (one shipped,
+// another still pending) rather than a single misleading top-level status.
+async function sendOrderStatus(waId: string): Promise<void> {
+  await connectToDatabase()
+  const mapping: any = await WhatsAppBuyer.findOne({ waId }).lean()
+  if (!mapping?.customerId) {
+    await trySendText(waId, "You haven't placed an order with us yet — search for a product to get started.")
+    return
+  }
+
+  const orders: any[] = await Order.find({ customerId: mapping.customerId })
+    .sort({ createdAt: -1 })
+    .limit(3)
+    .select('orderId status vendors items')
+    .lean()
+
+  if (orders.length === 0) {
+    await trySendText(waId, "You haven't placed an order with us yet — search for a product to get started.")
+    return
+  }
+
+  const lines = orders.map((order) => {
+    const ref = shortOrderRef(order.orderId)
+    const vendors: any[] = Array.isArray(order.vendors) ? order.vendors : []
+    const vendorStatuses = vendors.map((v) => String(v?.status || '').trim()).filter(Boolean)
+    const uniqueStatuses = Array.from(new Set(vendorStatuses))
+
+    if (uniqueStatuses.length > 1) {
+      const vendorLines = vendors.map((v) => {
+        const label = ORDER_STATUS_LABELS[v?.status] || v?.status || 'Pending'
+        return `  - ${formatOrderItemsSummary(v?.items)}: ${label}`
+      })
+      return `Order ${ref}:\n${vendorLines.join('\n')}`
+    }
+
+    const status = uniqueStatuses[0] || order.status || 'pending'
+    const label = ORDER_STATUS_LABELS[status] || status
+    const allItems = order.items?.length ? order.items : vendors.flatMap((v) => v?.items || [])
+    return `Order ${ref}: ${formatOrderItemsSummary(allItems)} — ${label}`
+  })
+
+  console.log(`[whatsapp-buyer] order status: sent ${orders.length} order(s) to ${waId}`)
+  await trySendText(waId, `Your recent orders:\n\n${lines.join('\n\n')}`)
+}
+
 // Entry point for any inbound text from a sender who isn't a linked vendor — called from
 // the restructured handleInboundMessage in lib/whatsapp/commands.ts. `contextMessageId`
 // is set when this message is a reply/quote of a previous one (present on both this and
@@ -194,10 +284,12 @@ export async function handleCategorySelection(waId: string, rowId: string): Prom
 // 3. Reply-to-a-product-result — a reply is a stronger, more specific signal than
 //    parsing the reply's text, so it's checked before any keyword.
 // 4. "more" / category keywords — existing, unambiguous commands.
-// 5. "cart" / "remove N" / "checkout" (or buy-intent phrasing) — cart management.
-// 6. Comma-separated fuzzy add ("sneakers, iphone case").
-// 7. Greeting list.
-// 8. Fallback: product search — this keeps "hair" or "how much for iPhone" reaching
+// 5. Order-status query ("where is my order") — checked before buy-intent below, since
+//    "order" alone would otherwise misroute this into starting a NEW checkout.
+// 6. "cart" / "remove N" / "checkout" (or buy-intent phrasing) — cart management.
+// 7. Comma-separated fuzzy add ("sneakers, iphone case").
+// 8. Greeting list / thanks sign-off.
+// 9. Fallback: product search — this keeps "hair" or "how much for iPhone" reaching
 //    search while "hey"/"howfar" still greet, exactly as before.
 export async function handleBuyerMessage(waId: string, text: string, contextMessageId?: string): Promise<void> {
   const trimmed = String(text || '').trim()
@@ -232,6 +324,11 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
     return
   }
 
+  if (ORDER_STATUS_PATTERN.test(trimmed)) {
+    await sendOrderStatus(waId)
+    return
+  }
+
   if (CART_VIEW_PATTERN.test(trimmed)) {
     await sendCartSummary(waId)
     return
@@ -255,6 +352,11 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
 
   if (!trimmed || GREETING_KEYWORDS.has(lower)) {
     await trySendText(waId, GREETING_MESSAGE)
+    return
+  }
+
+  if (THANKS_PATTERN.test(trimmed)) {
+    await trySendText(waId, THANKS_REPLY)
     return
   }
 
