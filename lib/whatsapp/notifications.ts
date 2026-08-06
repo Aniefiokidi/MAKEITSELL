@@ -7,9 +7,12 @@
 // serverless function alive long enough to finish, which a bare un-awaited promise on
 // Vercel is not guaranteed to do.
 //
-// Both sends use approved message templates (order_received, order_status_update)
+// Vendor-facing sends use approved message templates (order_received, order_status_update)
 // rather than free-form text, so they deliver even outside Meta's 24h customer-service
-// window — see lib/whatsapp/client.ts's sendTemplateMessage.
+// window — see lib/whatsapp/client.ts's sendTemplateMessage. The buyer-facing stage-change
+// send below prefers its own template (buyer_order_status_update, submitted 2026-08-04)
+// the same way, but falls back to free text if that send fails for any reason — self-
+// healing regardless of whether Meta has finished reviewing it yet.
 import { after } from 'next/server'
 import connectToDatabase from '@/lib/mongodb'
 import { Order } from '@/lib/models/Order'
@@ -169,10 +172,16 @@ export function notifyWaBuyerStageChange(orderId: string, customerId: string, ve
 
       const ref = shortRef(orderId)
       const summary = formatItemSummary(vendorEntry?.items)
-      // Best-effort, free text — no approved buyer-facing status-update template exists
-      // yet (same TODO as the order-paid confirmation in lib/whatsapp/checkout.ts), so
-      // this only reliably delivers within Meta's 24h customer-service window.
-      await sendTextMessage(waId, `Order ${ref} update: ${summary} is now ${label}.`)
+      // Prefers the approved buyer_order_status_update template (delivers regardless of
+      // Meta's 24h customer-service window) — falls back to free text if that send fails
+      // for any reason (not yet approved, since rejected/renamed, etc.), so this never
+      // regresses below today's behavior and self-heals the moment Meta approves it.
+      try {
+        await sendTemplateMessage(waId, 'buyer_order_status_update', [ref, summary, label])
+      } catch (templateError) {
+        console.log(`[whatsapp-notify] buyer_order_status_update template send failed, falling back to free text — order ${orderId}:`, templateError)
+        await sendTextMessage(waId, `Order ${ref} update: ${summary} is now ${label}.`)
+      }
       console.log(`[whatsapp-notify] Sent buyer stage-change — order ${orderId}, customer ${trimmedCustomerId} (${status})`)
     } catch (error) {
       console.error(`[whatsapp-notify] Failed to send buyer stage-change — order ${orderId}, customer ${trimmedCustomerId}:`, error)

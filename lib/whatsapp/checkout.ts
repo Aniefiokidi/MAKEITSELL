@@ -22,7 +22,7 @@ import { WhatsAppBrowseState } from '@/lib/models/WhatsAppBrowseState'
 import { WhatsAppProductMessageMap } from '@/lib/models/WhatsAppProductMessageMap'
 import { WhatsAppBuyer } from '@/lib/models/WhatsAppBuyer'
 import { SavedAddress } from '@/lib/models/SavedAddress'
-import { sendTextMessage, sendInteractiveListMessage, type WhatsAppListRow } from '@/lib/whatsapp/client'
+import { sendTextMessage, sendTemplateMessage, sendInteractiveListMessage, type WhatsAppListRow } from '@/lib/whatsapp/client'
 import { findOrCreateBuyerForWaId, setBuyerName, placeholderEmailForWaId, PLACEHOLDER_BUYER_NAME } from '@/lib/whatsapp/buyer-identity'
 import { initiateWaBuyerPaystackCheckout } from '@/lib/whatsapp/buyer-orders'
 import { getDeliveryQuotesForCart } from '@/lib/delivery-quotes'
@@ -742,13 +742,17 @@ export function notifyWaBuyerOrderPaid(customerId: string, orderId: string): voi
       })
 
       const ref = String(orderId || '').slice(0, 8).toUpperCase()
-      // Best-effort — this is free text, not an approved template, so it only works
-      // within Meta's 24h customer-service window. A buyer who just checked out via
-      // chat is almost always still inside that window when payment confirms shortly
-      // after. TODO: an approved order_confirmed template (like Phase 2's
-      // order_received) would make this reliable outside the window too — not built
-      // here, explicitly out of scope for this task.
-      await trySendText(waId, `Your order ${ref} is confirmed and paid! We'll let you know as it ships.`)
+      // Prefers the approved buyer_order_paid_confirmation template (delivers regardless
+      // of Meta's 24h customer-service window) — falls back to free text if that send
+      // fails for any reason (not yet approved, since rejected/renamed, etc.), so this
+      // never regresses below the prior free-text-only behavior and self-heals the
+      // moment Meta approves it.
+      try {
+        await sendTemplateMessage(waId, 'buyer_order_paid_confirmation', [ref])
+      } catch (templateError) {
+        console.log(`[whatsapp-checkout] buyer_order_paid_confirmation template send failed, falling back to free text — order ${orderId}:`, templateError)
+        await trySendText(waId, `Your order ${ref} is confirmed and paid! We'll let you know as it ships.`)
+      }
     } catch (error) {
       console.error(`[whatsapp-checkout] Order-paid notify failed for order ${orderId}:`, error)
     }
