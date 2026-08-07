@@ -8,6 +8,11 @@ interface PaymentData {
   customerId: string
   items: any[]
   callbackUrl?: string
+  // Explicit override for metadata.type below — without it, initializePayment infers
+  // 'order' for anything that isn't a subscription item, which is wrong for a booking
+  // deposit charge (app/api/payments/webhook/route.ts's handleSuccessfulPayment and
+  // lib/booking-payment.ts both key off this to route to booking vs order confirmation).
+  paymentType?: 'order' | 'booking'
 }
 
 interface PaymentResponse {
@@ -325,7 +330,7 @@ class PaystackService {
           orderId: paymentData.orderId,
           customerId: paymentData.customerId,
           items: JSON.stringify(paymentData.items),
-          type: isSignupSubscription ? 'vendor_signup' : (isSubscription ? 'vendor_subscription' : 'order')
+          type: isSignupSubscription ? 'vendor_signup' : (isSubscription ? 'vendor_subscription' : (paymentData.paymentType || 'order'))
         }
       }
 

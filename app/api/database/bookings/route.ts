@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getBookingsByProvider, getAllBookings, getBookingsByCustomer, createBooking, getUserById } from "@/lib/mongodb-operations"
+import { getBookingsByProvider, getAllBookings, getBookingsByCustomer, getUserById } from "@/lib/mongodb-operations"
 import { AppointmentEmailService } from "@/lib/appointment-emails"
 import { getServiceById } from "@/lib/mongodb-operations"
 import { applyLocationPricing } from "@/lib/service-pricing"
 import { getIcsBusyRanges, hasBusyOverlap } from "@/lib/calendar-sync"
-import { connectToDatabase } from "@/lib/mongodb"
-import { User as UserModel } from "@/lib/models/User"
-import { WalletTransaction } from "@/lib/models/WalletTransaction"
 import { sendBookingConfirmationSms } from "@/lib/sms"
 import { getSessionUserFromRequest } from "@/lib/server-route-auth"
-
-const BOOKING_FEE_NAIRA = 500
+import { initiateBookingPayment } from "@/lib/booking-payment"
+import { findBookingSlotConflict } from "@/lib/booking-availability"
+import { getCanonicalAppBaseUrl } from "@/lib/app-url"
 
 export async function GET(request: NextRequest) {
   try {
@@ -64,10 +62,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  let bookingFeeCharged = false
-  let bookingFeeReference = ''
-  let bookingFeeCustomerId = ''
-
   try {
     const sessionUser = await getSessionUserFromRequest(request)
     if (!sessionUser) {
@@ -78,22 +72,7 @@ export async function POST(request: NextRequest) {
       return startA < endB && endA > startB
     }
 
-    const toLocalDateKey = (value: Date) => {
-      const year = value.getFullYear()
-      const month = String(value.getMonth() + 1).padStart(2, '0')
-      const day = String(value.getDate()).padStart(2, '0')
-      return `${year}-${month}-${day}`
-    }
-
     const bookingData = await request.json()
-    const paymentMethod = String(bookingData?.paymentMethod || 'wallet').trim().toLowerCase()
-
-    if (paymentMethod !== 'wallet') {
-      return NextResponse.json(
-        { success: false, error: 'Service bookings support wallet payment only.' },
-        { status: 400 }
-      )
-    }
 
     const service = bookingData?.serviceId ? await getServiceById(String(bookingData.serviceId)) : null
     const numericEstimated = Number(bookingData?.estimatedPrice)
@@ -131,14 +110,13 @@ export async function POST(request: NextRequest) {
 
     const normalizedBookingData = {
       ...bookingData,
-      // Always the caller's own session — never trust customerId from the body. This
-      // route debits a ₦500 booking fee straight from customerId's wallet with no
-      // external payment confirmation, so an unvalidated body value here would let
-      // anyone repeatedly drain any wallet by booking "as" someone else.
+      // Always the caller's own session — never trust customerId from the body. Payment
+      // now goes through Paystack (lib/booking-payment.ts), which does confirm
+      // independently, but this still matters: it's what the confirmation email/SMS and
+      // the provider's booking record are addressed to.
       customerId: sessionUser.id,
       customerName: bookingData?.customerName || sessionUser.name,
       customerEmail: bookingData?.customerEmail || sessionUser.email,
-      paymentMethod: 'wallet',
       estimatedPrice: locationAdjustedTotal,
       finalPrice: normalizedFinal,
       totalPrice: requiresQuote ? locationAdjustedTotal : (Number.isFinite(normalizedTotal) ? normalizedTotal : locationAdjustedTotal),
@@ -150,8 +128,6 @@ export async function POST(request: NextRequest) {
       serviceAddress: typeof service?.location === 'string' ? service.location : bookingData?.serviceAddress,
       cancellationPolicyPercent: Number((service as any)?.cancellationPolicyPercent || 30),
       cancellationWindowHours: Number((service as any)?.cancellationWindowHours || 24),
-      bookingFeeAmount: BOOKING_FEE_NAIRA,
-      bookingFeeStatus: 'pending',
       quoteExpiresAt: requiresQuote ? new Date(Date.now() + quoteSlaHours * 60 * 60 * 1000) : null,
     }
 
@@ -248,49 +224,18 @@ export async function POST(request: NextRequest) {
     }
     
     if (!hasStayBooking) {
-      // Get existing bookings for this provider on the same date
-      const existingBookings = await getBookingsByProvider(providerId)
-
-      // Convert booking date to string for comparison (YYYY-MM-DD format)
-      const requestedDate = toLocalDateKey(new Date(bookingDate))
-
-      // Check for time conflicts
-      const conflictingBooking = existingBookings.find(booking => {
-        if (!booking.bookingDate) return false
-
-        const existingDate = toLocalDateKey(new Date(booking.bookingDate))
-
-        // Only check bookings on the same date that aren't cancelled
-        if (existingDate !== requestedDate || booking.status === 'cancelled') {
-          return false
-        }
-
-        // Convert time strings to minutes for comparison
-        const parseTime = (timeStr: string) => {
-          const [hours, minutes] = timeStr.split(':').map(Number)
-          return hours * 60 + minutes
-        }
-
-        const requestStart = parseTime(startTime)
-        const requestEnd = parseTime(endTime)
-        const existingStart = parseTime(booking.startTime)
-        const existingEnd = parseTime(booking.endTime)
-
-        // Check for overlap: new booking starts before existing ends AND new booking ends after existing starts
-        return requestStart < existingEnd && requestEnd > existingStart
-      })
+      // lib/booking-availability.ts — one implementation, also called again inside
+      // lib/booking-payment.ts right before the booking is actually created. Checking
+      // here too isn't redundant: it lets this route fail fast with the full
+      // conflictingBooking detail below before doing any pricing/Paystack work.
+      const conflictingBooking = await findBookingSlotConflict({ providerId, bookingDate, startTime, endTime })
 
       if (conflictingBooking) {
         return NextResponse.json(
           {
             success: false,
             error: 'This time slot is already booked. Please choose a different time.',
-            conflictingBooking: {
-              date: conflictingBooking.bookingDate,
-              startTime: conflictingBooking.startTime,
-              endTime: conflictingBooking.endTime,
-              serviceTitle: conflictingBooking.serviceTitle
-            }
+            conflictingBooking,
           },
           { status: 409 } // Conflict status
         )
@@ -329,169 +274,94 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // 2. Charge booking fee before creating booking.
-    await connectToDatabase()
-    bookingFeeCustomerId = String(normalizedBookingData.customerId || '')
-    if (!bookingFeeCustomerId) {
-      return NextResponse.json(
-        { success: false, error: 'Missing customer account for booking fee charge' },
-        { status: 400 }
-      )
-    }
-
-    const chargeResult = await UserModel.updateOne(
-      { _id: bookingFeeCustomerId, walletBalance: { $gte: BOOKING_FEE_NAIRA } },
-      {
-        $inc: { walletBalance: -BOOKING_FEE_NAIRA },
-        $set: { updatedAt: new Date() },
-      }
-    )
-
-    if (chargeResult.modifiedCount === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Insufficient wallet balance. You need ₦${BOOKING_FEE_NAIRA.toLocaleString('en-NG')} to place a booking.`,
-        },
-        { status: 402 }
-      )
-    }
-
-    bookingFeeCharged = true
-    bookingFeeReference = `booking_fee_${bookingFeeCustomerId}_${Date.now()}`
-
-    await WalletTransaction.create({
-      userId: bookingFeeCustomerId,
-      type: 'purchase_debit',
-      amount: BOOKING_FEE_NAIRA,
-      status: 'completed',
-      reference: bookingFeeReference,
-      provider: 'internal_wallet',
-      note: 'Service booking fee',
-      metadata: {
-        serviceId: normalizedBookingData.serviceId,
-        providerId: normalizedBookingData.providerId,
-      },
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    // 2 & 3. Create the (pending, if paid) booking and initiate the Paystack deposit
+    // charge — lib/booking-payment.ts. Replaces the old wallet-debit-then-create block
+    // entirely. Re-checks the slot conflict internally too (see
+    // lib/booking-availability.ts's comment on why that's still not fully race-proof).
+    const appBaseUrl = getCanonicalAppBaseUrl(new URL(request.url).origin)
+    const paymentResult = await initiateBookingPayment(normalizedBookingData, {
+      callbackUrl: `${appBaseUrl}/api/payments/booking-verify`,
     })
 
-    normalizedBookingData.bookingFeeStatus = 'charged'
-    normalizedBookingData.bookingFeeReference = bookingFeeReference
-
-    // 3. Create the booking (no conflicts found)
-    const booking = await createBooking(normalizedBookingData)
-    
-    // 4. Send notifications
-    try {
-      // Get provider email
-      const provider = await getUserById(providerId)
-      const providerEmail = String(provider?.email || '').trim()
-
-      const emailPayload = {
-        bookingId: booking.id,
-        customerName: normalizedBookingData.customerName,
-        customerEmail: normalizedBookingData.customerEmail,
-        customerPhone: normalizedBookingData.customerPhone,
-        providerName: normalizedBookingData.providerName,
-        providerEmail,
-        serviceTitle: normalizedBookingData.serviceTitle,
-        bookingDate: new Date(normalizedBookingData.bookingDate),
-        startTime: normalizedBookingData.startTime,
-        endTime: normalizedBookingData.endTime,
-        duration: normalizedBookingData.duration || 60,
-        location: normalizedBookingData.location,
-        locationType: normalizedBookingData.locationType || 'in-person',
-        totalPrice: normalizedBookingData.totalPrice,
-        status: normalizedBookingData.status || 'pending',
-        notes: normalizedBookingData.notes,
-      } as const
-
-      if (String(normalizedBookingData.customerEmail || '').trim()) {
-        await AppointmentEmailService.sendCustomerBookingConfirmation(emailPayload as any)
-      }
-      if (providerEmail) {
-        await AppointmentEmailService.sendProviderBookingNotification(emailPayload as any)
-      }
-
-      if (String(normalizedBookingData.customerPhone || '').trim()) {
-        await sendBookingConfirmationSms({
-          phoneNumber: String(normalizedBookingData.customerPhone || '').trim(),
-          bookingId: booking.id,
-          serviceTitle: String(normalizedBookingData.serviceTitle || '').trim(),
-          bookingDate: new Date(normalizedBookingData.bookingDate),
-          startTime: String(normalizedBookingData.startTime || '').trim(),
-          endTime: String(normalizedBookingData.endTime || '').trim(),
-          totalPrice: Number(normalizedBookingData.totalPrice || 0),
-          recipient: 'customer',
-          status: 'pending',
-        })
-      }
-
-      const providerPhone = String(
-        (provider as any)?.phone_number ||
-        (provider as any)?.phone ||
-        ''
-      ).trim()
-
-      if (providerPhone) {
-        await sendBookingConfirmationSms({
-          phoneNumber: providerPhone,
-          bookingId: booking.id,
-          serviceTitle: String(normalizedBookingData.serviceTitle || '').trim(),
-          bookingDate: new Date(normalizedBookingData.bookingDate),
-          startTime: String(normalizedBookingData.startTime || '').trim(),
-          endTime: String(normalizedBookingData.endTime || '').trim(),
-          totalPrice: Number(normalizedBookingData.totalPrice || 0),
-          recipient: 'provider',
-          counterpartyName: String(normalizedBookingData.customerName || '').trim(),
-          status: 'pending',
-        })
-      }
-
-      console.log('✅ Booking notifications dispatched')
-    } catch (emailError) {
-      console.error('❌ Email notification failed:', emailError)
-      // Don't fail the booking creation if email fails
+    if (!paymentResult.success) {
+      return NextResponse.json({ success: false, error: paymentResult.error }, { status: paymentResult.status })
     }
-    
+
+    if (!paymentResult.requiresPayment) {
+      // requiresQuote: true — created fee-free, exactly as before, awaiting a quote.
+      // Send the "booking request received" notifications immediately, same as always;
+      // this path's timing hasn't changed, only the (now-removed) fee has.
+      try {
+        const provider = await getUserById(providerId)
+        const providerEmail = String(provider?.email || '').trim()
+
+        const emailPayload = {
+          bookingId: paymentResult.bookingId,
+          customerName: normalizedBookingData.customerName,
+          customerEmail: normalizedBookingData.customerEmail,
+          customerPhone: normalizedBookingData.customerPhone,
+          providerName: normalizedBookingData.providerName,
+          providerEmail,
+          serviceTitle: normalizedBookingData.serviceTitle,
+          bookingDate: new Date(normalizedBookingData.bookingDate),
+          startTime: normalizedBookingData.startTime,
+          endTime: normalizedBookingData.endTime,
+          duration: normalizedBookingData.duration || 60,
+          location: normalizedBookingData.location,
+          locationType: normalizedBookingData.locationType || 'in-person',
+          totalPrice: normalizedBookingData.totalPrice,
+          status: 'pending',
+          notes: normalizedBookingData.notes,
+        } as const
+
+        if (String(normalizedBookingData.customerEmail || '').trim()) {
+          await AppointmentEmailService.sendCustomerBookingConfirmation(emailPayload as any)
+        }
+        if (providerEmail) {
+          await AppointmentEmailService.sendProviderBookingNotification(emailPayload as any)
+        }
+        if (String(normalizedBookingData.customerPhone || '').trim()) {
+          await sendBookingConfirmationSms({
+            phoneNumber: String(normalizedBookingData.customerPhone || '').trim(),
+            bookingId: paymentResult.bookingId,
+            serviceTitle: String(normalizedBookingData.serviceTitle || '').trim(),
+            bookingDate: new Date(normalizedBookingData.bookingDate),
+            startTime: String(normalizedBookingData.startTime || '').trim(),
+            endTime: String(normalizedBookingData.endTime || '').trim(),
+            totalPrice: Number(normalizedBookingData.totalPrice || 0),
+            recipient: 'customer',
+            status: 'pending',
+          })
+        }
+        console.log('✅ Booking-request notifications dispatched (requiresQuote)')
+      } catch (emailError) {
+        console.error('❌ Email notification failed:', emailError)
+      }
+
+      return NextResponse.json({
+        success: true,
+        id: paymentResult.bookingId,
+        requiresPayment: false,
+        message: 'Booking request submitted — awaiting a quote from the provider.',
+      }, { status: 201 })
+    }
+
+    // Fixed-price path — booking exists but isn't confirmed yet; confirmation (and its
+    // notifications) happens in lib/booking-payment-confirmation.ts once Paystack
+    // actually confirms the charge, not here.
     return NextResponse.json({
       success: true,
-      id: booking?.id,
-      data: booking,
-      message: `Booking created successfully. ₦${BOOKING_FEE_NAIRA.toLocaleString('en-NG')} booking fee charged.`
+      id: paymentResult.bookingId,
+      requiresPayment: true,
+      authorization_url: paymentResult.authorization_url,
+      reference: paymentResult.reference,
+      depositAmount: paymentResult.depositAmount,
+      bookingFeeAmount: paymentResult.bookingFeeAmount,
+      balanceOwed: paymentResult.balanceOwed,
+      payableAmount: paymentResult.payableAmount,
     }, { status: 201 })
   } catch (error: any) {
     console.error('Create booking error:', error)
-
-    if (bookingFeeCharged && bookingFeeCustomerId) {
-      try {
-        await connectToDatabase()
-        await UserModel.updateOne(
-          { _id: bookingFeeCustomerId },
-          {
-            $inc: { walletBalance: BOOKING_FEE_NAIRA },
-            $set: { updatedAt: new Date() },
-          }
-        )
-
-        if (bookingFeeReference) {
-          await WalletTransaction.updateOne(
-            { reference: bookingFeeReference },
-            {
-              $set: {
-                status: 'failed',
-                note: 'Service booking fee refunded due to booking failure',
-                updatedAt: new Date(),
-              },
-            }
-          )
-        }
-      } catch (rollbackError) {
-        console.error('Booking fee rollback failed:', rollbackError)
-      }
-    }
-
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to create booking' },
       { status: 500 }

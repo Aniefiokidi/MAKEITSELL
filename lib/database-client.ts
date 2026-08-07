@@ -399,11 +399,14 @@ export const createBooking = async (bookingData: any) => {
       },
       body: JSON.stringify(bookingData),
     })
-    
+
     const result = await response.json()
-    
+
     if (result.success) {
-      return result.id
+      // Returns the full response now, not just the id — requiresPayment/authorization_url
+      // tell the caller (BookingModal.tsx) whether the booking is actually done or the
+      // customer still needs to be sent to Paystack for the deposit before it's confirmed.
+      return result
     } else {
       throw new Error(result.error || 'Failed to create booking')
     }

@@ -37,7 +37,18 @@ export interface IBooking extends Document {
   bookingFeeAmount?: number;
   bookingFeeStatus?: "pending" | "charged" | "waived";
   bookingFeeReference?: string;
-  paymentMethod?: "wallet";
+  // Deposit-based payment model (replaces the old flat ₦500 wallet booking fee): customer
+  // pays a 10% deposit of totalPrice + the flat bookingFeeAmount (now ₦1,000) via Paystack
+  // at booking time; balanceOwed is the remaining 90%, settled offline with the provider.
+  // paymentStatus is the idempotency-guard field for handleBookingPaid (lib/booking-payment-confirmation.ts)
+  // — separate from `status` above, which tracks the booking/appointment lifecycle, not the payment one.
+  depositAmount?: number;
+  balanceOwed?: number;
+  paymentStatus?: "pending" | "paid";
+  paymentReference?: string;
+  paymentData?: any;
+  paidAt?: Date;
+  paymentMethod?: "wallet" | "paystack";
   cancellationFeeApplied?: boolean;
   cancellationFeeAmount?: number;
   cancellationFeeStatus?: "none" | "charged" | "pending" | "waived";
@@ -132,7 +143,13 @@ const BookingSchema = new Schema<IBooking>({
   bookingFeeAmount: { type: Number, default: 0 },
   bookingFeeStatus: { type: String, enum: ["pending", "charged", "waived"], default: "waived" },
   bookingFeeReference: { type: String },
-  paymentMethod: { type: String, enum: ["wallet"], default: "wallet" },
+  depositAmount: { type: Number, default: 0 },
+  balanceOwed: { type: Number, default: 0 },
+  paymentStatus: { type: String, enum: ["pending", "paid"], default: "pending" },
+  paymentReference: { type: String },
+  paymentData: { type: Schema.Types.Mixed },
+  paidAt: { type: Date },
+  paymentMethod: { type: String, enum: ["wallet", "paystack"], default: "paystack" },
   cancellationFeeApplied: { type: Boolean, default: false },
   cancellationFeeAmount: { type: Number, default: 0 },
   cancellationFeeStatus: { type: String, enum: ["none", "charged", "pending", "waived"], default: "none" },

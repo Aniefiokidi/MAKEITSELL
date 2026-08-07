@@ -9,6 +9,7 @@ import { User } from '@/lib/models/User'
 import { connectToDatabase } from '@/lib/mongodb'
 import mongoose from 'mongoose'
 import { handleOrderPaid } from '@/lib/order-payment-confirmation'
+import { handleBookingPaid } from '@/lib/booking-payment-confirmation'
 
 const pickFirstString = (source: any, keys: string[]) => {
   for (const key of keys) {
@@ -515,6 +516,22 @@ async function handleSuccessfulPayment(data: any) {
       }
 
       console.log(`Wallet top-up successful: ${verifiedPaymentReference}`)
+      return
+    }
+
+    // Booking deposit payments (lib/booking-payment.ts) — tagged metadata.type: 'booking'
+    // at initializePayment time, distinct from the goods-order path below. bookingId was
+    // passed as `orderId` into initializePayment (a generic reference field name shared
+    // across payment types), so it lands in the same metadata.orderId slot.
+    const metadataType = String(data?.metadata?.type || '').toLowerCase()
+    if (metadataType === 'booking') {
+      const bookingId = String(data?.metadata?.orderId || data?.metadata?.orderID || '').trim()
+      if (!bookingId) {
+        console.error('Booking ID not found in webhook data')
+        return
+      }
+      await handleBookingPaid(bookingId, data.reference, data)
+      console.log(`Payment successful for booking: ${bookingId}`)
       return
     }
 

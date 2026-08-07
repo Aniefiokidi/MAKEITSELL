@@ -9,13 +9,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "@/components/ui/calendar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Service, createBooking } from "@/lib/database-client"
+import { computeBookingDeposit } from "@/lib/booking-pricing"
 import { useAuth } from "@/contexts/AuthContext"
 import { useToast } from "@/hooks/use-toast"
 import { useNotification } from "@/contexts/NotificationContext"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
-
-const BOOKING_FEE_NAIRA = 500
 
 interface BookingModalProps {
   service: Service
@@ -62,9 +61,6 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
     remainingRooms: number
     isBookedOut: boolean
   } | null>(null)
-  const [showWalletTopupPrompt, setShowWalletTopupPrompt] = useState(false)
-  const [quickTopupAmount, setQuickTopupAmount] = useState("")
-  const [quickTopupLoading, setQuickTopupLoading] = useState(false)
   const [eventName, setEventName] = useState("")
   const [eventDate, setEventDate] = useState("")
   const [eventGuestCount, setEventGuestCount] = useState("")
@@ -76,10 +72,6 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
   const [receiverPhone, setReceiverPhone] = useState("")
   const [preferredPlatform, setPreferredPlatform] = useState("")
   const [deliverableFormat, setDeliverableFormat] = useState("")
-
-  const walletBalance = Number(userProfile?.walletBalance || 0)
-  const walletShortfall = Math.max(0, Math.round((BOOKING_FEE_NAIRA - walletBalance) * 100) / 100)
-  const walletInsufficient = walletShortfall > 0
 
   const basePackagePrice = Number(selectedPackage?.price ?? service.price ?? 0)
   const addOnTotal = selectedAddOns.reduce((sum, addOn) => {
@@ -125,6 +117,9 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
     : 1
   const hospitalityTotal = Math.max(0, Math.round((basePackagePrice + addOnTotal) * nightlyNights * safeRoomsCount))
   const computedTotal = isHospitalityService ? hospitalityTotal : estimatedTotal
+  // No deposit to show/charge for a requiresQuote service — the total itself isn't known
+  // yet (computedTotal here is only ever an "estimated" figure for that path).
+  const depositBreakdown = service.requiresQuote ? null : computeBookingDeposit(computedTotal)
 
   const blockedSlotSet = new Set(blockedSlots)
 
@@ -216,37 +211,6 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
     }
   }
 
-  const handleQuickWalletTopup = async () => {
-    const parsedAmount = Number(quickTopupAmount)
-    const fallbackAmount = walletShortfall > 0 ? walletShortfall : BOOKING_FEE_NAIRA
-    const amountToTopup = Number.isFinite(parsedAmount) && parsedAmount > 0 ? parsedAmount : fallbackAmount
-
-    try {
-      setQuickTopupLoading(true)
-      const response = await fetch('/api/wallet/topup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: amountToTopup }),
-      })
-      const result = await response.json().catch(() => null)
-
-      const authorizationUrl = result?.authorization_url || result?.authorizationUrl || result?.authorization_url_link
-      if (!response.ok || !result?.success || !authorizationUrl) {
-        throw new Error(result?.error || 'Unable to initialize wallet top-up')
-      }
-
-      window.location.href = authorizationUrl
-    } catch (err: any) {
-      toast({
-        title: 'Top-up failed',
-        description: err?.message || 'Failed to start wallet top-up.',
-        variant: 'destructive',
-      })
-    } finally {
-      setQuickTopupLoading(false)
-    }
-  }
-
   const handleBooking = async () => {
     if (!user || !userProfile) {
       toast({
@@ -324,17 +288,6 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
       }
     }
 
-    if (walletInsufficient) {
-      setQuickTopupAmount(String(walletShortfall > 0 ? walletShortfall : BOOKING_FEE_NAIRA))
-      setShowWalletTopupPrompt(true)
-      toast({
-        title: 'Insufficient wallet balance',
-        description: `Top up ₦${walletShortfall.toLocaleString('en-NG')} to pay the booking fee.`,
-        variant: 'destructive',
-      })
-      return
-    }
-
     if (isEventService) {
       const parsedGuestCount = Number(eventGuestCount)
       if (!eventName.trim() || !eventDate || !eventVenue.trim() || !Number.isFinite(parsedGuestCount) || parsedGuestCount < 1) {
@@ -399,8 +352,6 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
         customerLocation,
         tripDistanceMiles: Number.isFinite(parsedTripDistanceMiles) && parsedTripDistanceMiles > 0 ? parsedTripDistanceMiles : undefined,
         cancellationWindowHours: 24,
-        bookingFeeAmount: BOOKING_FEE_NAIRA,
-        paymentMethod: 'wallet',
         customerId: user.uid,
         customerName: userProfile.displayName,
         customerEmail: userProfile.email,
@@ -458,11 +409,20 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
         },
       }
 
-      await createBooking(bookingData)
+      const result = await createBooking(bookingData)
 
+      if (result.requiresPayment && result.authorization_url) {
+        // Fixed-price booking: not confirmed yet — the deposit + booking fee still need
+        // to be paid via Paystack. Hand off to it now; lib/booking-payment-confirmation.ts
+        // confirms the booking once that completes.
+        window.location.href = result.authorization_url
+        return
+      }
+
+      // requiresQuote: true path only reaches here — no payment involved, same as before.
       notification.success(
-        'Booking Confirmed!',
-        "Your appointment has been booked successfully. The provider will confirm shortly. You'll receive email and SMS confirmation.",
+        'Booking Request Sent!',
+        "Your booking request has been sent to the provider. You'll receive email and SMS once they confirm.",
         4000
       )
 
@@ -870,11 +830,17 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
                 <p className="font-semibold text-accent">
                   {service.requiresQuote ? "Estimated Total" : "Total"}: ₦{computedTotal.toLocaleString('en-NG')}
                 </p>
-                <p>Payment method: Wallet</p>
-                <p>Available wallet balance: ₦{walletBalance.toLocaleString('en-NG')}</p>
-                <p>Booking fee (charged now): ₦{BOOKING_FEE_NAIRA.toLocaleString('en-NG')}</p>
-                {walletInsufficient && (
-                  <p className="text-red-600 text-xs">Insufficient wallet balance. Short by ₦{walletShortfall.toLocaleString('en-NG')}.</p>
+                <p>Payment method: Card / bank transfer (Paystack)</p>
+                {depositBreakdown && (
+                  <>
+                    <p className="font-semibold">
+                      Pay now: ₦{depositBreakdown.amountDueNow.toLocaleString('en-NG')}
+                      <span className="font-normal text-muted-foreground"> (₦{depositBreakdown.depositAmount.toLocaleString('en-NG')} deposit + ₦{depositBreakdown.bookingFeeAmount.toLocaleString('en-NG')} booking fee)</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Remaining balance of ₦{depositBreakdown.balanceOwed.toLocaleString('en-NG')} is paid directly to the provider.
+                    </p>
+                  </>
                 )}
                 {tripDistanceFee > 0 && (
                   <p className="text-xs text-muted-foreground">
@@ -886,9 +852,6 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
                 )}
                 <p className="text-xs text-muted-foreground pt-1">
                   Cancellation policy: ₦5,000 fee applies if you cancel within 24 hours of your booking date.
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Booking fee of ₦{BOOKING_FEE_NAIRA.toLocaleString('en-NG')} is charged at booking confirmation.
                 </p>
               </div>
             </div>
@@ -924,38 +887,6 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
             </Button>
           </div>
 
-          <Dialog open={showWalletTopupPrompt} onOpenChange={setShowWalletTopupPrompt}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Top up wallet to book service</DialogTitle>
-                <DialogDescription>
-                  Your wallet is short by ₦{walletShortfall.toLocaleString('en-NG')}. Top up now to pay the booking fee.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-3">
-                <Label htmlFor="bookingQuickTopup">Top-up amount</Label>
-                <Input
-                  id="bookingQuickTopup"
-                  type="number"
-                  min="100"
-                  step="100"
-                  value={quickTopupAmount}
-                  onChange={(e) => setQuickTopupAmount(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Add funds to your wallet, then return to complete booking.
-                </p>
-              </div>
-              <div className="flex justify-end gap-2 mt-4">
-                <Button variant="outline" onClick={() => setShowWalletTopupPrompt(false)} disabled={quickTopupLoading}>
-                  Cancel
-                </Button>
-                <Button onClick={handleQuickWalletTopup} disabled={quickTopupLoading}>
-                  {quickTopupLoading ? 'Redirecting...' : 'Top up wallet'}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
         </div>
       </DialogContent>
     </Dialog>
