@@ -57,6 +57,9 @@ export default function AppointmentsPage() {
   const [rescheduleBlockedSlots, setRescheduleBlockedSlots] = useState<Array<{ startTime: string; endTime: string; source: string }>>([])
   const [loadingRescheduleSlots, setLoadingRescheduleSlots] = useState(false)
   const [rescheduleSubmitting, setRescheduleSubmitting] = useState(false)
+  const [messageTarget, setMessageTarget] = useState<Appointment | null>(null)
+  const [quickMessage, setQuickMessage] = useState("")
+  const [sendingQuickMessage, setSendingQuickMessage] = useState(false)
 
   useEffect(() => {
     if (!user) {
@@ -241,6 +244,76 @@ export default function AppointmentsPage() {
     } catch (error) {
       console.error("Error cancelling appointment:", error)
       toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to cancel appointment.", variant: "destructive" })
+    }
+  }
+
+  const openMessageModal = (appointment: Appointment) => {
+    if (!user || !userProfile) {
+      router.push("/login")
+      return
+    }
+    setQuickMessage("")
+    setMessageTarget(appointment)
+  }
+
+  const handleSendQuickMessage = async () => {
+    if (!quickMessage.trim() || !messageTarget || !user || !userProfile || !messageTarget.providerId) return
+
+    setSendingQuickMessage(true)
+    try {
+      // Reuses the same "find or create a conversation, then send" flow as the service
+      // detail page's message button (app/service/[id]/page.tsx) — same underlying
+      // conversations API, just triggered from an existing appointment instead of a
+      // service listing.
+      const res = await fetch(`/api/database/conversations?userId=${user.uid}&role=customer`)
+      const json = await res.json()
+      const existingConv = (json.data || []).find(
+        (conv: any) => conv.providerId === messageTarget.providerId && conv.serviceId === messageTarget.serviceId
+      )
+
+      let conversationId = existingConv?.id
+      if (!conversationId) {
+        const createRes = await fetch(`/api/database/conversations`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customerId: user.uid,
+            customerName: userProfile.displayName,
+            providerId: messageTarget.providerId,
+            providerName: messageTarget.providerName,
+            serviceId: messageTarget.serviceId,
+            storeName: messageTarget.providerName,
+            lastMessage: quickMessage.trim(),
+            lastMessageTime: new Date(),
+            unreadCount: 0,
+          }),
+        })
+        const createJson = await createRes.json()
+        conversationId = createJson.data?.id
+      }
+
+      await fetch("/api/messages/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationId,
+          senderId: user.uid,
+          senderName: userProfile.displayName,
+          senderRole: "customer",
+          receiverId: messageTarget.providerId,
+          message: quickMessage.trim(),
+          read: false,
+        }),
+      })
+
+      setQuickMessage("")
+      setMessageTarget(null)
+      toast({ title: "Message sent", description: `Your message to ${messageTarget.providerName} was sent.` })
+    } catch (error) {
+      console.error("Error sending message:", error)
+      toast({ title: "Error", description: "Failed to send message.", variant: "destructive" })
+    } finally {
+      setSendingQuickMessage(false)
     }
   }
 
@@ -594,9 +667,8 @@ export default function AppointmentsPage() {
                       variant="outline"
                       size="sm"
                       className="gap-2"
-                      onClick={() => {
-                        /* TODO: Open messaging modal */
-                      }}
+                      disabled={!appointment.providerId}
+                      onClick={() => openMessageModal(appointment)}
                     >
                       <MessageSquare className="h-4 w-4" />
                       Message Provider
@@ -714,6 +786,37 @@ export default function AppointmentsPage() {
               {rescheduleSubmitting ? "Rescheduling..." : "Confirm Reschedule"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!messageTarget} onOpenChange={(open) => !open && setMessageTarget(null)}>
+        <DialogContent className="max-w-md mx-auto">
+          <DialogHeader>
+            <DialogTitle>Message {messageTarget?.providerName}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <input
+              type="text"
+              className="w-full border rounded px-3 py-2"
+              placeholder="Type your message..."
+              value={quickMessage}
+              onChange={(e) => setQuickMessage(e.target.value)}
+              disabled={sendingQuickMessage}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSendQuickMessage()
+                }
+              }}
+            />
+            <Button
+              onClick={handleSendQuickMessage}
+              disabled={!quickMessage.trim() || sendingQuickMessage}
+              className="w-full"
+            >
+              {sendingQuickMessage ? "Sending..." : "Send"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
