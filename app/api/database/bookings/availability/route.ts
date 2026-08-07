@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getBookingsByProvider, getServiceById } from "@/lib/mongodb-operations"
 import { getIcsBusyRanges } from "@/lib/calendar-sync"
+import { expireStalePendingBookings } from "@/lib/booking-expiry"
 
 function toMinutes(time: string): number {
   const [hours, minutes] = String(time || "00:00").split(":").map(Number)
@@ -37,6 +38,11 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    // On-demand cleanup (lib/booking-expiry.ts) — frees any of this provider's slots held
+    // by an abandoned pending payment the instant someone actually checks availability,
+    // rather than waiting on the daily cron backstop. Cheap: scoped to this one provider.
+    await expireStalePendingBookings({ providerId })
 
     const bookings = await getBookingsByProvider(providerId)
 

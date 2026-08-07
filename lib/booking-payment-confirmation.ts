@@ -12,11 +12,8 @@ import { getUserById } from '@/lib/mongodb-operations'
 import { AppointmentEmailService } from '@/lib/appointment-emails'
 import { sendBookingConfirmationSms } from '@/lib/sms'
 import { findBookingSlotConflict } from '@/lib/booking-availability'
-
-// Set by app/api/admin/booking-payment-expiry-job/route.ts — distinguishes an expiry-job
-// cancellation from a customer/admin cancelling for an unrelated reason, so repair (below)
-// only ever reopens a booking THIS mechanism closed, never someone's deliberate cancel.
-const EXPIRY_CANCELLATION_REASON = 'Booking payment window expired'
+import { EXPIRY_CANCELLATION_REASON } from '@/lib/booking-expiry'
+import { notifyWaBuyerBookingPaid } from '@/lib/whatsapp/service-booking'
 
 export async function handleBookingPaid(
   bookingId: string,
@@ -127,6 +124,10 @@ async function sendBookingConfirmedNotifications(claimedBooking: any, bookingId:
   } catch (error) {
     console.error('[booking-payment] Booking confirmation notifications failed:', error)
   }
+
+  // No-ops for a web-originated booking (WhatsAppBuyer lookup by customerId simply won't
+  // match) — always safe to call unconditionally, same as notifyWaBuyerOrderPaid.
+  notifyWaBuyerBookingPaid(String(claimedBooking.customerId || ''), bookingId, claimedBooking)
 }
 
 // A Paystack payment confirmed for a booking the expiry job already cancelled — the buyer

@@ -2,7 +2,9 @@
 // to lib/whatsapp/product-results.ts. Kept as a separate module (not a shared generic)
 // because the two content shapes genuinely differ: a service has packages/add-ons and an
 // optional quote flag that a product doesn't.
+import connectToDatabase from '@/lib/mongodb'
 import { Store } from '@/lib/models/Store'
+import { WhatsAppServiceMessageMap } from '@/lib/models/WhatsAppServiceMessageMap'
 import { sendTextMessage, sendImageMessage } from '@/lib/whatsapp/client'
 
 async function trySendText(waId: string, body: string): Promise<void> {
@@ -13,11 +15,28 @@ async function trySendText(waId: string, body: string): Promise<void> {
   }
 }
 
-async function trySendImage(waId: string, imageUrl: string, caption: string): Promise<void> {
+async function trySendImage(waId: string, imageUrl: string, caption: string): Promise<any | null> {
   try {
-    await sendImageMessage(waId, imageUrl, caption)
+    return await sendImageMessage(waId, imageUrl, caption)
   } catch (error) {
     console.error(`[whatsapp-service-results] Image send failed for ${waId}:`, error)
+    return null
+  }
+}
+
+// Same reply-to-select mechanism as trackProductMessage (lib/whatsapp/checkout.ts) — lets
+// a buyer reply (quote) a specific service-result image to start booking it
+// (lib/whatsapp/service-booking.ts). Same simplification goods makes: a text-only result
+// (no photo) isn't tracked, so it isn't reply-selectable — rare in practice, since
+// normalizeServicePricing() (lib/mongodb-operations.ts) already falls back through
+// service images -> package images -> providerImage before ever landing on "none".
+async function trackServiceMessage(waId: string, messageId: string, serviceId: string): Promise<void> {
+  if (!messageId || !serviceId) return
+  try {
+    await connectToDatabase()
+    await WhatsAppServiceMessageMap.create({ messageId, serviceId, waId })
+  } catch (error) {
+    console.error(`[whatsapp-service-results] Failed to persist service message map for ${waId}:`, error)
   }
 }
 
@@ -76,13 +95,18 @@ function buildServiceCaption(service: any, storeName?: string): string {
 async function sendResultItem(waId: string, service: any, storeName?: string): Promise<void> {
   const caption = buildServiceCaption(service, storeName)
   const rawImage = Array.isArray(service?.images) ? service.images[0] : undefined
+  const serviceId = String(service?.id || service?._id || '')
 
   if (!rawImage) {
     await trySendText(waId, caption)
     return
   }
 
-  await trySendImage(waId, buildWhatsAppImageUrl(rawImage), caption)
+  const result = await trySendImage(waId, buildWhatsAppImageUrl(rawImage), caption)
+  const messageId = String(result?.messages?.[0]?.id || '').trim()
+  if (messageId && serviceId) {
+    await trackServiceMessage(waId, messageId, serviceId)
+  }
 }
 
 // Batch-resolves store names for a page of services, then sends them all concurrently.

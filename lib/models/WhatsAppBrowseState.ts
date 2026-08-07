@@ -42,7 +42,17 @@ const WhatsAppBrowseStateSchema = new Schema({
 
   stage: {
     type: String,
-    enum: ['browsing', 'cart', 'awaiting_name', 'awaiting_address', 'quoting_delivery', 'choosing_couriers', 'confirming_total', 'awaiting_payment'],
+    enum: [
+      'browsing', 'cart', 'awaiting_name', 'awaiting_address', 'quoting_delivery', 'choosing_couriers', 'confirming_total', 'awaiting_payment',
+      // Services booking conversation (Phase S2, lib/whatsapp/service-booking.ts):
+      // choosing_service_package -> choosing_service_addons (skipped if the service has
+      // none) -> choosing_booking_slot -> confirming_booking -> awaiting_booking_payment
+      // -> (back to browsing once handleBookingPaid confirms payment). Kept as separate
+      // stage names from the goods ones above (not reused) even though the same
+      // "blocking, owns the whole next message" mechanism applies to both — see
+      // SERVICE_BOOKING_BLOCKING_STAGES in lib/whatsapp/buyer.ts.
+      'choosing_service_package', 'choosing_service_addons', 'choosing_booking_slot', 'confirming_booking', 'awaiting_booking_payment',
+    ],
     default: 'browsing',
   },
   // Cart line items: { productId, vendorId, vendorName, storeId, title, price, quantity, image }.
@@ -63,6 +73,19 @@ const WhatsAppBrowseStateSchema = new Schema({
   // Set once an order is created and a Paystack link has been sent, so the buyer's
   // browse-state can be traced back to the order it's waiting on.
   pendingOrderId: { type: String },
+
+  // In-progress booking selection, built up across choosing_service_package ->
+  // choosing_service_addons -> choosing_booking_slot -> confirming_booking. Mixed, same
+  // convention as cart/pendingShippingInfo above — read/written as a whole object.
+  // Shape: { serviceId, providerId, providerName, serviceTitle, locationType, location,
+  // packageOptions (snapshot, so a mid-conversation vendor edit can't shift prices out
+  // from under a buyer already selecting), selectedPackageId, selectedPackageName,
+  // selectedPackagePrice, selectedPackageDuration, addOnOptions (snapshot),
+  // selectedAddOns, bookingDate, startTime, endTime, totalPrice }.
+  bookingDraft: { type: Schema.Types.Mixed, default: {} },
+  // Set once a booking is created and a Paystack link has been sent — same role as
+  // pendingOrderId above, for lib/whatsapp/service-booking.ts's booking flow.
+  pendingBookingId: { type: String },
 
   updatedAt: { type: Date, default: Date.now },
 });

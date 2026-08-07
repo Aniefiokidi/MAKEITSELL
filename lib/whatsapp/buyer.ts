@@ -25,6 +25,12 @@ import {
   handleCancelCommand,
   handleCheckoutStageMessage,
 } from '@/lib/whatsapp/checkout'
+import {
+  SERVICE_BOOKING_BLOCKING_STAGES,
+  handleServiceReply,
+  handleServiceBookingCancelCommand,
+  handleServiceBookingStageMessage,
+} from '@/lib/whatsapp/service-booking'
 
 const RESULTS_PER_PAGE = 4
 // Fetch one extra beyond the display page so "are there more results" can be answered
@@ -87,12 +93,16 @@ const SERVICE_ENTRY_KEYWORDS = new Set([
 // never say either stay in 'goods' mode forever, so this is unreachable dead code for the
 // vast majority of the existing user base, by design.
 const GOODS_EXIT_KEYWORDS = new Set(['shop', 'products', 'goods', 'buy products'])
-// Booking/negotiation/quotes aren't built yet (Phase S1 is browsing-only) — only checked
-// once already in services mode (see handleBuyerMessage), so it can't fire for a goods
-// buyer who happens to type "schedule" or "appointment" while shopping for products.
+// Fires on generic booking-intent phrasing with no specific service context (only
+// checked once already in services mode — see handleBuyerMessage — so it can't fire for a
+// goods buyer who happens to type "schedule" or "appointment" while shopping for
+// products). Booking a SPECIFIC service (Phase S2, requiresQuote: false only) actually
+// happens by replying to that service's result message — see handleServiceReply in
+// lib/whatsapp/service-booking.ts — not from this generic keyword, which has no service
+// to book yet.
 const SERVICE_BOOK_INTENT_PATTERN = /\b(book|reserve|schedule|appointment)\b/i
 const SERVICE_BOOKING_SOON_MESSAGE =
-  'Booking services through WhatsApp is coming soon! For now you can browse providers, packages, and pricing here — reply "categories" to keep browsing.'
+  'To book, reply directly to the service you\'re interested in from the results above — that starts booking it. Search first if you haven\'t seen it yet, or reply "categories" to browse.'
 const SERVICE_GREETING_MESSAGE =
   'Looking for a service? Reply "categories" to browse, or type what you need (e.g. "hair braiding", "photographer").\n\nType "shop" anytime to go back to browsing products.'
 
@@ -412,37 +422,47 @@ async function sendOrderStatus(waId: string): Promise<void> {
 // reply-to-select cart adds.
 //
 // Dispatch order, top to bottom:
-// 1. "cancel" — works at any non-browsing stage, checked first.
-// 2. Blocking checkout stages (awaiting_name/address/couriers/confirm/payment) own the
+// 1. "cancel" — works at any non-browsing stage, checked first. Tries the services-
+//    booking cancel (Phase S2) before goods' — the two stage sets are disjoint (see
+//    lib/models/WhatsAppBrowseState.ts's stage enum), so exactly one of them, or neither,
+//    ever actually handles a given cancel.
+// 2. Services-booking blocking stages (choosing_service_package through
+//    awaiting_booking_payment, lib/whatsapp/service-booking.ts) own the whole message —
+//    checked before goods' blocking stages since the two sets are disjoint and a buyer is
+//    only ever in one stage at a time regardless of which set it's from.
+// 3. Blocking checkout stages (awaiting_name/address/couriers/confirm/payment) own the
 //    whole message — everything below is skipped entirely while mid-checkout. Goods-only
-//    concept (services has no checkout yet), unaffected by browseMode.
-// 3. Reply-to-a-product-result — a reply is a stronger, more specific signal than
-//    parsing the reply's text, so it's checked before any keyword. Goods-only (services
-//    results aren't reply-tracked in Phase S1 — nothing to resolve, so this is a no-op
-//    while browsing services, not a mode branch).
-// 4. "more" — mode-aware (handleMoreCommand branches on browseMode internally).
-// 5. Category keywords — mode-aware: shows the services category menu instead of goods'
+//    concept, unaffected by browseMode.
+// 4. Reply-to-a-product-or-service-result — a reply is a stronger, more specific signal
+//    than parsing the reply's text, so it's checked before any keyword. Tries goods first,
+//    then services (lib/whatsapp/service-booking.ts's handleServiceReply) — a given
+//    message id only ever resolves in one of the two message-map collections, so trying
+//    both in sequence is safe, not ambiguous. A reply to a requiresQuote: true service
+//    sends the S3-placeholder message here rather than starting a booking.
+// 5. "more" — mode-aware (handleMoreCommand branches on browseMode internally).
+// 6. Category keywords — mode-aware: shows the services category menu instead of goods'
 //    while browseMode is 'services'.
-// 6. Services entry phrases ("services", "book a service", ...) — switch browseMode and
+// 7. Services entry phrases ("services", "book a service", ...) — switch browseMode and
 //    show the services category menu. Goods exit phrases ("shop", "products") switch back.
 //    Both checked here, before any goods-specific keyword below, so they work regardless
 //    of current mode.
-// 7. Order-status query ("where is my order") — checked before buy-intent below, since
+// 8. Order-status query ("where is my order") — checked before buy-intent below, since
 //    "order" alone would otherwise misroute this into starting a NEW checkout. Mode-
 //    agnostic: order history is goods-only today, but answering it doesn't depend on
 //    what the buyer is currently browsing.
-// 8. "cart" / "remove N" / "checkout" (or buy-intent phrasing) — cart management,
+// 9. "cart" / "remove N" / "checkout" (or buy-intent phrasing) — cart management,
 //    goods-only, mode-agnostic for the same reason as order-status above.
-// 9. Service booking-intent ("book", "reserve", "schedule", "appointment") — only checked
-//    while browseMode is 'services' (Phase S1 has no booking yet, so this is a "coming
-//    soon" placeholder, same pattern the goods bot used before checkout existed). Placed
-//    after goods' buy-intent/checkout so a services-mode buyer typing "buy" still reaches
-//    that existing goods path unmodified.
-// 10. Comma-separated fuzzy add ("sneakers, iphone case") — goods cart-add, gated to
+// 10. Service booking-intent ("book", "reserve", "schedule", "appointment") with no
+//     specific service context — only checked while browseMode is 'services'. Points the
+//     buyer at replying to a specific service result (item 4 above), since that's the
+//     actual way to book one; this is just the generic-keyword fallback when there's no
+//     service to book yet. Placed after goods' buy-intent/checkout so a services-mode
+//     buyer typing "buy" still reaches that existing goods path unmodified.
+// 11. Comma-separated fuzzy add ("sneakers, iphone case") — goods cart-add, gated to
 //     browseMode 'goods' so a services-mode buyer typing "braiding, makeup" doesn't
 //     silently attempt (and fail) a goods cart lookup before falling through to search.
-// 11. Greeting list / thanks sign-off — mode-aware greeting text.
-// 12. Fallback: mode-aware search — this keeps "hair" or "how much for iPhone" reaching
+// 12. Greeting list / thanks sign-off — mode-aware greeting text.
+// 13. Fallback: mode-aware search — this keeps "hair" or "how much for iPhone" reaching
 //    goods search while "hey"/"howfar" still greet, exactly as before; in services mode,
 //    the same fallback position reaches service search instead.
 export async function handleBuyerMessage(waId: string, text: string, contextMessageId?: string): Promise<void> {
@@ -455,8 +475,15 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
   const mode = String(state?.browseMode || 'goods')
 
   if (lower === 'cancel') {
+    const handledBooking = await handleServiceBookingCancelCommand(waId, stage)
+    if (handledBooking) return
     const handled = await handleCancelCommand(waId, stage)
     if (handled) return
+  }
+
+  if (SERVICE_BOOKING_BLOCKING_STAGES.has(stage)) {
+    await handleServiceBookingStageMessage(waId, trimmed, stage)
+    return
   }
 
   if (BLOCKING_CHECKOUT_STAGES.has(stage)) {
@@ -465,8 +492,10 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
   }
 
   if (contextMessageId) {
-    const handled = await tryHandleProductReply(waId, contextMessageId, trimmed)
-    if (handled) return
+    const handledProduct = await tryHandleProductReply(waId, contextMessageId, trimmed)
+    if (handledProduct) return
+    const handledService = await handleServiceReply(waId, contextMessageId, trimmed)
+    if (handledService) return
   }
 
   if (lower === 'more') {
