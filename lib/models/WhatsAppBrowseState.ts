@@ -15,7 +15,19 @@ import mongoose, { Schema, model, models } from 'mongoose';
 // (lib/whatsapp/checkout.ts), since we can't be sure the quote fetch completed.
 const WhatsAppBrowseStateSchema = new Schema({
   waId: { type: String, required: true, unique: true, index: true },
+  // Which catalog "categories"/"more"/free-text fallback currently operate on — goods and
+  // services are entirely separate taxonomies and search indexes (see
+  // lib/whatsapp/buyer.ts's SERVICE_ENTRY_KEYWORDS). Defaults to 'goods' so a buyer who
+  // never mentions services behaves identically to before this field existed.
+  browseMode: { type: String, enum: ['goods', 'services'], default: 'goods' },
   lastQuery: { type: String },
+  // Set instead of lastQuery when the last services browse was a category-menu tap rather
+  // than a typed search — services store clean category slugs ("beauty") on the document,
+  // unlike goods' free-text vendor-entered category strings ("Health & Beauty", "Curls"),
+  // so this is queried as an exact match rather than reusing the free-text search path.
+  // Mutually exclusive with lastQuery for services paging — whichever was set most
+  // recently is what "more" continues. Not used by goods browsing at all.
+  lastCategorySlug: { type: String },
   // Set instead of lastQuery when the last "search" was a buyer photo (see
   // lib/whatsapp/image-search.ts) — mutually exclusive with lastQuery, whichever was set
   // most recently is what "more" continues paging through. matchMode distinguishes a

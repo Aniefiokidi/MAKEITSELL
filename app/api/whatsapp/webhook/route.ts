@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { handleInboundMessage, handleButtonReply, handleInboundImageMessage } from '@/lib/whatsapp/commands'
-import { handleCategorySelection } from '@/lib/whatsapp/buyer'
+import { handleCategorySelection, handleServiceCategorySelection } from '@/lib/whatsapp/buyer'
 import { handleSavedAddressListReply } from '@/lib/whatsapp/checkout'
 
 // WhatsApp Cloud API webhook — Meta's dashboard verification handshake (GET) plus the
@@ -86,14 +86,17 @@ export async function POST(request: NextRequest) {
             await handleButtonReply(waId, String(message.context.id))
           } else if (message?.type === 'interactive' && message?.interactive?.type === 'list_reply') {
             // Tap on a list message we sent ourselves via the Interactive API — distinct
-            // from the template-embedded "button" type above. Two possible sources today,
-            // distinguished by the row id prefix: "category:electronics" (buyer category
-            // menu, lib/whatsapp/buyer.ts) or "address:<id|new>" (saved-address picker,
-            // lib/whatsapp/checkout.ts).
+            // from the template-embedded "button" type above. Three possible sources
+            // today, distinguished by the row id prefix: "category:electronics" (buyer
+            // goods category menu, lib/whatsapp/buyer.ts), "service-category:beauty"
+            // (buyer services category menu, same file), or "address:<id|new>"
+            // (saved-address picker, lib/whatsapp/checkout.ts).
             const rowId = String(message.interactive.list_reply?.id || '')
             console.log(`[whatsapp-webhook] List reply from ${waId}: "${message.interactive.list_reply?.title}" (id: ${rowId})`)
             if (rowId.startsWith('address:')) {
               await handleSavedAddressListReply(waId, rowId)
+            } else if (rowId.startsWith('service-category:')) {
+              await handleServiceCategorySelection(waId, rowId)
             } else {
               await handleCategorySelection(waId, rowId)
             }

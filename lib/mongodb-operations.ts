@@ -977,6 +977,18 @@ export const getServices = async (filters: ServiceFilters): Promise<Service[]> =
   if (filters?.providerId) query.providerId = filters.providerId;
   if (filters?.featured !== undefined) query.featured = filters.featured;
   if (filters?.locationType) query.locationType = filters.locationType;
+  // Previously unfiltered — every caller got inactive/paused services back too. Additive
+  // (only applies when a caller actually passes it), so this can't change any existing
+  // caller's results unless they opt in.
+  if (filters?.status) query.status = filters.status;
+
+  // Previously unsupported here (unlike getProducts' skipCount) — "more" paging for the
+  // WhatsApp services bot needs it. Same trade-off as getProducts: a skipped-past-the-end
+  // text-search page falls through to the regex path below with that same skip applied,
+  // which can surface differently-ordered results right at the page boundary — an
+  // existing, already-shipped trade-off for goods, not a new one introduced here.
+  const skipCount = Number(filters?.skipCount);
+  const hasSkip = Number.isFinite(skipCount) && skipCount > 0;
 
   let services: any[] = [];
 
@@ -985,6 +997,7 @@ export const getServices = async (filters: ServiceFilters): Promise<Service[]> =
   if (filters?.search) {
     const textQuery = { ...query, $text: { $search: String(filters.search).trim() } };
     let textQ = ServiceModel.find(textQuery, { score: { $meta: 'textScore' } }).sort({ score: { $meta: 'textScore' } });
+    if (hasSkip) textQ = textQ.skip(skipCount);
     if (filters?.limitCount) textQ = textQ.limit(Number(filters.limitCount));
     services = await textQ.lean().catch(() => []);
   }
@@ -1007,6 +1020,7 @@ export const getServices = async (filters: ServiceFilters): Promise<Service[]> =
     }
 
     let q = ServiceModel.find(fallbackQuery).sort({ createdAt: -1 });
+    if (hasSkip) q = q.skip(skipCount);
     if (filters?.limitCount) q = q.limit(Number(filters.limitCount));
     services = await q.lean();
   }
