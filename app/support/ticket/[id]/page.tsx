@@ -26,14 +26,17 @@ export default function SupportTicketDetailPage() {
       if (user && id) {
         setLoading(true)
         try {
-          // TODO: Replace with API call to fetch ticket from MongoDB
-          // Example stub:
-          // const result = await fetch(`/api/support/ticket/${id}`).then(res => res.json())
-          // if (result && result.customerId === user.uid) {
-          //   setTicket(result)
-          // } else {
-          //   router.push("/support")
-          // }
+          const res = await fetch(`/api/support/ticket/${id}`)
+          if (!res.ok) {
+            router.push("/support")
+            return
+          }
+          const result = await res.json()
+          if (result && result.customerId === user.uid) {
+            setTicket(result)
+          } else {
+            router.push("/support")
+          }
         } catch (error) {
           console.error("Error fetching ticket:", error)
           router.push("/support")
@@ -75,14 +78,25 @@ export default function SupportTicketDetailPage() {
 
   const handleReplySubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!reply.trim()) return
+    if (!reply.trim() || !ticket) return
 
     setSubmitting(true)
-    // TODO: Implement reply functionality with MongoDB
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    alert("Reply functionality will be implemented with MongoDB for ticket messages")
-    setReply("")
-    setSubmitting(false)
+    try {
+      const res = await fetch(`/api/support/ticket/${ticket.id}/message`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: reply, senderRole: "customer" }),
+      })
+      if (res.ok) {
+        const { ticket: updated } = await res.json()
+        setTicket(updated)
+        setReply("")
+      }
+    } catch (error) {
+      console.error("Error sending reply:", error)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (loading) {
@@ -146,20 +160,17 @@ export default function SupportTicketDetailPage() {
           {/* Ticket Information */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>{ticket.subject}</span>
-                <Badge variant="outline">{ticket.issueType}</Badge>
-              </CardTitle>
+              <CardTitle>{ticket.subject}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-6 text-sm text-muted-foreground">
                 <span className="flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
-                  Created: {ticket.createdAt?.toDate?.()?.toLocaleDateString() || "N/A"}
+                  Created: {ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString() : "N/A"}
                 </span>
                 <span className="flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
-                  Updated: {ticket.updatedAt?.toDate?.()?.toLocaleDateString() || "N/A"}
+                  Updated: {ticket.updatedAt ? new Date(ticket.updatedAt).toLocaleDateString() : "N/A"}
                 </span>
               </div>
               <Separator />
@@ -167,34 +178,32 @@ export default function SupportTicketDetailPage() {
                 <h3 className="font-semibold mb-2">Description</h3>
                 <p className="text-muted-foreground whitespace-pre-wrap">{ticket.description}</p>
               </div>
-              <Separator />
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <span className="text-sm text-muted-foreground">Order ID</span>
-                  <p className="font-medium">{ticket.orderId || "N/A"}</p>
-                </div>
-                <div>
-                  <span className="text-sm text-muted-foreground">Assigned To</span>
-                  <p className="font-medium">{ticket.assignedTo || "Unassigned"}</p>
-                </div>
-              </div>
             </CardContent>
           </Card>
 
-          {/* Response/Notes Section */}
-          {ticket.response && (
+          {/* Conversation thread */}
+          {Array.isArray(ticket.messages) && ticket.messages.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MessageSquare className="h-5 w-5" />
-                  Support Response
+                  Conversation
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                  <p className="text-sm text-muted-foreground mb-1">Support Team</p>
-                  <p className="whitespace-pre-wrap">{ticket.response}</p>
-                </div>
+              <CardContent className="space-y-3">
+                {ticket.messages.map((msg: any, index: number) => (
+                  <div
+                    key={index}
+                    className={`p-4 rounded-lg border ${
+                      msg.senderRole === "admin" ? "bg-blue-50 border-blue-200" : "bg-muted border-transparent"
+                    }`}
+                  >
+                    <p className="text-sm text-muted-foreground mb-1 capitalize">
+                      {msg.senderRole === "admin" ? "Support Team" : msg.senderRole === "ai" ? "AI Assistant" : "You"}
+                    </p>
+                    <p className="whitespace-pre-wrap">{msg.message}</p>
+                  </div>
+                ))}
               </CardContent>
             </Card>
           )}

@@ -61,8 +61,12 @@ const QUICK_TOPICS = [
   { emoji: "👤", label: "Account help" },
 ]
 
-export default function SupportChat({ ticketId, onEscalate, onBack, onSwitchToContact }: SupportChatProps) {
+export default function SupportChat({ ticketId: initialTicketId, onEscalate, onBack, onSwitchToContact }: SupportChatProps) {
   const { user, userProfile } = useAuth()
+  // Starts from the prop (resuming a linked ticket) but also gets set once a ticket is
+  // created mid-conversation via escalation — the prop alone can't reflect that, since
+  // this component never gets remounted with a new prop when that happens.
+  const [ticketId, setTicketId] = useState<string | undefined>(initialTicketId)
   const [messages, setMessages] = useState<Message[]>([])
   const [initialized, setInitialized] = useState(false)
   const [inputMessage, setInputMessage] = useState("")
@@ -94,10 +98,14 @@ export default function SupportChat({ ticketId, onEscalate, onBack, onSwitchToCo
   }, [scrollToBottom])
 
   useEffect(() => {
+    // Deliberately keyed on the prop, not the ticketId state — state also gets set
+    // later when escalation creates a ticket mid-conversation, and re-running this on
+    // that change would refetch and clobber the transcript already on screen with just
+    // the ticket's DB-side initial message.
     const fetchMessages = async () => {
-      if (ticketId) {
+      if (initialTicketId) {
         try {
-          const res = await fetch(`/api/support/ticket/${ticketId}`)
+          const res = await fetch(`/api/support/ticket/${initialTicketId}`)
           const ticket = await res.json()
           if (ticket && Array.isArray(ticket.messages) && ticket.messages.length > 0) {
             setMessages(ticket.messages.map((msg: any) => ({ ...msg, timestamp: new Date(msg.timestamp) })))
@@ -118,7 +126,7 @@ export default function SupportChat({ ticketId, onEscalate, onBack, onSwitchToCo
       }
     }
     fetchMessages()
-  }, [ticketId, initialized, user, userProfile])
+  }, [initialTicketId, initialized, user, userProfile])
 
   const addMessage = async (message: Omit<Message, "id" | "timestamp">) => {
     setMessageCounter(prev => prev + 1)
@@ -185,20 +193,22 @@ export default function SupportChat({ ticketId, onEscalate, onBack, onSwitchToCo
               addMessage({ senderId: "ai", senderRole: "ai", message: "Let me connect you with one of our customer service specialists who can access your account directly and resolve this." })
               setIsEscalated(true)
               if (user) {
-                await fetch(`/api/support/ticket`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    customerId: user.uid,
-                    subject: aiResponse.escalationReason || "Issue requiring specialist",
-                    description: userMessage,
-                    status: "open",
-                    priority: aiResponse.priority || "medium",
-                    messages: [{ senderId: user.uid, senderRole: "customer", message: userMessage, timestamp: new Date() }],
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
-                  }),
-                })
+                try {
+                  const ticketRes = await fetch(`/api/support/ticket`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      subject: aiResponse.escalationReason || "Issue requiring specialist",
+                      description: userMessage,
+                      priority: aiResponse.priority || "medium",
+                      messages: [{ message: userMessage }],
+                    }),
+                  })
+                  const created = await ticketRes.json()
+                  if (created?.id) setTicketId(created.id)
+                } catch (error) {
+                  console.error('Support ticket creation error:', error)
+                }
               }
               onEscalate?.(aiResponse.escalationReason || "Issue requiring specialist")
             })()

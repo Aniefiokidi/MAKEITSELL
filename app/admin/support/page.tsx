@@ -10,16 +10,6 @@ import { AlertCircle, CheckCircle, Clock, Filter, ArrowUp, Loader2 } from "lucid
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 
-type SupportTicket = {
-  id?: string
-  customerName?: string
-  vendorName?: string
-  vendorId?: string
-  status?: string
-  priority?: string
-  [key: string]: any
-}
-
 export default function AdminSupportPage() {
   const { user } = useAuth()
   const [tickets, setTickets] = useState<any[]>([])
@@ -29,31 +19,12 @@ export default function AdminSupportPage() {
   const [priorityFilter, setPriorityFilter] = useState("all")
   const [loading, setLoading] = useState(true)
 
-  // Load tickets from Firestore
   useEffect(() => {
     const loadTickets = async () => {
       try {
-        const { getSupportTickets } = await import("@/lib/firestore")
-        const allTickets = await getSupportTickets()
-
-        // Enrich tickets with user names
-        const enrichedTickets = await Promise.all(
-          allTickets.map(async (ticket) => {
-            const typedTicket = ticket as SupportTicket
-            const customerName = typedTicket.customerName || "Unknown Customer"
-            const vendorName = typedTicket.vendorName || "Unknown Vendor"
-
-            return {
-              ...typedTicket,
-              customerName,
-              vendorName,
-              escalatedFrom: typedTicket.vendorId ? "vendor" : "ai", // Simple logic for demo
-              escalationReason: typedTicket.vendorId ? "Vendor-customer dispute" : "AI unable to resolve",
-            }
-          })
-        )
-
-        setTickets(enrichedTickets)
+        const res = await fetch("/api/admin/support-tickets", { credentials: "include" })
+        const data = await res.json()
+        setTickets(Array.isArray(data.tickets) ? data.tickets : [])
       } catch (error) {
         console.error("Error loading tickets:", error)
       } finally {
@@ -119,41 +90,17 @@ export default function AdminSupportPage() {
     if (!replyMessage.trim() || !user) return
 
     try {
-      const { updateSupportTicket } = await import("@/lib/firestore")
-      const { Timestamp } = await import("firebase/firestore")
+      const res = await fetch(`/api/support/ticket/${ticketId}/message`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: replyMessage, senderRole: "admin" }),
+      })
+      if (!res.ok) return
+      const { ticket: updated } = await res.json()
 
-      const newMessage = {
-        senderId: user.uid,
-        senderRole: "admin" as const,
-        message: replyMessage,
-        timestamp: Timestamp.now(),
-      }
-
-      // Update ticket in Firestore
-      const ticket = tickets.find(t => t.id === ticketId)
-      if (ticket) {
-        const updatedMessages = [...(ticket.messages || []), newMessage]
-        await updateSupportTicket(ticketId, {
-          messages: updatedMessages,
-          status: "in-progress",
-        })
-
-        // Update local state
-        setTickets((prev) =>
-          prev.map((t) => {
-            if (t.id === ticketId) {
-              return {
-                ...t,
-                messages: updatedMessages,
-                status: "in-progress",
-                updatedAt: Timestamp.now(),
-              }
-            }
-            return t
-          }),
-        )
-      }
-
+      setTickets((prev) => prev.map((t) => (t.id === ticketId ? updated : t)))
+      setSelectedTicket((prev: any) => (prev?.id === ticketId ? updated : prev))
       setReplyMessage("")
     } catch (error) {
       console.error("Error sending reply:", error)
@@ -162,22 +109,17 @@ export default function AdminSupportPage() {
 
   const handleStatusChange = async (ticketId: string, newStatus: string) => {
     try {
-      const { updateSupportTicket } = await import("@/lib/firestore")
+      const res = await fetch(`/api/support/ticket/${ticketId}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      })
+      if (!res.ok) return
+      const updated = await res.json()
 
-      await updateSupportTicket(ticketId, { status: newStatus as "open" | "in-progress" | "resolved" | "closed" })
-
-      // Update local state
-      setTickets((prev) =>
-        prev.map((ticket) => {
-          if (ticket.id === ticketId) {
-            return {
-              ...ticket,
-              status: newStatus,
-            }
-          }
-          return ticket
-        }),
-      )
+      setTickets((prev) => prev.map((t) => (t.id === ticketId ? updated : t)))
+      setSelectedTicket((prev: any) => (prev?.id === ticketId ? updated : prev))
     } catch (error) {
       console.error("Error updating status:", error)
     }
@@ -271,7 +213,7 @@ export default function AdminSupportPage() {
                           </div>
                           <h3 className="font-semibold text-sm lg:text-base text-balance">{ticket.subject}</h3>
                           <p className="text-xs lg:text-sm text-muted-foreground">
-                            {ticket.customerName} • {ticket.vendorName}
+                            {ticket.customerName || "Unknown Customer"}
                           </p>
                         </div>
                         <div className="flex flex-col gap-1 shrink-0">
@@ -284,7 +226,7 @@ export default function AdminSupportPage() {
                       <div className="space-y-2">
                         <p className="text-xs lg:text-sm text-muted-foreground line-clamp-2">{ticket.description}</p>
                         <div className="text-xs text-muted-foreground">
-                          {ticket.updatedAt?.toDate?.()?.toLocaleDateString() || 'Unknown'}
+                          {ticket.updatedAt ? new Date(ticket.updatedAt).toLocaleDateString() : 'Unknown'}
                         </div>
                       </div>
                     </CardContent>
@@ -332,22 +274,16 @@ export default function AdminSupportPage() {
                       <CardContent>
                         <div className="space-y-4">
                           <div>
-                            <h4 className="font-medium mb-2">Parties Involved</h4>
+                            <h4 className="font-medium mb-2">Customer</h4>
                             <div className="text-sm text-muted-foreground space-y-1">
-                              <p>Customer: {selectedTicket.customerName}</p>
-                              <p>Vendor: {selectedTicket.vendorName}</p>
-                              <p>Created: {selectedTicket.createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown'}</p>
+                              <p>{selectedTicket.customerName || "Unknown"} ({selectedTicket.customerEmail || "no email on file"})</p>
+                              <p>Created: {selectedTicket.createdAt ? new Date(selectedTicket.createdAt).toLocaleDateString() : 'Unknown'}</p>
                             </div>
                           </div>
 
                           <div>
                             <h4 className="font-medium mb-2">Issue Description</h4>
                             <p className="text-sm text-muted-foreground">{selectedTicket.description}</p>
-                          </div>
-
-                          <div>
-                            <h4 className="font-medium mb-2">Escalation Details</h4>
-                            <p className="text-sm text-muted-foreground">{selectedTicket.escalationReason}</p>
                           </div>
                         </div>
                       </CardContent>
@@ -381,7 +317,7 @@ export default function AdminSupportPage() {
                                 </div>
                                 <p className="text-sm">{message.message}</p>
                                 <p className="text-xs opacity-70 mt-1">
-                                  {message.timestamp?.toDate?.()?.toLocaleString() || message.timestamp?.toLocaleString() || 'Unknown'}
+                                  {message.timestamp ? new Date(message.timestamp).toLocaleString() : 'Unknown'}
                                 </p>
                               </div>
                             </div>
