@@ -52,6 +52,13 @@ const WhatsAppBrowseStateSchema = new Schema({
       // "blocking, owns the whole next message" mechanism applies to both — see
       // SERVICE_BOOKING_BLOCKING_STAGES in lib/whatsapp/buyer.ts.
       'choosing_service_package', 'choosing_service_addons', 'choosing_booking_slot', 'confirming_booking', 'awaiting_booking_payment',
+      // Quote-request conversation (Phase S3 part A, lib/whatsapp/service-quote.ts), for
+      // requiresQuote: true services: collecting_quote_description ->
+      // collecting_quote_location -> choosing_quote_slot -> collecting_quote_photos ->
+      // (back to browsing once submitted, fee-free, awaiting the provider's quote from
+      // their existing dashboard). Accepting/declining a delivered quote is deliberately
+      // NOT a blocking stage — see QUOTE_DECISION_PATTERN in that file for why.
+      'collecting_quote_description', 'collecting_quote_location', 'choosing_quote_slot', 'collecting_quote_photos',
     ],
     default: 'browsing',
   },

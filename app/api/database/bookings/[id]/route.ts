@@ -309,6 +309,16 @@ export async function PATCH(
 
     const finalStatus = String((updatedBooking as any)?.status || '')
     const priorStatus = String((existingBooking as any)?.status || '')
+    const finalPricingStatus = String((updatedBooking as any)?.pricingStatus || '')
+
+    // Phase S3, Part A: a provider quoting from their dashboard (unchanged above — this
+    // is purely a notification hook on the resulting pricingStatus transition, same
+    // "detect it, fire a notification" shape as the confirmed-status SMS block below).
+    // No-ops for a web-originated buyer (WhatsAppBuyer lookup by customerId won't match).
+    if (finalPricingStatus === 'quoted' && existingPricingStatus !== 'quoted') {
+      const { notifyWaBuyerQuoteReceived } = await import('@/lib/whatsapp/service-quote')
+      notifyWaBuyerQuoteReceived(String((updatedBooking as any)?.customerId || ''), id, updatedBooking)
+    }
 
     if (finalStatus === 'confirmed' && priorStatus !== 'confirmed') {
       try {

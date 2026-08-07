@@ -2,7 +2,7 @@
 // lib/whatsapp/buyer-orders.ts. Same trust model: not an HTTP route, only reachable from
 // trusted server code already past the webhook's HMAC signature verification (see that
 // file's header comment for the full explanation — identical here, not repeated).
-import { initiateBookingPayment, type InitiateBookingPaymentResult } from '@/lib/booking-payment'
+import { initiateBookingPayment, initiatePaymentForQuotedBooking, type InitiateBookingPaymentResult } from '@/lib/booking-payment'
 import { findOrCreateBuyerForWaId, placeholderEmailForWaId } from '@/lib/whatsapp/buyer-identity'
 import { getCanonicalAppBaseUrl } from '@/lib/app-url'
 
@@ -36,4 +36,14 @@ export async function createBookingForWaBuyer(input: CreateBookingForWaBuyerInpu
     },
     { callbackUrl: `${appBaseUrl}/api/payments/booking-verify` }
   )
+}
+
+// Phase S3: buyer accepting a quote the provider sent from their dashboard
+// (lib/whatsapp/service-quote.ts's "accept <ref>" handling). No identity resolution
+// needed here — the booking (and its customerId) already exists from when the buyer
+// originally submitted the request — so this is a straight pass-through, kept as its own
+// function only so callback-URL wiring lives in one place alongside createBookingForWaBuyer.
+export async function acceptQuoteForWaBuyer(bookingId: string): Promise<InitiateBookingPaymentResult> {
+  const appBaseUrl = getCanonicalAppBaseUrl()
+  return initiatePaymentForQuotedBooking(bookingId, { callbackUrl: `${appBaseUrl}/api/payments/booking-verify` })
 }

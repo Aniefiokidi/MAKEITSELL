@@ -14,6 +14,8 @@ import { WhatsAppMessageMap } from '@/lib/models/WhatsAppMessageMap'
 import { applyOrderVendorStatus, resolveOrderVendorTarget } from '@/lib/order-vendor-status'
 import { sendTextMessage } from '@/lib/whatsapp/client'
 import { handleBuyerMessage } from '@/lib/whatsapp/buyer'
+import { WhatsAppBrowseState } from '@/lib/models/WhatsAppBrowseState'
+import { QUOTE_BLOCKING_STAGES, handleQuoteRequestPhoto } from '@/lib/whatsapp/service-quote'
 
 const CODE_PATTERN = /^[A-Z0-9]{6}$/i
 // Matches the same orderId.slice(0, 8).toUpperCase() convention used for the order ref
@@ -78,6 +80,16 @@ export async function handleInboundMessage(waId: string, text: string, contextMe
 export async function handleInboundImageMessage(waId: string, mediaId: string): Promise<void> {
   const vendorId = await resolveLinkedVendor(waId)
   if (!vendorId) {
+    // A photo sent while mid-quote-request (lib/whatsapp/service-quote.ts) is a job
+    // attachment, not a "find me this product" query — checked before falling through to
+    // goods' photo search below, so it isn't misrouted while collecting request photos.
+    await connectToDatabase()
+    const state: any = await WhatsAppBrowseState.findOne({ waId }).lean()
+    if (QUOTE_BLOCKING_STAGES.has(String(state?.stage || ''))) {
+      await handleQuoteRequestPhoto(waId, mediaId, state?.bookingDraft || {})
+      return
+    }
+
     // Dynamic import — image-search.ts pulls in TensorFlow.js, which must not be a
     // load-time dependency of this whole file (commands.ts is imported directly by the
     // webhook route, so a top-level import here would mean EVERY inbound message of any

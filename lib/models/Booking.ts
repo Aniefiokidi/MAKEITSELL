@@ -14,6 +14,12 @@ export interface IBooking extends Document {
   finalPrice?: number;
   pricingStatus?: 'estimated' | 'quoted' | 'accepted';
   requiresQuote?: boolean;
+  // Cloudinary URLs — job photos attached to a quote request. Currently only ever
+  // populated by the WhatsApp quote-request flow (lib/whatsapp/service-quote.ts); the web
+  // BookingModal has no upload step for a requiresQuote booking today, so this is empty
+  // for every web-originated quote request. Shown on the provider's existing dashboard
+  // (app/vendor/bookings/page.tsx) regardless of origin.
+  requestPhotos?: string[];
   customerId: string;
   customerName: string;
   customerEmail: string;
@@ -120,6 +126,7 @@ const BookingSchema = new Schema<IBooking>({
   finalPrice: { type: Number },
   pricingStatus: { type: String, enum: ['estimated', 'quoted', 'accepted'], default: 'estimated' },
   requiresQuote: { type: Boolean, default: false },
+  requestPhotos: { type: [String], default: [] },
   customerId: { type: String, required: true },
   customerName: { type: String, required: true },
   customerEmail: { type: String, required: true },

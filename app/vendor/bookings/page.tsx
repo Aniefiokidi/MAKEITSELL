@@ -38,6 +38,9 @@ interface Booking {
   locationType: string
   location: string
   notes: string
+  // Job photos attached to a WhatsApp quote request (lib/whatsapp/service-quote.ts) —
+  // empty for web-submitted requests, which have no upload step today.
+  requestPhotos?: string[]
   requirementDetails?: {
     event?: {
       name?: string
@@ -425,6 +428,19 @@ export default function VendorBookingsPage() {
           <div className="mb-4 p-3 bg-muted rounded-lg">
             <p className="text-sm font-medium mb-1">Customer Notes:</p>
             <p className="text-sm text-muted-foreground">{booking.notes}</p>
+          </div>
+        )}
+
+        {Array.isArray(booking.requestPhotos) && booking.requestPhotos.length > 0 && (
+          <div className="mb-4">
+            <p className="text-sm font-medium mb-2">Photos from customer:</p>
+            <div className="flex gap-2 flex-wrap">
+              {booking.requestPhotos.map((url, i) => (
+                <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                  <img src={url} alt={`Request photo ${i + 1}`} className="h-20 w-20 object-cover rounded-lg border" />
+                </a>
+              ))}
+            </div>
           </div>
         )}
 

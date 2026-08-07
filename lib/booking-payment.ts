@@ -38,6 +38,79 @@ export type InitiateBookingPaymentResult =
   | { success: true; requiresPayment: false; bookingId: string }
   | { success: false; error: string; status: number }
 
+// Paystack-init tail, shared by the brand-new-booking path below and
+// initiatePaymentForQuotedBooking (Phase S3) — same deposit charge either way, the only
+// difference is whether a booking is being created or already exists. Callers own what
+// happens to the booking record if this fails (initiateBookingPayment deletes a
+// just-created one; initiatePaymentForQuotedBooking reverts the quote back to pending
+// acceptance instead, since there's a real quote history worth keeping either way).
+async function chargeBookingDeposit(params: {
+  bookingId: string
+  customerEmail: string
+  customerId: string
+  serviceTitle: string
+  providerId: string
+  providerName: string
+  depositAmount: number
+  bookingFeeAmount: number
+  amountDueNow: number
+  callbackUrl?: string
+}): Promise<{ success: true; authorization_url: string; reference: string; payableAmount: number } | { success: false; error: string }> {
+  // Same gross-up goods checkout applies (lib/paystack-charges.ts) so Paystack's own
+  // processing cut doesn't come out of Make It Sell's ₦1,000 — the customer sees it as
+  // its own line item, same as at goods checkout, not folded silently into the deposit.
+  const paystackAmounts = calculatePaystackCheckoutAmounts(params.amountDueNow)
+  if (paystackAmounts.payableAmount <= 0) {
+    return { success: false, error: 'Invalid deposit amount for payment initialization' }
+  }
+
+  const paymentResult = await paystackService.initializePayment({
+    email: params.customerEmail,
+    amount: paystackAmounts.payableAmount,
+    orderId: params.bookingId,
+    customerId: params.customerId,
+    paymentType: 'booking',
+    callbackUrl: params.callbackUrl,
+    items: [
+      {
+        productId: 'booking-deposit',
+        title: `Deposit — ${params.serviceTitle || 'Service booking'}`,
+        quantity: 1,
+        price: params.depositAmount,
+        vendorId: params.providerId,
+        vendorName: params.providerName,
+      },
+      {
+        productId: 'booking-fee',
+        title: 'Make It Sell booking fee',
+        quantity: 1,
+        price: params.bookingFeeAmount,
+        vendorId: 'system',
+        vendorName: 'Make It Sell',
+      },
+      {
+        productId: 'paystack-processing-charge',
+        title: 'Paystack Processing Charge',
+        quantity: 1,
+        price: paystackAmounts.chargeAmount,
+        vendorId: 'system',
+        vendorName: 'Make It Sell',
+      },
+    ],
+  })
+
+  if (!paymentResult.success || !paymentResult.authUrl) {
+    return { success: false, error: paymentResult.message || 'Payment initialization failed' }
+  }
+
+  return {
+    success: true,
+    authorization_url: paymentResult.authUrl,
+    reference: paymentResult.data?.reference,
+    payableAmount: paystackAmounts.payableAmount,
+  }
+}
+
 // `bookingData` is the already-priced, already-validated booking document the caller is
 // about to persist — same shape app/api/database/bookings/route.ts has always built,
 // including `totalPrice`. `callbackUrl` lets callers (web vs bot) send Paystack's redirect
@@ -113,65 +186,118 @@ export async function initiateBookingPayment(
     balanceOwed,
   })
 
-  // Same gross-up goods checkout applies (lib/paystack-charges.ts) so Paystack's own
-  // processing cut doesn't come out of Make It Sell's ₦1,000 — the customer sees it as
-  // its own line item, same as at goods checkout, not folded silently into the deposit.
-  const paystackAmounts = calculatePaystackCheckoutAmounts(amountDueNow)
-  if (paystackAmounts.payableAmount <= 0) {
-    return { success: false, error: 'Invalid deposit amount for payment initialization', status: 400 }
-  }
-
-  const paymentResult = await paystackService.initializePayment({
-    email: String(bookingData?.customerEmail || ''),
-    amount: paystackAmounts.payableAmount,
-    orderId: booking.id,
+  const charge = await chargeBookingDeposit({
+    bookingId: booking.id,
+    customerEmail: String(bookingData?.customerEmail || ''),
     customerId: String(bookingData?.customerId || ''),
-    paymentType: 'booking',
+    serviceTitle: String(bookingData?.serviceTitle || ''),
+    providerId: String(bookingData?.providerId || ''),
+    providerName: String(bookingData?.providerName || ''),
+    depositAmount,
+    bookingFeeAmount,
+    amountDueNow,
     callbackUrl: options.callbackUrl,
-    items: [
-      {
-        productId: 'booking-deposit',
-        title: `Deposit — ${String(bookingData?.serviceTitle || 'Service booking')}`,
-        quantity: 1,
-        price: depositAmount,
-        vendorId: String(bookingData?.providerId || ''),
-        vendorName: String(bookingData?.providerName || ''),
-      },
-      {
-        productId: 'booking-fee',
-        title: 'Make It Sell booking fee',
-        quantity: 1,
-        price: bookingFeeAmount,
-        vendorId: 'system',
-        vendorName: 'Make It Sell',
-      },
-      {
-        productId: 'paystack-processing-charge',
-        title: 'Paystack Processing Charge',
-        quantity: 1,
-        price: paystackAmounts.chargeAmount,
-        vendorId: 'system',
-        vendorName: 'Make It Sell',
-      },
-    ],
   })
 
-  if (!paymentResult.success || !paymentResult.authUrl) {
+  if (!charge.success) {
     // Payment couldn't be initialized — don't leave a phantom pending booking holding
     // the slot for something the customer was never actually sent a payment link for.
     await Booking.deleteOne({ _id: booking.id })
-    return { success: false, error: paymentResult.message || 'Payment initialization failed', status: 400 }
+    return { success: false, error: charge.error, status: 400 }
   }
 
   return {
     success: true,
     requiresPayment: true,
     bookingId: booking.id,
-    authorization_url: paymentResult.authUrl,
-    reference: paymentResult.data?.reference,
+    authorization_url: charge.authorization_url,
+    reference: charge.reference,
     depositAmount,
     bookingFeeAmount,
     balanceOwed,
-    payableAmount: paystackAmounts.payableAmount,
+    payableAmount: charge.payableAmount,
+  }
+}
+
+// Phase S3: a requiresQuote:true booking already exists (created fee-free at request
+// time by the branch above) and the provider has since sent a quote via their existing
+// dashboard (app/api/database/bookings/[id]/route.ts's PATCH sets pricingStatus:'quoted'
+// + finalPrice — unchanged by this task). The buyer accepting that quote is what turns
+// the quoted finalPrice into the SAME 10%-deposit-plus-fee charge a fixed-price booking
+// gets — same computeBookingDeposit, same chargeBookingDeposit, no separate math.
+export async function initiatePaymentForQuotedBooking(
+  bookingId: string,
+  options: { callbackUrl?: string } = {}
+): Promise<InitiateBookingPaymentResult> {
+  await connectToDatabase()
+
+  const booking: any = await Booking.findById(bookingId).lean()
+  if (!booking) return { success: false, error: 'Booking not found', status: 404 }
+  if (!booking.requiresQuote) return { success: false, error: 'This booking does not need a quote', status: 400 }
+  if (booking.pricingStatus !== 'quoted') return { success: false, error: 'There is no active quote to accept for this booking', status: 409 }
+  if (booking.quoteExpiresAt && new Date(booking.quoteExpiresAt).getTime() < Date.now()) {
+    return { success: false, error: 'This quote has expired', status: 410 }
+  }
+
+  const finalPrice = Number(booking.finalPrice)
+  if (!Number.isFinite(finalPrice) || finalPrice <= 0) {
+    return { success: false, error: 'Invalid quoted price', status: 400 }
+  }
+
+  const { depositAmount, bookingFeeAmount, balanceOwed, amountDueNow } = computeBookingDeposit(finalPrice)
+
+  // Marks acceptance before charging — matches the web PATCH route's own rule ("cannot
+  // accept quote without a final quoted price" implies accepted follows quoted), and
+  // means a buyer re-sending "accept" while Paystack is mid-init just re-triggers a
+  // payment attempt against the same already-accepted total rather than re-deriving it.
+  await Booking.updateOne(
+    { _id: bookingId },
+    {
+      $set: {
+        totalPrice: finalPrice,
+        pricingStatus: 'accepted',
+        paymentMethod: 'paystack',
+        paymentStatus: 'pending',
+        depositAmount,
+        bookingFeeAmount,
+        bookingFeeStatus: 'pending',
+        balanceOwed,
+      },
+    }
+  )
+
+  const charge = await chargeBookingDeposit({
+    bookingId,
+    customerEmail: booking.customerEmail,
+    customerId: booking.customerId,
+    serviceTitle: booking.serviceTitle,
+    providerId: booking.providerId,
+    providerName: booking.providerName,
+    depositAmount,
+    bookingFeeAmount,
+    amountDueNow,
+    callbackUrl: options.callbackUrl,
+  })
+
+  if (!charge.success) {
+    // Unlike a brand-new booking, there's real quote history here worth keeping — revert
+    // the acceptance rather than delete anything, so the buyer can just try "accept" again.
+    await Booking.updateOne(
+      { _id: bookingId },
+      { $set: { pricingStatus: 'quoted', paymentStatus: 'pending' }, $unset: { depositAmount: '', bookingFeeAmount: '', balanceOwed: '' } }
+    )
+    return { success: false, error: charge.error, status: 400 }
+  }
+
+  return {
+    success: true,
+    requiresPayment: true,
+    bookingId,
+    authorization_url: charge.authorization_url,
+    reference: charge.reference,
+    depositAmount,
+    bookingFeeAmount,
+    balanceOwed,
+    payableAmount: charge.payableAmount,
   }
 }

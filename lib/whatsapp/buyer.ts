@@ -31,6 +31,12 @@ import {
   handleServiceBookingCancelCommand,
   handleServiceBookingStageMessage,
 } from '@/lib/whatsapp/service-booking'
+import {
+  QUOTE_BLOCKING_STAGES,
+  handleQuoteStageMessage,
+  handleQuoteCancelCommand,
+  tryHandleQuoteDecision,
+} from '@/lib/whatsapp/service-quote'
 
 const RESULTS_PER_PAGE = 4
 // Fetch one extra beyond the display page so "are there more results" can be answered
@@ -475,10 +481,17 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
   const mode = String(state?.browseMode || 'goods')
 
   if (lower === 'cancel') {
+    const handledQuote = await handleQuoteCancelCommand(waId, stage)
+    if (handledQuote) return
     const handledBooking = await handleServiceBookingCancelCommand(waId, stage)
     if (handledBooking) return
     const handled = await handleCancelCommand(waId, stage)
     if (handled) return
+  }
+
+  if (QUOTE_BLOCKING_STAGES.has(stage)) {
+    await handleQuoteStageMessage(waId, trimmed, stage)
+    return
   }
 
   if (SERVICE_BOOKING_BLOCKING_STAGES.has(stage)) {
@@ -497,6 +510,12 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
     const handledService = await handleServiceReply(waId, contextMessageId, trimmed)
     if (handledService) return
   }
+
+  // Mode/stage-agnostic — "accept REF"/"decline REF" for a delivered quote can arrive at
+  // any time, regardless of what the buyer is currently doing (see
+  // lib/whatsapp/service-quote.ts's comment on why this isn't a blocking stage).
+  const handledQuoteDecision = await tryHandleQuoteDecision(waId, trimmed)
+  if (handledQuoteDecision) return
 
   if (lower === 'more') {
     await handleMoreCommand(waId)

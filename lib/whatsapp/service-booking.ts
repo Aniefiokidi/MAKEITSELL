@@ -20,6 +20,7 @@ import { sendTextMessage } from '@/lib/whatsapp/client'
 import { findBookingSlotConflict } from '@/lib/booking-availability'
 import { expireStalePendingBookings } from '@/lib/booking-expiry'
 import { createBookingForWaBuyer } from '@/lib/whatsapp/buyer-bookings'
+import { startQuoteRequest } from '@/lib/whatsapp/service-quote'
 
 // Same set of stages as goods' BLOCKING_CHECKOUT_STAGES in lib/whatsapp/checkout.ts, kept
 // as its own disjoint set (see lib/models/WhatsAppBrowseState.ts's stage enum comment) so
@@ -81,10 +82,8 @@ export async function handleServiceReply(waId: string, contextMessageId: string,
   }
 
   if (service.requiresQuote) {
-    await trySendText(
-      waId,
-      `${service.title} needs a custom quote from the provider before it can be booked — that flow isn't available here yet. Reply "categories" to keep browsing other services in the meantime.`
-    )
+    // Phase S3, Part A — lib/whatsapp/service-quote.ts.
+    await startQuoteRequest(waId, service)
     return true
   }
 
