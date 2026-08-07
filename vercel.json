@@ -28,6 +28,10 @@
     {
       "path": "/api/admin/abandoned-cart-job",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/admin/booking-payment-expiry-job",
+      "schedule": "*/10 * * * *"
     }
   ]
 }
