@@ -3,6 +3,8 @@ import crypto from 'crypto'
 import { handleInboundMessage, handleButtonReply, handleInboundImageMessage } from '@/lib/whatsapp/commands'
 import { handleCategorySelection, handleServiceCategorySelection } from '@/lib/whatsapp/buyer'
 import { handleSavedAddressListReply } from '@/lib/whatsapp/checkout'
+import connectToDatabase from '@/lib/mongodb'
+import { WhatsAppDeliveryEvent } from '@/lib/models/WhatsAppDeliveryEvent'
 
 // WhatsApp Cloud API webhook — Meta's dashboard verification handshake (GET) plus the
 // message/status event receiver (POST). Docs:
@@ -120,6 +122,20 @@ export async function POST(request: NextRequest) {
           // not delivery outcome, so this is the only place the actual cause shows up.
           if (status?.status === 'failed' && Array.isArray(status?.errors)) {
             console.error(`[whatsapp-webhook] Delivery failure for ${status?.recipient_id}:`, JSON.stringify(status.errors))
+          }
+          // Persisted alongside the console.log above — Vercel's log export has proven
+          // unreliable for surfacing actual console output, so this is directly queryable
+          // regardless of log tooling.
+          try {
+            await connectToDatabase()
+            await WhatsAppDeliveryEvent.create({
+              recipientId: String(status?.recipient_id || 'unknown'),
+              status: String(status?.status || 'unknown'),
+              messageId: status?.id ? String(status.id) : undefined,
+              errors: Array.isArray(status?.errors) ? status.errors : undefined,
+            })
+          } catch (dbError) {
+            console.error('[whatsapp-webhook] Failed to persist delivery event:', dbError)
           }
         }
       }
