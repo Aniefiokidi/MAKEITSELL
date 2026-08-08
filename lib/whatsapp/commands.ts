@@ -15,7 +15,7 @@ import { applyOrderVendorStatus, resolveOrderVendorTarget } from '@/lib/order-ve
 import { sendTextMessage } from '@/lib/whatsapp/client'
 import { handleBuyerMessage } from '@/lib/whatsapp/buyer'
 import { WhatsAppBrowseState } from '@/lib/models/WhatsAppBrowseState'
-import { QUOTE_BLOCKING_STAGES, handleQuoteRequestPhoto } from '@/lib/whatsapp/service-quote'
+import { QUOTE_BLOCKING_STAGES, handleQuoteRequestPhoto, tryHandleProviderQuoteCommand } from '@/lib/whatsapp/service-quote'
 
 const CODE_PATTERN = /^[A-Z0-9]{6}$/i
 // Matches the same orderId.slice(0, 8).toUpperCase() convention used for the order ref
@@ -68,6 +68,13 @@ export async function handleInboundMessage(waId: string, text: string, contextMe
 
   if (trimmed.toLowerCase() === 'balance') {
     await handleBalanceCommand(waId)
+    return
+  }
+
+  // Phase S3, Part B: a provider quoting a service-quote request from their own
+  // WhatsApp. vendorId is already resolved above via resolveLinkedVendor — passed
+  // through as the sole source of provider identity, never re-derived from the ref.
+  if (await tryHandleProviderQuoteCommand(waId, vendorId, trimmed)) {
     return
   }
 
@@ -284,7 +291,7 @@ async function sendHelpMenu(waId: string): Promise<void> {
   if (vendorId) {
     await trySend(
       waId,
-      "Hi! I didn't recognize that message.\n\nAvailable commands:\n- dispatched [order ref] — mark an order as shipped\n- balance — check your wallet balance"
+      "Hi! I didn't recognize that message.\n\nAvailable commands:\n- dispatched [order ref] — mark an order as shipped\n- balance — check your wallet balance\n- quote [request ref] [amount] — send a price for a quote request"
     )
     return
   }

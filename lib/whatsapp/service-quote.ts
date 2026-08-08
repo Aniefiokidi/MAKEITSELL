@@ -1,21 +1,19 @@
-// WhatsApp quote-request conversation (Phase S3, Part A) — for requiresQuote: true
+// WhatsApp quote-request conversation (Phase S3, Parts A & B) — for requiresQuote: true
 // services. Buyer describes the job (with optional photos), the request lands as an
 // ordinary fee-free booking via the SAME initiateBookingPayment path S1/S2 already use
 // (lib/booking-payment.ts), so it shows up in the provider's existing dashboard
-// (app/vendor/bookings/page.tsx) exactly like a web-submitted request. The provider
-// quotes from THAT dashboard, unchanged — this file never touches quote-sending, only
-// quote-delivery (notifyWaBuyerQuoteReceived, hooked into
-// app/api/database/bookings/[id]/route.ts's existing PATCH) and quote-acceptance
-// (initiatePaymentForQuotedBooking, lib/booking-payment.ts).
-//
-// Part B (a provider quoting FROM their own WhatsApp instead of the dashboard) is a
-// separate, not-yet-built task — see the comment above QUOTE_DECISION_PATTERN below for
-// where it plugs in.
+// (app/vendor/bookings/page.tsx) exactly like a web-submitted request. The provider can
+// quote from that dashboard (Part A, unchanged) OR from their own WhatsApp (Part B,
+// handleProviderQuoteCommand below, dispatched from lib/whatsapp/commands.ts) — both set
+// the exact same pricingStatus/finalPrice/quoteSentAt fields, so quote-delivery
+// (notifyWaBuyerQuoteReceived) and quote-acceptance (initiatePaymentForQuotedBooking,
+// lib/booking-payment.ts) already work identically regardless of which path quoted it.
 import { after } from 'next/server'
 import connectToDatabase from '@/lib/mongodb'
 import { getServiceById } from '@/lib/mongodb-operations'
 import { Booking } from '@/lib/models/Booking'
 import { WhatsAppBuyer } from '@/lib/models/WhatsAppBuyer'
+import { WhatsAppLink } from '@/lib/models/WhatsAppLink'
 import { WhatsAppBrowseState } from '@/lib/models/WhatsAppBrowseState'
 import { sendTextMessage, sendTemplateMessage } from '@/lib/whatsapp/client'
 import { downloadWhatsAppMedia } from '@/lib/whatsapp/media'
@@ -163,6 +161,35 @@ async function handleSlotReply(waId: string, text: string, draft: Record<string,
   await trySendText(waId, 'Send photos of the job if you have any — up to 5. Reply "done" when finished, or "skip" if you have none.')
 }
 
+// Tells a linked provider a new quote request is waiting, with enough context to quote
+// without opening the dashboard, and the exact command to do it from WhatsApp (Part B).
+// No-ops silently if the provider hasn't linked WhatsApp — the request still shows up in
+// their dashboard exactly as before, nothing regresses for an unlinked provider.
+async function notifyProviderNewQuoteRequest(providerId: string, bookingId: string, draft: Record<string, any>): Promise<void> {
+  try {
+    await connectToDatabase()
+    const link: any = await WhatsAppLink.findOne({ vendorId: providerId, status: 'linked' }).lean()
+    const waId = String(link?.waId || '').trim()
+    if (!waId) return
+
+    const ref = shortRef(bookingId)
+    const photoCount = Array.isArray(draft.requestPhotos) ? draft.requestPhotos.length : 0
+    const lines = [
+      `New quote request! Ref ${ref}`,
+      `${draft.serviceTitle || 'Service'}`,
+      '',
+      `Job: ${draft.notes || 'No description given'}`,
+      `Location: ${draft.customerLocation || 'Not specified'}`,
+    ]
+    if (photoCount > 0) lines.push(`${photoCount} photo(s) attached — view in your dashboard.`)
+    lines.push('', `Reply "quote ${ref} <amount>" to send a price, e.g. "quote ${ref} 20000".`)
+
+    await trySendText(waId, lines.join('\n'))
+  } catch (error) {
+    console.error(`[whatsapp-service-quote] notifyProviderNewQuoteRequest failed for booking ${bookingId}:`, error)
+  }
+}
+
 async function submitQuoteRequest(waId: string, draft: Record<string, any>): Promise<void> {
   const mapping: any = await WhatsAppBuyer.findOne({ waId }).lean()
 
@@ -201,6 +228,8 @@ async function submitQuoteRequest(waId: string, draft: Record<string, any>): Pro
     waId,
     `Request sent! Ref ${shortRef(result.bookingId)}. The provider will review it and send a quote — we'll message you here as soon as it's ready.`
   )
+
+  await notifyProviderNewQuoteRequest(String(draft.providerId || ''), String(result.bookingId), draft)
 }
 
 async function handlePhotoReply(waId: string, text: string, draft: Record<string, any>): Promise<void> {
@@ -333,14 +362,6 @@ export function notifyWaBuyerQuoteReceived(customerId: string, bookingId: string
 // else entirely) — forcing a stage change on notification would hijack whatever they were
 // doing. This works from any state instead, checked in lib/whatsapp/buyer.ts's main
 // dispatch alongside the other mode-agnostic patterns (ORDER_STATUS_PATTERN etc).
-//
-// Part B plugs in here: a provider quoting from their OWN WhatsApp would need a parallel
-// "quote <ref> <amount>" (or similar) pattern checked in the VENDOR-side command router
-// (lib/whatsapp/commands.ts's resolveLinkedVendor branch, not this buyer-facing file),
-// which would set pricingStatus/finalPrice/quoteSentAt the same way the dashboard's PATCH
-// does today — and this file's notifyWaBuyerQuoteReceived would fire the same way
-// regardless of which path set those fields, since it only cares about the booking's
-// state, not what triggered the change. No rework needed here when B is built.
 // ---------------------------------------------------------------------------
 
 const QUOTE_DECISION_PATTERN = /^(accept|decline)\s+([a-f0-9]{6,})$/i
@@ -394,5 +415,89 @@ export async function tryHandleQuoteDecision(waId: string, text: string): Promis
     waId,
     `Tap the link below to pay ${formatNaira(result.payableAmount)} securely:\n\n${result.authorization_url}\n\nOnce payment is confirmed we'll message you here.`
   )
+  return true
+}
+
+// ---------------------------------------------------------------------------
+// Phase S3, Part B — a provider quoting from their OWN WhatsApp: "quote <ref> <amount>".
+// Dispatched from lib/whatsapp/commands.ts's vendor-command branch, which has already
+// resolved `vendorId` via resolveLinkedVendor before calling this — that resolved value
+// is the ONLY source of provider identity used below (SECURITY: the ref alone is never
+// trusted to authorize anything; every query here filters by providerId first, exactly
+// mirroring tryHandleQuoteDecision's customerId-first filtering above, so a provider can
+// never even discover another provider's booking, let alone quote it).
+//
+// Sets the exact same pricingStatus/finalPrice/totalPrice/quoteSentAt/quoteExpiresAt
+// fields app/api/database/bookings/[id]/route.ts's PATCH sets for a dashboard quote, via
+// an atomic guarded update (guard: pricingStatus still 'estimated') so a double-send race
+// can't quote the same request twice. notifyWaBuyerQuoteReceived fires the same way
+// either path sets those fields — no new delivery code needed.
+// ---------------------------------------------------------------------------
+
+const PROVIDER_QUOTE_PATTERN = /^quote\s+([a-f0-9]{6,})\s+([\d,]+(?:\.\d+)?)$/i
+
+export async function tryHandleProviderQuoteCommand(waId: string, vendorId: string, text: string): Promise<boolean> {
+  const match = String(text || '').trim().match(PROVIDER_QUOTE_PATTERN)
+  if (!match) return false
+
+  const ref = match[1].toLowerCase()
+  const amount = Number(match[2].replace(/,/g, ''))
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    await trySendText(waId, `That amount doesn't look right. Reply like: quote ${ref.toUpperCase()} 20000`)
+    return true
+  }
+
+  await connectToDatabase()
+  // Filtered by providerId FIRST — a ref matching some other provider's booking simply
+  // never appears in `candidates`, so it can't be distinguished from a ref that doesn't
+  // exist at all (same non-leaking shape as tryHandleQuoteDecision above).
+  const candidates: any[] = await Booking.find({ providerId: vendorId, requiresQuote: true })
+    .select('_id status pricingStatus serviceId')
+    .lean()
+  const match_ = candidates.find((b) => String(b._id).slice(0, 8).toLowerCase() === ref)
+
+  if (!match_) {
+    await trySendText(waId, `Couldn't find a quote request with reference ${ref.toUpperCase()} for your account.`)
+    return true
+  }
+
+  if (match_.status === 'cancelled') {
+    await trySendText(waId, `Request ${ref.toUpperCase()} was cancelled — nothing to quote.`)
+    return true
+  }
+
+  if (match_.pricingStatus !== 'estimated') {
+    await trySendText(waId, `Request ${ref.toUpperCase()} already has a quote (status: ${match_.pricingStatus}).`)
+    return true
+  }
+
+  const bookingId = String(match_._id)
+  const service = await getServiceById(String(match_.serviceId || ''))
+  const quoteSlaHours = Number((service as any)?.quoteSlaHours) > 0 ? Number((service as any)?.quoteSlaHours) : 24
+
+  // Atomic guard on pricingStatus: 'estimated' — if two "quote" messages for the same
+  // ref land close together (retry, double-tap), only the first actually applies.
+  const updatedBooking: any = await Booking.findOneAndUpdate(
+    { _id: bookingId, providerId: vendorId, pricingStatus: 'estimated' },
+    {
+      $set: {
+        pricingStatus: 'quoted',
+        finalPrice: amount,
+        totalPrice: amount,
+        quoteSentAt: new Date(),
+        quoteExpiresAt: new Date(Date.now() + quoteSlaHours * 60 * 60 * 1000),
+      },
+    },
+    { new: true }
+  ).lean()
+
+  if (!updatedBooking) {
+    await trySendText(waId, `Request ${ref.toUpperCase()} was already quoted just now.`)
+    return true
+  }
+
+  notifyWaBuyerQuoteReceived(String(updatedBooking.customerId || ''), bookingId, updatedBooking)
+  await trySendText(waId, `Quote sent — ${ref.toUpperCase()} for ${formatNaira(amount)}. The buyer will be notified.`)
   return true
 }
