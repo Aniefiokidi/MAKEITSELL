@@ -115,6 +115,12 @@ export async function POST(request: NextRequest) {
         const statuses = Array.isArray(value?.statuses) ? value.statuses : []
         for (const status of statuses) {
           console.log(`[whatsapp-webhook] Status update for ${status?.recipient_id}: ${status?.status}`)
+          // "failed" statuses carry the real reason here (e.g. code 131047 = outside the
+          // 24h customer-service window) — the send call itself only gets a queuing ack,
+          // not delivery outcome, so this is the only place the actual cause shows up.
+          if (status?.status === 'failed' && Array.isArray(status?.errors)) {
+            console.error(`[whatsapp-webhook] Delivery failure for ${status?.recipient_id}:`, JSON.stringify(status.errors))
+          }
         }
       }
     }
