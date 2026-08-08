@@ -16,7 +16,7 @@ import { getServiceById } from '@/lib/mongodb-operations'
 import { WhatsAppServiceMessageMap } from '@/lib/models/WhatsAppServiceMessageMap'
 import { WhatsAppBuyer } from '@/lib/models/WhatsAppBuyer'
 import { WhatsAppBrowseState } from '@/lib/models/WhatsAppBrowseState'
-import { sendTextMessage } from '@/lib/whatsapp/client'
+import { sendTextMessage, sendTemplateMessage } from '@/lib/whatsapp/client'
 import { findBookingSlotConflict } from '@/lib/booking-availability'
 import { expireStalePendingBookings } from '@/lib/booking-expiry'
 import { createBookingForWaBuyer } from '@/lib/whatsapp/buyer-bookings'
@@ -440,12 +440,24 @@ export function notifyWaBuyerBookingPaid(customerId: string, bookingId: string, 
 
       const ref = String(bookingId || '').slice(0, 8).toUpperCase()
       const dateLabel = booking?.bookingDate ? new Date(booking.bookingDate).toLocaleDateString('en-NG', { year: 'numeric', month: 'short', day: 'numeric' }) : ''
+      const dateTimeLabel = `${dateLabel}${booking?.startTime ? `, ${booking.startTime}` : ''}`
       const balance = Number(booking?.balanceOwed || 0)
+      const serviceTitle = booking?.serviceTitle || 'Service'
 
-      await trySendText(
-        waId,
-        `Booking confirmed! Ref ${ref}\n${booking?.serviceTitle || 'Service'} — ${dateLabel}${booking?.startTime ? `, ${booking.startTime}` : ''}\n\nBalance of ${formatNaira(balance)} is paid directly to the provider at the appointment.`
-      )
+      // Prefers the buyer_booking_paid_confirmation template (delivers regardless of
+      // Meta's 24h customer-service window) — a web-originated booking by a linked buyer
+      // who hasn't messaged recently can easily land outside it. Falls back to free text
+      // if the send fails for any reason (not yet approved, since rejected/renamed,
+      // etc.), same pattern as lib/whatsapp/checkout.ts's notifyWaBuyerOrderPaid.
+      try {
+        await sendTemplateMessage(waId, 'buyer_booking_paid_confirmation', [ref, serviceTitle, dateTimeLabel, formatNaira(balance)])
+      } catch (templateError) {
+        console.log(`[whatsapp-service-booking] buyer_booking_paid_confirmation template send failed, falling back to free text — booking ${bookingId}:`, templateError)
+        await trySendText(
+          waId,
+          `Booking confirmed! Ref ${ref}\n${serviceTitle} — ${dateTimeLabel}\n\nBalance of ${formatNaira(balance)} is paid directly to the provider at the appointment.`
+        )
+      }
     } catch (error) {
       console.error(`[whatsapp-service-booking] notifyWaBuyerBookingPaid failed for booking ${bookingId}:`, error)
     }

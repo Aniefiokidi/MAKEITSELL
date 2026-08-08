@@ -17,7 +17,7 @@ import { getServiceById } from '@/lib/mongodb-operations'
 import { Booking } from '@/lib/models/Booking'
 import { WhatsAppBuyer } from '@/lib/models/WhatsAppBuyer'
 import { WhatsAppBrowseState } from '@/lib/models/WhatsAppBrowseState'
-import { sendTextMessage } from '@/lib/whatsapp/client'
+import { sendTextMessage, sendTemplateMessage } from '@/lib/whatsapp/client'
 import { downloadWhatsAppMedia } from '@/lib/whatsapp/media'
 import { uploadBufferToCloudinary } from '@/lib/cloudinary-server-upload'
 import { findBookingSlotConflict } from '@/lib/booking-availability'
@@ -297,19 +297,29 @@ export function notifyWaBuyerQuoteReceived(customerId: string, bookingId: string
       const { computeBookingDeposit } = await import('@/lib/booking-pricing')
       const { depositAmount, bookingFeeAmount, balanceOwed, amountDueNow } = computeBookingDeposit(finalPrice)
       const ref = shortRef(bookingId)
+      const serviceTitle = booking?.serviceTitle || 'Service'
+      const payNowLabel = `${formatNaira(amountDueNow)} (${formatNaira(depositAmount)} deposit + ${formatNaira(bookingFeeAmount)} booking fee)`
 
-      await trySendText(
-        waId,
-        [
-          `Your quote is ready! Ref ${ref}`,
-          `${booking?.serviceTitle || 'Service'} — ${formatNaira(finalPrice)}`,
-          '',
-          `Pay now: ${formatNaira(amountDueNow)} (${formatNaira(depositAmount)} deposit + ${formatNaira(bookingFeeAmount)} booking fee)`,
-          `Balance of ${formatNaira(balanceOwed)} is paid directly to the provider.`,
-          '',
-          `Reply "accept ${ref}" to pay, or "decline ${ref}" to close this request.`,
-        ].join('\n')
-      )
+      const freeTextBody = [
+        `Your quote is ready! Ref ${ref}`,
+        `${serviceTitle} — ${formatNaira(finalPrice)}`,
+        '',
+        `Pay now: ${payNowLabel}`,
+        `Balance of ${formatNaira(balanceOwed)} is paid directly to the provider.`,
+        '',
+        `Reply "accept ${ref}" to pay, or "decline ${ref}" to close this request.`,
+      ].join('\n')
+
+      // Highest-risk send in the buyer-facing set to fire outside Meta's 24h window — a
+      // provider can quote hours or days after the buyer's last message, unlike the paid
+      // confirmation above which follows close behind the buyer's own payment action.
+      // Same template-first/free-text-fallback pattern as the rest of this file's sends.
+      try {
+        await sendTemplateMessage(waId, 'buyer_booking_quote_received', [ref, serviceTitle, formatNaira(finalPrice), payNowLabel, formatNaira(balanceOwed)])
+      } catch (templateError) {
+        console.log(`[whatsapp-service-quote] buyer_booking_quote_received template send failed, falling back to free text — booking ${bookingId}:`, templateError)
+        await trySendText(waId, freeTextBody)
+      }
     } catch (error) {
       console.error(`[whatsapp-service-quote] notifyWaBuyerQuoteReceived failed for booking ${bookingId}:`, error)
     }
