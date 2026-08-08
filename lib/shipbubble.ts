@@ -272,6 +272,22 @@ export async function getShipbubbleWalletBalance(): Promise<{ balance: number; c
   return { balance: Number(result.data.balance || 0), currency: String(result.data.currency || 'NGN') }
 }
 
+// Creates a wallet funding request — NOT a direct charge. Returns a Paystack checkout
+// URL on Shipbubble's OWN merchant account (confirmed against their docs), which someone
+// still has to complete. Paystack authorization codes are scoped to the specific
+// integration that captured them, so MakeItSell's own saved-card authorization (its
+// Paystack integration, not Shipbubble's) can never complete this automatically — a
+// human has to open payment_url, or Shipbubble would need to offer its own auto-recharge
+// on a saved card via their dashboard (see lib/shipbubble-wallet-monitor.ts's header for
+// the fuller explanation). This function only gets that link generated automatically;
+// completing it is always a separate, human step.
+export async function requestShipbubbleWalletFund(amount: number): Promise<{ paymentUrl: string } | null> {
+  if (!Number.isFinite(amount) || amount <= 0) return null
+  const result = await call<{ payment_url: string }>('/shipping/wallet/fund', { method: 'POST', body: { amount } })
+  if (!result.ok || !result.data?.payment_url) return null
+  return { paymentUrl: String(result.data.payment_url) }
+}
+
 /**
  * Verifies the x-ship-signature header (HMAC-SHA512) against the raw request body — per
  * Shipbubble's webhook docs. Their dashboard's API settings page has no separate webhook

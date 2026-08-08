@@ -32,6 +32,10 @@
     {
       "path": "/api/admin/booking-payment-expiry-job",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/admin/shipbubble-wallet-monitor-job",
+      "schedule": "*/30 * * * *"
     }
   ]
 }
