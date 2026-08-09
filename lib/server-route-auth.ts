@@ -9,21 +9,45 @@ type SessionUser = {
   role: string
 }
 
+// `Authorization: Bearer <token>` fallback — for clients (the mobile app) that can't
+// rely on an httpOnly cookie jar. Same token, same lookup as the cookie path below;
+// this only changes where the token is read FROM, never how it's validated.
+function getBearerToken(request: NextRequest): string | null {
+  const header = request.headers.get('authorization')
+  if (!header) return null
+  const match = header.match(/^Bearer\s+(.+)$/i)
+  return match ? match[1].trim() : null
+}
+
+function toSessionUser(user: NonNullable<Awaited<ReturnType<typeof getUserBySessionToken>>>): SessionUser {
+  return {
+    id: String(user.id),
+    email: user.email,
+    name: user.name,
+    role: user.role,
+  }
+}
+
 export async function getSessionUserFromRequest(request: NextRequest): Promise<SessionUser | null> {
   const cookieStore = await cookies()
-  const sessionToken = cookieStore.get('sessionToken')?.value
-
-  if (!sessionToken) return null
+  const cookieToken = cookieStore.get('sessionToken')?.value
 
   try {
-    const user = await getUserBySessionToken(sessionToken)
-    if (!user) return null
-    return {
-      id: String(user.id),
-      email: user.email,
-      name: user.name,
-      role: user.role,
+    // Cookie path first — identical to the original, unchanged behavior. Only falls
+    // through to the Bearer header when there's no *valid* session cookie (not merely
+    // when the cookie is absent), so a request carrying both a stale cookie and a fresh
+    // Bearer token still authenticates correctly.
+    if (cookieToken) {
+      const cookieUser = await getUserBySessionToken(cookieToken)
+      if (cookieUser) return toSessionUser(cookieUser)
     }
+
+    const bearerToken = getBearerToken(request)
+    if (!bearerToken) return null
+
+    const bearerUser = await getUserBySessionToken(bearerToken)
+    if (!bearerUser) return null
+    return toSessionUser(bearerUser)
   } catch {
     return null
   }
