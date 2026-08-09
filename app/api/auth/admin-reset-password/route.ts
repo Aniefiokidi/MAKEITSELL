@@ -4,6 +4,7 @@ import { User } from '@/lib/models/User'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { hashPassword } from '@/lib/password'
 import { enforceRateLimit } from '@/lib/rate-limit'
+import { validatePassword } from '@/lib/password-policy'
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,6 +33,14 @@ export async function POST(request: NextRequest) {
         success: false,
         error: 'User not found'
       }, { status: 404 })
+    }
+
+    const passwordCheck = await validatePassword(newPassword)
+    if (!passwordCheck.valid) {
+      return NextResponse.json({
+        success: false,
+        error: passwordCheck.error
+      }, { status: 400 })
     }
 
     // Update password

@@ -42,6 +42,13 @@ const UserSchema = new Schema({
   isEmailVerified: { type: Boolean, default: false },
   emailVerificationToken: { type: String },
   emailVerificationTokenExpiry: { type: Date },
+  // Failed OTP-check counter for the current emailVerificationToken — locks further
+  // attempts after too many wrong guesses (app/api/auth/verify-email/route.ts's PUT
+  // handler), independent of the IP-based rate limit on that same route. A 6-digit code
+  // is only ~1M combinations; IP throttling alone doesn't stop a distributed/rotating-IP
+  // attacker from brute-forcing it, since this is scoped to the account, not the request
+  // source. Reset to 0 whenever a fresh code is issued or verification succeeds.
+  emailVerificationAttempts: { type: Number, default: 0 },
   verificationEmailRetryPending: { type: Boolean, default: false },
   verificationEmailRetryCount: { type: Number, default: 0 },
   verificationEmailNextRetryAt: { type: Date },
@@ -54,6 +61,16 @@ const UserSchema = new Schema({
   referredByVendorId: { type: String },
   referralCreditIssued: { type: Boolean, default: false },
   referralClickCount: { type: Number, default: 0 },
+  // Account-deletion support (lib/account-deletion.ts). deletedAt is the source of truth
+  // for "is this account deleted" — checked at login (lib/auth.ts) so a deleted account
+  // can never authenticate again even if a session token somehow lingered.
+  deletedAt: { type: Date, index: true },
+  // No fraud-detection feature exists yet — this field is intentionally unset for every
+  // account today. It exists so a future fraud-review feature has somewhere to write
+  // `true`, at which point account deletion (lib/account-deletion.ts) starts adding the
+  // hashed email/phone to AccountBlocklist automatically. Until then this never matches
+  // anyone, so normal account deletions never blocklist the user.
+  fraudBanned: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });

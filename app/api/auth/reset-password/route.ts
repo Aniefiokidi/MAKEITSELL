@@ -4,6 +4,7 @@ import crypto from 'crypto'
 import { User } from '@/lib/models/User'
 import { hashPassword } from '@/lib/password'
 import { enforceRateLimit } from '@/lib/rate-limit'
+import { validatePassword } from '@/lib/password-policy'
 
 function normalizeEmail(input: unknown): string {
   return String(input || '').trim().toLowerCase()
@@ -61,6 +62,14 @@ export async function POST(request: NextRequest) {
     if (user.resetToken !== codeInput) {
       return NextResponse.json(
         { success: false, error: 'Invalid reset code' },
+        { status: 400 }
+      )
+    }
+
+    const passwordCheck = await validatePassword(newPassword)
+    if (!passwordCheck.valid) {
+      return NextResponse.json(
+        { success: false, error: passwordCheck.error },
         { status: 400 }
       )
     }

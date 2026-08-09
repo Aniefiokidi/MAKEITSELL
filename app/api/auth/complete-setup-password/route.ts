@@ -5,10 +5,19 @@ import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 import { getUserBySessionToken } from '@/lib/auth'
 import { hashPassword, verifyPassword } from '@/lib/password'
+import { validatePassword } from '@/lib/password-policy'
+import { enforceRateLimit } from '@/lib/rate-limit'
 import crypto from 'crypto'
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimitResponse = await enforceRateLimit(request, {
+      key: 'auth-complete-setup-password',
+      maxRequests: 6,
+      windowMs: 60_000,
+    })
+    if (rateLimitResponse) return rateLimitResponse
+
     const cookieStore = await cookies()
     const sessionToken = cookieStore.get('sessionToken')?.value
 
@@ -22,8 +31,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Current and new passwords are required' }, { status: 400 })
     }
 
-    if (newPassword.length < 8) {
-      return NextResponse.json({ success: false, error: 'New password must be at least 8 characters' }, { status: 400 })
+    const passwordCheck = await validatePassword(newPassword)
+    if (!passwordCheck.valid) {
+      return NextResponse.json({ success: false, error: passwordCheck.error }, { status: 400 })
     }
 
     await connectToDatabase()

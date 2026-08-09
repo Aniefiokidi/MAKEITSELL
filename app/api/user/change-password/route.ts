@@ -3,9 +3,18 @@ import connectToDatabase from '@/lib/mongodb'
 import bcrypt from 'bcryptjs'
 import mongoose from 'mongoose'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
+import { validatePassword } from '@/lib/password-policy'
+import { enforceRateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimitResponse = await enforceRateLimit(request, {
+      key: 'auth-change-password',
+      maxRequests: 6,
+      windowMs: 60_000,
+    })
+    if (rateLimitResponse) return rateLimitResponse
+
     const sessionUser = await getSessionUserFromRequest(request)
     if (!sessionUser) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
@@ -26,9 +35,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (newPassword.length < 6) {
+    const passwordCheck = await validatePassword(newPassword)
+    if (!passwordCheck.valid) {
       return NextResponse.json(
-        { success: false, error: 'Password must be at least 6 characters' },
+        { success: false, error: passwordCheck.error },
         { status: 400 }
       )
     }

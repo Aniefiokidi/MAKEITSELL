@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { User } from './models/User';
 import { hashPassword, needsPasswordRehash, verifyPassword } from './password';
 import { normalizeNigerianPhone } from './sms';
+import { validatePassword } from './password-policy';
 
 function normalizeBooleanFlag(value: unknown): boolean {
   if (typeof value === 'boolean') return value
@@ -23,7 +24,10 @@ export async function signUp({ email, password, name, role, vendorInfo, riderInf
   const normalizedEmail = String(email || '').trim().toLowerCase();
   const existing = await User.findOne({ email: normalizedEmail });
   if (existing) throw new Error('Email already in use');
-  
+
+  const passwordCheck = await validatePassword(password);
+  if (!passwordCheck.valid) throw new Error(passwordCheck.error);
+
   const passwordHash = hashPassword(password);
   const sessionToken = crypto.randomBytes(32).toString('hex');
   const normalizedPhone = phone ? normalizeNigerianPhone(phone) : null
@@ -115,6 +119,13 @@ export async function signIn({ email, password }: { email: string, password: str
   const user = await User.findOne({ email: normalizedEmail });
   if (!user) throw new Error('Invalid credentials');
 
+  // Deleted accounts can never authenticate again — this is what makes "mark the
+  // account as deleted" actually disable login, not just a label. By the time
+  // deletedAt is set the email has also been rewritten to a tombstone value (see
+  // lib/account-deletion.ts), so reaching this point with a real user's email is
+  // already unlikely — this is the explicit backstop.
+  if ((user as any).deletedAt) throw new Error('This account has been deleted.');
+
   // Check email verification
   if (!user.isEmailVerified) {
     if (!user.emailVerificationToken || !user.emailVerificationTokenExpiry) {
@@ -204,6 +215,10 @@ export async function getUserBySessionToken(sessionToken: string) {
   await connectToDatabase();
   const user = await User.findOne({ sessionToken });
   if (!user) return null;
+  // Deletion clears sessionToken as part of the same transaction, so this is mostly
+  // unreachable in practice — kept as an explicit backstop rather than relying solely
+  // on that side effect.
+  if ((user as any).deletedAt) return null;
 
   let walletBalance = typeof (user as any).walletBalance === 'number' ? (user as any).walletBalance : undefined;
   if (walletBalance === undefined) {

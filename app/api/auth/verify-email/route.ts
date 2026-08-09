@@ -3,6 +3,12 @@ import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 import { emailService } from '@/lib/email'
 import { getCanonicalAppBaseUrl } from '@/lib/app-url'
+import { enforceRateLimit } from '@/lib/rate-limit'
+
+// Account-level lockout for the 6-digit OTP (PUT handler below) — independent of the
+// IP-based rate limit, since a ~1M-combination code needs a hard cap on wrong guesses
+// regardless of how many IPs an attacker spreads them across.
+const MAX_OTP_ATTEMPTS = 5
 
 function normalizeChannel(rawChannel: unknown): 'email' {
   const value = String(rawChannel || '').trim().toLowerCase()
@@ -37,6 +43,7 @@ async function finalizeVerifiedUser(user: any) {
   user.isEmailVerified = true
   user.emailVerificationToken = undefined
   user.emailVerificationTokenExpiry = undefined
+  user.emailVerificationAttempts = 0
   user.verificationEmailRetryPending = false
   user.verificationEmailRetryCount = 0
   user.verificationEmailNextRetryAt = undefined
@@ -79,6 +86,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(redirectUrl, 308);
     }
   try {
+    // Shares its rate-limit bucket with the PUT (OTP) handler below — the emailed link's
+    // token IS the same 6-digit code as the typed OTP (lib/auth.ts generates one value
+    // for both), so a guesser switching between GET and PUT must not get a separate
+    // budget for the same ~1M-value space.
+    const rateLimitResponse = await enforceRateLimit(request, {
+      key: 'auth-verify-email-check',
+      maxRequests: 10,
+      windowMs: 60_000,
+    })
+    if (rateLimitResponse) return rateLimitResponse
+
     const { searchParams } = new URL(request.url)
     const token = searchParams.get('token')
 
@@ -118,6 +136,13 @@ export async function GET(request: NextRequest) {
 // Verify OTP code
 export async function PUT(request: NextRequest) {
   try {
+    const rateLimitResponse = await enforceRateLimit(request, {
+      key: 'auth-verify-email-check',
+      maxRequests: 10,
+      windowMs: 60_000,
+    })
+    if (rateLimitResponse) return rateLimitResponse
+
     const { email, code, channel } = await request.json()
     const normalizedEmail = normalizeEmail(email)
 
@@ -140,13 +165,34 @@ export async function PUT(request: NextRequest) {
 
     await connectToDatabase()
 
+    // Looked up by email alone (not email+code together) so a wrong guess can still be
+    // attributed to the right account and counted — the account-level lockout below is
+    // the actual defense against brute force; IP rate limiting alone doesn't stop a
+    // distributed/rotating-IP attacker from grinding through a ~1M-value 6-digit space.
     const user = await User.findOne({
       email: { $regex: `^${escapeRegExp(normalizedEmail)}$`, $options: 'i' },
-      emailVerificationToken: normalizedCode,
-      emailVerificationTokenExpiry: { $gt: new Date() }
     })
 
-    if (!user) {
+    if (!user || !user.emailVerificationToken || !user.emailVerificationTokenExpiry) {
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid or expired verification code'
+      }, { status: 400 })
+    }
+
+    if ((user.emailVerificationAttempts || 0) >= MAX_OTP_ATTEMPTS) {
+      return NextResponse.json({
+        success: false,
+        error: 'Too many incorrect attempts. Please request a new code.'
+      }, { status: 429 })
+    }
+
+    const codeMatches = user.emailVerificationToken === normalizedCode
+    const notExpired = user.emailVerificationTokenExpiry > new Date()
+
+    if (!codeMatches || !notExpired) {
+      user.emailVerificationAttempts = (user.emailVerificationAttempts || 0) + 1
+      await user.save()
       return NextResponse.json({
         success: false,
         error: 'Invalid or expired verification code'
@@ -166,6 +212,13 @@ export async function PUT(request: NextRequest) {
 // Resend verification email
 export async function POST(request: NextRequest) {
   try {
+    const rateLimitResponse = await enforceRateLimit(request, {
+      key: 'auth-verify-email-resend',
+      maxRequests: 5,
+      windowMs: 60_000,
+    })
+    if (rateLimitResponse) return rateLimitResponse
+
     const { email, channel } = await request.json()
     const normalizedEmail = normalizeEmail(email)
 
@@ -200,6 +253,7 @@ export async function POST(request: NextRequest) {
 
     user.emailVerificationToken = verificationCode
     user.emailVerificationTokenExpiry = tokenExpiry
+    user.emailVerificationAttempts = 0
     user.verificationEmailLastAttemptAt = new Date()
     user.updatedAt = new Date()
     await user.save()
