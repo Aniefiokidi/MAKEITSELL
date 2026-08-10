@@ -5,6 +5,7 @@ import { signUp } from '@/lib/auth'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
+import { isBlocklisted } from '@/lib/account-blocklist'
 
 function generateReferralCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -38,6 +39,17 @@ export async function POST(request: NextRequest) {
 
     const { email, password, name, role, vendorType, phone, verificationChannel, referralCode, referredByVendorId } = await request.json()
     const normalizedPhone = String(phone || '').trim()
+
+    // No fraud-detection feature exists yet, so nothing writes to this collection today
+    // outside of a fraud-flagged account deletion (lib/account-deletion.ts) — this check
+    // is inert until that happens, by design. A generic rejection (not "this email/phone
+    // is banned") avoids turning signup into an oracle for probing the blocklist.
+    if (await isBlocklisted({ email, phone: normalizedPhone })) {
+      return NextResponse.json({
+        success: false,
+        error: 'Unable to create an account with these details.'
+      }, { status: 400 })
+    }
 
     const isValidVendorType = vendorType === "goods" || vendorType === "services" || vendorType === "both"
     if (role === "vendor" && !isValidVendorType) {

@@ -1,131 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
-import {
-  deleteStoresByVendorId,
-  deleteProductsByVendor,
-  deleteOrdersByVendor,
-  deleteUserCartItemsByVendor,
-  deleteServicesByVendor,
-  deleteBookingsByVendor,
-  deleteConversationsByVendor,
-  deleteUser,
-  deleteSessions
-} from '@/lib/mongodb-operations'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
+import { deleteUserAccount } from '@/lib/account-deletion'
 
+// Thin wrapper around the shared deletion flow (lib/account-deletion.ts) — kept at this
+// URL for the existing web vendor-settings UI. See app/api/account/delete for the
+// canonical route (also used by the mobile app); both call the exact same function.
+//
+// This used to accept an admin-delete-any-vendor path (userId/vendorId taken from the
+// request body). That capability is dropped here — it went through the same unsafe
+// hard-delete logic this replaces, and a proper admin-initiated deletion flow (audit
+// trail, different authorization shape) is out of scope for this change. This route is
+// self-deletion only now, same as the buyer route.
 export async function DELETE(request: NextRequest) {
   const sessionUser = await getSessionUserFromRequest(request)
   if (!sessionUser) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
   }
 
-  try {
-    const body = await request.json()
-    const userId = String(body?.userId || '').trim()
-    // vendorId defaults to userId — for vendors they're the same; for customers
-    // who somehow have stores, this ensures cleanup still runs.
-    const vendorId = String(body?.vendorId || userId).trim()
+  const result = await deleteUserAccount(sessionUser.id)
 
-    if (!userId) {
-      return NextResponse.json({ success: false, error: 'User ID is required' }, { status: 400 })
-    }
-
-    // User can only delete their own account; admins may delete any account
-    if (sessionUser.role !== 'admin' && sessionUser.id !== userId) {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
-    }
-
-    console.log(`Starting account deletion for vendor: ${vendorId}, user: ${userId}`)
-
-    // Delete all vendor-related data in sequence
-    const deletionResults = {
-      store: false,
-      products: false,
-      services: false,
-      orders: false,
-      bookings: false,
-      cartItems: false,
-      conversations: false,
-      sessions: false,
-      user: false
-    }
-
-    try {
-      // 1. Delete store
-      console.log('Deleting store...')
-      await deleteStoresByVendorId(vendorId)
-      deletionResults.store = true
-      console.log('Store deleted successfully')
-
-      // 2. Delete all products
-      console.log('Deleting products...')
-      await deleteProductsByVendor(vendorId)
-      deletionResults.products = true
-      console.log('Products deleted successfully')
-
-      // 3. Delete all services
-      console.log('Deleting services...')
-      await deleteServicesByVendor(vendorId)
-      deletionResults.services = true
-      console.log('Services deleted successfully')
-
-      // 4. Delete orders (mark as cancelled or keep for record-keeping)
-      console.log('Updating orders...')
-      await deleteOrdersByVendor(vendorId)
-      deletionResults.orders = true
-      console.log('Orders updated successfully')
-
-      // 5. Delete bookings
-      console.log('Deleting bookings...')
-      await deleteBookingsByVendor(vendorId)
-      deletionResults.bookings = true
-      console.log('Bookings deleted successfully')
-
-      // 6. Remove vendor products from user carts
-      console.log('Cleaning user carts...')
-      await deleteUserCartItemsByVendor(vendorId)
-      deletionResults.cartItems = true
-      console.log('User carts cleaned successfully')
-
-      // 7. Delete conversations
-      console.log('Deleting conversations...')
-      await deleteConversationsByVendor(vendorId)
-      deletionResults.conversations = true
-      console.log('Conversations deleted successfully')
-
-      // 8. Delete user sessions
-      console.log('Deleting sessions...')
-      await deleteSessions(userId)
-      deletionResults.sessions = true
-      console.log('Sessions deleted successfully')
-
-      // 9. Delete user account
-      console.log('Deleting user account...')
-      await deleteUser(userId)
-      deletionResults.user = true
-      console.log('User account deleted successfully')
-
-      console.log('Account deletion completed successfully')
-
-      return NextResponse.json({
-        success: true,
-        message: 'Account and all associated data deleted successfully',
-        deletionResults
-      })
-
-    } catch (error: any) {
-      console.error('Error during deletion process:', error)
-      return NextResponse.json({
-        success: false,
-        error: `Deletion failed: ${error.message}`,
-        deletionResults
-      }, { status: 500 })
-    }
-
-  } catch (error: any) {
-    console.error('Delete account API error:', error)
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to process deletion request'
-    }, { status: 500 })
+  if (result.status === 'not_found') {
+    return NextResponse.json({ success: false, error: result.reason }, { status: 404 })
   }
+
+  if (result.status === 'blocked') {
+    return NextResponse.json(
+      { success: false, error: result.reason, blockedBy: result.blockedBy },
+      { status: 409 }
+    )
+  }
+
+  return NextResponse.json({
+    success: true,
+    message: 'Account deleted successfully',
+    alreadyDeleted: result.status === 'already_deleted',
+  })
 }

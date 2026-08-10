@@ -7,19 +7,37 @@ import { applyOrderVendorStatus, resolveOrderVendorTarget } from '@/lib/order-ve
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
-    const customerId = searchParams.get('customerId')
+    const requestedCustomerId = searchParams.get('customerId')
     const vendorId = searchParams.get('vendorId')
 
-    if (!customerId && !vendorId) {
+    const filters: any = {}
+
+    if (requestedCustomerId) {
+      // Never trust a client-supplied customerId — this previously took it straight
+      // from the query string with no auth check at all, so anyone who knew or
+      // guessed another buyer's user id could read their full order history
+      // (shipping address, phone, items, amounts). Always the caller's own session id
+      // unless they're an admin; the web buyer-facing order page already only ever
+      // requests its own uid, so this is purely closing the impersonation gap, not a
+      // behavior change for the legitimate case.
+      const sessionUser = await getSessionUserFromRequest(request)
+      if (!sessionUser) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+      const isAdmin = String(sessionUser.role || '').toLowerCase() === 'admin'
+      filters.customerId = isAdmin ? requestedCustomerId : sessionUser.id
+    }
+
+    // vendorId path intentionally left as-is — out of scope here, the vendor
+    // dashboard uses a different, dedicated route.
+    if (vendorId) filters.vendorId = vendorId
+
+    if (!filters.customerId && !filters.vendorId) {
       return NextResponse.json(
         { error: 'customerId or vendorId is required' },
         { status: 400 }
       )
     }
-
-    const filters: any = {}
-    if (customerId) filters.customerId = customerId
-    if (vendorId) filters.vendorId = vendorId
 
     const orders = await getOrders(filters)
     return NextResponse.json(orders || [])

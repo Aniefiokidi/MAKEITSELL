@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { deleteUserAccount } from '@/lib/account-deletion'
 
-// Thin wrapper around the shared deletion flow (lib/account-deletion.ts) — kept at this
-// URL for the existing web account-settings UI. See app/api/account/delete for the
-// canonical route (also used by the mobile app); both call the exact same function.
-export async function DELETE(request: NextRequest) {
+// The one canonical account-deletion endpoint — callable by both the website (cookie
+// session) and the mobile app (Authorization: Bearer <token>), since
+// getSessionUserFromRequest already accepts either. app/api/user/delete-account and
+// app/api/vendor/delete-account are kept as thin wrappers around the same
+// deleteUserAccount() call for backward compatibility with the existing web UI, not as
+// a second implementation.
+export async function POST(request: NextRequest) {
   const sessionUser = await getSessionUserFromRequest(request)
   if (!sessionUser) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
@@ -24,9 +27,10 @@ export async function DELETE(request: NextRequest) {
     )
   }
 
+  // 'deleted' or 'already_deleted' — idempotent, both are success from the caller's
+  // point of view.
   return NextResponse.json({
     success: true,
-    message: 'Account deleted successfully',
     alreadyDeleted: result.status === 'already_deleted',
   })
 }
