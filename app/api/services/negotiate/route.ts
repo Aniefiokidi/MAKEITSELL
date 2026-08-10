@@ -4,7 +4,7 @@ import { connectToDatabase } from '@/lib/mongodb'
 import { PriceNegotiation } from '@/lib/models/PriceNegotiation'
 import { pushToUser } from '@/lib/push-notifications'
 import { emailService } from '@/lib/email'
-import { ObjectId } from 'mongodb'
+import { getServiceById, getUserById } from '@/lib/mongodb-operations'
 
 function negotiationEmail({
   recipientName,
@@ -97,27 +97,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'serviceId and a valid amount are required' }, { status: 400 })
   }
 
-  const { db } = await connectToDatabase()
+  // Was destructuring { db } off connectToDatabase()'s return value and using the raw
+  // MongoDB driver's db.collection() API — but connectToDatabase() resolves to the
+  // mongoose module itself (see lib/mongodb.ts), which has no `db` property, so `db`
+  // was always undefined here and every negotiation attempt 500'd. Using the same
+  // Mongoose-model helpers every other route in this codebase already uses instead.
+  await connectToDatabase()
 
-  let serviceDoc: any
-  try {
-    serviceDoc = await db.collection('services').findOne({ _id: new ObjectId(serviceId) })
-  } catch {
-    serviceDoc = await db.collection('services').findOne({ _id: serviceId as any })
-  }
+  const serviceDoc: any = await getServiceById(String(serviceId))
   if (!serviceDoc) return NextResponse.json({ error: 'Service not found' }, { status: 404 })
 
   const providerId = String(serviceDoc.providerId || serviceDoc.vendor_id || '')
 
   let providerEmail = serviceDoc.providerEmail || ''
   if (!providerEmail && providerId) {
-    try {
-      const p = await db.collection('users').findOne({ _id: new ObjectId(providerId) })
-      providerEmail = p?.email || ''
-    } catch {
-      const p = await db.collection('users').findOne({ _id: providerId as any })
-      providerEmail = p?.email || ''
-    }
+    const provider: any = await getUserById(providerId)
+    providerEmail = provider?.email || ''
   }
 
   // Expire stale open negotiations for this service+customer

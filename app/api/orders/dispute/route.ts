@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { connectToDatabase } from '@/lib/mongodb'
 import { Order } from '@/lib/models/Order'
-import { getUserBySessionToken } from '@/lib/auth'
+import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { emailService } from '@/lib/email'
 import { enforceRateLimit } from '@/lib/rate-limit'
 
@@ -72,13 +71,10 @@ export async function POST(request: NextRequest) {
     })
     if (rateLimitResponse) return rateLimitResponse
 
-    const cookieStore = await cookies()
-    const sessionToken = cookieStore.get('sessionToken')?.value
-    if (!sessionToken) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const sessionUser = await getUserBySessionToken(sessionToken)
+    // Was cookie-only (getUserBySessionToken read directly from the sessionToken
+    // cookie) — that 401s any caller authenticating via Authorization: Bearer instead,
+    // e.g. the mobile app. getSessionUserFromRequest accepts either.
+    const sessionUser = await getSessionUserFromRequest(request)
     if (!sessionUser?.id) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }

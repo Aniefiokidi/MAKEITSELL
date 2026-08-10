@@ -1,28 +1,23 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import connectToDatabase from "@/lib/mongodb"
 import { Follow } from "@/lib/models/Follow"
 // @ts-ignore
 import { Store as StoreModel } from "@/lib/models/Store"
+import { getSessionUserFromRequest } from "@/lib/server-route-auth"
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    await connectToDatabase()
-
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get("userId")
-
-    if (!userId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Missing userId",
-        },
-        { status: 400 }
-      )
+    const sessionUser = await getSessionUserFromRequest(request)
+    if (!sessionUser) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get all follows for this user
-    const follows = await Follow.find({ customerId: userId }).lean()
+    await connectToDatabase()
+
+    // Always the caller's own follows — this previously took userId straight from the
+    // query string with no session check, letting anyone list any other user's followed
+    // stores just by knowing/guessing their user id.
+    const follows = await Follow.find({ customerId: sessionUser.id }).lean()
 
     if (!follows || follows.length === 0) {
       return NextResponse.json(

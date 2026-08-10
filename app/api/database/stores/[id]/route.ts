@@ -54,8 +54,6 @@ export async function GET(
         deliveryTime: '1-3 days',
         deliveryFee: 500,
         minimumOrder: 1000,
-        phone: vendor.phone || '',
-        email: vendor.email,
         isActive: true,
         accountStatus: 'active',
         createdAt: vendor.createdAt || new Date(),
@@ -104,17 +102,48 @@ export async function GET(
       }, { status: 404 })
     }
 
-    // Map store fields to match the /stores list endpoint
+    // Map store fields to match the /stores list endpoint — an explicit whitelist, not a
+    // spread of the raw document. This route is public/unauthenticated (storefront
+    // browsing), and the Store document also holds payout/banking fields (bankName,
+    // bankCode, accountNumber, accountName, walletBalance, linkedWalletUserId) plus the
+    // vendor's phone/email — a `...store` spread here previously leaked all of that to
+    // any caller. Only public storefront fields belong in this response.
     const mappedStore = {
-      ...store,
       id: store._id?.toString() || store.id,
+      publicSlug: store.publicSlug,
+      storeName: store.storeName,
       name: store.storeName,
+      storeDescription: store.storeDescription,
       description: store.storeDescription,
+      storeStory: store.storeStory,
+      accentColor: store.accentColor,
       logoImage: store.storeImage || store.profileImage || store.logo,
+      storeImage: store.storeImage,
+      profileImage: store.profileImage,
       bannerImage: store.profileImage || store.bannerImages?.[0] || store.storeBanner || store.storeImage,
+      bannerImages: store.bannerImages,
+      storeBanner: store.storeBanner,
+      backgroundImage: store.backgroundImage,
       location: store.address,
-      city: store.address?.split(',')[1]?.trim() || store.address,
-      // Add any other fields you want to be consistent
+      address: store.address,
+      city: store.city || store.address?.split(',')[1]?.trim() || store.address,
+      state: store.state || '',
+      category: store.category,
+      vendorId: store.vendorId,
+      isOpen: store.isOpen,
+      isActive: store.isActive,
+      deliveryTime: store.deliveryTime,
+      fulfillmentTime: store.fulfillmentTime,
+      deliveryFee: store.deliveryFee,
+      minimumOrder: store.minimumOrder,
+      reviewCount: store.reviewCount,
+      acceptReturns: store.acceptReturns,
+      acceptExchanges: store.acceptExchanges,
+      returnPolicy: store.returnPolicy,
+      shippingPolicy: store.shippingPolicy,
+      accountVerified: !!store.accountVerified,
+      createdAt: store.createdAt,
+      updatedAt: store.updatedAt,
     };
 
     console.log('Store found:', mappedStore)
