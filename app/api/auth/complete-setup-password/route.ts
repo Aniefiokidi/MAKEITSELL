@@ -107,6 +107,11 @@ export async function POST(request: NextRequest) {
         success: true,
         message: 'Password updated successfully',
         role: finalRole,
+        // Also returned in the body (not just the Set-Cookie header above) for clients
+        // with no cookie jar, e.g. the mobile app — an httpOnly cookie is invisible to
+        // them either way, and the old token they were holding is invalidated by the
+        // rotation above, so without this they'd be left with no way to stay signed in.
+        sessionToken: newSessionToken,
         user: {
           id: String(user._id),
           email: user.email,
