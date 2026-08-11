@@ -32,6 +32,7 @@ export default function ContactPage() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const { user } = useAuth()
 
   const tabTitle = useMemo(() => {
@@ -41,14 +42,22 @@ export default function ContactPage() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     setIsSubmitting(true)
+    setSubmitError(null)
     try {
-      await fetch("/api/contact", {
+      const response = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok || !result?.success) {
+        setSubmitError(result?.error || "Something went wrong sending your message. Please try again.")
+        return
+      }
       setSubmitted(true)
       setFormData({ name: "", email: "", subject: "", message: "" })
+    } catch {
+      setSubmitError("Something went wrong sending your message. Please try again.")
     } finally {
       setIsSubmitting(false)
     }
@@ -161,6 +170,9 @@ export default function ContactPage() {
                       <label htmlFor="message" className="block text-sm font-medium mb-2">Message *</label>
                       <Textarea id="message" name="message" value={formData.message} onChange={handleChange} required rows={5} placeholder="Tell us more..." />
                     </div>
+                    {submitError && (
+                      <p className="text-sm text-destructive">{submitError}</p>
+                    )}
                     <Button type="submit" className="w-full hover:bg-accent/80" disabled={isSubmitting}>
                       {isSubmitting ? "Sending..." : "Send Message"}
                     </Button>
