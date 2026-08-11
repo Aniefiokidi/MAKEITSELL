@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { getUserBySessionToken } from '@/lib/auth'
+import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { connectToDatabase } from '@/lib/mongodb'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { verifyTransfer } from '@/lib/paystack-transfer'
@@ -76,14 +75,7 @@ const pickTransferStatus = (tx: any) => {
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies()
-    const sessionToken = cookieStore.get('sessionToken')?.value
-
-    if (!sessionToken) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const currentUser = await getUserBySessionToken(sessionToken)
+    const currentUser = await getSessionUserFromRequest(request)
     if (!currentUser) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
