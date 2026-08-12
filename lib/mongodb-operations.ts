@@ -1118,6 +1118,18 @@ const getProductSort = (sortBy?: string): Record<string, 1 | -1> => {
 
 export const countProducts = async (filters?: any): Promise<number> => {
   await connectToDatabase();
+
+  // Must mirror getProducts()'s two-phase search exactly, or pagination.total ends up
+  // counting a different result set than the one actually returned in `data` (e.g. a
+  // $text match on "lip" for a "lip gloss" search returns items, but the plain regex
+  // count for the literal phrase comes back 0).
+  if (filters?.search) {
+    const textFilterQuery = buildProductQuery({ ...filters, search: undefined });
+    const textQuery = { ...textFilterQuery, $text: { $search: String(filters.search).trim() } };
+    const textCount = await ProductModel.countDocuments(textQuery).catch(() => 0);
+    if (textCount > 0) return textCount;
+  }
+
   const query = buildProductQuery(filters);
   return ProductModel.countDocuments(query);
 };
