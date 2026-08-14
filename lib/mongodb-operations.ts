@@ -713,7 +713,16 @@ export const getProductById = async (id: string) => {
   const product = await ProductModel.findById(id).lean();
   if (!product) return null;
   const { _id, ...rest } = product as any;
-  return { ...rest, id: _id.toString() };
+  // Same vendorName-vs-storeName distinction as getProducts() above — vendorName is
+  // the vendor's personal account name, not their store's business name.
+  const store = rest.storeId
+    ? await StoreModel.findById(rest.storeId, { storeName: 1 }).lean().catch(() => null)
+    : null;
+  return {
+    ...rest,
+    id: _id.toString(),
+    storeName: (store as any)?.storeName || rest.vendorName,
+  };
 };
 
 export const createService = async (serviceData: any): Promise<any> => {
@@ -1147,6 +1156,24 @@ export const getProducts = async (filters?: any): Promise<Product[]> => {
     name: p.name || p.title || '',
   });
 
+  // `vendorName` on a product is the vendor's own account name (e.g. "Azuara Lotachi
+  // Vanessa"), not their store's business name ("Lotus Hair") — and `storeName` is
+  // never actually populated on product documents, so every caller reading it falls
+  // straight through to the personal name. Look the real name up via `storeId` (which
+  // *is* reliably set) with a single batched query, not a lookup per product.
+  const withStoreNames = async (mapped: any[]) => {
+    const storeIds = [...new Set(mapped.map((p) => p.storeId).filter(Boolean))];
+    if (storeIds.length === 0) return mapped;
+    const stores = await StoreModel.find({ _id: { $in: storeIds } }, { storeName: 1 })
+      .lean()
+      .catch(() => []);
+    const nameByStoreId = new Map(stores.map((s: any) => [String(s._id), s.storeName]));
+    return mapped.map((p) => ({
+      ...p,
+      storeName: (p.storeId && nameByStoreId.get(String(p.storeId))) || p.vendorName,
+    }));
+  };
+
   // Relevance-ranked text search first (stemmed, weighted by field) — falls back to the
   // plain substring/regex path below if it comes back empty, which covers partial-word
   // prefixes a $text index can't match (e.g. typing "sho" while aiming for "shoe").
@@ -1159,7 +1186,7 @@ export const getProducts = async (filters?: any): Promise<Product[]> => {
     if (hasSkip) textDbQuery = textDbQuery.skip(skipCount);
     if (hasLimit) textDbQuery = textDbQuery.limit(limitCount);
     const textResults = await textDbQuery.lean().catch(() => []);
-    if (textResults.length > 0) return textResults.map(mapProduct);
+    if (textResults.length > 0) return withStoreNames(textResults.map(mapProduct));
   }
 
   const query = buildProductQuery(filters);
@@ -1168,7 +1195,7 @@ export const getProducts = async (filters?: any): Promise<Product[]> => {
   if (hasLimit) dbQuery = dbQuery.limit(limitCount);
 
   const products = await dbQuery.lean();
-  return products.map(mapProduct);
+  return withStoreNames(products.map(mapProduct));
 };
 
 export const updateProduct = async (id: string, data: any) => {
