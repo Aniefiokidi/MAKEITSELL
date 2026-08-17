@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { getUserBySessionToken } from '@/lib/auth'
+import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { connectToDatabase } from '@/lib/mongodb'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { User } from '@/lib/models/User'
@@ -76,14 +75,7 @@ const pickTransferStatus = (tx: any) => {
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies()
-    const sessionToken = cookieStore.get('sessionToken')?.value
-
-    if (!sessionToken) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const currentUser = await getUserBySessionToken(sessionToken)
+    const currentUser = await getSessionUserFromRequest(request)
     if (!currentUser) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
@@ -266,12 +258,13 @@ export async function GET(request: NextRequest) {
       .limit(20)
       .lean()
 
-    const userBalance = typeof currentUser.walletBalance === 'number' ? currentUser.walletBalance : 0
-
-    // Fetch sub-balances for breakdown display
+    // Fetch balance + sub-balances for breakdown display. getSessionUserFromRequest's
+    // SessionUser doesn't carry walletBalance (it's a slim {id,email,name,role} shape
+    // shared across every route), so this is now the only source for all of them.
     const userDoc = await User.findById(currentUser.id)
-      .select('earnedBalance depositedBalance prizeBalance')
+      .select('walletBalance earnedBalance depositedBalance prizeBalance')
       .lean() as any
+    const userBalance = typeof userDoc?.walletBalance === 'number' ? userDoc.walletBalance : 0
     const earnedBalance = typeof userDoc?.earnedBalance === 'number' ? userDoc.earnedBalance : 0
     const depositedBalance = typeof userDoc?.depositedBalance === 'number' ? userDoc.depositedBalance : 0
     const prizeBalance = typeof userDoc?.prizeBalance === 'number' ? userDoc.prizeBalance : 0
