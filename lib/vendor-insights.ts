@@ -4,9 +4,11 @@ import { VendorPromoTrigger } from '@/lib/models/VendorPromoTrigger'
 type OrderLike = {
   customerId?: string
   createdAt?: string | Date
-  vendors?: Array<{ vendorId?: string; total?: number }>
+  vendors?: Array<{ vendorId?: string; total?: number; status?: string }>
   vendorId?: string
   total?: number
+  status?: string
+  paymentStatus?: string
 }
 
 type ProductLike = {
@@ -21,12 +23,22 @@ type ProductLike = {
   category?: string
 }
 
+// A cancelled leg or an order whose payment never settled (still pending, failed to
+// capture, or later refunded) isn't a real sale — counting it here would inflate
+// customer segments (and, via getVendorAnalytics's own copy of this same check,
+// revenue/order totals) with money the vendor never actually received.
+const NON_REVENUE_PAYMENT_STATUSES = new Set(['pending', 'failed', 'refunded'])
+
 function vendorOrderTotal(order: OrderLike, vendorId: string): number {
+  if (NON_REVENUE_PAYMENT_STATUSES.has(String(order.paymentStatus || '').toLowerCase())) return 0
   if (Array.isArray(order.vendors)) {
     const vendorLine = order.vendors.find((line) => line?.vendorId === vendorId)
+    if (!vendorLine) return 0
+    if (String(vendorLine.status || '').toLowerCase() === 'cancelled') return 0
     return Number(vendorLine?.total || 0)
   }
   if (order.vendorId === vendorId) {
+    if (String(order.status || '').toLowerCase() === 'cancelled') return 0
     return Number(order.total || 0)
   }
   return 0

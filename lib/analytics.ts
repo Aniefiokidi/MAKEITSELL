@@ -4,6 +4,8 @@ import { buildCustomerSegments } from "./vendor-insights";
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+const LAGOS_OFFSET_MS = 60 * 60 * 1000; // WAT is a fixed UTC+1, no DST
+
 // Nigeria (WAT) is a fixed UTC+1 with no DST, so this is computed directly from the UTC
 // fields rather than trusting the server process's local timezone (Vercel runs UTC) — a
 // plain getHours()/getDay() would silently misbucket every order by an hour.
@@ -14,6 +16,40 @@ function getLagosDayAndHour(date: Date): { day: number; hour: number } {
   const lagosDate = new Date(date.getTime());
   lagosDate.setUTCDate(lagosDate.getUTCDate() + dayRollover);
   return { day: lagosDate.getUTCDay(), hour };
+}
+
+// Same reasoning as getLagosDayAndHour, applied to calendar-month/week boundaries
+// instead of a single day/hour: computing "start of month" from the server's own UTC
+// clock would misfile any order placed in WAT's last hour of a month/week into the
+// wrong bucket relative to what the vendor (in Lagos) actually experiences as "this
+// month". Returns the UTC instant of 00:00:00 WAT on the 1st of the Lagos-calendar
+// month `monthOffset` months from `date` (0 = this month, -1 = last month).
+function startOfLagosMonth(date: Date, monthOffset = 0): Date {
+  const lagosNow = new Date(date.getTime() + LAGOS_OFFSET_MS);
+  return new Date(Date.UTC(lagosNow.getUTCFullYear(), lagosNow.getUTCMonth() + monthOffset, 1) - LAGOS_OFFSET_MS);
+}
+
+// Same idea for the start of the current Lagos-calendar week (Sunday 00:00 WAT).
+function startOfLagosWeek(date: Date): Date {
+  const lagosNow = new Date(date.getTime() + LAGOS_OFFSET_MS);
+  const lagosDay = lagosNow.getUTCDay();
+  return new Date(
+    Date.UTC(lagosNow.getUTCFullYear(), lagosNow.getUTCMonth(), lagosNow.getUTCDate() - lagosDay) - LAGOS_OFFSET_MS
+  );
+}
+
+// A cancelled vendor leg, or an order whose payment never actually settled (still
+// pending, failed to capture, or later refunded), isn't real revenue — 'disputed' and
+// 'escrow'/'released' still count since the payment itself was captured and hasn't been
+// reversed. Without this, a cancelled or unpaid order's total was being counted as if
+// it were a completed sale everywhere below (totals, trends, day/hour buckets, "recent
+// orders").
+const NON_REVENUE_PAYMENT_STATUSES = new Set(['pending', 'failed', 'refunded']);
+
+function isSettledVendorSale(order: any, vendorLegStatus: string | undefined): boolean {
+  if (NON_REVENUE_PAYMENT_STATUSES.has(String(order.paymentStatus || '').toLowerCase())) return false;
+  if (String(vendorLegStatus || '').toLowerCase() === 'cancelled') return false;
+  return true;
 }
 
 function formatHourRange(hour: number): string {
@@ -30,22 +66,24 @@ export async function getVendorAnalytics(vendorId: string) {
   const orders = await getOrdersByVendor(vendorId);
   const products = await getVendorProducts(vendorId);
 
-  // Dates for analytics
+  // Dates for analytics — Lagos-calendar boundaries, not the server's own UTC clock.
   const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-  const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
+  const startOfMonth = startOfLagosMonth(now, 0);
+  const startOfLastMonth = startOfLagosMonth(now, -1);
+  const startOfWeek = startOfLagosWeek(now);
 
-  // Helper to get vendor's portion of an order
+  // Helper to get vendor's portion of an order — 0 for anything that isn't a real,
+  // settled sale (see isSettledVendorSale above), not just a missing vendor line.
   function getVendorOrderTotal(order: any) {
     if (Array.isArray(order.vendors)) {
       const vendorObj = order.vendors.find((v: any) => v.vendorId === vendorId);
-      return vendorObj ? vendorObj.total || 0 : 0;
+      if (!vendorObj) return 0;
+      if (!isSettledVendorSale(order, vendorObj.status)) return 0;
+      return vendorObj.total || 0;
     }
     // Fallback for legacy single-vendor orders
     if (order.vendorId === vendorId && typeof order.total === 'number') {
+      if (!isSettledVendorSale(order, order.status)) return 0;
       return order.total;
     }
     return 0;
@@ -138,7 +176,10 @@ export async function getVendorAnalytics(vendorId: string) {
     productsChange,
     avgOrderValueChange,
     newProductsThisWeek,
-    recentOrders: orders.slice(-5).reverse(),
+    // orders is already sorted newest-first by getOrdersByVendor; slice(-5) here used to
+    // grab the 5 OLDEST orders instead. Sourced from vendorOrders (not the raw list) so
+    // a cancelled/unpaid order's total doesn't show up looking like a real sale.
+    recentOrders: vendorOrders.slice(0, 5),
     topProducts,
     bestSellingProduct,
     salesByDay,
