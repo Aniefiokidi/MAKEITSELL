@@ -113,8 +113,14 @@ function connectWithUri(uri: string) {
   return mongoose.connect(uri, {
     bufferCommands: false,
     serverSelectionTimeoutMS: 10000,
-    maxPoolSize: 30,
-    minPoolSize: 5,
+    // Each Vercel serverless function instance gets its own connection pool (this cache
+    // is per-instance, not shared across the fleet) — under real traffic, Vercel can run
+    // many instances concurrently, so maxPoolSize multiplies by instance count. At 30/5
+    // it takes only ~15-17 concurrent instances to hit the M0 tier's hard 500-connection
+    // cap, which is exactly what triggered the Atlas connection-limit alert. Kept small
+    // here so the fleet-wide ceiling stays well under that regardless of scale.
+    maxPoolSize: 5,
+    minPoolSize: 0,
     maxIdleTimeMS: 30000,
   });
 }
