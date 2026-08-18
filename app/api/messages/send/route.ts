@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server';
 import { getSessionUserFromRequest } from '@/lib/server-route-auth';
 import connectToDatabase from '@/lib/mongodb';
 import ConversationModel from '@/lib/models/Conversation';
+import { UserBlock } from '@/lib/models/UserBlock';
 
 export async function POST(req: NextRequest) {
   try {
@@ -37,12 +38,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    const receiverId = isProvider ? String(conversation.customerId) : String(conversation.providerId)
+
+    // Blocked in either direction — the receiver blocked this sender, or the sender
+    // previously blocked the receiver (blocking someone should also stop you messaging
+    // them, not just stop them messaging you). Required for App Store Guideline 1.2.
+    const blockExists = await UserBlock.exists({
+      $or: [
+        { blockerId: receiverId, blockedUserId: senderId },
+        { blockerId: senderId, blockedUserId: receiverId },
+      ],
+    })
+    if (blockExists) {
+      return NextResponse.json({ error: 'You can no longer message this user.' }, { status: 403 })
+    }
+
     const payload = {
       conversationId: body.conversationId,
       senderId,
       senderName,
       senderRole,
-      receiverId: isProvider ? String(conversation.customerId) : String(conversation.providerId),
+      receiverId,
       receiverName: isProvider ? String(conversation.customerName || '') : String(conversation.providerName || ''),
       message: String(body.message),
       read: false,
