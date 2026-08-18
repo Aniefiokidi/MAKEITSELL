@@ -121,10 +121,31 @@ export async function getVendorAnalytics(vendorId: string) {
   const avgOrderValueLastMonth = vendorOrdersLastMonth.length > 0 ? revenueLastMonth / vendorOrdersLastMonth.length : 0;
   const avgOrderValueChange = avgOrderValueLastMonth === 0 ? null : ((avgOrderValueThisMonth - avgOrderValueLastMonth) / avgOrderValueLastMonth) * 100;
 
-  // Real best-sellers — sorted by actual units sold, not insertion order
-  const rankedProducts = [...products].sort((a: any, b: any) => Number(b.sales || 0) - Number(a.sales || 0));
+  // Real best-sellers — units actually sold in settled orders, not Product.sales. That
+  // counter is only ever incremented on payment confirmation and never decremented on a
+  // later cancellation/refund (a sitewide gap that also affects trending/search, out of
+  // scope to change there), so a refunded order's units stayed counted forever — a
+  // vendor whose only "sales" were later refunded would show as their own best-seller.
+  // Recomputed here from the same settled vendorOrders set that drives revenue above.
+  const unitsSoldByProduct = new Map<string, number>();
+  for (const order of vendorOrders) {
+    const items: any[] = Array.isArray((order as any).vendors)
+      ? ((order as any).vendors.find((v: any) => v.vendorId === vendorId)?.items || [])
+      : Array.isArray((order as any).items)
+      ? (order as any).items.filter((it: any) => it.vendorId === vendorId)
+      : [];
+    for (const item of items) {
+      const productId = String(item.productId || '');
+      if (!productId) continue;
+      unitsSoldByProduct.set(productId, (unitsSoldByProduct.get(productId) || 0) + Number(item.quantity || 0));
+    }
+  }
+
+  const rankedProducts = [...products]
+    .map((p: any) => ({ ...p, sales: unitsSoldByProduct.get(String(p.id || p._id || '')) || 0 }))
+    .sort((a: any, b: any) => b.sales - a.sales);
   const topProducts = rankedProducts.slice(0, 5);
-  const bestSellingProduct = rankedProducts.length > 0 && Number(rankedProducts[0].sales || 0) > 0
+  const bestSellingProduct = rankedProducts.length > 0 && rankedProducts[0].sales > 0
     ? rankedProducts[0]
     : null;
 
