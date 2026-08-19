@@ -43,6 +43,7 @@ export default function ServiceDetailPage() {
   const [showBookingModal, setShowBookingModal] = useState(false)
   const [showNegotiationModal, setShowNegotiationModal] = useState(false)
   const [negotiatedPrice, setNegotiatedPrice] = useState<number | undefined>(undefined)
+  const [negotiatedPriceId, setNegotiatedPriceId] = useState<string | undefined>(undefined)
   const [selectedImage, setSelectedImage] = useState(0)
   const [showMessageModal, setShowMessageModal] = useState(false)
   const [quickMessage, setQuickMessage] = useState("")
@@ -1223,6 +1224,7 @@ export default function ServiceDetailPage() {
           isOpen={showBookingModal}
           onClose={() => setShowBookingModal(false)}
           overridePrice={negotiatedPrice}
+          negotiationId={negotiatedPriceId}
         />
       )}
 
@@ -1233,8 +1235,9 @@ export default function ServiceDetailPage() {
           basePrice={Number(service.price || 0)}
           open={showNegotiationModal}
           onClose={() => setShowNegotiationModal(false)}
-          onProceedToBooking={(agreedPrice) => {
+          onProceedToBooking={(agreedPrice, negotiationId) => {
             setNegotiatedPrice(agreedPrice)
+            setNegotiatedPriceId(negotiationId)
             setShowNegotiationModal(false)
             setShowBookingModal(true)
           }}

@@ -38,6 +38,17 @@ function startOfLagosWeek(date: Date): Date {
   );
 }
 
+// Same idea for the start of the current Lagos-calendar day (00:00 WAT) — used by
+// getVendorSalesSummary's 'today' period. getVendorAnalytics below has no literal "today"
+// figure (its salesByDay/salesByHour are all-time day-of-week/hour-of-day buckets, not
+// calendar-today), so this is a separate boundary, not reused from there.
+function startOfLagosDay(date: Date): Date {
+  const lagosNow = new Date(date.getTime() + LAGOS_OFFSET_MS);
+  return new Date(
+    Date.UTC(lagosNow.getUTCFullYear(), lagosNow.getUTCMonth(), lagosNow.getUTCDate()) - LAGOS_OFFSET_MS
+  );
+}
+
 // A cancelled vendor leg, or an order whose payment never actually settled (still
 // pending, failed to capture, or later refunded), isn't real revenue — 'disputed' and
 // 'escrow'/'released' still count since the payment itself was captured and hasn't been
@@ -59,6 +70,39 @@ function formatHourRange(hour: number): string {
     return `${displayHour}${period}`;
   };
   return `${to12h(hour)}–${to12h((hour + 1) % 24)}`;
+}
+
+// Lightweight "sales today" / "sales this week" figure for the WhatsApp bot's `sales`
+// command (lib/whatsapp/commands.ts) — deliberately its own small function rather than a
+// slice of getVendorAnalytics below, since that function has no literal "today" figure to
+// reuse (see startOfLagosDay's comment). getVendorOrderTotal is duplicated here rather
+// than extracted from getVendorAnalytics's closure — it's ~10 lines, tied to a single
+// vendorId, and extracting it would mean touching that already-working function for a
+// single new caller.
+export async function getVendorSalesSummary(vendorId: string, period: 'today' | 'week') {
+  const orders = await getOrdersByVendor(vendorId);
+  const now = new Date();
+  const periodStart = period === 'today' ? startOfLagosDay(now) : startOfLagosWeek(now);
+
+  function getVendorOrderTotal(order: any): number {
+    if (Array.isArray(order.vendors)) {
+      const vendorObj = order.vendors.find((v: any) => v.vendorId === vendorId);
+      if (!vendorObj) return 0;
+      if (!isSettledVendorSale(order, vendorObj.status)) return 0;
+      return vendorObj.total || 0;
+    }
+    if (order.vendorId === vendorId && typeof order.total === 'number') {
+      if (!isSettledVendorSale(order, order.status)) return 0;
+      return order.total;
+    }
+    return 0;
+  }
+
+  const periodOrders = orders.filter((o: any) => o.createdAt && new Date(o.createdAt) >= periodStart);
+  const settledOrders = periodOrders.filter((o: any) => getVendorOrderTotal(o) > 0);
+  const revenue = settledOrders.reduce((sum: number, o: any) => sum + getVendorOrderTotal(o), 0);
+
+  return { period, revenue, orderCount: settledOrders.length };
 }
 
 export async function getVendorAnalytics(vendorId: string) {

@@ -3,31 +3,9 @@ import { cookies } from 'next/headers'
 import { getUserBySessionToken } from '@/lib/auth'
 import { connectToDatabase } from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
+import { calcWithdrawalBreakdown } from '@/lib/vendor-withdrawal'
 
-export function calcWithdrawalBreakdown(
-  amount: number,
-  earnedBalance: number,
-  depositedBalance: number,
-  prizeBalance: number
-) {
-  const withdrawFromDeposited = Math.min(depositedBalance, amount)
-  let remaining = amount - withdrawFromDeposited
-
-  const withdrawFromPrize = Math.min(prizeBalance, remaining)
-  remaining = remaining - withdrawFromPrize
-
-  const withdrawFromEarned = remaining
-  const commission = Math.round(withdrawFromEarned * 0.05 * 100) / 100
-  const vendorReceives = Math.round((amount - commission) * 100) / 100
-
-  return {
-    withdrawFromDeposited,
-    withdrawFromPrize,
-    withdrawFromEarned,
-    commission,
-    vendorReceives,
-  }
-}
+export { calcWithdrawalBreakdown }
 
 export async function GET(request: NextRequest) {
   try {

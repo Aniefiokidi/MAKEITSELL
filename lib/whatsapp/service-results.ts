@@ -87,6 +87,8 @@ function buildServiceCaption(service: any, storeName?: string): string {
 
   if (requiresQuote) {
     lines.push('', 'Final price is confirmed by the provider after booking.')
+  } else {
+    lines.push('', 'Reply "offer <amount>" to negotiate the price, or reply to book.')
   }
 
   return lines.join('\n')

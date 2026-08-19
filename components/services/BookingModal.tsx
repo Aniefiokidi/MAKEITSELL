@@ -34,9 +34,10 @@ interface BookingModalProps {
   isOpen: boolean
   onClose: () => void
   overridePrice?: number
+  negotiationId?: string
 }
 
-export default function BookingModal({ service, selectedPackage, selectedAddOns = [], isOpen, onClose, overridePrice }: BookingModalProps) {
+export default function BookingModal({ service, selectedPackage, selectedAddOns = [], isOpen, onClose, overridePrice, negotiationId }: BookingModalProps) {
   const { user, userProfile } = useAuth()
   const { toast } = useToast()
   const notification = useNotification()
@@ -342,6 +343,9 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
 
       const bookingData = {
         serviceId: service.id!,
+        // Server-validated in initiateBookingPayment (lib/booking-payment.ts): when present,
+        // the booking's price is taken FROM this negotiation, not from totalPrice below.
+        negotiationId,
         selectedPackageId: selectedPackage?.id,
         selectedPackageName: selectedPackage?.name,
         selectedAddOns,

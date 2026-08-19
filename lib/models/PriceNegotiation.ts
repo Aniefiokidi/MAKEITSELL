@@ -24,6 +24,11 @@ export interface IPriceNegotiation extends Document {
   status: 'open' | 'agreed' | 'rejected' | 'expired'
   agreedPrice: number | null
   messages: INegotiationMessage[]
+  // Closes the pre-existing trust gap where an agreed negotiation could back more than one
+  // booking, or a client-submitted price could go unchecked against any real negotiation at
+  // all (see lib/booking-payment.ts's initiateBookingPayment). null = unclaimed, 'pending' =
+  // claimed mid-booking-creation, otherwise the real booking id it was consumed by.
+  consumedByBookingId: string | null
   expiresAt: Date
   createdAt: Date
   updatedAt: Date
@@ -62,6 +67,7 @@ const PriceNegotiationSchema = new Schema<IPriceNegotiation>(
     },
     agreedPrice: { type: Number, default: null },
     messages: { type: [MessageSchema], default: [] },
+    consumedByBookingId: { type: String, default: null, index: true },
     expiresAt: { type: Date, required: true, index: true },
   },
   { timestamps: true }

@@ -5,6 +5,7 @@ import { Booking as BookingModel } from "@/lib/models/Booking"
 import { User as UserModel } from "@/lib/models/User"
 import { AppointmentEmailService } from "@/lib/appointment-emails"
 import { pushToUser } from "@/lib/push-notifications"
+import { resolveBuyerWaId, resolveVendorWaId, sendWaNotification } from "@/lib/whatsapp/notify"
 
 function buildStartDateTime(bookingDate: Date, startTime: string): Date {
   const [hh, mm] = String(startTime || "09:00").split(":").map(Number)
@@ -71,7 +72,8 @@ export async function POST(request: NextRequest) {
 
       // ── 24-hour reminder (22 – 26 hours before) ─────────────────────────────
       if (!booking.reminderSent24h && hoursUntil >= 22 && hoursUntil <= 26) {
-        const pushBody = `${serviceTitle} is tomorrow at ${booking.startTime}`
+        const timingLabel = `tomorrow at ${booking.startTime}`
+        const pushBody = `${serviceTitle} is ${timingLabel}`
 
         await Promise.allSettled([
           pushToUser(String(booking.customerId), {
@@ -94,6 +96,22 @@ export async function POST(request: NextRequest) {
                 providerEmail,
                 timing: "day-before",
               })
+            : Promise.resolve(),
+          resolveBuyerWaId(String(booking.customerId)).then((waId) =>
+            sendWaNotification({
+              waId,
+              freeTextBody: `Reminder: ${serviceTitle} is ${timingLabel}.`,
+              template: { name: "buyer_booking_reminder", params: [serviceTitle, timingLabel] },
+            })
+          ),
+          booking.providerId
+            ? resolveVendorWaId(String(booking.providerId)).then((waId) =>
+                sendWaNotification({
+                  waId,
+                  freeTextBody: `Reminder: ${customerName} — ${serviceTitle} ${timingLabel}.`,
+                  template: { name: "provider_booking_reminder", params: [customerName, serviceTitle, timingLabel] },
+                })
+              )
             : Promise.resolve(),
         ])
 
@@ -130,6 +148,22 @@ export async function POST(request: NextRequest) {
                 providerEmail,
                 timing: "day-of",
               })
+            : Promise.resolve(),
+          resolveBuyerWaId(String(booking.customerId)).then((waId) =>
+            sendWaNotification({
+              waId,
+              freeTextBody: `Reminder: ${serviceTitle} starts ${hoursLabel}.`,
+              template: { name: "buyer_booking_reminder", params: [serviceTitle, hoursLabel] },
+            })
+          ),
+          booking.providerId
+            ? resolveVendorWaId(String(booking.providerId)).then((waId) =>
+                sendWaNotification({
+                  waId,
+                  freeTextBody: `Reminder: ${customerName} — ${serviceTitle} starts ${hoursLabel}.`,
+                  template: { name: "provider_booking_reminder", params: [customerName, serviceTitle, hoursLabel] },
+                })
+              )
             : Promise.resolve(),
         ])
 

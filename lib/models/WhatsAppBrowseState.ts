@@ -94,6 +94,11 @@ const WhatsAppBrowseStateSchema = new Schema({
   // pendingOrderId above, for lib/whatsapp/service-booking.ts's booking flow.
   pendingBookingId: { type: String },
 
+  // Re-fire guard for app/api/admin/whatsapp-cart-recovery-job — mirrors Cart.recoveryEmailSentAt's
+  // "skip if we already nudged for this exact cart state" semantics (compared against
+  // updatedAt, not a fixed TTL, so a cart touched again after a nudge gets a fresh one).
+  cartRecoverySentAt: { type: Date, default: null },
+
   updatedAt: { type: Date, default: Date.now },
 });
 

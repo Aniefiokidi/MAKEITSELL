@@ -87,13 +87,23 @@ export async function handleServiceReply(waId: string, contextMessageId: string,
     return true
   }
 
+  await beginPackageSelection(waId, service, { serviceId: String(service.id || mapping.serviceId) })
+  return true
+}
+
+// Package/add-on-prompt entry, shared by handleServiceReply above (plain booking) and
+// startBookingWithOverride below (Phase S4 Part B — booking from an agreed pre-booking
+// negotiation). `extra` seeds the draft before the package/slot arithmetic runs; the only
+// fields startBookingWithOverride adds are negotiationId/negotiatedTotalPrice, which
+// handleSlotSelection and handleBookingConfirmation below both know to look for.
+async function beginPackageSelection(waId: string, service: any, extra: Record<string, any> = {}): Promise<void> {
   // normalizeServicePricing() (lib/mongodb-operations.ts) guarantees packageOptions is
   // never empty — at minimum a single fallback package synthesized from the flat price.
   const packages = (Array.isArray(service.packageOptions) ? service.packageOptions : []).filter((p: any) => p?.active !== false)
   const addOns = (Array.isArray(service.addOnOptions) ? service.addOnOptions : []).filter((a: any) => a?.active !== false)
 
   const draft: Record<string, any> = {
-    serviceId: String(service.id || mapping.serviceId),
+    serviceId: String(service.id || service._id),
     providerId: service.providerId,
     providerName: service.providerName,
     serviceTitle: service.title,
@@ -103,12 +113,13 @@ export async function handleServiceReply(waId: string, contextMessageId: string,
     // from under a buyer already partway through selecting.
     packageOptions: packages,
     addOnOptions: addOns,
+    ...extra,
   }
 
   if (packages.length > 1) {
     await saveState(waId, { stage: 'choosing_service_package', bookingDraft: draft })
     await sendPackagePrompt(waId, packages)
-    return true
+    return
   }
 
   // Only one package (the common case — most services in this catalog have no explicit
@@ -122,12 +133,21 @@ export async function handleServiceReply(waId: string, contextMessageId: string,
   if (addOns.length > 0) {
     await saveState(waId, { stage: 'choosing_service_addons', bookingDraft: draft })
     await sendAddOnPrompt(waId, addOns, draft.selectedPackagePrice)
-    return true
+    return
   }
 
   await saveState(waId, { stage: 'choosing_booking_slot', bookingDraft: { ...draft, selectedAddOns: [] } })
   await sendSlotPrompt(waId, draft.serviceTitle)
-  return true
+}
+
+// Phase S4 Part B — entry from lib/whatsapp/service-negotiation.ts's "book <ref>" once a
+// pre-booking negotiation is agreed. Package/add-on selection still runs (a negotiation
+// agrees a TOTAL price, not which package/add-ons make it up — same as
+// components/services/BookingModal.tsx's overridePrice on web, which still shows the
+// picker), but the total charged is the negotiated one, not the package+add-on arithmetic
+// — see handleSlotSelection's negotiatedTotalPrice branch below.
+export async function startBookingWithOverride(waId: string, service: any, negotiationId: string, negotiatedTotalPrice: number): Promise<void> {
+  await beginPackageSelection(waId, service, { negotiationId, negotiatedTotalPrice })
 }
 
 // ---------------------------------------------------------------------------
@@ -266,10 +286,17 @@ async function handleSlotSelection(waId: string, text: string, draft: Record<str
     return
   }
 
+  // Phase S4 Part B: a booking started from an agreed pre-booking negotiation
+  // (startBookingWithOverride) charges the negotiated total verbatim, not the
+  // package+add-on arithmetic — package/add-ons are still picked for scheduling purposes,
+  // but the price was already agreed. lib/booking-payment.ts's initiateBookingPayment
+  // re-validates this against the negotiation server-side; nothing here is trusted blindly.
   const basePrice = Number(draft.selectedPackagePrice || 0)
   const addOnTotal = (Array.isArray(draft.selectedAddOns) ? draft.selectedAddOns : [])
     .reduce((sum: number, a: any) => sum + addOnAmount(a, basePrice), 0)
-  const totalPrice = Math.max(0, Math.round(basePrice + addOnTotal))
+  const totalPrice = draft.negotiatedTotalPrice != null
+    ? Math.max(0, Math.round(Number(draft.negotiatedTotalPrice)))
+    : Math.max(0, Math.round(basePrice + addOnTotal))
 
   const nextDraft: Record<string, any> = { ...draft, bookingDate: bookingDate.toISOString(), startTime, endTime, duration, totalPrice }
   await saveState(waId, { stage: 'confirming_booking', bookingDraft: nextDraft })
@@ -299,7 +326,7 @@ async function sendConfirmationPrompt(waId: string, draft: Record<string, any>):
       `${draft.serviceTitle}`,
       `${draft.selectedPackageName} — ${dateLabel}, ${draft.startTime}`,
       addOnNames.length > 0 ? `Add-ons: ${addOnNames.join(', ')}` : null,
-      `Total: ${formatNaira(draft.totalPrice)}`,
+      `${draft.negotiationId ? 'Negotiated total' : 'Total'}: ${formatNaira(draft.totalPrice)}`,
       '',
       `Pay now: ${formatNaira(amountDueNow)} (${formatNaira(depositAmount)} deposit + ${formatNaira(bookingFeeAmount)} booking fee)`,
       `Balance of ${formatNaira(balanceOwed)} is paid directly to the provider at the appointment.`,
@@ -347,6 +374,10 @@ async function handleBookingConfirmation(waId: string, text: string, draft: Reco
       requiresQuote: false,
       locationType: draft.locationType,
       location: draft.location,
+      // Phase S4 Part B: when present, lib/booking-payment.ts's initiateBookingPayment
+      // claims and validates this negotiation server-side and overwrites totalPrice/
+      // finalPrice from its agreedPrice — the draft.totalPrice above is a preview only.
+      negotiationId: draft.negotiationId,
     },
   })
 

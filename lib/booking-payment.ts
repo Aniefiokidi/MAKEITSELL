@@ -15,11 +15,51 @@
 // a quote (Phase S3's territory, not this one).
 import connectToDatabase from '@/lib/mongodb'
 import { Booking } from '@/lib/models/Booking'
+import { PriceNegotiation } from '@/lib/models/PriceNegotiation'
 import { createBooking } from '@/lib/mongodb-operations'
 import { findBookingSlotConflict } from '@/lib/booking-availability'
 import { paystackService } from '@/lib/payment'
 import { calculatePaystackCheckoutAmounts } from '@/lib/paystack-charges'
 import { computeBookingDeposit } from '@/lib/booking-pricing'
+
+// Phase S4 trust-gap fix: an `agreed` PriceNegotiation (lib/models/PriceNegotiation.ts —
+// pre-booking price haggling on a requiresQuote:false service) previously had no
+// server-side link to the booking it was meant to back — a client could submit any
+// totalPrice it wanted, and the same agreed negotiation could back more than one booking,
+// since nothing ever marked it consumed. Claims it atomically before creating anything;
+// callers that pass `negotiationId` get the price FROM the negotiation, never from their
+// own submitted totalPrice/finalPrice.
+async function claimNegotiation(
+  negotiationId: string,
+  serviceId: string,
+  customerId: string
+): Promise<{ success: true; agreedPrice: number } | { success: false; error: string }> {
+  const claimed: any = await PriceNegotiation.findOneAndUpdate(
+    { _id: negotiationId, status: 'agreed', consumedByBookingId: null, serviceId, customerId },
+    { $set: { consumedByBookingId: 'pending' } },
+    { new: true }
+  ).lean()
+
+  if (!claimed) {
+    return { success: false, error: 'This negotiated price is no longer valid — it may already be used, expired, or was never agreed.' }
+  }
+
+  const agreedPrice = Number(claimed.agreedPrice)
+  if (!Number.isFinite(agreedPrice) || agreedPrice <= 0) {
+    await releaseNegotiationClaim(negotiationId)
+    return { success: false, error: 'The negotiated price on that offer is invalid.' }
+  }
+
+  return { success: true, agreedPrice }
+}
+
+async function releaseNegotiationClaim(negotiationId: string): Promise<void> {
+  await PriceNegotiation.updateOne({ _id: negotiationId, consumedByBookingId: 'pending' }, { $set: { consumedByBookingId: null } })
+}
+
+async function finalizeNegotiationClaim(negotiationId: string, bookingId: string): Promise<void> {
+  await PriceNegotiation.updateOne({ _id: negotiationId, consumedByBookingId: 'pending' }, { $set: { consumedByBookingId: bookingId } })
+}
 
 export { computeBookingDeposit } from '@/lib/booking-pricing'
 
@@ -160,8 +200,22 @@ export async function initiateBookingPayment(
     return { success: true, requiresPayment: false, bookingId: booking.id }
   }
 
-  const totalPrice = Number(bookingData?.totalPrice) || 0
+  // Phase S4 Part B handoff: when a booking is created from an agreed pre-booking
+  // negotiation, the price comes FROM the negotiation, not from whatever totalPrice the
+  // caller sent — see claimNegotiation's header comment for why.
+  const negotiationId = String(bookingData?.negotiationId || '').trim()
+  let claimedAgreedPrice: number | null = null
+  if (negotiationId) {
+    const claim = await claimNegotiation(negotiationId, String(bookingData?.serviceId || ''), String(bookingData?.customerId || ''))
+    if (!claim.success) {
+      return { success: false, error: claim.error, status: 409 }
+    }
+    claimedAgreedPrice = claim.agreedPrice
+  }
+
+  const totalPrice = negotiationId ? Number(claimedAgreedPrice) : Number(bookingData?.totalPrice) || 0
   if (totalPrice <= 0) {
+    if (negotiationId) await releaseNegotiationClaim(negotiationId)
     return { success: false, error: 'Invalid booking total', status: 400 }
   }
 
@@ -180,11 +234,17 @@ export async function initiateBookingPayment(
     status: 'pending',
     paymentStatus: 'pending',
     paymentMethod: 'paystack',
+    // Explicit, not just spread from bookingData — when negotiationId is present these
+    // MUST come from the claimed negotiation, not whatever the client submitted.
+    totalPrice,
+    finalPrice: totalPrice,
     depositAmount,
     bookingFeeAmount,
     bookingFeeStatus: 'pending',
     balanceOwed,
   })
+
+  if (negotiationId) await finalizeNegotiationClaim(negotiationId, booking.id)
 
   const charge = await chargeBookingDeposit({
     bookingId: booking.id,
@@ -203,6 +263,7 @@ export async function initiateBookingPayment(
     // Payment couldn't be initialized — don't leave a phantom pending booking holding
     // the slot for something the customer was never actually sent a payment link for.
     await Booking.deleteOne({ _id: booking.id })
+    if (negotiationId) await releaseNegotiationClaim(negotiationId)
     return { success: false, error: charge.error, status: 400 }
   }
 

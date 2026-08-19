@@ -15,7 +15,15 @@ import { applyOrderVendorStatus, resolveOrderVendorTarget } from '@/lib/order-ve
 import { sendTextMessage } from '@/lib/whatsapp/client'
 import { handleBuyerMessage } from '@/lib/whatsapp/buyer'
 import { WhatsAppBrowseState } from '@/lib/models/WhatsAppBrowseState'
-import { QUOTE_BLOCKING_STAGES, handleQuoteRequestPhoto, tryHandleProviderQuoteCommand } from '@/lib/whatsapp/service-quote'
+import {
+  QUOTE_BLOCKING_STAGES,
+  handleQuoteRequestPhoto,
+  tryHandleProviderQuoteCommand,
+  tryHandleProviderNegotiationCommand,
+} from '@/lib/whatsapp/service-quote'
+import { tryHandleProviderOfferCommand } from '@/lib/whatsapp/service-negotiation'
+import { getVendorSalesSummary } from '@/lib/analytics'
+import { tryHandleWithdrawalFlow } from '@/lib/whatsapp/vendor-withdrawal'
 
 const CODE_PATTERN = /^[A-Z0-9]{6}$/i
 // Matches the same orderId.slice(0, 8).toUpperCase() convention used for the order ref
@@ -60,6 +68,14 @@ export async function handleInboundMessage(waId: string, text: string, contextMe
     return
   }
 
+  // Withdrawal — checked before every other vendor command, same "blocking stage owns the
+  // whole next message" precedent as QUOTE_BLOCKING_STAGES for buyers. Also owns the
+  // "withdraw" entry keyword itself when idle, so it must run before the generic help-menu
+  // fallback below regardless of stage.
+  if (await tryHandleWithdrawalFlow(waId, vendorId, trimmed)) {
+    return
+  }
+
   const dispatchMatch = trimmed.match(DISPATCH_PATTERN)
   if (dispatchMatch) {
     await handleDispatchedCommand(waId, dispatchMatch[1].toUpperCase())
@@ -71,10 +87,28 @@ export async function handleInboundMessage(waId: string, text: string, contextMe
     return
   }
 
+  if (SALES_COMMAND_PATTERN.test(trimmed)) {
+    await handleSalesCommand(waId, vendorId, trimmed)
+    return
+  }
+
   // Phase S3, Part B: a provider quoting a service-quote request from their own
   // WhatsApp. vendorId is already resolved above via resolveLinkedVendor — passed
   // through as the sole source of provider identity, never re-derived from the ref.
   if (await tryHandleProviderQuoteCommand(waId, vendorId, trimmed)) {
+    return
+  }
+
+  // Phase S4 Part A: every round after the initial quote — "counter REF AMOUNT",
+  // "accept REF", "decline REF" from the provider's own WhatsApp.
+  if (await tryHandleProviderNegotiationCommand(waId, vendorId, trimmed)) {
+    return
+  }
+
+  // Phase S4 Part B: same ref vocabulary against a pre-booking PriceNegotiation instead of
+  // a quote-request Booking — only reached once the check above finds the ref isn't one of
+  // this provider's quoted bookings.
+  if (await tryHandleProviderOfferCommand(waId, vendorId, trimmed)) {
     return
   }
 
@@ -285,13 +319,32 @@ async function handleBalanceCommand(waId: string): Promise<void> {
   )
 }
 
+const SALES_COMMAND_PATTERN = /^sales(\s+(today|week))?$/i
+
+// Read-only, same linked-vendor-only trust model as handleBalanceCommand above.
+async function handleSalesCommand(waId: string, vendorId: string, text: string): Promise<void> {
+  const match = String(text || '').trim().match(SALES_COMMAND_PATTERN)
+  const period: 'today' | 'week' = match?.[2]?.toLowerCase() === 'week' ? 'week' : 'today'
+
+  const summary = await getVendorSalesSummary(vendorId, period)
+  const label = period === 'today' ? "Today's Sales" : "This Week's Sales"
+  const orderWord = summary.orderCount === 1 ? 'order' : 'orders'
+
+  console.log(`[whatsapp-commands] sales: vendor ${vendorId} period=${period} revenue=${summary.revenue} orders=${summary.orderCount}`)
+
+  await trySend(
+    waId,
+    `${label}\n\n${formatNaira(summary.revenue)} from ${summary.orderCount} ${orderWord}\n\nReply "sales week" for the last 7 days, or "sales today" for today.`
+  )
+}
+
 async function sendHelpMenu(waId: string): Promise<void> {
   const vendorId = await resolveLinkedVendor(waId)
 
   if (vendorId) {
     await trySend(
       waId,
-      "Hi! I didn't recognize that message.\n\nAvailable commands:\n- dispatched [order ref] — mark an order as shipped\n- balance — check your wallet balance\n- quote [request ref] [amount] — send a price for a quote request"
+      "Hi! I didn't recognize that message.\n\nAvailable commands:\n- dispatched [order ref] — mark an order as shipped\n- balance — check your wallet balance\n- sales / sales week — check your sales\n- withdraw [amount] — withdraw to your saved bank account\n- quote [request ref] [amount] — send a price for a quote request\n- counter [ref] [amount] — counter a buyer's offer\n- accept [ref] / decline [ref] — accept or decline a buyer's counter-offer"
     )
     return
   }

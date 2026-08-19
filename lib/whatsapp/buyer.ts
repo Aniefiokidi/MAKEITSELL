@@ -6,7 +6,7 @@
 // lib/whatsapp/checkout.ts — this file is the router that decides whether a message is
 // browsing/search or a checkout action.
 import connectToDatabase from '@/lib/mongodb'
-import { getProducts, getServices } from '@/lib/mongodb-operations'
+import { getProducts, getServices, getBookingsByCustomer } from '@/lib/mongodb-operations'
 import { WhatsAppBrowseState } from '@/lib/models/WhatsAppBrowseState'
 import { WhatsAppBuyer } from '@/lib/models/WhatsAppBuyer'
 import { Order } from '@/lib/models/Order'
@@ -36,7 +36,13 @@ import {
   handleQuoteStageMessage,
   handleQuoteCancelCommand,
   tryHandleQuoteDecision,
+  tryHandleQuoteCounter,
 } from '@/lib/whatsapp/service-quote'
+import {
+  tryHandleServiceOfferReply,
+  tryHandleNegotiationReply,
+  tryHandleBookAgreedCommand,
+} from '@/lib/whatsapp/service-negotiation'
 
 const RESULTS_PER_PAGE = 4
 // Fetch one extra beyond the display page so "are there more results" can be answered
@@ -86,6 +92,12 @@ const CART_VIEW_PATTERN = /\bcart\b/i
 // this before). Requires "order"/"delivery"/"package" together with a query word, so a
 // genuine product search mentioning "order" in passing (rare, but possible) isn't caught.
 const ORDER_STATUS_PATTERN = /\b(order|delivery|package|parcel)\b[\s\S]*\b(status|where|track|shipped?|arriv(ed|ing)?|coming|dey)\b|\b(where|status|track)\b[\s\S]*\b(order|delivery|package|parcel)\b|wetin.*order/i
+
+// "my bookings" / "booking status" — the services counterpart to ORDER_STATUS_PATTERN.
+// Deliberately requires "my" or a status word alongside booking/appointment: the bare word
+// "bookings" alone is already claimed by SERVICE_ENTRY_KEYWORDS below (switches into
+// services-browsing mode), so this must never bare-match it.
+const BOOKING_STATUS_PATTERN = /\bmy\s+(bookings?|appointments?)\b|\b(bookings?|appointments?)\b[\s\S]*\b(status|where|track)\b/i
 
 // Entry into services browsing (Phase S1) — deliberately multi-word/unambiguous phrases,
 // NOT the bare word "book" alone. Once already in services mode, a bare "book" means
@@ -421,6 +433,39 @@ async function sendOrderStatus(waId: string): Promise<void> {
   await trySendText(waId, `Your recent orders:\n\n${lines.join('\n\n')}`)
 }
 
+// Answers "my bookings" / "my appointments" and similar — the services-booking
+// counterpart to sendOrderStatus above, same shape (up to 3 most recent, one line each).
+// Reuses getBookingsByCustomer (lib/mongodb-operations.ts) rather than re-querying Booking
+// directly, so this can never drift from what app/appointments/page.tsx shows on web.
+async function sendMyBookings(waId: string): Promise<void> {
+  await connectToDatabase()
+  const mapping: any = await WhatsAppBuyer.findOne({ waId }).lean()
+  if (!mapping?.customerId) {
+    await trySendText(waId, "You haven't booked a service with us yet — reply \"services\" to browse.")
+    return
+  }
+
+  const bookings = await getBookingsByCustomer(mapping.customerId)
+  const recent = bookings.slice(0, 3)
+
+  if (recent.length === 0) {
+    await trySendText(waId, "You haven't booked a service with us yet — reply \"services\" to browse.")
+    return
+  }
+
+  const lines = recent.map((booking: any) => {
+    const ref = shortOrderRef(String(booking.id))
+    const dateLabel = booking.bookingDate
+      ? new Date(booking.bookingDate).toLocaleDateString('en-NG', { year: 'numeric', month: 'short', day: 'numeric' })
+      : ''
+    const label = ORDER_STATUS_LABELS[booking.status] || booking.status || 'Pending'
+    return `${ref}: ${booking.serviceTitle || 'Service'} — ${dateLabel}${booking.startTime ? `, ${booking.startTime}` : ''} — ${label}`
+  })
+
+  console.log(`[whatsapp-buyer] my bookings: sent ${recent.length} booking(s) to ${waId}`)
+  await trySendText(waId, `Your recent bookings:\n\n${lines.join('\n\n')}`)
+}
+
 // Entry point for any inbound text from a sender who isn't a linked vendor — called from
 // the restructured handleInboundMessage in lib/whatsapp/commands.ts. `contextMessageId`
 // is set when this message is a reply/quote of a previous one (present on both this and
@@ -507,6 +552,10 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
   if (contextMessageId) {
     const handledProduct = await tryHandleProductReply(waId, contextMessageId, trimmed)
     if (handledProduct) return
+    // Phase S4 Part B — "offer AMOUNT" as a reply to a service card, before the normal
+    // booking-reply handler so it doesn't get misread as a booking-start reply.
+    const handledOffer = await tryHandleServiceOfferReply(waId, contextMessageId, trimmed)
+    if (handledOffer) return
     const handledService = await handleServiceReply(waId, contextMessageId, trimmed)
     if (handledService) return
   }
@@ -516,6 +565,19 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
   // lib/whatsapp/service-quote.ts's comment on why this isn't a blocking stage).
   const handledQuoteDecision = await tryHandleQuoteDecision(waId, trimmed)
   if (handledQuoteDecision) return
+
+  // Phase S4 Part A — "counter REF AMOUNT", same mode/stage-agnostic reasoning as above.
+  const handledQuoteCounter = await tryHandleQuoteCounter(waId, trimmed)
+  if (handledQuoteCounter) return
+
+  // Phase S4 Part B — same ref vocabulary against PriceNegotiation instead of Booking;
+  // only reached once both Part A checks above have found the ref doesn't belong to one of
+  // the buyer's quoted bookings (they return false rather than erroring in that case).
+  const handledNegotiationReply = await tryHandleNegotiationReply(waId, trimmed)
+  if (handledNegotiationReply) return
+
+  const handledBookAgreed = await tryHandleBookAgreedCommand(waId, trimmed)
+  if (handledBookAgreed) return
 
   if (lower === 'more') {
     await handleMoreCommand(waId)
@@ -548,6 +610,11 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
 
   if (ORDER_STATUS_PATTERN.test(trimmed)) {
     await sendOrderStatus(waId)
+    return
+  }
+
+  if (BOOKING_STATUS_PATTERN.test(trimmed)) {
+    await sendMyBookings(waId)
     return
   }
 

@@ -336,7 +336,7 @@ export function notifyWaBuyerQuoteReceived(customerId: string, bookingId: string
         `Pay now: ${payNowLabel}`,
         `Balance of ${formatNaira(balanceOwed)} is paid directly to the provider.`,
         '',
-        `Reply "accept ${ref}" to pay, or "decline ${ref}" to close this request.`,
+        `Reply "accept ${ref}" to pay, "counter ${ref} <amount>" to negotiate, or "decline ${ref}" to close this request.`,
       ].join('\n')
 
       // Highest-risk send in the buyer-facing set to fire outside Meta's 24h window — a
@@ -356,15 +356,26 @@ export function notifyWaBuyerQuoteReceived(customerId: string, bookingId: string
 }
 
 // ---------------------------------------------------------------------------
-// Quote accept/decline — deliberately keyword-based ("accept REF"/"decline REF"), not a
-// blocking stage. A quote can arrive hours or days after the request, by which point the
-// buyer's current stage/mode could be anything (mid-goods-checkout, browsing something
-// else entirely) — forcing a stage change on notification would hijack whatever they were
-// doing. This works from any state instead, checked in lib/whatsapp/buyer.ts's main
-// dispatch alongside the other mode-agnostic patterns (ORDER_STATUS_PATTERN etc).
+// Quote accept/decline/counter — deliberately keyword-based ("accept REF"/"decline
+// REF"/"counter REF AMOUNT"), not a blocking stage. A quote can arrive hours or days after
+// the request, by which point the buyer's current stage/mode could be anything (mid-goods-
+// checkout, browsing something else entirely) — forcing a stage change on notification
+// would hijack whatever they were doing. This works from any state instead, checked in
+// lib/whatsapp/buyer.ts's main dispatch alongside the other mode-agnostic patterns
+// (ORDER_STATUS_PATTERN etc).
+//
+// Phase S4 Part A: every function below that resolves a ref against the buyer's own
+// bookings returns `false` (not a "couldn't find" message) when the ref doesn't match any
+// of THEIR quoted bookings — this lets the ref fall through to
+// lib/whatsapp/service-negotiation.ts's PriceNegotiation lookup (Phase S4 Part B), which
+// owns the final "couldn't find anything with that reference" message. Once a ref DOES
+// resolve to one of the buyer's bookings, this file owns the whole response from then on
+// (including turn/round-limit rejections) — it never falls through past that point.
 // ---------------------------------------------------------------------------
 
 const QUOTE_DECISION_PATTERN = /^(accept|decline)\s+([a-f0-9]{6,})$/i
+const QUOTE_COUNTER_PATTERN = /^counter\s+([a-f0-9]{6,})\s+([\d,]+(?:\.\d+)?)$/i
+const MAX_QUOTE_NEGOTIATION_ROUNDS = 3
 
 export async function tryHandleQuoteDecision(waId: string, text: string): Promise<boolean> {
   const match = String(text || '').trim().match(QUOTE_DECISION_PATTERN)
@@ -374,30 +385,34 @@ export async function tryHandleQuoteDecision(waId: string, text: string): Promis
   const ref = match[2].toLowerCase()
 
   const mapping: any = await WhatsAppBuyer.findOne({ waId }).lean()
-  if (!mapping?.customerId) {
-    await trySendText(waId, "I can't find any requests for this number.")
-    return true
-  }
+  if (!mapping?.customerId) return false
 
   await connectToDatabase()
   const candidates: any[] = await Booking.find({ customerId: mapping.customerId, pricingStatus: 'quoted' })
-    .select('_id')
+    .select('_id quoteLastOfferBy providerId serviceTitle')
     .lean()
   const match_ = candidates.find((b) => String(b._id).slice(0, 8).toLowerCase() === ref)
 
-  if (!match_) {
-    await trySendText(waId, `Couldn't find an active quote with reference ${ref.toUpperCase()} — it may have already been handled or expired.`)
+  if (!match_) return false
+
+  // A buyer can only accept/decline the OTHER side's current number, never their own
+  // still-pending counter. Undefined quoteLastOfferBy predates any negotiation and always
+  // means "provider's offer", so this only ever blocks the buyer's own counter.
+  if (match_.quoteLastOfferBy === 'buyer') {
+    await trySendText(waId, `You already sent a counter for ${ref.toUpperCase()} — waiting on the provider's response.`)
     return true
   }
 
   const bookingId = String(match_._id)
 
   if (action === 'decline') {
-    await Booking.updateOne(
+    const updated: any = await Booking.findOneAndUpdate(
       { _id: bookingId, pricingStatus: 'quoted' },
-      { $set: { status: 'cancelled', cancelledAt: new Date(), cancellationReason: 'Buyer declined the quote' } }
-    )
+      { $set: { status: 'cancelled', cancelledAt: new Date(), cancellationReason: 'Buyer declined the quote' } },
+      { new: true }
+    ).lean()
     await trySendText(waId, 'Quote declined — that request is now closed.')
+    if (updated) notifyProviderQuoteClosed(String(updated.providerId || match_.providerId || ''), bookingId, updated)
     return true
   }
 
@@ -415,6 +430,293 @@ export async function tryHandleQuoteDecision(waId: string, text: string): Promis
     waId,
     `Tap the link below to pay ${formatNaira(result.payableAmount)} securely:\n\n${result.authorization_url}\n\nOnce payment is confirmed we'll message you here.`
   )
+  return true
+}
+
+// Buyer-side counter, symmetric to tryHandleProviderNegotiationCommand's counter branch
+// below. Only reachable while pricingStatus:'quoted' and it's the buyer's turn
+// (quoteLastOfferBy !== 'buyer'), capped at MAX_QUOTE_NEGOTIATION_ROUNDS total counters
+// (either direction combined) before forcing an accept/decline.
+export async function tryHandleQuoteCounter(waId: string, text: string): Promise<boolean> {
+  const match = String(text || '').trim().match(QUOTE_COUNTER_PATTERN)
+  if (!match) return false
+
+  const ref = match[1].toLowerCase()
+  const amount = Number(match[2].replace(/,/g, ''))
+
+  const mapping: any = await WhatsAppBuyer.findOne({ waId }).lean()
+  if (!mapping?.customerId) return false
+
+  await connectToDatabase()
+  const candidates: any[] = await Booking.find({ customerId: mapping.customerId, pricingStatus: 'quoted' })
+    .select('_id quoteLastOfferBy quoteNegotiationRound serviceId serviceTitle providerId')
+    .lean()
+  const match_ = candidates.find((b) => String(b._id).slice(0, 8).toLowerCase() === ref)
+  if (!match_) return false
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    await trySendText(waId, `That amount doesn't look right. Reply like: counter ${ref.toUpperCase()} 15000`)
+    return true
+  }
+
+  if (match_.quoteLastOfferBy === 'buyer') {
+    await trySendText(waId, `You already sent a counter for ${ref.toUpperCase()} — waiting on the provider's response.`)
+    return true
+  }
+
+  const round = Number(match_.quoteNegotiationRound) || 0
+  if (round >= MAX_QUOTE_NEGOTIATION_ROUNDS) {
+    await trySendText(waId, `You've reached the limit of ${MAX_QUOTE_NEGOTIATION_ROUNDS} counters for ${ref.toUpperCase()}. Reply "accept ${ref.toUpperCase()}" or "decline ${ref.toUpperCase()}" to close it out.`)
+    return true
+  }
+
+  const bookingId = String(match_._id)
+  const service = await getServiceById(String(match_.serviceId || ''))
+  const quoteSlaHours = Number((service as any)?.quoteSlaHours) > 0 ? Number((service as any)?.quoteSlaHours) : 24
+
+  // Atomic guard mirrors tryHandleProviderQuoteCommand's — only applies if it's still the
+  // buyer's turn at write time, so a near-simultaneous provider counter can't be clobbered.
+  const updatedBooking: any = await Booking.findOneAndUpdate(
+    { _id: bookingId, customerId: mapping.customerId, pricingStatus: 'quoted', quoteLastOfferBy: { $ne: 'buyer' } },
+    {
+      $set: {
+        finalPrice: amount,
+        totalPrice: amount,
+        quoteLastOfferBy: 'buyer',
+        quoteExpiresAt: new Date(Date.now() + quoteSlaHours * 60 * 60 * 1000),
+      },
+      $inc: { quoteNegotiationRound: 1 },
+      $push: { quoteNegotiationHistory: { by: 'buyer', amount, at: new Date() } },
+    },
+    { new: true }
+  ).lean()
+
+  if (!updatedBooking) {
+    await trySendText(waId, `Couldn't send that counter — the status just changed. Check the latest update and try again.`)
+    return true
+  }
+
+  await trySendText(waId, `Counter sent — ${ref.toUpperCase()} at ${formatNaira(amount)}. We'll let you know when the provider responds.`)
+  notifyProviderCounterReceived(String(match_.providerId || ''), bookingId, updatedBooking)
+  return true
+}
+
+// Free-text-only (no template) — a decline is a terminal, low-urgency state, matching the
+// existing precedent that S3's decline branch never needed a template either. Additive fix
+// to already-shipped S3 behavior: previously the provider was never told a buyer declined
+// at all; a negotiation (unlike a one-shot quote) needs both sides to know it ended.
+function notifyProviderQuoteClosed(providerId: string, bookingId: string, booking: any): void {
+  after(async () => {
+    try {
+      await connectToDatabase()
+      const link: any = await WhatsAppLink.findOne({ vendorId: providerId, status: 'linked' }).lean()
+      const waId = String(link?.waId || '').trim()
+      if (!waId) return
+      const ref = shortRef(bookingId)
+      const serviceTitle = booking?.serviceTitle || 'Service'
+      await trySendText(waId, `Ref ${ref} (${serviceTitle}) — the buyer declined and this request is now closed.`)
+    } catch (error) {
+      console.error(`[whatsapp-service-quote] notifyProviderQuoteClosed failed for booking ${bookingId}:`, error)
+    }
+  })
+}
+
+function notifyWaBuyerQuoteClosed(customerId: string, bookingId: string, booking: any): void {
+  after(async () => {
+    try {
+      await connectToDatabase()
+      const mapping: any = await WhatsAppBuyer.findOne({ customerId }).lean()
+      if (!mapping?.waId) return
+      const ref = shortRef(bookingId)
+      const serviceTitle = booking?.serviceTitle || 'Service'
+      await trySendText(String(mapping.waId), `Ref ${ref} (${serviceTitle}) — the provider declined your counter and this request is now closed.`)
+    } catch (error) {
+      console.error(`[whatsapp-service-quote] notifyWaBuyerQuoteClosed failed for booking ${bookingId}:`, error)
+    }
+  })
+}
+
+// Highest-risk sends in this pair to fire outside Meta's 24h window (same reasoning as
+// notifyWaBuyerQuoteReceived above) — template-first, free-text fallback.
+function notifyProviderCounterReceived(providerId: string, bookingId: string, booking: any): void {
+  after(async () => {
+    try {
+      await connectToDatabase()
+      const link: any = await WhatsAppLink.findOne({ vendorId: providerId, status: 'linked' }).lean()
+      const waId = String(link?.waId || '').trim()
+      if (!waId) return
+
+      const ref = shortRef(bookingId)
+      const amount = Number(booking?.finalPrice || 0)
+      const serviceTitle = booking?.serviceTitle || 'Service'
+      const freeTextBody = [
+        `New counter-offer! Ref ${ref}`,
+        `${serviceTitle} — buyer offered ${formatNaira(amount)}`,
+        '',
+        `Reply "counter ${ref} <amount>" to counter back, "accept ${ref}" to accept, or "decline ${ref}" to close it.`,
+      ].join('\n')
+
+      try {
+        await sendTemplateMessage(waId, 'provider_booking_counter_received', [ref, serviceTitle, formatNaira(amount)])
+      } catch (templateError) {
+        console.log(`[whatsapp-service-quote] provider_booking_counter_received template send failed, falling back to free text — booking ${bookingId}:`, templateError)
+        await trySendText(waId, freeTextBody)
+      }
+    } catch (error) {
+      console.error(`[whatsapp-service-quote] notifyProviderCounterReceived failed for booking ${bookingId}:`, error)
+    }
+  })
+}
+
+function notifyWaBuyerCounterReceived(customerId: string, bookingId: string, booking: any): void {
+  after(async () => {
+    try {
+      await connectToDatabase()
+      const mapping: any = await WhatsAppBuyer.findOne({ customerId }).lean()
+      if (!mapping?.waId) return
+
+      const waId = String(mapping.waId)
+      const ref = shortRef(bookingId)
+      const amount = Number(booking?.finalPrice || 0)
+      const serviceTitle = booking?.serviceTitle || 'Service'
+      const freeTextBody = [
+        `Provider countered! Ref ${ref}`,
+        `${serviceTitle} — new price ${formatNaira(amount)}`,
+        '',
+        `Reply "accept ${ref}" to pay, "counter ${ref} <amount>" to counter back, or "decline ${ref}" to close it.`,
+      ].join('\n')
+
+      try {
+        await sendTemplateMessage(waId, 'buyer_booking_counter_received', [ref, serviceTitle, formatNaira(amount)])
+      } catch (templateError) {
+        console.log(`[whatsapp-service-quote] buyer_booking_counter_received template send failed, falling back to free text — booking ${bookingId}:`, templateError)
+        await trySendText(waId, freeTextBody)
+      }
+    } catch (error) {
+      console.error(`[whatsapp-service-quote] notifyWaBuyerCounterReceived failed for booking ${bookingId}:`, error)
+    }
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Phase S4 Part A — provider-side counter/accept/decline, dispatched from
+// lib/whatsapp/commands.ts right after tryHandleProviderQuoteCommand (the INITIAL quote —
+// this handles every round after that). Same identity model as tryHandleProviderQuoteCommand:
+// vendorId is resolved upstream via resolveLinkedVendor and is the only source of provider
+// identity trusted here.
+// ---------------------------------------------------------------------------
+
+export async function tryHandleProviderNegotiationCommand(waId: string, vendorId: string, text: string): Promise<boolean> {
+  const trimmed = String(text || '').trim()
+
+  const counterMatch = trimmed.match(QUOTE_COUNTER_PATTERN)
+  if (counterMatch) {
+    return handleProviderCounter(waId, vendorId, counterMatch[1].toLowerCase(), counterMatch[2])
+  }
+
+  const decisionMatch = trimmed.match(QUOTE_DECISION_PATTERN)
+  if (decisionMatch) {
+    return handleProviderDecision(waId, vendorId, decisionMatch[1].toLowerCase() as 'accept' | 'decline', decisionMatch[2].toLowerCase())
+  }
+
+  return false
+}
+
+async function handleProviderCounter(waId: string, vendorId: string, ref: string, rawAmount: string): Promise<boolean> {
+  await connectToDatabase()
+  const candidates: any[] = await Booking.find({ providerId: vendorId, requiresQuote: true, pricingStatus: 'quoted' })
+    .select('_id quoteLastOfferBy quoteNegotiationRound serviceId serviceTitle customerId')
+    .lean()
+  const match_ = candidates.find((b) => String(b._id).slice(0, 8).toLowerCase() === ref)
+  if (!match_) return false
+
+  const amount = Number(rawAmount.replace(/,/g, ''))
+  if (!Number.isFinite(amount) || amount <= 0) {
+    await trySendText(waId, `That amount doesn't look right. Reply like: counter ${ref.toUpperCase()} 15000`)
+    return true
+  }
+
+  if (match_.quoteLastOfferBy !== 'buyer') {
+    await trySendText(waId, `You're waiting on the buyer's response for ${ref.toUpperCase()} — nothing to counter yet.`)
+    return true
+  }
+
+  const round = Number(match_.quoteNegotiationRound) || 0
+  if (round >= MAX_QUOTE_NEGOTIATION_ROUNDS) {
+    await trySendText(waId, `You've reached the limit of ${MAX_QUOTE_NEGOTIATION_ROUNDS} counters for ${ref.toUpperCase()}. Reply "accept ${ref.toUpperCase()}" or "decline ${ref.toUpperCase()}" to close it out.`)
+    return true
+  }
+
+  const bookingId = String(match_._id)
+  const service = await getServiceById(String(match_.serviceId || ''))
+  const quoteSlaHours = Number((service as any)?.quoteSlaHours) > 0 ? Number((service as any)?.quoteSlaHours) : 24
+
+  const updatedBooking: any = await Booking.findOneAndUpdate(
+    { _id: bookingId, providerId: vendorId, pricingStatus: 'quoted', quoteLastOfferBy: 'buyer' },
+    {
+      $set: {
+        finalPrice: amount,
+        totalPrice: amount,
+        quoteLastOfferBy: 'provider',
+        quoteExpiresAt: new Date(Date.now() + quoteSlaHours * 60 * 60 * 1000),
+      },
+      $inc: { quoteNegotiationRound: 1 },
+      $push: { quoteNegotiationHistory: { by: 'provider', amount, at: new Date() } },
+    },
+    { new: true }
+  ).lean()
+
+  if (!updatedBooking) {
+    await trySendText(waId, `Couldn't send that counter — the status just changed. Check the latest update and try again.`)
+    return true
+  }
+
+  await trySendText(waId, `Counter sent — ${ref.toUpperCase()} at ${formatNaira(amount)}. The buyer will be notified.`)
+  notifyWaBuyerCounterReceived(String(updatedBooking.customerId || ''), bookingId, updatedBooking)
+  return true
+}
+
+async function handleProviderDecision(waId: string, vendorId: string, action: 'accept' | 'decline', ref: string): Promise<boolean> {
+  await connectToDatabase()
+  const candidates: any[] = await Booking.find({ providerId: vendorId, requiresQuote: true, pricingStatus: 'quoted' })
+    .select('_id quoteLastOfferBy serviceTitle customerId finalPrice')
+    .lean()
+  const match_ = candidates.find((b) => String(b._id).slice(0, 8).toLowerCase() === ref)
+  if (!match_) return false
+
+  if (match_.quoteLastOfferBy !== 'buyer') {
+    await trySendText(waId, `There's no buyer counter waiting on ${ref.toUpperCase()} right now.`)
+    return true
+  }
+
+  const bookingId = String(match_._id)
+
+  if (action === 'decline') {
+    await Booking.updateOne(
+      { _id: bookingId, pricingStatus: 'quoted' },
+      { $set: { status: 'cancelled', cancelledAt: new Date(), cancellationReason: 'Provider declined the counter-offer' } }
+    )
+    await trySendText(waId, `Ref ${ref.toUpperCase()} closed — the buyer's counter was declined.`)
+    notifyWaBuyerQuoteClosed(String(match_.customerId || ''), bookingId, match_)
+    return true
+  }
+
+  // Provider accepting the buyer's counter: flip the offer back to 'provider' and re-send
+  // the same quote-received notice the buyer already knows how to act on — reuses the
+  // existing accept-and-pay path (tryHandleQuoteDecision above) with zero new payment logic.
+  const updated: any = await Booking.findOneAndUpdate(
+    { _id: bookingId, providerId: vendorId, pricingStatus: 'quoted', quoteLastOfferBy: 'buyer' },
+    { $set: { quoteLastOfferBy: 'provider' } },
+    { new: true }
+  ).lean()
+
+  if (!updated) {
+    await trySendText(waId, `Couldn't accept that counter — the status just changed. Check the latest update and try again.`)
+    return true
+  }
+
+  await trySendText(waId, `Counter accepted — ${ref.toUpperCase()} at ${formatNaira(Number(match_.finalPrice || 0))}. We've asked the buyer to confirm and pay.`)
+  notifyWaBuyerQuoteReceived(String(updated.customerId || ''), bookingId, updated)
   return true
 }
 
@@ -487,7 +789,10 @@ export async function tryHandleProviderQuoteCommand(waId: string, vendorId: stri
         totalPrice: amount,
         quoteSentAt: new Date(),
         quoteExpiresAt: new Date(Date.now() + quoteSlaHours * 60 * 60 * 1000),
+        quoteLastOfferBy: 'provider',
+        quoteNegotiationRound: 0,
       },
+      $push: { quoteNegotiationHistory: { by: 'provider', amount, at: new Date() } },
     },
     { new: true }
   ).lean()

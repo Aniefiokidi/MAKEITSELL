@@ -14,6 +14,20 @@ export interface IBooking extends Document {
   finalPrice?: number;
   pricingStatus?: 'estimated' | 'quoted' | 'accepted';
   requiresQuote?: boolean;
+  // Phase S4 Part A — counter-offer negotiation layered onto a 'quoted' booking, without a
+  // new pricingStatus value (the SLA cron and vendor-dashboard PATCH route only understand
+  // the three values above, and "quoted" already means "there's a live number on the
+  // table"). Undefined quoteLastOfferBy is treated as equivalent to 'provider' — the only
+  // way pricingStatus becomes 'quoted' before any negotiation happens — so every booking
+  // quoted before this shipped stays backward-compatible with no migration needed.
+  quoteLastOfferBy?: 'provider' | 'buyer';
+  quoteNegotiationRound?: number;
+  quoteNegotiationHistory?: Array<{ by: 'provider' | 'buyer'; amount: number; at: Date }>;
+  // Phase S4 Part B — set when this booking was created from an agreed PriceNegotiation
+  // (pre-booking haggling on a requiresQuote:false service), so the price it was created at
+  // is traceable back to a real negotiation. See initiateBookingPayment (lib/booking-payment.ts)
+  // for the claim/validate/consume logic that stamps this.
+  negotiationId?: string;
   // Cloudinary URLs — job photos attached to a quote request. Currently only ever
   // populated by the WhatsApp quote-request flow (lib/whatsapp/service-quote.ts); the web
   // BookingModal has no upload step for a requiresQuote booking today, so this is empty
@@ -60,6 +74,7 @@ export interface IBooking extends Document {
   cancellationFeeStatus?: "none" | "charged" | "pending" | "waived";
   cancelledAt?: Date;
   cancellationReason?: string;
+  completedAt?: Date;
   customerLocation?: string;
   tripDistanceMiles?: number;
   serviceAddress?: string;
@@ -126,6 +141,19 @@ const BookingSchema = new Schema<IBooking>({
   finalPrice: { type: Number },
   pricingStatus: { type: String, enum: ['estimated', 'quoted', 'accepted'], default: 'estimated' },
   requiresQuote: { type: Boolean, default: false },
+  quoteLastOfferBy: { type: String, enum: ['provider', 'buyer'] },
+  quoteNegotiationRound: { type: Number, default: 0 },
+  quoteNegotiationHistory: {
+    type: [
+      {
+        by: { type: String, enum: ['provider', 'buyer'], required: true },
+        amount: { type: Number, required: true },
+        at: { type: Date, default: Date.now },
+      },
+    ],
+    default: [],
+  },
+  negotiationId: { type: String },
   requestPhotos: { type: [String], default: [] },
   customerId: { type: String, required: true },
   customerName: { type: String, required: true },
@@ -162,6 +190,7 @@ const BookingSchema = new Schema<IBooking>({
   cancellationFeeStatus: { type: String, enum: ["none", "charged", "pending", "waived"], default: "none" },
   cancelledAt: { type: Date },
   cancellationReason: { type: String },
+  completedAt: { type: Date },
   customerLocation: { type: String },
   tripDistanceMiles: { type: Number },
   serviceAddress: { type: String },

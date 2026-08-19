@@ -36,7 +36,7 @@ interface PriceNegotiationModalProps {
   basePrice: number
   open: boolean
   onClose: () => void
-  onProceedToBooking?: (agreedPrice: number) => void
+  onProceedToBooking?: (agreedPrice: number, negotiationId: string) => void
 }
 
 function fmt(n: number | null | undefined) {
@@ -415,7 +415,7 @@ export default function PriceNegotiationModal({
                 <Button
                   className="w-full bg-green-600 hover:bg-green-700 text-white"
                   size="lg"
-                  onClick={() => onProceedToBooking?.(negotiation.agreedPrice!)}
+                  onClick={() => onProceedToBooking?.(negotiation.agreedPrice!, String(negotiation._id))}
                 >
                   <CheckCircle2 className="h-4 w-4 mr-2" />
                   Book at Agreed Price · {fmt(negotiation.agreedPrice)}

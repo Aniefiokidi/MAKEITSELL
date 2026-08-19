@@ -4,6 +4,7 @@ import { Review } from '@/lib/models/Review'
 import { Booking } from '@/lib/models/Booking'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { getServiceById } from '@/lib/mongodb-operations'
+import { notifyReviewSubmitted } from '@/lib/review-notifications'
 
 export async function GET(
   _request: NextRequest,
@@ -79,6 +80,14 @@ export async function POST(
     rating: Number(rating),
     comment: String(comment || '').trim().slice(0, 1000),
     createdAt: new Date(),
+  })
+
+  notifyReviewSubmitted({
+    targetType: 'service',
+    vendorId: providerId,
+    rating: Number(rating),
+    comment: String(comment || '').trim().slice(0, 1000),
+    reviewerName: sessionUser.name || 'Customer',
   })
 
   return NextResponse.json({ success: true, review })

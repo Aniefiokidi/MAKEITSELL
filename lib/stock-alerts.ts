@@ -2,6 +2,7 @@ import { emailService } from './email'
 import { connectToDatabase } from './mongodb'
 import { pushToUser } from './push-notifications'
 import { ObjectId } from 'mongodb'
+import { resolveVendorWaId, sendWaNotification } from './whatsapp/notify'
 
 const DEFAULT_LOW_STOCK_THRESHOLD = 3
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.makeitsell.ng'
@@ -85,6 +86,14 @@ export async function maybeSendLowStockAlert(
       url: `/vendor/products/${productId}/edit`,
       tag: `low-stock-${productId}`,
     }).catch(() => {})
+
+    void resolveVendorWaId(String(vendorId)).then((waId) =>
+      sendWaNotification({
+        waId,
+        freeTextBody: `Low Stock Alert: "${productTitle}" has only ${newStock} ${stockWord} left (threshold: ${threshold}). Restock soon.`,
+        template: { name: 'vendor_low_stock', params: [productTitle, String(newStock), String(threshold)] },
+      })
+    ).catch(() => {})
 
     console.log(`[stock-alert] Sent low-stock alert for "${productTitle}" (${newStock} left, threshold ${threshold}) to vendor ${vendorId}`)
   } catch (err) {

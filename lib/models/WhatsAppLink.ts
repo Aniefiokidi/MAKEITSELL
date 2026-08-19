@@ -14,6 +14,20 @@ const WhatsAppLinkSchema = new Schema({
   codeExpiresAt: { type: Date, default: null },
   linkedAt: { type: Date, default: null },
   status: { type: String, enum: ['pending', 'linked'], default: 'pending' },
+  // WhatsApp withdrawal conversation state (lib/whatsapp/vendor-withdrawal.ts). Lives here
+  // rather than a new collection: this doc is already read on every inbound message
+  // (resolveLinkedVendor), is unique per vendor (naturally serializes one flow at a time),
+  // and survives an unlink/relink cycle — so lockout can't be dodged by relinking a new
+  // number to the same vendor account.
+  withdrawalStage: {
+    type: String,
+    enum: ['idle', 'awaiting_amount', 'awaiting_bank_choice', 'awaiting_pin', 'awaiting_confirmation'],
+    default: 'idle',
+  },
+  withdrawalDraft: { type: Schema.Types.Mixed, default: {} },
+  withdrawalStageExpiresAt: { type: Date, default: null },
+  withdrawalPinFailCount: { type: Number, default: 0 },
+  withdrawalPinLockedUntil: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });

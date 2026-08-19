@@ -36,6 +36,14 @@
     {
       "path": "/api/admin/shipbubble-wallet-monitor-job",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/admin/booking-completion-job",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/admin/whatsapp-cart-recovery-job",
+      "schedule": "0 11 * * *"
     }
   ]
 }
