@@ -55,9 +55,9 @@ function startOfLagosDay(date: Date): Date {
 // reversed. Without this, a cancelled or unpaid order's total was being counted as if
 // it were a completed sale everywhere below (totals, trends, day/hour buckets, "recent
 // orders").
-const NON_REVENUE_PAYMENT_STATUSES = new Set(['pending', 'failed', 'refunded']);
+export const NON_REVENUE_PAYMENT_STATUSES = new Set(['pending', 'failed', 'refunded']);
 
-function isSettledVendorSale(order: any, vendorLegStatus: string | undefined): boolean {
+export function isSettledVendorSale(order: any, vendorLegStatus: string | undefined): boolean {
   if (NON_REVENUE_PAYMENT_STATUSES.has(String(order.paymentStatus || '').toLowerCase())) return false;
   if (String(vendorLegStatus || '').toLowerCase() === 'cancelled') return false;
   return true;

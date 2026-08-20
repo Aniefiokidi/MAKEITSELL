@@ -25,6 +25,7 @@ import {
   Megaphone,
   MessageCircleQuestion,
   Flag,
+  Trophy,
 } from "lucide-react"
 
 const adminNavItems = [
@@ -82,6 +83,11 @@ const adminNavItems = [
     title: "Analytics",
     href: "/admin/analytics",
     icon: TrendingUp,
+  },
+  {
+    title: "Best Sellers",
+    href: "/admin/best-sellers",
+    icon: Trophy,
   },
   {
     title: "Performance",
