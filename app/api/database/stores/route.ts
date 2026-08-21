@@ -14,7 +14,7 @@ const cleanStateOptions = (rawOptions: any[]): string[] => {
   )].sort((a, b) => a.localeCompare(b))
 }
 import { NextRequest, NextResponse } from 'next/server'
-import { getStores as mongoGetStores } from '@/lib/mongodb-operations'
+import { getStores as mongoGetStores, escapeRegex } from '@/lib/mongodb-operations'
 import { requireRoles } from '@/lib/server-route-auth'
 import connectToDatabase from '@/lib/mongodb'
 import { Store } from '@/lib/models/Store'
@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
     if (vendorId) query.vendorId = vendorId
 
     if (search) {
-      const searchRegex = new RegExp(search, 'i')
+      const searchRegex = new RegExp(escapeRegex(search), 'i')
       query.$or = [
         { storeName: searchRegex },
         { storeDescription: searchRegex },
@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (location) {
-      query.address = new RegExp(location, 'i')
+      query.address = new RegExp(escapeRegex(location), 'i')
     }
 
     const total = await Store.countDocuments(query)

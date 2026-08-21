@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServices as mongoGetServices } from '@/lib/mongodb-operations'
+import { getServiceSearchEnrichment } from '@/lib/search-enrichment'
 import { cacheNamespaces, getCachedPayload, setCachedPayload } from '@/lib/cache-store'
 import { logApiPerformance } from '@/lib/performance-logs'
 
@@ -46,7 +47,14 @@ export async function GET(request: NextRequest) {
       limitCount
     })
 
-    const payload = { success: true, data: services }
+    const payload: any = { success: true, data: services }
+
+    if (search && services.length === 0) {
+      const enrichment = await getServiceSearchEnrichment(search, { category, providerId, featured, locationType }).catch(() => ({} as any))
+      if (enrichment.suggestion) payload.suggestion = enrichment.suggestion
+      if (enrichment.similar) payload.similar = enrichment.similar
+    }
+
     await setCachedPayload(cacheNamespaces.servicesList, cacheKey, payload, 60)
 
     return NextResponse.json(payload, {

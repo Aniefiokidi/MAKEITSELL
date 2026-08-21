@@ -432,7 +432,7 @@ const slugifyPublic = (value: string): string => {
 
 const randomSlugSuffix = () => Math.random().toString(36).slice(2, 7)
 
-const escapeRegex = (value: string): string => {
+export const escapeRegex = (value: string): string => {
   return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
@@ -1014,7 +1014,7 @@ export const getServices = async (filters: ServiceFilters): Promise<Service[]> =
   if (services.length === 0) {
     const fallbackQuery = { ...query };
     if (filters?.search) {
-      const searchRegex = new RegExp(String(filters.search).trim(), 'i');
+      const searchRegex = new RegExp(escapeRegex(String(filters.search).trim()), 'i');
       fallbackQuery.$or = [
         { title: searchRegex },
         { description: searchRegex },
@@ -1092,7 +1092,7 @@ const buildProductQuery = (filters?: any) => {
   }
 
   if (filters?.search) {
-    const searchRegex = new RegExp(String(filters.search).trim(), 'i');
+    const searchRegex = new RegExp(escapeRegex(String(filters.search).trim()), 'i');
     query.$or = [
       { title: searchRegex },
       { name: searchRegex },

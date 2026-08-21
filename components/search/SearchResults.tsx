@@ -32,64 +32,6 @@ export default function SearchResults({ query }: { query: string }) {
     return /\.pdf(\?|#|$)/i.test(value);
   }, []);
 
-  const levenshteinDistance = React.useCallback((a: string, b: string) => {
-    const source = a.toLowerCase();
-    const target = b.toLowerCase();
-    const matrix: number[][] = Array.from({ length: source.length + 1 }, () => Array(target.length + 1).fill(0));
-
-    for (let i = 0; i <= source.length; i += 1) matrix[i][0] = i;
-    for (let j = 0; j <= target.length; j += 1) matrix[0][j] = j;
-
-    for (let i = 1; i <= source.length; i += 1) {
-      for (let j = 1; j <= target.length; j += 1) {
-        const cost = source[i - 1] === target[j - 1] ? 0 : 1;
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j] + 1,
-          matrix[i][j - 1] + 1,
-          matrix[i - 1][j - 1] + cost
-        );
-      }
-    }
-
-    return matrix[source.length][target.length];
-  }, []);
-
-  const buildTokens = React.useCallback((searchQuery: string) => {
-    return searchQuery
-      .toLowerCase()
-      .split(/\s+/)
-      .map((token) => token.trim())
-      .filter((token) => token.length > 1);
-  }, []);
-
-  const getRecommendationScore = React.useCallback((product: any, tokens: string[]) => {
-    const title = String(product?.title || product?.name || "").toLowerCase();
-    const description = String(product?.description || "").toLowerCase();
-    const category = String(product?.category || "").toLowerCase();
-
-    let score = 0;
-    for (const token of tokens) {
-      if (title.includes(token)) score += 3;
-      if (category.includes(token)) score += 2;
-      if (description.includes(token)) score += 1;
-    }
-
-    const sales = Number(product?.sales || 0);
-    const rating = Number(product?.rating || 0);
-    const reviewCount = Number(product?.reviewCount || product?.reviews || 0);
-    const stock = Number(product?.stock || 0);
-
-    const popularityScore =
-      Math.min(sales, 200) / 12 +
-      Math.min(reviewCount, 100) / 10 +
-      Math.max(0, Math.min(rating, 5)) * 2 +
-      (stock > 0 ? 1.5 : -1.5) +
-      (product?.featured ? 2.5 : 0);
-
-    score += popularityScore;
-    return score;
-  }, []);
-
   const handleAddToCart = React.useCallback((product: any) => {
     if (!product?.id) return;
 
@@ -129,71 +71,17 @@ export default function SearchResults({ query }: { query: string }) {
       fetch(`/api/database/services?limit=12&search=${encodeURIComponent(query)}`).then(r => r.json()),
       fetch(`/api/database/stores?limit=12&search=${encodeURIComponent(query)}`).then(r => r.json()),
     ])
-      .then(async ([prod, serv, stor]) => {
+      .then(([prod, serv, stor]) => {
         const exactProducts = Array.isArray(prod?.data) ? prod.data : [];
         setProducts(exactProducts);
         setServices(Array.isArray(serv?.data) ? serv.data : []);
         setStores(Array.isArray(stor?.data) ? stor.data : []);
 
-        if (exactProducts.length === 0) {
-          const recommendationResponse = await fetch(`/api/database/products?limit=60`);
-          const recommendationPayload = await recommendationResponse.json();
-          const allProducts = Array.isArray(recommendationPayload?.data) ? recommendationPayload.data : [];
-          const tokens = buildTokens(query);
-
-          const candidateTerms: string[] = Array.from(
-            new Set(
-              allProducts
-                .flatMap((product: any) => [product?.title, product?.name, product?.category, product?.subcategory])
-                .filter(Boolean)
-                .map((term: any) => String(term).trim())
-                .filter((term: string) => term.length > 2)
-            )
-          );
-
-          let closestSuggestion: string | null = null;
-          let closestDistance = Number.POSITIVE_INFINITY;
-          for (const term of candidateTerms) {
-            const distance = levenshteinDistance(query, term);
-            if (distance < closestDistance) {
-              closestDistance = distance;
-              closestSuggestion = term;
-            }
-          }
-
-          if (
-            closestSuggestion &&
-            closestSuggestion.toLowerCase() !== query.toLowerCase() &&
-            closestDistance <= Math.max(2, Math.floor(query.length * 0.35))
-          ) {
-            setDidYouMean(closestSuggestion);
-          } else {
-            setDidYouMean(null);
-          }
-
-          const scored = allProducts
-            .map((product: any) => ({
-              product,
-              score: getRecommendationScore(product, tokens),
-            }))
-            .filter((entry: any) => entry.score > 0)
-            .sort((a: any, b: any) => b.score - a.score)
-            .slice(0, 8)
-            .map((entry: any) => entry.product);
-
-          if (scored.length > 0) {
-            setRecommendedProducts(scored);
-          } else {
-            const fallback = allProducts
-              .filter((product: any) => Boolean(product?.featured))
-              .slice(0, 8);
-
-            setRecommendedProducts(fallback.length > 0 ? fallback : allProducts.slice(0, 8));
-          }
-        } else {
-          setRecommendedProducts([]);
-          setDidYouMean(null);
-        }
+        // Did-you-mean + similar-products are computed server-side now (lib/search-
+        // enrichment.ts) and only present on the response when the exact search on page
+        // 1 came back empty — no second request needed.
+        setDidYouMean(prod?.suggestion?.term || null);
+        setRecommendedProducts(Array.isArray(prod?.similar) ? prod.similar : []);
       })
       .catch(() => {
         setProducts([]);
@@ -203,7 +91,7 @@ export default function SearchResults({ query }: { query: string }) {
         setDidYouMean(null);
       })
       .finally(() => setLoading(false));
-  }, [buildTokens, getRecommendationScore, levenshteinDistance, query]);
+  }, [query]);
 
   if (!query) return null;
   if (loading) return (

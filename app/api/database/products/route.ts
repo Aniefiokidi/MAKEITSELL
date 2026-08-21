@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getProducts, createProduct, countProducts } from "@/lib/mongodb-operations"
+import { getProductSearchEnrichment } from '@/lib/search-enrichment'
 import { requireRoles } from '@/lib/server-route-auth'
 import { cacheNamespaces, getCachedPayload, invalidateCacheNamespace, setCachedPayload } from '@/lib/cache-store'
 import { logApiPerformance } from '@/lib/performance-logs'
@@ -117,7 +118,7 @@ export async function GET(request: NextRequest) {
     })) || []
 
     const isPublicCollectionRequest = !vendorId
-    const payload = {
+    const payload: any = {
       success: true,
       data: mappedProducts,
       pagination: {
@@ -128,6 +129,16 @@ export async function GET(request: NextRequest) {
         count: mappedProducts.length,
         hasMore: mappedProducts.length === safeLimit
       }
+    }
+
+    // A zero-result search on the first page is the one case worth spending the extra
+    // distinct()+re-search work on — a legitimate empty page 3 isn't a failed search,
+    // and there's no UI today for mixing real results with suggestions on a non-empty
+    // page. Baked into the cached payload so repeat identical misses don't recompute.
+    if (search && skipCount === 0 && mappedProducts.length === 0) {
+      const enrichment = await getProductSearchEnrichment(search, filters).catch(() => ({} as { suggestion?: any; similar?: any }))
+      if (enrichment.suggestion) payload.suggestion = enrichment.suggestion
+      if (enrichment.similar) payload.similar = enrichment.similar
     }
 
     await setCachedPayload(cacheNamespaces.productsList, listCacheKey, payload, 60)
