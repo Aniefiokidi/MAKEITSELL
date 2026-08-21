@@ -10,28 +10,42 @@ import Header from "@/components/Header"
 import { useCart } from "@/contexts/CartContext"
 
 export default function OrderConfirmationPage() {
-  const { clearCart, items } = useCart()
+  const { clearCart, removeItems } = useCart()
   const router = useRouter()
 
   useEffect(() => {
-    // Clear the cart when landing on order confirmation page
-    const clearCartAsync = async () => {
-      console.log('Order confirmation page loaded, clearing cart...')
-      console.log('Current cart items:', items)
-      console.log('Available clearCart function:', typeof clearCart)
+    // A card/Paystack payment is an off-site redirect — checkout/page.tsx stashes which
+    // product ids were actually being purchased in sessionStorage before leaving, since
+    // no in-memory cart-selection state survives that round trip (see
+    // app/checkout/page.tsx's window.location.href branch). Remove only those, leaving
+    // anything the buyer deliberately left unchecked still in their cart. Falls back to
+    // a full clearCart() when that key is missing — e.g. a stale bookmark, or a payment
+    // path that doesn't set it — matching this page's old unconditional behavior.
+    const cleanUpCartAsync = async () => {
+      let purchasedProductIds: string[] | null = null
       try {
-        await clearCart()
-        console.log('Cart cleared successfully from order confirmation page')
-        console.log('Cart items after clearing:', items)
+        const raw = sessionStorage.getItem('makeitsell_last_checkout_product_ids')
+        if (raw) {
+          purchasedProductIds = JSON.parse(raw)
+          sessionStorage.removeItem('makeitsell_last_checkout_product_ids')
+        }
+      } catch {}
+
+      try {
+        if (purchasedProductIds && purchasedProductIds.length > 0) {
+          await removeItems(purchasedProductIds)
+        } else {
+          await clearCart()
+        }
       } catch (error) {
-        console.error('Error clearing cart from order confirmation page:', error)
+        console.error('Error cleaning up cart from order confirmation page:', error)
       }
     }
-    
+
     // Add a small delay to ensure all contexts are loaded
-    setTimeout(clearCartAsync, 100)
+    setTimeout(cleanUpCartAsync, 100)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clearCart])
+  }, [])
 
   return (
     <div className="min-h-screen flex flex-col">

@@ -43,6 +43,9 @@ import {
   tryHandleNegotiationReply,
   tryHandleBookAgreedCommand,
 } from '@/lib/whatsapp/service-negotiation'
+import { tryHandleCustomerTopupCommand } from '@/lib/whatsapp/wallet-topup'
+import { tryHandleCustomerWithdrawalFlow } from '@/lib/whatsapp/customer-withdrawal'
+import { tryHandleClaimAccountCommand } from '@/lib/whatsapp/claim-account'
 
 const RESULTS_PER_PAGE = 4
 // Fetch one extra beyond the display page so "are there more results" can be answered
@@ -520,6 +523,12 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
   const trimmed = String(text || '').trim()
   const lower = trimmed.toLowerCase()
 
+  // Withdrawal — a completely separate state track from the goods/services stage machine
+  // below (lives on WhatsAppBuyer, not WhatsAppBrowseState), checked first and unconditionally
+  // so an active withdrawal conversation always owns the whole message, same "blocking
+  // stage" precedent as QUOTE_BLOCKING_STAGES further down.
+  if (await tryHandleCustomerWithdrawalFlow(waId, trimmed)) return
+
   await connectToDatabase()
   const state: any = await WhatsAppBrowseState.findOne({ waId }).lean()
   const stage = String(state?.stage || 'browsing')
@@ -617,6 +626,10 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
     await sendMyBookings(waId)
     return
   }
+
+  if (await tryHandleCustomerTopupCommand(waId, trimmed)) return
+
+  if (await tryHandleClaimAccountCommand(waId, trimmed)) return
 
   if (CART_VIEW_PATTERN.test(trimmed)) {
     await sendCartSummary(waId)

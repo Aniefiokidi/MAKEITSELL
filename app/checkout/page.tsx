@@ -79,7 +79,11 @@ function formatPhoneWithCountryCode(countryCode: string, phoneInput: string): st
 }
 
 export default function CheckoutPage() {
-  const { items, totalPrice, clearCart } = useCart()
+  // Selective checkout (app/cart/page.tsx): checkout only ever operates on whatever the
+  // buyer checked there, never the whole cart — aliased to the same names (items/
+  // totalPrice) the rest of this file already treats as "what's being purchased," so
+  // nothing else here needs to change.
+  const { selectedItems: items, selectedTotalPrice: totalPrice, removeItems } = useCart()
   const { user, userProfile, refreshProfile } = useAuth()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -502,7 +506,14 @@ export default function CheckoutPage() {
           throw new Error(result.error || 'Wallet payment failed')
         }
         await refreshProfile()
-        await clearCart()
+        await removeItems(items.map((item) => item.productId))
+        // order-confirmation/page.tsx also runs its own cleanup on mount and falls back
+        // to a full clearCart() when this key is absent — set it here too so that
+        // fallback never fires and wipes items this selective checkout deliberately left
+        // behind. Harmless to remove the same ids twice (removeItems is idempotent).
+        try {
+          sessionStorage.setItem('makeitsell_last_checkout_product_ids', JSON.stringify(items.map((item) => item.productId)))
+        } catch {}
         router.push('/order-confirmation?orderId=' + encodeURIComponent(result.orderId || ''))
         return
       } else {
@@ -512,6 +523,13 @@ export default function CheckoutPage() {
           throw new Error('No authorization URL received from payment service')
         }
         const { authorization_url } = result
+        // Paystack is an off-site, full-page redirect — no in-memory React state (the
+        // cart selection included) survives the round trip. order-confirmation/page.tsx
+        // reads this back to remove only the items actually purchased, same as the
+        // wallet path's direct removeItems call above.
+        try {
+          sessionStorage.setItem('makeitsell_last_checkout_product_ids', JSON.stringify(items.map((item) => item.productId)))
+        } catch {}
         window.location.href = authorization_url
         return
       }

@@ -28,6 +28,11 @@ const WhatsAppLinkSchema = new Schema({
   withdrawalStageExpiresAt: { type: Date, default: null },
   withdrawalPinFailCount: { type: Number, default: 0 },
   withdrawalPinLockedUntil: { type: Date, default: null },
+  // Lets a linked vendor also browse/buy through the bot (lib/whatsapp/vendor-shopping.ts)
+  // using their own real account rather than a fresh placeholder buyer — toggled by
+  // "shop"/"stop shopping". Financial vendor commands (withdraw/topup) are always checked
+  // before this takes effect, regardless of its value — see commands.ts's dispatch order.
+  shoppingMode: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });

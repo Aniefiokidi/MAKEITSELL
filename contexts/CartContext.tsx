@@ -26,8 +26,20 @@ interface CartContextType {
   removeItem: (productId: string) => void
   updateQuantity: (productId: string, quantity: number) => void
   clearCart: () => Promise<void>
+  removeItems: (productIds: string[]) => Promise<void>
   isOpen: boolean
   setIsOpen: (open: boolean) => void
+  // Selective checkout — which cart items are checked to buy right now (Shein-style
+  // "leave the rest for later"). Pure client state, not persisted server-side: it resets
+  // to "everything selected" on a fresh load, which is exactly what totalPrice already
+  // means today, so nothing changes for anyone who never touches a checkbox.
+  selectedProductIds: Set<string>
+  toggleSelected: (productId: string) => void
+  selectAll: () => void
+  deselectAll: () => void
+  selectedItems: CartItem[]
+  selectedTotalItems: number
+  selectedTotalPrice: number
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
@@ -44,11 +56,28 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const [mounted, setMounted] = useState(false)
   const [items, setItems] = useState<CartItem[]>([])
   const [isOpen, setIsOpen] = useState(false)
+  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set())
   const { user } = useAuth()
 
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // Auto-select any newly-seen item (a fresh cart load, or something just added) without
+  // touching ids the user already unchecked earlier in this session.
+  useEffect(() => {
+    setSelectedProductIds((prev) => {
+      const next = new Set(prev)
+      let changed = false
+      for (const item of items) {
+        if (!next.has(item.productId)) {
+          next.add(item.productId)
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [items])
 
   const { getUserCart, setUserCart } = require("@/lib/database-client")
 
@@ -195,6 +224,46 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }
 
+  // Removes just the given items (e.g. the ones just purchased in a selective checkout)
+  // rather than wiping the whole cart — mirrors clearCart's persistence path, just
+  // filtered instead of emptied. clearCart itself is untouched, still used wherever a
+  // full wipe is actually wanted.
+  const removeItems = async (productIds: string[]) => {
+    const idsToRemove = new Set(productIds)
+    setItems((prevItems) => prevItems.filter((item) => !idsToRemove.has(item.productId)))
+    setSelectedProductIds((prev) => {
+      const next = new Set(prev)
+      idsToRemove.forEach((id) => next.delete(id))
+      return next
+    })
+    // No separate persistence call needed here — the items-changed effect above already
+    // re-saves to localStorage/the server cart whenever `items` changes.
+  }
+
+  const toggleSelected = (productId: string) => {
+    setSelectedProductIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(productId)) {
+        next.delete(productId)
+      } else {
+        next.add(productId)
+      }
+      return next
+    })
+  }
+
+  const selectAll = () => {
+    setSelectedProductIds(new Set(items.map((item) => item.productId)))
+  }
+
+  const deselectAll = () => {
+    setSelectedProductIds(new Set())
+  }
+
+  const selectedItems = items.filter((item) => selectedProductIds.has(item.productId))
+  const selectedTotalItems = selectedItems.reduce((sum, item) => sum + item.quantity, 0)
+  const selectedTotalPrice = selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0)
   const totalPrice = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
@@ -210,8 +279,16 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         removeItem: mounted ? removeItem : () => {},
         updateQuantity: mounted ? updateQuantity : () => {},
         clearCart: mounted ? clearCart : async () => {},
+        removeItems: mounted ? removeItems : async () => {},
         isOpen: mounted ? isOpen : false,
         setIsOpen: mounted ? setIsOpen : () => {},
+        selectedProductIds: mounted ? selectedProductIds : new Set(),
+        toggleSelected: mounted ? toggleSelected : () => {},
+        selectAll: mounted ? selectAll : () => {},
+        deselectAll: mounted ? deselectAll : () => {},
+        selectedItems: mounted ? selectedItems : [],
+        selectedTotalItems: mounted ? selectedTotalItems : 0,
+        selectedTotalPrice: mounted ? selectedTotalPrice : 0,
       }}
     >
       {children}

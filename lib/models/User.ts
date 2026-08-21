@@ -13,6 +13,12 @@ const UserSchema = new Schema({
   phone: { type: String },
   phone_number: { type: String },
   phone_verified: { type: Boolean, default: false },
+  // Set true for a passwordless account auto-created by the WhatsApp bot
+  // (lib/whatsapp/buyer-identity.ts's findOrCreateBuyerForWaId), cleared to false once
+  // claimed via lib/whatsapp/claim-account.ts + app/api/auth/claim-account. The explicit
+  // signal for "not a real, login-capable account yet" — checked instead of pattern-
+  // matching the synthetic wa-{waId}@buyers.makeitsell.ng email, which changes on claim.
+  isPlaceholderAccount: { type: Boolean, default: false },
   otp_code: { type: String },
   otp_expiry: { type: Date },
   otp_voice_pin_id: { type: String },

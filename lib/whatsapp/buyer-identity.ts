@@ -42,6 +42,7 @@ export async function findOrCreateBuyerForWaId(
     phone: waId,
     phone_verified: true, // the wa_id itself came from a verified Meta webhook delivery
     role: 'customer',
+    isPlaceholderAccount: true,
   })
 
   const customerId = String(user._id)

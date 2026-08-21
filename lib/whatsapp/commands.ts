@@ -24,6 +24,8 @@ import {
 import { tryHandleProviderOfferCommand } from '@/lib/whatsapp/service-negotiation'
 import { getVendorSalesSummary } from '@/lib/analytics'
 import { tryHandleWithdrawalFlow } from '@/lib/whatsapp/vendor-withdrawal'
+import { tryHandleVendorTopupCommand } from '@/lib/whatsapp/wallet-topup'
+import { tryHandleShoppingModeToggle, isVendorShopping, ensureBuyerIdentityForVendor } from '@/lib/whatsapp/vendor-shopping'
 
 const CODE_PATTERN = /^[A-Z0-9]{6}$/i
 // Matches the same orderId.slice(0, 8).toUpperCase() convention used for the order ref
@@ -60,19 +62,35 @@ export async function handleInboundMessage(waId: string, text: string, contextMe
   }
 
   // Not a linked vendor — route into buyer product browsing instead of the vendor help
-  // menu. Known v1 limitation (accepted): a linked vendor can't also browse as a buyer on
-  // the same number; there's no mode-switch.
+  // menu. A linked vendor CAN also shop on the same number — see the shopping-mode
+  // toggle/routing below, checked after financial commands.
   const vendorId = await resolveLinkedVendor(waId)
   if (!vendorId) {
     await handleBuyerMessage(waId, trimmed, contextMessageId)
     return
   }
 
-  // Withdrawal — checked before every other vendor command, same "blocking stage owns the
-  // whole next message" precedent as QUOTE_BLOCKING_STAGES for buyers. Also owns the
-  // "withdraw" entry keyword itself when idle, so it must run before the generic help-menu
-  // fallback below regardless of stage.
+  // Withdrawal and top-up — checked before every other vendor command, same "blocking
+  // stage owns the whole next message" precedent as QUOTE_BLOCKING_STAGES for buyers. Both
+  // must run BEFORE the shopping-mode check below regardless of whether shopping mode is
+  // on — a shopping vendor's "withdraw"/"topup" still needs to resolve through vendor-role
+  // wallet logic (their real role is 'vendor'; routing it into the buyer flow would hit
+  // customer-role wallet logic scoped role:'customer' and silently fail to find them).
   if (await tryHandleWithdrawalFlow(waId, vendorId, trimmed)) {
+    return
+  }
+  if (await tryHandleVendorTopupCommand(waId, vendorId, trimmed)) {
+    return
+  }
+
+  // Lets a linked vendor also shop through the bot using their own account — see
+  // lib/whatsapp/vendor-shopping.ts. Toggle checked first, then routing while active.
+  if (await tryHandleShoppingModeToggle(waId, vendorId, trimmed)) {
+    return
+  }
+  if (await isVendorShopping(vendorId)) {
+    await ensureBuyerIdentityForVendor(waId, vendorId)
+    await handleBuyerMessage(waId, trimmed, contextMessageId)
     return
   }
 
@@ -344,7 +362,7 @@ async function sendHelpMenu(waId: string): Promise<void> {
   if (vendorId) {
     await trySend(
       waId,
-      "Hi! I didn't recognize that message.\n\nAvailable commands:\n- dispatched [order ref] — mark an order as shipped\n- balance — check your wallet balance\n- sales / sales week — check your sales\n- withdraw [amount] — withdraw to your saved bank account\n- quote [request ref] [amount] — send a price for a quote request\n- counter [ref] [amount] — counter a buyer's offer\n- accept [ref] / decline [ref] — accept or decline a buyer's counter-offer"
+      "Hi! I didn't recognize that message.\n\nAvailable commands:\n- dispatched [order ref] — mark an order as shipped\n- balance — check your wallet balance\n- sales / sales week — check your sales\n- withdraw [amount] — withdraw to your saved bank account\n- topup [amount] — top up your wallet\n- shop — browse and buy like a buyer (reply \"vendor mode\" to switch back)\n- quote [request ref] [amount] — send a price for a quote request\n- counter [ref] [amount] — counter a buyer's offer\n- accept [ref] / decline [ref] — accept or decline a buyer's counter-offer"
     )
     return
   }

@@ -3,6 +3,7 @@
 import { useCart } from "@/contexts/CartContext"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
+import { Checkbox } from "@/components/ui/checkbox"
 import { ShoppingCart, Plus, Minus, Trash2, ArrowLeft, Loader2, ShoppingBag } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -10,7 +11,19 @@ import Header from "@/components/Header"
 import { useState, useEffect, useCallback } from "react"
 
 export default function CartPage() {
-  const { items, totalItems, totalPrice, updateQuantity, removeItem } = useCart()
+  const {
+    items,
+    totalItems,
+    updateQuantity,
+    removeItem,
+    selectedProductIds,
+    toggleSelected,
+    selectAll,
+    deselectAll,
+    selectedItems,
+    selectedTotalItems,
+    selectedTotalPrice,
+  } = useCart()
   const [isLoading, setIsLoading] = useState(true)
   const [storeNames, setStoreNames] = useState<{ [vendorId: string]: string }>({})
 
@@ -82,9 +95,10 @@ export default function CartPage() {
     )
   }
 
-  const subtotal = totalPrice
+  const subtotal = selectedTotalPrice
   const tax = subtotal * 0.08
   const total = subtotal + tax
+  const allSelected = items.length > 0 && selectedProductIds.size === items.length
 
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
@@ -106,10 +120,30 @@ export default function CartPage() {
 
           {/* ── Cart items ── */}
           <div className="lg:col-span-2 space-y-3">
+            <div className="flex items-center gap-2 px-1">
+              <Checkbox
+                id="select-all"
+                checked={allSelected}
+                onCheckedChange={(checked) => (checked ? selectAll() : deselectAll())}
+              />
+              <label htmlFor="select-all" className="text-sm text-muted-foreground cursor-pointer select-none">
+                {allSelected ? "All items selected" : `${selectedProductIds.size} of ${items.length} selected`}
+              </label>
+            </div>
+
             {items.map((item) => (
               <div key={item.productId} className="bg-card rounded-2xl shadow-sm border border-border/50 overflow-hidden">
                 <div className="p-4">
                   <div className="flex gap-3">
+                    {/* Selection checkbox */}
+                    <div className="shrink-0 flex items-start pt-1">
+                      <Checkbox
+                        checked={selectedProductIds.has(item.productId)}
+                        onCheckedChange={() => toggleSelected(item.productId)}
+                        aria-label={`Select ${item.title} for checkout`}
+                      />
+                    </div>
+
                     {/* Product image */}
                     <div className="relative w-20 h-20 sm:w-24 sm:h-24 shrink-0 rounded-xl overflow-hidden bg-muted">
                       <Image
@@ -182,9 +216,15 @@ export default function CartPage() {
             <div className="bg-card rounded-2xl shadow-sm border border-border/50 p-5 lg:sticky lg:top-24">
               <h2 className="font-bold text-base mb-4">Order Summary</h2>
 
+              {selectedItems.length > 0 && selectedItems.length < items.length && (
+                <p className="text-xs text-muted-foreground mb-3">
+                  Checking out {selectedItems.length} of {items.length} items — the rest stay in your cart.
+                </p>
+              )}
+
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal ({totalItems} {totalItems === 1 ? 'item' : 'items'})</span>
+                  <span className="text-muted-foreground">Subtotal ({selectedTotalItems} {selectedTotalItems === 1 ? 'item' : 'items'})</span>
                   <span className="font-medium">₦{subtotal.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between">
@@ -205,16 +245,25 @@ export default function CartPage() {
                 <span className="text-accent">₦{total.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</span>
               </div>
 
-              {(items.some(item => (item.vendorName || '').toLowerCase().includes('munch')) ||
-                Object.values(storeNames).some((name: any) => String(name || '').toLowerCase().includes('munch'))) && (
+              {(selectedItems.some(item => (item.vendorName || '').toLowerCase().includes('munch')) ||
+                selectedItems.some(item => String(storeNames[item.vendorId] || '').toLowerCase().includes('munch'))) && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800 mb-4">
                   <span className="font-semibold">Note:</span> Munch typically takes <span className="font-semibold">3–4 hours</span> to prepare orders. Please plan your delivery time accordingly.
                 </div>
               )}
 
-              <Button asChild className="w-full bg-accent hover:bg-accent/90 text-white" size="lg">
-                <Link href="/checkout">Proceed to Checkout</Link>
-              </Button>
+              {selectedItems.length === 0 ? (
+                <>
+                  <Button className="w-full" size="lg" disabled>
+                    Proceed to Checkout
+                  </Button>
+                  <p className="text-xs text-destructive text-center mt-2">Select at least one item to check out.</p>
+                </>
+              ) : (
+                <Button asChild className="w-full bg-accent hover:bg-accent/90 text-white" size="lg">
+                  <Link href="/checkout">Proceed to Checkout</Link>
+                </Button>
+              )}
               <Button variant="outline" asChild className="w-full mt-2 border-accent/40 text-accent hover:bg-accent/10">
                 <Link href="/stores">Continue Shopping</Link>
               </Button>

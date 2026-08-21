@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useCart } from "@/contexts/CartContext"
 import React, { useEffect, useState } from "react"
 import { ShoppingCart, Plus, Minus, Trash2, ShoppingBag } from "lucide-react"
@@ -10,7 +11,18 @@ import Image from "next/image"
 import Link from "next/link"
 
 export default function CartSidebar() {
-  const { items, totalItems, totalPrice, updateQuantity, removeItem, isOpen, setIsOpen } = useCart()
+  const {
+    items,
+    totalItems,
+    updateQuantity,
+    removeItem,
+    isOpen,
+    setIsOpen,
+    selectedProductIds,
+    toggleSelected,
+    selectedItems,
+    selectedTotalPrice,
+  } = useCart()
   const [storeNames, setStoreNames] = useState<{ [vendorId: string]: string }>({})
   // Debug: Log cart items and storeNames mapping
   useEffect(() => {
@@ -78,7 +90,12 @@ export default function CartSidebar() {
             <ScrollArea className="flex-1 -mx-6 px-6 max-h-[70vh] overflow-y-auto">
               <div className="space-y-4 py-4">
                 {items.map((item, index) => (
-                  <div key={item.productId} className="flex items-center space-x-4 animate-slide-in-left" style={{ animationDelay: `${index * 0.05}s` }}>
+                  <div key={item.productId} className="flex items-center space-x-3 animate-slide-in-left" style={{ animationDelay: `${index * 0.05}s` }}>
+                    <Checkbox
+                      checked={selectedProductIds.has(item.productId)}
+                      onCheckedChange={() => toggleSelected(item.productId)}
+                      aria-label={`Select ${item.title} for checkout`}
+                    />
                     <div className="relative h-16 w-16 rounded-md overflow-hidden bg-muted">
                       <Image src={item.image || "/placeholder.svg"} alt={item.title} fill sizes="64px" className="object-cover hover:scale-110 transition-transform duration-300" />
                     </div>
@@ -123,20 +140,32 @@ export default function CartSidebar() {
             </ScrollArea>
 
             <div className="space-y-4 pt-4 border-t">
+              {selectedItems.length > 0 && selectedItems.length < items.length && (
+                <p className="text-xs text-muted-foreground -mb-2">
+                  Checking out {selectedItems.length} of {items.length} items.
+                </p>
+              )}
               <div className="flex items-center justify-between text-lg font-semibold">
                 <span>Total</span>
-                <span>₦{totalPrice.toFixed(2)}</span>
+                <span>₦{selectedTotalPrice.toFixed(2)}</span>
               </div>
-              {(items.some(item => (item.vendorName || '').toLowerCase().includes('munch')) ||
-                Object.values(storeNames).some((name: any) => String(name || '').toLowerCase().includes('munch'))) && (
+              {(selectedItems.some(item => (item.vendorName || '').toLowerCase().includes('munch')) ||
+                selectedItems.some(item => String(storeNames[item.vendorId] || '').toLowerCase().includes('munch'))) && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                   <span className="font-semibold">Note:</span> Munch takes <span className="font-semibold">3–4 hours</span> to prepare orders. Plan accordingly.
                 </div>
               )}
               <div className="space-y-2">
-                <Button asChild className="w-full border border-accent/40 bg-white text-accent hover:bg-accent hover:text-white transition-all" onClick={() => setIsOpen(false)}>
-                  <Link href="/checkout">Proceed to Checkout</Link>
-                </Button>
+                {selectedItems.length === 0 ? (
+                  <>
+                    <Button className="w-full" disabled>Proceed to Checkout</Button>
+                    <p className="text-xs text-destructive text-center">Select at least one item to check out.</p>
+                  </>
+                ) : (
+                  <Button asChild className="w-full border border-accent/40 bg-white text-accent hover:bg-accent hover:text-white transition-all" onClick={() => setIsOpen(false)}>
+                    <Link href="/checkout">Proceed to Checkout</Link>
+                  </Button>
+                )}
                 <Button variant="outline" asChild className="w-full bg-transparent" onClick={() => setIsOpen(false)}>
                   <Link href="/cart">View Cart</Link>
                 </Button>

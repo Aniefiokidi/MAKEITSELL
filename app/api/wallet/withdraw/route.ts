@@ -1,57 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getUserBySessionToken } from '@/lib/auth'
-import { connectToDatabase } from '@/lib/mongodb'
-import { User } from '@/lib/models/User'
-import { WalletTransaction } from '@/lib/models/WalletTransaction'
-import { createTransferRecipient, fetchPaystackNgnBalance, initiateTransfer } from '@/lib/paystack-transfer'
-import crypto from 'crypto'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { enforceSameOrigin } from '@/lib/request-security'
-
-const hashWithdrawalPin = (pin: string, userId: string) => {
-  return crypto.createHash('sha256').update(`${pin}:${userId}`).digest('hex')
-}
-
-const mapTransferStatusToTxStatus = (status: string) => {
-  const normalized = String(status || '').trim().toLowerCase()
-  if (
-    ['success', 'successful', 'succeeded', 'completed', 'complete', 'paid', 'approved', 'ok', 'transferred', 'done', 'true'].includes(normalized)
-    || normalized.includes('success')
-    || normalized.includes('succeed')
-    || normalized.includes('complete')
-    || normalized.includes('paid')
-    || normalized.includes('approve')
-    || normalized.includes('transfer success')
-  ) {
-    return 'completed'
-  }
-  if (
-    ['failed', 'failure', 'reversed', 'declined', 'cancelled', 'canceled'].includes(normalized)
-    || normalized.includes('fail')
-    || normalized.includes('declin')
-    || normalized.includes('cancel')
-    || normalized.includes('revers')
-  ) {
-    return 'failed'
-  }
-  return 'pending'
-}
-
-const normalizeAccountNumber = (value: any) => String(value || '').replace(/\D/g, '')
-const normalizeText = (value: any) => String(value || '').trim()
-const toFriendlyPayoutError = (message: string) => {
-  const text = String(message || '').trim()
-  const normalized = text.toLowerCase()
-  if (
-    normalized.includes('balance is not enough')
-    || normalized.includes('insufficient balance')
-    || normalized.includes('insufficient funds')
-  ) {
-    return 'Withdrawal could not be processed by payout provider right now. Your wallet balance was not deducted. Please try again shortly.'
-  }
-  return text || 'Automatic payout failed. No funds were deducted. Please try again shortly.'
-}
+import { verifyWithdrawalPin, processCustomerWithdrawal, clearWhatsAppWithdrawalLockoutForCustomer } from '@/lib/customer-withdrawal'
 
 export async function POST(request: NextRequest) {
   try {
@@ -69,28 +21,9 @@ export async function POST(request: NextRequest) {
     const amount = Number(body?.amount)
     const bankName = String(body?.bankName || '').trim()
     const bankCode = String(body?.bankCode || '').trim()
-    let bankCodeForPayout = bankCode
-    const accountNumber = normalizeAccountNumber(body?.accountNumber)
+    const accountNumber = String(body?.accountNumber || '').trim()
     const accountName = String(body?.accountName || '').trim()
     const withdrawalPin = String(body?.withdrawalPin || '').trim()
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return NextResponse.json({ success: false, error: 'Amount must be greater than zero' }, { status: 400 })
-    }
-
-    if (!bankName || !bankCode || !accountNumber || !accountName) {
-      return NextResponse.json(
-        { success: false, error: 'Bank, account number and account name are required' },
-        { status: 400 }
-      )
-    }
-
-    if (!/^\d{10}$/.test(accountNumber)) {
-      return NextResponse.json(
-        { success: false, error: 'Account number must be 10 digits' },
-        { status: 400 }
-      )
-    }
 
     if (!/^\d{4}$/.test(withdrawalPin)) {
       return NextResponse.json(
@@ -114,251 +47,40 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Only customers can withdraw' }, { status: 403 })
     }
 
-    const normalizedAmount = Math.round(amount * 100) / 100
-    const minimumWithdrawal = Number(process.env.PAYSTACK_MIN_WITHDRAWAL_NGN || 1000)
-    if (normalizedAmount < minimumWithdrawal) {
-      return NextResponse.json(
-        { success: false, error: `Minimum withdrawal is ${minimumWithdrawal}` },
-        { status: 400 }
-      )
-    }
-
-    await connectToDatabase()
-
-    const paystackBalance = await fetchPaystackNgnBalance()
-    if (paystackBalance.success && Number(paystackBalance.availableNgn || 0) < normalizedAmount) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Payout provider balance is currently ₦${Number(paystackBalance.availableNgn || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}, which is below this withdrawal amount. Please try again after balance is funded.`,
-        },
-        { status: 502 }
-      )
-    }
-
-    const userForPin = await User.findOne(
-      { _id: currentUser.id, role: 'customer' },
-      { withdrawalPinHash: 1, payoutProfile: 1 }
-    )
-
-    if (!userForPin?.withdrawalPinHash) {
+    const pinCheck = await verifyWithdrawalPin(currentUser.id, withdrawalPin)
+    if (!pinCheck.hasPinSet) {
       return NextResponse.json(
         { success: false, error: 'Set your 4-digit withdrawal PIN before requesting withdrawal' },
         { status: 400 }
       )
     }
-
-    const providedPinHash = hashWithdrawalPin(withdrawalPin, String(currentUser.id))
-    if (userForPin.withdrawalPinHash !== providedPinHash) {
-      return NextResponse.json(
-        { success: false, error: 'Incorrect withdrawal PIN' },
-        { status: 400 }
-      )
+    if (!pinCheck.valid) {
+      return NextResponse.json({ success: false, error: 'Incorrect withdrawal PIN' }, { status: 400 })
     }
 
-    const debitResult = await User.updateOne(
-      {
-        _id: currentUser.id,
-        role: 'customer',
-        walletBalance: { $gte: normalizedAmount },
-      },
-      {
-        $inc: { walletBalance: -normalizedAmount },
-        $set: {
-          updatedAt: new Date(),
-        },
-      }
-    )
+    // Proving the PIN here — an authenticated web session, a second factor beyond
+    // whatever's happening on WhatsApp — is the recovery path out of a WhatsApp PIN
+    // lockout (lib/whatsapp/customer-withdrawal.ts).
+    await clearWhatsAppWithdrawalLockoutForCustomer(currentUser.id)
 
-    if (debitResult.modifiedCount === 0) {
-      return NextResponse.json(
-        { success: false, error: 'Insufficient wallet balance for this withdrawal' },
-        { status: 400 }
-      )
-    }
-
-    const reference = `wallet_withdraw_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`
-    const payoutReference = `wd_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`
-    const transferReason = `Customer wallet withdrawal to ${accountName}`
-
-    let transferProvider = 'paystack_payout'
-    let transferCode = ''
-    let transferStatus = 'pending'
-    let transferRecipientCode = ''
-    let transferMeta: Record<string, any> = {}
-    let payoutError = ''
-
-    try {
-      const storedProfile = userForPin?.payoutProfile && typeof userForPin.payoutProfile === 'object'
-        ? userForPin.payoutProfile
-        : {}
-      const storedBankCode = normalizeText((storedProfile as any).bankCode)
-      const storedAccountNumber = normalizeAccountNumber((storedProfile as any).accountNumber)
-      const storedAccountName = normalizeText((storedProfile as any).accountName)
-      const storedRecipientCode = normalizeText((storedProfile as any).paystackRecipientCode)
-
-      const accountChanged = (
-        storedBankCode !== normalizeText(bankCode)
-        || storedAccountNumber !== normalizeAccountNumber(accountNumber)
-        || storedAccountName.toLowerCase() !== normalizeText(accountName).toLowerCase()
-      )
-
-      const recipientCode = !accountChanged ? storedRecipientCode : ''
-
-      const nextPayoutProfile: Record<string, any> = {
-        provider: 'paystack',
-        bankName,
-        bankCode,
-        accountNumber,
-        accountName,
-        updatedAt: new Date(),
-      }
-      if (recipientCode) {
-        nextPayoutProfile.paystackRecipientCode = recipientCode
-        nextPayoutProfile.recipientCreatedAt = (storedProfile as any).recipientCreatedAt || new Date()
-      }
-
-      await User.updateOne(
-        { _id: currentUser.id },
-        {
-          $set: {
-            payoutProfile: nextPayoutProfile,
-            updatedAt: new Date(),
-          },
-        }
-      )
-
-      let resolvedRecipientCode = recipientCode
-      if (!resolvedRecipientCode) {
-        const recipient = await createTransferRecipient({
-          name: accountName,
-          accountNumber,
-          bankCode: bankCodeForPayout,
-        })
-        if (!recipient.success || !recipient.recipientCode) {
-          throw new Error(recipient.message || 'Failed to create transfer recipient')
-        }
-        resolvedRecipientCode = recipient.recipientCode
-        nextPayoutProfile.paystackRecipientCode = resolvedRecipientCode
-        nextPayoutProfile.recipientCreatedAt = new Date()
-        await User.updateOne({ _id: currentUser.id }, { $set: { payoutProfile: nextPayoutProfile, updatedAt: new Date() } })
-      }
-
-      const transfer = await initiateTransfer({
-        amount: normalizedAmount,
-        recipientCode: resolvedRecipientCode,
-        reference: payoutReference,
-        reason: transferReason,
-      })
-
-      if (transfer.success && transfer.transferCode) {
-        transferProvider = 'paystack_payout'
-        transferCode = transfer.transferCode
-        transferStatus = transfer.status || 'pending'
-        transferRecipientCode = resolvedRecipientCode
-        transferMeta = {
-          payoutProfileUsed: {
-            bankName,
-            bankCode,
-            accountNumber,
-            accountName,
-            recipientCode,
-            reusedStoredRecipient: Boolean(storedRecipientCode) && !accountChanged,
-            accountChanged,
-          },
-          paystackTransferRaw: transfer.raw || null,
-        }
-      } else {
-        const providerStatus = String((transfer.raw as any)?.data?.status || (transfer.raw as any)?.status || '').trim()
-        const providerMessage = String((transfer.raw as any)?.message || '').trim()
-        const transferMsg = [transfer.message, providerMessage, providerStatus].filter(Boolean).join(' | ') || 'Paystack transfer initiation failed'
-        payoutError = transferMsg
-      }
-    } catch (transferFailure: any) {
-      payoutError = transferFailure?.message || 'Paystack transfer request failed'
-    }
-
-    if (!transferCode) {
-      await User.updateOne(
-        { _id: currentUser.id, role: 'customer' },
-        {
-          $inc: { walletBalance: normalizedAmount },
-          $set: { updatedAt: new Date() },
-        }
-      )
-
-      console.warn('[wallet/withdraw] auto-transfer unavailable, debit rolled back', {
-        userId: String(currentUser.id),
-        amount: normalizedAmount,
-        bankCode,
-        bankCodeForPayout,
-        payoutReference,
-        payoutError,
-      })
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: toFriendlyPayoutError(payoutError),
-        },
-        { status: 502 }
-      )
-    }
-
-    await WalletTransaction.create({
-      userId: String(currentUser.id),
-      type: 'withdrawal',
-      amount: normalizedAmount,
-      status: mapTransferStatusToTxStatus(transferStatus),
-      reference,
-      provider: transferProvider,
-      note: `Customer withdrawal to ${accountName} (${bankName})`,
-      metadata: {
-        bankName,
-        bankCode,
-        bankCodeForPayout,
-        accountNumber,
-        accountName,
-        payoutReference,
-        transferCode,
-        transferStatus,
-        transferRecipientCode,
-        requestedBy: currentUser.email,
-        ...transferMeta,
-      },
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    const result = await processCustomerWithdrawal({
+      userId: currentUser.id,
+      amount,
+      bankName,
+      bankCode,
+      accountNumber,
+      accountName,
     })
 
-    const refreshedUser = await User.findOne(
-      { _id: currentUser.id },
-      { walletBalance: 1 }
-    )
-
-    // Send withdrawal email only if completed immediately
-    if (mapTransferStatusToTxStatus(transferStatus) === 'completed' && currentUser.email) {
-      try {
-        const { sendWalletWithdrawalEmail } = await import('@/lib/wallet-emails')
-        await sendWalletWithdrawalEmail({
-          to: currentUser.email,
-          amount: normalizedAmount,
-          reference,
-          balance: typeof refreshedUser?.walletBalance === 'number' ? refreshedUser.walletBalance : 0,
-        })
-      } catch (emailErr) {
-        console.error('[wallet/withdraw] Failed to send withdrawal email:', emailErr)
-      }
+    if (!result.success) {
+      return NextResponse.json({ success: false, error: result.error }, { status: result.status })
     }
 
     return NextResponse.json({
       success: true,
-      message: mapTransferStatusToTxStatus(transferStatus) === 'completed'
-        ? 'Withdrawal completed successfully.'
-        : transferCode
-          ? 'Withdrawal request submitted. Transfer is being processed.'
-          : 'Withdrawal request submitted.',
-      reference,
-      balance: typeof refreshedUser?.walletBalance === 'number' ? refreshedUser.walletBalance : 0,
+      message: result.message,
+      reference: result.reference,
+      balance: result.newBalance,
     })
   } catch (error: any) {
     return NextResponse.json(
