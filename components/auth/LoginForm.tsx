@@ -131,17 +131,21 @@ export default function LoginForm() {
 
   return (
     <Card className="w-full max-w-md mx-auto animate-scale-in">
-      <CardHeader className="text-center animate-fade-in">
-        <Image
-          src="/images/logo2.png"
-          alt="Make It Sell logo"
-          width={100}
-          height={96}
-          className="mx-auto mb-3 h-24 w-54 rounded-full object-contain"
-          priority
-        />
-        <CardTitle className="text-2xl font-bold" style={{ textShadow: '1px 1px 0 hsl(var(--accent)), -1px -1px 0 hsl(var(--accent)), 1px -1px 0 hsl(var(--accent)), -1px 1px 0 hsl(var(--accent))' }}>Welcome Back</CardTitle>
-        <CardDescription>Sign in to your Make It Sell account</CardDescription>
+      <CardHeader className="text-center animate-fade-in space-y-3">
+        <Link href="/" className="inline-block md:hidden">
+          <Image
+            src="/images/logo (2).png"
+            alt="Make It Sell"
+            width={180}
+            height={36}
+            className="mx-auto h-8 w-auto object-contain"
+            priority
+          />
+        </Link>
+        <div className="space-y-1.5">
+          <CardTitle className="text-2xl font-bold text-foreground">Welcome back</CardTitle>
+          <CardDescription>Sign in to your Make It Sell account</CardDescription>
+        </div>
       </CardHeader>
       
       <form onSubmit={handleSubmit}>
@@ -192,6 +196,7 @@ export default function LoginForm() {
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={loading}
+              autoComplete="username"
             />
           </div>
 
@@ -206,6 +211,7 @@ export default function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading}
+                autoComplete="current-password"
               />
               <Button
                 type="button"

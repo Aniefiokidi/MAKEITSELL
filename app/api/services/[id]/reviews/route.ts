@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { connectToDatabase } from '@/lib/mongodb'
 import { Review } from '@/lib/models/Review'
 import { Booking } from '@/lib/models/Booking'
+import { ServiceContact } from '@/lib/models/ServiceContact'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { getServiceById } from '@/lib/mongodb-operations'
 import { notifyReviewSubmitted } from '@/lib/review-notifications'
@@ -53,7 +54,19 @@ export async function POST(
     status: 'completed',
   }).lean()
 
-  if (!booking) {
+  // Fallback: no real Booking (WhatsApp-redirected connection instead — see
+  // app/api/services/[id]/contact/route.ts) — valid as long as the buyer self-reported
+  // "received" for it.
+  const contact = booking
+    ? null
+    : await ServiceContact.findOne({
+        _id: bookingId,
+        customerId: sessionUser.id,
+        serviceId: id,
+        status: 'received',
+      }).lean()
+
+  if (!booking && !contact) {
     return NextResponse.json(
       { success: false, error: 'No eligible completed booking for this service was found' },
       { status: 403 }

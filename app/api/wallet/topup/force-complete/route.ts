@@ -63,6 +63,28 @@ export async function POST(request: NextRequest) {
     const originalAmount = Number(transaction.amount || 0)
     const chargedFee = Math.max(0, Math.round((originalAmount - creditAmount) * 100) / 100)
 
+    const userIdObject = mongoose.Types.ObjectId.isValid(String(transaction.userId))
+      ? new mongoose.Types.ObjectId(String(transaction.userId))
+      : transaction.userId
+
+    // Credit the wallet before marking the transaction completed, and check it actually
+    // matched — this used to filter by role:'customer', which silently matched zero
+    // documents (and skipped the credit entirely) for a vendor's topup, while still
+    // reporting success and marking the transaction completed. Vendors top up their
+    // wallet too (app/api/vendor/wallet/topup/route.ts), so any role in good standing
+    // should be creditable here, not just customers.
+    const creditResult = await User.updateOne(
+      { _id: userIdObject },
+      {
+        $inc: { walletBalance: creditAmount },
+        $set: { updatedAt: new Date() },
+      }
+    )
+
+    if (creditResult.matchedCount === 0) {
+      return NextResponse.json({ success: false, error: 'User not found for this transaction' }, { status: 404 })
+    }
+
     const completeUpdate = await WalletTransaction.updateOne(
       { _id: transaction._id, status: 'pending' },
       {
@@ -85,20 +107,11 @@ export async function POST(request: NextRequest) {
     )
 
     if (completeUpdate.modifiedCount === 0) {
+      // Wallet was already credited above — roll it back rather than leaving a silent
+      // double-credit risk if this route is ever retried for the same reference.
+      await User.updateOne({ _id: userIdObject }, { $inc: { walletBalance: -creditAmount }, $set: { updatedAt: new Date() } })
       return NextResponse.json({ success: false, error: 'Unable to complete transaction' }, { status: 409 })
     }
-
-    const userIdObject = mongoose.Types.ObjectId.isValid(String(transaction.userId))
-      ? new mongoose.Types.ObjectId(String(transaction.userId))
-      : transaction.userId
-
-    await User.updateOne(
-      { _id: userIdObject, role: 'customer' },
-      {
-        $inc: { walletBalance: creditAmount },
-        $set: { updatedAt: new Date() },
-      }
-    )
 
     return NextResponse.json({
       success: true,

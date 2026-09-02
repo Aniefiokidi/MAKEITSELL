@@ -9,6 +9,8 @@ import { trackFunnelEvent } from "@/lib/funnel-tracker"
 import { trackProductQuickView } from "@/lib/personalization"
 import { setPendingReferralVendor, trackReferralClick } from "@/lib/referral-attribution"
 import { useWishlist } from "@/contexts/WishlistContext"
+import { useCart } from "@/contexts/CartContext"
+import { useNotification } from "@/contexts/NotificationContext"
 import Header from "@/components/Header"
 import { ReviewsSection } from "@/components/reviews/ReviewsSection"
 
@@ -26,12 +28,33 @@ export default function ProductPage() {
   const productId = String(params.id || "")
 
   const wishlist = useWishlist()
+  const { addItem } = useCart()
+  const notification = useNotification()
   const [product, setProduct] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [selectedColor, setSelectedColor] = useState<string>("")
   const [selectedSize, setSelectedSize] = useState<string>("")
   const [mainImage, setMainImage] = useState<string>("")
   const [viewTracked, setViewTracked] = useState(false)
+  const [justAddedToCart, setJustAddedToCart] = useState(false)
+
+  const handleAddToCart = () => {
+    if (!product || isOutOfStock) return
+    addItem({
+      productId: String(product.id || productId),
+      id: String(product.id || productId),
+      title: product.title || product.name || "Product",
+      price: Number(product.price || 0),
+      image: product.images?.[0] || "",
+      maxStock: Number(product.stock || 100),
+      vendorId: String(product.vendorId || ""),
+      vendorName: product.vendorName || "Unknown Vendor",
+      category: product.category || "",
+    })
+    notification.success("Product added to cart", product.title || product.name, 3000)
+    setJustAddedToCart(true)
+    setTimeout(() => setJustAddedToCart(false), 1700)
+  }
 
   useEffect(() => {
     async function fetchProduct() {
@@ -301,10 +324,11 @@ export default function ProductPage() {
                 </button>
               ) : (
                 <button
+                  onClick={handleAddToCart}
                   className="w-full bg-accent text-white font-bold py-3 px-4 rounded-lg hover:bg-accent/90 transition disabled:opacity-60 disabled:cursor-not-allowed"
-                  disabled={product.status !== "active"}
+                  disabled={product.status !== "active" || justAddedToCart}
                 >
-                  Add to Cart
+                  {justAddedToCart ? "Added!" : "Add to Cart"}
                 </button>
               )}
             </div>

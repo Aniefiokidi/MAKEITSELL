@@ -1,13 +1,16 @@
-﻿import SignupForm from "@/components/auth/SignupForm"
+"use client"
+
+import { useSearchParams } from "next/navigation"
+import SignupForm from "@/components/auth/SignupForm"
+import { AuthShell } from "@/components/auth/AuthShell"
 
 export default function SignupPage() {
+  const searchParams = useSearchParams()
+  const isVendorSignup = searchParams.get("type") === "vendor"
+
   return (
-    <div className="min-h-screen flex flex-col">
-      <div className="flex-1 flex items-center justify-center bg-muted/30 px-4">
-        <div className="w-full max-w-md">
-          <SignupForm />
-        </div>
-      </div>
-    </div>
+    <AuthShell variant={isVendorSignup ? "vendor-signup" : "signup"}>
+      <SignupForm />
+    </AuthShell>
   )
 }

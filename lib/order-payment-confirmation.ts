@@ -9,7 +9,7 @@
 import connectToDatabase from '@/lib/mongodb'
 import mongoose from 'mongoose'
 import { Order } from '@/lib/models/Order'
-import { createShipmentsForOrder } from '@/lib/shipbubble-dispatch'
+import { createShipmentsForOrder } from '@/lib/order-dispatch'
 import { notifyVendorsNewOrder } from '@/lib/whatsapp/notifications'
 import { notifyWaBuyerOrderPaid } from '@/lib/whatsapp/checkout'
 import { sendOrderPlacementNotifications } from '@/lib/order-notifications'

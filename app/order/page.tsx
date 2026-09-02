@@ -488,11 +488,16 @@ export default function CustomerOrdersPage() {
 
                     {/* Actions */}
                     <div className="px-4 pb-4 space-y-2">
-                      {/* Track delivery — Shipbubble's own tracking page for this vendor's shipment */}
+                      {/* Track delivery — the provider's own tracking page for this vendor's shipment */}
                       {(() => {
-                        const trackingUrl = order.vendor?.shipbubbleTrackingUrl
-                        const shipStatus = String(order.vendor?.shipbubbleStatus || '').toLowerCase()
-                        if (!trackingUrl || !['confirmed', 'picked_up', 'in_transit'].includes(shipStatus)) return null
+                        const provider = order.vendor?.deliveryProvider || 'shipbubble'
+                        const trackingUrl = order.vendor?.deliveryTrackingUrl || order.vendor?.shipbubbleTrackingUrl
+                        const status = String(order.vendor?.deliveryStatus || order.vendor?.shipbubbleStatus || '').toLowerCase()
+                        if (!trackingUrl) return null
+                        // Shipbubble: unchanged from before — only once their webhook confirms the
+                        // shipment is actually moving. Other providers (Kwik has no webhook) show it
+                        // as soon as a trackingUrl exists, since there's no better signal to gate on.
+                        if (provider === 'shipbubble' && !['confirmed', 'picked_up', 'in_transit'].includes(status)) return null
                         return (
                           <a href={trackingUrl} target="_blank" rel="noopener noreferrer">
                             <Button size="sm" variant="outline" className="w-full flex items-center gap-1.5">

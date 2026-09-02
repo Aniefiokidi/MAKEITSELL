@@ -1,18 +1,16 @@
 // Shared booking-payment initiation — the booking equivalent of lib/order-creation.ts's
 // buildOrder for goods. Takes booking data the caller has already priced (package/add-on
 // total, location pricing, stay-details nights×rooms — whichever applies; see
-// app/api/database/bookings/route.ts, which still owns all of that), and turns it into a
-// pending booking + a Paystack deposit charge. Meant to be called from both the web
-// booking route and (later) the WhatsApp booking flow, so neither re-derives this math or
-// forgets the double-booking check.
+// app/api/database/bookings/route.ts, which still owns all of that) and turns it into a
+// confirmed booking. Meant to be called from both the web booking route and the WhatsApp
+// booking flow, so neither re-derives this math or forgets the double-booking check.
 //
-// Replaces the old flat ₦500 wallet-debit booking fee entirely. New model: customer pays
-// a 10% deposit of the service total PLUS a flat ₦1,000 Make It Sell booking fee, via
-// Paystack, at booking time. The remaining 90% is owed to the provider and settled
-// offline — never charged through this platform. Only applies to requiresQuote:false
-// bookings; a requiresQuote:true booking has no known total yet, so there's nothing to
-// charge a deposit against — it's created the same way it always was, fee-free, awaiting
-// a quote (Phase S3's territory, not this one).
+// Services are not monetized on the platform: no deposit, no booking fee, no Paystack
+// charge, for either a fixed-price booking or a requiresQuote:true one once its quote is
+// accepted (see initiatePaymentForQuotedBooking below). The full price is owed directly
+// to the provider and settled entirely off-platform. `computeBookingDeposit` and the
+// deposit-charging machinery below are left in place, just unused from this path, in case
+// monetization comes back later — see chargeBookingDeposit's own comment.
 import connectToDatabase from '@/lib/mongodb'
 import { Booking } from '@/lib/models/Booking'
 import { PriceNegotiation } from '@/lib/models/PriceNegotiation'
@@ -21,6 +19,7 @@ import { findBookingSlotConflict } from '@/lib/booking-availability'
 import { paystackService } from '@/lib/payment'
 import { calculatePaystackCheckoutAmounts } from '@/lib/paystack-charges'
 import { computeBookingDeposit } from '@/lib/booking-pricing'
+import { handleBookingPaid } from '@/lib/booking-payment-confirmation'
 
 // Phase S4 trust-gap fix: an `agreed` PriceNegotiation (lib/models/PriceNegotiation.ts —
 // pre-booking price haggling on a requiresQuote:false service) previously had no
@@ -78,12 +77,9 @@ export type InitiateBookingPaymentResult =
   | { success: true; requiresPayment: false; bookingId: string }
   | { success: false; error: string; status: number }
 
-// Paystack-init tail, shared by the brand-new-booking path below and
-// initiatePaymentForQuotedBooking (Phase S3) — same deposit charge either way, the only
-// difference is whether a booking is being created or already exists. Callers own what
-// happens to the booking record if this fails (initiateBookingPayment deletes a
-// just-created one; initiatePaymentForQuotedBooking reverts the quote back to pending
-// acceptance instead, since there's a real quote history worth keeping either way).
+// Paystack-init tail — no longer called from either initiateBookingPayment or
+// initiatePaymentForQuotedBooking below (services aren't monetized), left intact
+// alongside computeBookingDeposit rather than deleted, in case that changes later.
 async function chargeBookingDeposit(params: {
   bookingId: string
   customerEmail: string
@@ -219,73 +215,37 @@ export async function initiateBookingPayment(
     return { success: false, error: 'Invalid booking total', status: 400 }
   }
 
-  const { depositAmount, bookingFeeAmount, balanceOwed, amountDueNow } = computeBookingDeposit(totalPrice)
-
-  // Created immediately, before payment — this is what actually holds the slot: the
-  // conflict check above (and the one still in the booking route) only excludes
-  // status: 'cancelled', so this pending booking blocks anyone else's overlap check the
-  // moment it exists, exactly like a fully-paid one would. The flip side, not solved
-  // here: if the customer never completes payment, this booking — and the slot it's
-  // holding — never expires on its own. Needs a cleanup job (cancel stale
-  // paymentStatus: 'pending' bookings after some window) before this ships to real
-  // traffic; out of scope for this task.
+  // Created 'pending' first, then immediately claimed via handleBookingPaid below — not
+  // because anything is being charged, but to reuse that function's atomic claim and its
+  // confirmation side effects (customer/provider email + SMS, notifyWaBuyerBookingPaid)
+  // rather than duplicating them here. The whole price is owed directly to the provider,
+  // settled off-platform.
   const booking = await createBooking({
     ...bookingData,
     status: 'pending',
     paymentStatus: 'pending',
-    paymentMethod: 'paystack',
     // Explicit, not just spread from bookingData — when negotiationId is present these
     // MUST come from the claimed negotiation, not whatever the client submitted.
     totalPrice,
     finalPrice: totalPrice,
-    depositAmount,
-    bookingFeeAmount,
-    bookingFeeStatus: 'pending',
-    balanceOwed,
+    depositAmount: 0,
+    bookingFeeAmount: 0,
+    bookingFeeStatus: 'waived',
+    balanceOwed: totalPrice,
   })
 
   if (negotiationId) await finalizeNegotiationClaim(negotiationId, booking.id)
 
-  const charge = await chargeBookingDeposit({
-    bookingId: booking.id,
-    customerEmail: String(bookingData?.customerEmail || ''),
-    customerId: String(bookingData?.customerId || ''),
-    serviceTitle: String(bookingData?.serviceTitle || ''),
-    providerId: String(bookingData?.providerId || ''),
-    providerName: String(bookingData?.providerName || ''),
-    depositAmount,
-    bookingFeeAmount,
-    amountDueNow,
-    callbackUrl: options.callbackUrl,
-  })
+  await handleBookingPaid(booking.id, 'not_required', { note: 'Services are not monetized on the platform — confirmed without payment.' })
 
-  if (!charge.success) {
-    // Payment couldn't be initialized — don't leave a phantom pending booking holding
-    // the slot for something the customer was never actually sent a payment link for.
-    await Booking.deleteOne({ _id: booking.id })
-    if (negotiationId) await releaseNegotiationClaim(negotiationId)
-    return { success: false, error: charge.error, status: 400 }
-  }
-
-  return {
-    success: true,
-    requiresPayment: true,
-    bookingId: booking.id,
-    authorization_url: charge.authorization_url,
-    reference: charge.reference,
-    depositAmount,
-    bookingFeeAmount,
-    balanceOwed,
-    payableAmount: charge.payableAmount,
-  }
+  return { success: true, requiresPayment: false, bookingId: booking.id }
 }
 
 // Phase S3: a requiresQuote:true booking already exists (created fee-free at request
 // time by the branch above) and the provider has since sent a quote via their existing
 // dashboard (app/api/database/bookings/[id]/route.ts's PATCH sets pricingStatus:'quoted'
-// + finalPrice — unchanged by this task). The buyer accepting that quote is what turns
-// the quoted finalPrice into the SAME 10%-deposit-plus-fee charge a fixed-price booking
-// gets — same computeBookingDeposit, same chargeBookingDeposit, no separate math.
+// + finalPrice — unchanged by this task). The buyer accepting that quote is what confirms
+// the booking at the quoted finalPrice — no charge, same as initiateBookingPayment above.
 export async function initiatePaymentForQuotedBooking(
   bookingId: string,
   options: { callbackUrl?: string } = {}
@@ -305,60 +265,27 @@ export async function initiatePaymentForQuotedBooking(
     return { success: false, error: 'Invalid quoted price', status: 400 }
   }
 
-  const { depositAmount, bookingFeeAmount, balanceOwed, amountDueNow } = computeBookingDeposit(finalPrice)
-
-  // Marks acceptance before charging — matches the web PATCH route's own rule ("cannot
-  // accept quote without a final quoted price" implies accepted follows quoted), and
-  // means a buyer re-sending "accept" while Paystack is mid-init just re-triggers a
-  // payment attempt against the same already-accepted total rather than re-deriving it.
+  // Accepting a quote confirms the booking directly — same no-charge, reuse-
+  // handleBookingPaid approach as initiateBookingPayment above. Marked 'accepted'/
+  // 'pending' first (matches the web PATCH route's own "accepted follows quoted" rule,
+  // and keeps handleBookingPaid's claim guard — paymentStatus $ne 'paid' — meaningful)
+  // immediately before claiming it as paid in the same call.
   await Booking.updateOne(
     { _id: bookingId },
     {
       $set: {
         totalPrice: finalPrice,
         pricingStatus: 'accepted',
-        paymentMethod: 'paystack',
         paymentStatus: 'pending',
-        depositAmount,
-        bookingFeeAmount,
-        bookingFeeStatus: 'pending',
-        balanceOwed,
+        depositAmount: 0,
+        bookingFeeAmount: 0,
+        bookingFeeStatus: 'waived',
+        balanceOwed: finalPrice,
       },
     }
   )
 
-  const charge = await chargeBookingDeposit({
-    bookingId,
-    customerEmail: booking.customerEmail,
-    customerId: booking.customerId,
-    serviceTitle: booking.serviceTitle,
-    providerId: booking.providerId,
-    providerName: booking.providerName,
-    depositAmount,
-    bookingFeeAmount,
-    amountDueNow,
-    callbackUrl: options.callbackUrl,
-  })
+  await handleBookingPaid(bookingId, 'not_required', { note: 'Services are not monetized on the platform — confirmed without payment.' })
 
-  if (!charge.success) {
-    // Unlike a brand-new booking, there's real quote history here worth keeping — revert
-    // the acceptance rather than delete anything, so the buyer can just try "accept" again.
-    await Booking.updateOne(
-      { _id: bookingId },
-      { $set: { pricingStatus: 'quoted', paymentStatus: 'pending' }, $unset: { depositAmount: '', bookingFeeAmount: '', balanceOwed: '' } }
-    )
-    return { success: false, error: charge.error, status: 400 }
-  }
-
-  return {
-    success: true,
-    requiresPayment: true,
-    bookingId,
-    authorization_url: charge.authorization_url,
-    reference: charge.reference,
-    depositAmount,
-    bookingFeeAmount,
-    balanceOwed,
-    payableAmount: charge.payableAmount,
-  }
+  return { success: true, requiresPayment: false, bookingId }
 }

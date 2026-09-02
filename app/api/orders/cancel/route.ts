@@ -6,19 +6,27 @@ import { User } from '@/lib/models/User'
 import { WalletTransaction } from '@/lib/models/WalletTransaction'
 import { getUserBySessionToken } from '@/lib/auth'
 import { sendOrderStatusChangeNotifications } from '@/lib/order-notifications'
-import { cancelShipbubbleShipment } from '@/lib/shipbubble'
+import { findLogisticsProvider } from '@/lib/logistics/engine'
+import type { LogisticsProviderId } from '@/lib/logistics/types'
 import mongoose from 'mongoose'
 
-// Best-effort — Shipbubble only allows cancelling before the courier's processing date,
+// Best-effort — couriers generally only allow cancelling before their processing date,
 // so a failure here shouldn't block the refund/cancellation the customer is waiting on.
-async function bestEffortCancelShipment(shipbubbleOrderId: unknown, context: string) {
-  const id = String(shipbubbleOrderId || '').trim()
-  if (!id) return
+// Falls back to 'shipbubble' + the legacy shipbubbleOrderId field for orders created
+// before the multi-provider generalization.
+async function bestEffortCancelShipment(vendorEntry: any, context: string) {
+  const provider = (vendorEntry?.deliveryProvider || 'shipbubble') as LogisticsProviderId
+  const providerOrderId = String(vendorEntry?.deliveryProviderOrderId || vendorEntry?.shipbubbleOrderId || '').trim()
+  if (!providerOrderId) return
+
+  const providerImpl = findLogisticsProvider(provider)
+  if (!providerImpl) return
+
   try {
-    const ok = await cancelShipbubbleShipment(id)
-    if (!ok) console.error(`[orders/cancel] Shipbubble cancel returned false for ${context} (shipbubbleOrderId=${id})`)
+    const ok = await providerImpl.cancelShipment(providerOrderId)
+    if (!ok) console.error(`[orders/cancel] ${provider} cancel returned false for ${context} (providerOrderId=${providerOrderId})`)
   } catch (err) {
-    console.error(`[orders/cancel] Shipbubble cancel failed for ${context} (shipbubbleOrderId=${id}):`, err)
+    console.error(`[orders/cancel] ${provider} cancel failed for ${context} (providerOrderId=${providerOrderId}):`, err)
   }
 }
 
@@ -162,7 +170,7 @@ export async function POST(request: NextRequest) {
         await session.endSession()
       }
 
-      await bestEffortCancelShipment(targetEntry.shipbubbleOrderId, `order ${orderId} vendor ${targetVendorId}`)
+      await bestEffortCancelShipment(targetEntry, `order ${orderId} vendor ${targetVendorId}`)
 
       try {
         const updatedOrder = await Order.findOne({ orderId }).lean()
@@ -251,7 +259,7 @@ export async function POST(request: NextRequest) {
 
     await Promise.all(
       vendorEntries.map((entry) =>
-        bestEffortCancelShipment(entry?.shipbubbleOrderId, `order ${orderId} vendor ${entry?.vendorId || ''}`)
+        bestEffortCancelShipment(entry, `order ${orderId} vendor ${entry?.vendorId || ''}`)
       )
     )
 

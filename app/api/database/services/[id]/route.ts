@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServiceById as mongoGetServiceById } from '@/lib/mongodb-operations'
 import { cacheNamespaces, getCachedPayload, setCachedPayload } from '@/lib/cache-store'
 import { logApiPerformance } from '@/lib/performance-logs'
+import { connectToDatabase } from '@/lib/mongodb'
+import { Store } from '@/lib/models/Store'
 
 export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const startedAt = Date.now()
@@ -28,11 +30,22 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       })
     }
 
-    const service = await mongoGetServiceById(id)
+    const service: any = await mongoGetServiceById(id)
     console.log(`[getServiceById] Query result:`, service)
     if (!service) {
       statusCode = 404
       return NextResponse.json({ success: false, error: 'Service not found' }, { status: 404 })
+    }
+
+    // The provider's public contact number for the WhatsApp "Book" redirect
+    // (app/service/[id]/page.tsx) — lives on Store.phone, NOT WhatsAppLink.waId (that's
+    // the bot-linking number, private, unrelated to buyer-facing contact). Scoped to just
+    // this single-service-detail route, not the shared getServiceById()/list-search path
+    // used by browsing/bot hot paths.
+    if (service.providerId) {
+      await connectToDatabase()
+      const store: any = await Store.findOne({ vendorId: service.providerId }).select('phone').lean()
+      service.providerPhone = store?.phone || ''
     }
 
     const payload = { success: true, data: service }

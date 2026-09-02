@@ -438,12 +438,11 @@ async function fetchAndPresentQuotes(
     const cheapest = v.cheapestCourier
     if (cheapest) {
       selectedCouriers[v.vendorId] = {
-        courierId: cheapest.courier_id,
-        serviceCode: cheapest.service_code,
+        provider: cheapest.provider,
+        quoteRef: cheapest.quoteRef,
         total: Number(cheapest.total || 0),
-        courierName: cheapest.courier_name,
-        deliveryEta: String(cheapest.delivery_eta || ''),
-        requestToken: v.requestToken,
+        courierName: cheapest.serviceLabel,
+        deliveryEta: String(cheapest.etaLabel || ''),
       }
     }
   }
@@ -460,8 +459,8 @@ async function fetchAndPresentQuotes(
     lines.push(`\n${vIndex + 1}. ${v.storeName}:`)
     const topCouriers = [...v.couriers].sort((a, b) => Number(a.total || 0) - Number(b.total || 0)).slice(0, 4)
     topCouriers.forEach((c, cIndex) => {
-      const isDefault = selectedCouriers[v.vendorId]?.courierId === c.courier_id && selectedCouriers[v.vendorId]?.serviceCode === c.service_code
-      lines.push(`  ${cIndex + 1}. ${c.courier_name} — ${formatNaira(Number(c.total || 0))}${c.delivery_eta ? ` (${c.delivery_eta})` : ''}${isDefault ? ' [default]' : ''}`)
+      const isDefault = selectedCouriers[v.vendorId]?.quoteRef === c.quoteRef
+      lines.push(`  ${cIndex + 1}. ${c.serviceLabel} — ${formatNaira(Number(c.total || 0))}${c.etaLabel ? ` (${c.etaLabel})` : ''}${isDefault ? ' [default]' : ''}`)
     })
   })
   lines.push('\nReply "yes" to go with the defaults, or "change <seller #> <option #>" to pick a different courier (e.g. "change 1 2").')
@@ -530,16 +529,15 @@ async function handleCourierReply(waId: string, text: string, state: any): Promi
 
     const selectedCouriers = { ...(state?.selectedCouriers || {}) }
     selectedCouriers[vendorId] = {
-      courierId: chosen.courier_id,
-      serviceCode: chosen.service_code,
+      provider: chosen.provider,
+      quoteRef: chosen.quoteRef,
       total: Number(chosen.total || 0),
-      courierName: chosen.courier_name,
-      deliveryEta: String(chosen.delivery_eta || ''),
-      requestToken: quote.requestToken,
+      courierName: chosen.serviceLabel,
+      deliveryEta: String(chosen.etaLabel || ''),
     }
 
     await saveState(waId, { selectedCouriers })
-    await trySendText(waId, `Updated ${quote.storeName} to ${chosen.courier_name} — ${formatNaira(Number(chosen.total || 0))}. Reply "yes" when you're ready, or make another change.`)
+    await trySendText(waId, `Updated ${quote.storeName} to ${chosen.serviceLabel} — ${formatNaira(Number(chosen.total || 0))}. Reply "yes" when you're ready, or make another change.`)
     return
   }
 
@@ -642,7 +640,7 @@ async function handleConfirmReply(waId: string, text: string): Promise<void> {
     name: buyer?.name,
     items,
     shippingInfo,
-    shipbubbleSelections: selectedCouriers,
+    courierSelections: selectedCouriers,
   })
 
   if (!result.success) {

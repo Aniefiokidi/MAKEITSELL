@@ -47,6 +47,11 @@ const StoreSchema = new Schema({
   // address/city/state changes (see app/api/database/stores/[id]/route.ts).
   shipbubbleAddressCode: { type: Number },
   shipbubbleAddressVerifiedAt: { type: Date },
+  // Cached geocoded pickup coordinates for Kwik (which needs raw lat/lng, not an
+  // address string) — same caching/invalidation pattern as shipbubbleAddressCode above.
+  kwikPickupLat: { type: Number },
+  kwikPickupLng: { type: Number },
+  kwikGeocodedAt: { type: Date },
 }, { timestamps: true });
 
 // Weighted text index for relevance-ranked search — see the matching comment on

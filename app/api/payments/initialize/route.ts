@@ -11,7 +11,7 @@ import { sendOrderPlacementNotifications } from '@/lib/order-notifications'
 import { Product } from '@/lib/models/Product'
 import { maybeSendLowStockAlert } from '@/lib/stock-alerts'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
-import { createShipmentsForOrder } from '@/lib/shipbubble-dispatch'
+import { createShipmentsForOrder } from '@/lib/order-dispatch'
 import { notifyVendorsNewOrder } from '@/lib/whatsapp/notifications'
 import { buildOrder } from '@/lib/order-creation'
 
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     console.log('Payment API received:', body)
 
-    const { items, shippingInfo, paymentMethod, shipbubbleSelections } = body
+    const { items, shippingInfo, paymentMethod, courierSelections } = body
 
     // Always the caller's own session — never trust customerId from the body. This
     // matters most on the wallet path below, which debits customerId's balance directly
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
       items,
       shippingInfo,
       paymentMethod: normalizedPaymentMethod,
-      shipbubbleSelections,
+      courierSelections,
     })
 
     if (!buildResult.success) {

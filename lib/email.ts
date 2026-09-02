@@ -41,6 +41,11 @@ interface EmailData {
   replyTo?: string
   headers?: Record<string, string>
   attachments?: any[]
+  // Registration and password-reset codes are functionally required by the person who
+  // requested them — redirecting those to EMAIL_TEST_MODE_RECIPIENT (see sendEmail
+  // below) would leave a real signup/reset stuck with no way to get their code. Every
+  // other email type still redirects while the app is pre-launch.
+  bypassTestMode?: boolean
 }
 
 interface OrderEmailData {
@@ -513,13 +518,18 @@ class EmailService {
     // that guarantees real customers/vendors never receive a test email while the app
     // hasn't launched yet. The original subject is prefixed with the real intended
     // recipient so they're still reviewable. Unset EMAIL_TEST_MODE_RECIPIENT at launch.
-    const testModeRecipient = this.getEnv('EMAIL_TEST_MODE_RECIPIENT')
+    // Exception: bypassTestMode (registration/password-reset codes) always goes to the
+    // real recipient — those codes are useless to anyone but the person who requested
+    // them, so redirecting them doesn't "test safely," it just locks the user out.
+    const testModeRecipient = !rawEmailData.bypassTestMode ? this.getEnv('EMAIL_TEST_MODE_RECIPIENT') : ''
     const emailData: EmailData = testModeRecipient
       ? { ...rawEmailData, to: testModeRecipient, subject: `[TEST → ${rawEmailData.to}] ${rawEmailData.subject}` }
       : rawEmailData
 
     if (testModeRecipient) {
       console.log(`[emailService.sendEmail] TEST MODE: redirecting email originally addressed to ${rawEmailData.to} -> ${testModeRecipient}`)
+    } else if (rawEmailData.bypassTestMode && this.getEnv('EMAIL_TEST_MODE_RECIPIENT')) {
+      console.log(`[emailService.sendEmail] Bypassing test-mode redirect for a code email to: ${rawEmailData.to}`)
     }
 
     const provider = this.getEnv('EMAIL_DELIVERY_PROVIDER').toLowerCase()
@@ -1204,6 +1214,7 @@ class EmailService {
       html: minimalHtml,
       text: minimalText,
       replyTo: supportEmail,
+      bypassTestMode: true,
     })
   }
 
@@ -1281,6 +1292,7 @@ class EmailService {
       html: minimalHtml,
       text: minimalText,
       replyTo: supportEmail,
+      bypassTestMode: true,
     })
   }
 

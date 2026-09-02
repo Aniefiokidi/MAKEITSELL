@@ -15,7 +15,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ArrowLeft, CreditCard, Truck, Shield, Loader2 } from "lucide-react"
+import { ArrowLeft, CreditCard, Truck, Shield, Loader2, Zap } from "lucide-react"
+import type { CourierQuote } from "@/lib/logistics/types"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import Image from "next/image"
 import Link from "next/link"
@@ -91,14 +92,13 @@ export default function CheckoutPage() {
   const [error, setError] = useState("")
   const [shipbubbleRates, setShipbubbleRates] = useState<Record<string, {
     storeName: string
-    couriers: any[]
-    cheapestCourier: any
-    fastestCourier: any
-    requestToken: string | null
+    couriers: CourierQuote[]
+    cheapestCourier: CourierQuote | null
+    fastestCourier: CourierQuote | null
     error: string | null
   }>>({})
   const [selectedCouriers, setSelectedCouriers] = useState<Record<string, {
-    courierId: string; serviceCode: string; total: number; courierName: string; deliveryEta: string
+    provider: string; quoteRef: string; total: number; etaHours: number | null; tier: 'standard' | 'express'
   }>>({})
   const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'checkout' | 'bach'>("wallet")
   const [checkoutTracked, setCheckoutTracked] = useState(false)
@@ -309,13 +309,15 @@ export default function CheckoutPage() {
         const nextSelected: typeof selectedCouriers = {}
         for (const v of (result.vendors || [])) {
           nextRates[v.vendorId] = v
+          // Default to Standard (cheapest) — same default behavior as before, just
+          // relabeled; the buyer can still switch to Express below.
           if (v.cheapestCourier) {
             nextSelected[v.vendorId] = {
-              courierId: v.cheapestCourier.courier_id,
-              serviceCode: v.cheapestCourier.service_code,
+              provider: v.cheapestCourier.provider,
+              quoteRef: v.cheapestCourier.quoteRef,
               total: Number(v.cheapestCourier.total || 0),
-              courierName: v.cheapestCourier.courier_name,
-              deliveryEta: String(v.cheapestCourier.delivery_eta || ''),
+              etaHours: v.cheapestCourier.etaHours ?? null,
+              tier: 'standard',
             }
           }
         }
@@ -425,16 +427,14 @@ export default function CheckoutPage() {
         vat: vat || 0,
         shipping: resolvedShipping || 0,
         totalAmount: total || 0,
-        shipbubbleSelections: Object.fromEntries(
+        courierSelections: Object.fromEntries(
           Object.entries(selectedCouriers).map(([vendorId, sel]) => [
             vendorId,
             {
-              requestToken: shipbubbleRates[vendorId]?.requestToken || null,
-              serviceCode: sel.serviceCode,
-              courierId: sel.courierId,
+              provider: sel.provider,
+              quoteRef: sel.quoteRef,
               total: sel.total,
-              courierName: sel.courierName,
-              deliveryEta: sel.deliveryEta,
+              etaHours: sel.etaHours,
             },
           ])
         ),
@@ -960,6 +960,24 @@ export default function CheckoutPage() {
                         vendorGroups.map((v) => {
                           const rate = shipbubbleRates[v.vendorId]
                           const selected = selectedCouriers[v.vendorId]
+                          const standard = rate?.cheapestCourier || null
+                          const express = rate?.fastestCourier || null
+                          // Only offer Express as a separate option when it's genuinely a
+                          // different quote from Standard — never show two identical buttons.
+                          const hasDistinctExpress = Boolean(express && standard && express.quoteRef !== standard.quoteRef)
+
+                          const selectTier = (tier: 'standard' | 'express', quote: CourierQuote) =>
+                            setSelectedCouriers((prev) => ({
+                              ...prev,
+                              [v.vendorId]: {
+                                provider: quote.provider,
+                                quoteRef: quote.quoteRef,
+                                total: Number(quote.total || 0),
+                                etaHours: quote.etaHours ?? null,
+                                tier,
+                              },
+                            }))
+
                           return (
                             <div key={v.vendorId} className="rounded-lg border border-border p-3 space-y-2">
                               <p className="font-semibold text-sm">{rate?.storeName || v.vendorName}</p>
@@ -969,41 +987,48 @@ export default function CheckoutPage() {
                                 <p className="text-xs text-destructive">{rate.error}</p>
                               ) : (
                                 <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                                  {rate.couriers.map((c: any) => {
-                                    const isSelected = selected?.courierId === c.courier_id && selected?.serviceCode === c.service_code
-                                    return (
-                                      <button
-                                        key={`${c.courier_id}-${c.service_code}`}
-                                        type="button"
-                                        disabled={loading}
-                                        onClick={() =>
-                                          setSelectedCouriers((prev) => ({
-                                            ...prev,
-                                            [v.vendorId]: {
-                                              courierId: c.courier_id,
-                                              serviceCode: c.service_code,
-                                              total: Number(c.total || 0),
-                                              courierName: c.courier_name,
-                                              deliveryEta: String(c.delivery_eta || ''),
-                                            },
-                                          }))
-                                        }
-                                        className={`text-left text-xs px-3 py-2 rounded-md border transition-all ${
-                                          isSelected
-                                            ? "bg-accent/10 border-accent ring-1 ring-accent/60"
-                                            : "bg-white border-border hover:border-accent/40"
-                                        }`}
-                                      >
-                                        <div className="flex items-center justify-between">
-                                          <span className="font-medium">{c.courier_name}</span>
-                                          <span className="font-semibold">₦{Number(c.total || 0).toLocaleString()}</span>
-                                        </div>
-                                        {c.delivery_eta && (
-                                          <span className="text-muted-foreground">{c.delivery_eta}</span>
-                                        )}
-                                      </button>
-                                    )
-                                  })}
+                                  {hasDistinctExpress && express && (
+                                    <button
+                                      type="button"
+                                      disabled={loading}
+                                      onClick={() => selectTier('express', express)}
+                                      className={`text-left text-xs px-3 py-2 rounded-md border transition-all ${
+                                        selected?.quoteRef === express.quoteRef
+                                          ? "bg-accent/10 border-accent ring-1 ring-accent/60"
+                                          : "bg-white border-border hover:border-accent/40"
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-1 font-medium">
+                                        <Zap className="h-3 w-3" />
+                                        <span>Express Delivery</span>
+                                      </div>
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-muted-foreground">{express.etaLabel || "Fastest option"}</span>
+                                        <span className="font-semibold">₦{Number(express.total || 0).toLocaleString()}</span>
+                                      </div>
+                                    </button>
+                                  )}
+                                  {standard && (
+                                    <button
+                                      type="button"
+                                      disabled={loading}
+                                      onClick={() => selectTier('standard', standard)}
+                                      className={`text-left text-xs px-3 py-2 rounded-md border transition-all ${
+                                        selected?.quoteRef === standard.quoteRef
+                                          ? "bg-accent/10 border-accent ring-1 ring-accent/60"
+                                          : "bg-white border-border hover:border-accent/40"
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-1 font-medium">
+                                        <Truck className="h-3 w-3" />
+                                        <span>Standard Delivery</span>
+                                      </div>
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-muted-foreground">{standard.etaLabel || "1-2 business days"}</span>
+                                        <span className="font-semibold">₦{Number(standard.total || 0).toLocaleString()}</span>
+                                      </div>
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -1072,7 +1097,7 @@ export default function CheckoutPage() {
                           </div>
                         ) : (
                           <div className="text-xs text-muted-foreground mt-1">
-                            *Live courier rate from Shipbubble.
+                            *Live delivery rate.
                           </div>
                         )}
                         <div className="flex justify-between">
@@ -1101,7 +1126,7 @@ export default function CheckoutPage() {
                           {vendorGroups.map((v) => {
                             const sel = selectedCouriers[v.vendorId]
                             const rate = shipbubbleRates[v.vendorId]
-                            const eta = rate?.couriers?.find((c: any) => c.courier_id === sel?.courierId && c.service_code === sel?.serviceCode)?.delivery_eta
+                            const eta = rate?.couriers?.find((c) => c.quoteRef === sel?.quoteRef)?.etaLabel
                             return (
                               <div key={v.vendorId}>
                                 {rate?.storeName || v.vendorName}: <span className="font-semibold">{eta || 'ETA provided by courier after booking'}</span>

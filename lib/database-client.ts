@@ -175,6 +175,10 @@ export interface Service {
   providerId: string
   providerName: string
   providerImage?: string
+  // Provider's public contact number (Store.phone), embedded server-side by
+  // app/api/database/services/[id]/route.ts — used for the WhatsApp "Book" redirect
+  // (app/service/[id]/page.tsx). Not the same as the bot-linking WhatsAppLink number.
+  providerPhone?: string
   title: string
   description: string
   category: string

@@ -323,28 +323,27 @@ export function notifyWaBuyerQuoteReceived(customerId: string, bookingId: string
 
       const waId = String(mapping.waId)
       const finalPrice = Number(booking?.finalPrice || 0)
-      const { computeBookingDeposit } = await import('@/lib/booking-pricing')
-      const { depositAmount, bookingFeeAmount, balanceOwed, amountDueNow } = computeBookingDeposit(finalPrice)
       const ref = shortRef(bookingId)
       const serviceTitle = booking?.serviceTitle || 'Service'
-      const payNowLabel = `${formatNaira(amountDueNow)} (${formatNaira(depositAmount)} deposit + ${formatNaira(bookingFeeAmount)} booking fee)`
 
       const freeTextBody = [
         `Your quote is ready! Ref ${ref}`,
         `${serviceTitle} — ${formatNaira(finalPrice)}`,
         '',
-        `Pay now: ${payNowLabel}`,
-        `Balance of ${formatNaira(balanceOwed)} is paid directly to the provider.`,
+        'This is paid directly to the provider — nothing is charged through Make It Sell.',
         '',
-        `Reply "accept ${ref}" to pay, "counter ${ref} <amount>" to negotiate, or "decline ${ref}" to close this request.`,
+        `Reply "accept ${ref}" to confirm, "counter ${ref} <amount>" to negotiate, or "decline ${ref}" to close this request.`,
       ].join('\n')
 
       // Highest-risk send in the buyer-facing set to fire outside Meta's 24h window — a
       // provider can quote hours or days after the buyer's last message, unlike the paid
       // confirmation above which follows close behind the buyer's own payment action.
       // Same template-first/free-text-fallback pattern as the rest of this file's sends.
+      // Keeps the same 5-variable shape the approved template expects — the last two slots
+      // no longer carry a deposit/balance split (there isn't one), just the same no-charge
+      // note and the full price twice, so a stale-but-approved template still renders sensibly.
       try {
-        await sendTemplateMessage(waId, 'buyer_booking_quote_received', [ref, serviceTitle, formatNaira(finalPrice), payNowLabel, formatNaira(balanceOwed)])
+        await sendTemplateMessage(waId, 'buyer_booking_quote_received', [ref, serviceTitle, formatNaira(finalPrice), 'Paid directly to the provider', formatNaira(finalPrice)])
       } catch (templateError) {
         console.log(`[whatsapp-service-quote] buyer_booking_quote_received template send failed, falling back to free text — booking ${bookingId}:`, templateError)
         await trySendText(waId, freeTextBody)
@@ -421,15 +420,11 @@ export async function tryHandleQuoteDecision(waId: string, text: string): Promis
     await trySendText(waId, `Couldn't accept that quote: ${result.error}`)
     return true
   }
-  if (!result.requiresPayment) {
-    await trySendText(waId, 'Quote accepted.')
-    return true
-  }
-
-  await trySendText(
-    waId,
-    `Tap the link below to pay ${formatNaira(result.payableAmount)} securely:\n\n${result.authorization_url}\n\nOnce payment is confirmed we'll message you here.`
-  )
+  // Services aren't monetized, so requiresPayment is always false here — the booking is
+  // already confirmed (acceptQuoteForWaBuyer claims it as paid internally). The fuller
+  // "Booking confirmed!" message (ref, date, balance owed to the provider) follows a
+  // moment later via notifyWaBuyerBookingPaid, fired from that same claim.
+  await trySendText(waId, 'Quote accepted.')
   return true
 }
 

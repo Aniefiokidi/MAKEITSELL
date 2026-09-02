@@ -25,11 +25,11 @@ export type CreateOrderForWaBuyerInput = {
   items: any[]
   shippingInfo: any
   paymentMethod: string
-  shipbubbleSelections?: Record<string, any>
+  courierSelections?: Record<string, any>
 }
 
 export async function createOrderForWaBuyer(input: CreateOrderForWaBuyerInput): Promise<BuildOrderResult> {
-  const { waId, name, items, shippingInfo, paymentMethod, shipbubbleSelections } = input
+  const { waId, name, items, shippingInfo, paymentMethod, courierSelections } = input
 
   const { customerId } = await findOrCreateBuyerForWaId(waId, name)
 
@@ -50,7 +50,7 @@ export async function createOrderForWaBuyer(input: CreateOrderForWaBuyerInput): 
     items,
     shippingInfo: effectiveShippingInfo,
     paymentMethod,
-    shipbubbleSelections,
+    courierSelections,
   })
 }
 

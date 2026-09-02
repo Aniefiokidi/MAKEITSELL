@@ -5,6 +5,7 @@ import { logApiPerformance } from '@/lib/performance-logs'
 import { requireRoles } from '@/lib/server-route-auth'
 
 const allowedPricingTypes = new Set(['fixed', 'hourly', 'per-session', 'custom'])
+const allowedLocationTypes = new Set(['remote', 'local'])
 
 function isFiniteNonNegativeNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0
@@ -37,6 +38,14 @@ function validateServicePayload(serviceData: any): { valid: boolean; message?: s
 
   if (!allowedPricingTypes.has(serviceData.pricingType)) {
     return { valid: false, message: 'Invalid pricing type' }
+  }
+
+  if (!allowedLocationTypes.has(serviceData.locationType)) {
+    return { valid: false, message: 'locationType must be "remote" or "local"' }
+  }
+
+  if (!serviceData.providerName || typeof serviceData.providerName !== 'string') {
+    return { valid: false, message: 'Provider name is required' }
   }
 
   const packageOptions = Array.isArray(serviceData.packageOptions) ? serviceData.packageOptions : []
@@ -284,9 +293,11 @@ export async function POST(request: NextRequest) {
 
   try {
     const serviceData = await request.json()
-    // Prevent a vendor from attributing a new service to a different provider.
+    // Prevent a vendor from attributing a new service to a different provider (or
+    // borrowing another provider's display name).
     if (user?.role === 'vendor') {
       serviceData.providerId = user.id
+      serviceData.providerName = user.name || serviceData.providerName
     }
     console.log('Creating service with data:', serviceData)
 

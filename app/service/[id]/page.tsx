@@ -13,10 +13,9 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 // import { getServiceById, Service, createConversation, getConversations } from "@/lib/database"
 import type { Service } from "@/lib/database-client"
 import { useAuth } from "@/contexts/AuthContext"
-import { ArrowLeft, MapPin, Clock, Calendar, MessageCircle, CheckCircle, X, ChevronLeft, ChevronRight, Hotel, Building2, Truck, Music2, Camera, Briefcase, ArrowLeftRight } from "lucide-react"
-import BookingModal from "@/components/services/BookingModal"
-import PriceNegotiationModal from "@/components/services/PriceNegotiationModal"
+import { ArrowLeft, MapPin, Clock, Calendar, MessageCircle, CheckCircle, X, ChevronLeft, ChevronRight, Hotel, Building2, Truck, Music2, Camera, Briefcase } from "lucide-react"
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
+import { useToast } from "@/hooks/use-toast"
 import { optimizedImageUrl } from "@/lib/cloudinary-url"
 import { buildPublicServicePath, extractEntityIdFromParam } from "@/lib/public-links"
 import { ReviewsSection } from "@/components/reviews/ReviewsSection"
@@ -40,10 +39,7 @@ export default function ServiceDetailPage() {
   const { user, userProfile } = useAuth()
   const [service, setService] = useState<Service | null>(null)
   const [loading, setLoading] = useState(true)
-  const [showBookingModal, setShowBookingModal] = useState(false)
-  const [showNegotiationModal, setShowNegotiationModal] = useState(false)
-  const [negotiatedPrice, setNegotiatedPrice] = useState<number | undefined>(undefined)
-  const [negotiatedPriceId, setNegotiatedPriceId] = useState<string | undefined>(undefined)
+  const { toast } = useToast()
   const [selectedImage, setSelectedImage] = useState(0)
   const [showMessageModal, setShowMessageModal] = useState(false)
   const [quickMessage, setQuickMessage] = useState("")
@@ -114,6 +110,37 @@ export default function ServiceDetailPage() {
       return
     }
     setShowMessageModal(true)
+  }
+
+  // Services aren't monetized right now — "Book" connects the buyer straight to the
+  // provider's WhatsApp instead of the old in-app booking/deposit-payment flow.
+  // Negotiation and scheduling now happen naturally inside that conversation.
+  const handleBookViaWhatsApp = () => {
+    if (!user) {
+      router.push("/login")
+      return
+    }
+    if (!service) return
+
+    const phone = String(service.providerPhone || "").replace(/\D/g, "")
+    if (!phone) {
+      toast({
+        title: "No WhatsApp number on file",
+        description: "This provider hasn't added a contact number yet — try Message Provider instead.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Fire-and-forget — never blocks opening WhatsApp on a slow/failed request. Keyed on
+    // service.id (the real database id), not the URL's `serviceId` slug — ReviewsSection
+    // (below) and every other id-based lookup on this page use service.id, and the two
+    // diverge for any service reached via its human-readable slug URL rather than a raw
+    // ObjectId one.
+    fetch(`/api/services/${service.id}/contact`, { method: "POST", credentials: "include" }).catch(() => {})
+
+    const message = `Hi ${service.providerName || "there"}, I'm interested in your service "${service.title}" on Make It Sell. Could you tell me more about pricing and availability?`
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank")
   }
 
   const handleSendQuickMessage = async () => {
@@ -1125,39 +1152,14 @@ export default function ServiceDetailPage() {
                   <Button
                     className="w-full hover:bg-accent/90 hover:scale-105 transition-all"
                     size="lg"
-                    onClick={() => {
-                      if (!user) {
-                        router.push("/login")
-                      } else {
-                        setShowBookingModal(true)
-                      }
-                    }}
+                    onClick={handleBookViaWhatsApp}
                   >
-                    <Calendar className="h-4 w-4 mr-2" />
-                    {isHospitalityService ? (isApartmentStay ? "Reserve Apartment" : "Book Stay") : "Book Appointment"}
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    {isHospitalityService ? (isApartmentStay ? "Reserve on WhatsApp" : "Book on WhatsApp") : "Book on WhatsApp"}
                   </Button>
-
-                  <div className="flex items-center gap-3 py-0.5">
-                    <div className="flex-1 border-t border-dashed border-border/60" />
-                    <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">or</span>
-                    <div className="flex-1 border-t border-dashed border-border/60" />
-                  </div>
-
-                  <Button
-                    variant="outline"
-                    className="w-full border-accent/40 text-accent hover:bg-accent/5 hover:border-accent transition-all"
-                    size="lg"
-                    onClick={() => {
-                      if (!user) {
-                        router.push("/login")
-                      } else {
-                        setShowNegotiationModal(true)
-                      }
-                    }}
-                  >
-                    <ArrowLeftRight className="h-4 w-4 mr-2" />
-                    Negotiate Price
-                  </Button>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Chat directly with the provider to confirm pricing, scheduling, and details.
+                  </p>
 
                   <Button
                     variant="ghost"
@@ -1204,45 +1206,9 @@ export default function ServiceDetailPage() {
         </div>
       </main>
 
-      {/* Booking Modal */}
-      {showBookingModal && service && (
-        <BookingModal
-          service={service}
-          selectedPackage={selectedPackage ? {
-            id: selectedPackage.id,
-            name: selectedPackage.name,
-            price: Number(selectedPackage.price || 0),
-            duration: selectedPackage.duration,
-            pricingType: selectedPackage.pricingType,
-          } : undefined}
-          selectedAddOns={selectedAddOns.map((addOn: any) => ({
-            id: addOn.id,
-            name: addOn.name,
-            pricingType: addOn.pricingType,
-            amount: Number(addOn.amount || 0),
-          }))}
-          isOpen={showBookingModal}
-          onClose={() => setShowBookingModal(false)}
-          overridePrice={negotiatedPrice}
-          negotiationId={negotiatedPriceId}
-        />
-      )}
-
-      {service && (
-        <PriceNegotiationModal
-          serviceId={serviceId}
-          serviceName={service.title || ""}
-          basePrice={Number(service.price || 0)}
-          open={showNegotiationModal}
-          onClose={() => setShowNegotiationModal(false)}
-          onProceedToBooking={(agreedPrice, negotiationId) => {
-            setNegotiatedPrice(agreedPrice)
-            setNegotiatedPriceId(negotiationId)
-            setShowNegotiationModal(false)
-            setShowBookingModal(true)
-          }}
-        />
-      )}
+      {/* Booking now happens over WhatsApp (handleBookViaWhatsApp) — services aren't
+          monetized in-app right now. BookingModal/PriceNegotiationModal are left
+          unlinked, not deleted, in case that changes later. */}
 
       
     </div>

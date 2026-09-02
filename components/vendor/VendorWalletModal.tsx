@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, ArrowUpCircle, ArrowDownCircle, KeyRound } from 'lucide-react'
 import { useNotification } from '@/contexts/NotificationContext'
 import { calculateTopupAmounts } from '@/lib/topup-fee'
 
@@ -415,14 +415,14 @@ export function VendorWalletModal({
                   onClick={() => setActiveWalletView('topup')}
                   className='h-20 flex flex-col items-center justify-center'
                 >
-                  <div className='text-2xl mb-1'>??</div>
+                  <ArrowUpCircle className='h-6 w-6 mb-1' />
                   <span className='text-xs'>Top up</span>
                 </Button>
                 <Button
                   onClick={() => setActiveWalletView('pin')}
                   className='h-20 flex flex-col items-center justify-center'
                 >
-                  <div className='text-2xl mb-1'>??</div>
+                  <KeyRound className='h-6 w-6 mb-1' />
                   <span className='text-xs'>Manage PIN</span>
                 </Button>
                 <Button
@@ -430,7 +430,7 @@ export function VendorWalletModal({
                   variant='outline'
                   className='h-20 flex flex-col items-center justify-center'
                 >
-                  <div className='text-2xl mb-1'>??</div>
+                  <ArrowDownCircle className='h-6 w-6 mb-1' />
                   <span className='text-xs'>Withdraw</span>
                 </Button>
               </div>

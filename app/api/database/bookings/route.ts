@@ -126,6 +126,12 @@ export async function POST(request: NextRequest) {
       customerLocation,
       tripDistanceMiles: normalizedTripDistanceMiles > 0 ? normalizedTripDistanceMiles : undefined,
       serviceAddress: typeof service?.location === 'string' ? service.location : bookingData?.serviceAddress,
+      // Same fallback pattern as serviceAddress above: the client (BookingModal.tsx)
+      // always sends this, but a caller that omits it should fall back to the service's
+      // own duration rather than hit a raw Mongoose "duration is required" 500.
+      duration: Number.isFinite(Number(bookingData?.duration))
+        ? Number(bookingData.duration)
+        : (Number.isFinite(Number((service as any)?.duration)) ? Number((service as any).duration) : undefined),
       cancellationPolicyPercent: Number((service as any)?.cancellationPolicyPercent || 30),
       cancellationWindowHours: Number((service as any)?.cancellationWindowHours || 24),
       quoteExpiresAt: requiresQuote ? new Date(Date.now() + quoteSlaHours * 60 * 60 * 1000) : null,
@@ -274,10 +280,13 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // 2 & 3. Create the (pending, if paid) booking and initiate the Paystack deposit
-    // charge — lib/booking-payment.ts. Replaces the old wallet-debit-then-create block
-    // entirely. Re-checks the slot conflict internally too (see
-    // lib/booking-availability.ts's comment on why that's still not fully race-proof).
+    // 2 & 3. Create the booking — lib/booking-payment.ts. Services aren't monetized, so
+    // requiresPayment is always false on the result now regardless of requiresQuote;
+    // branch on the local requiresQuote instead to tell "fee-free, awaiting a quote" apart
+    // from "fixed-price, already confirmed" (initiateBookingPayment confirms + sends its
+    // own notifications for that case internally now — see lib/booking-payment.ts).
+    // Re-checks the slot conflict internally too (see lib/booking-availability.ts's
+    // comment on why that's still not fully race-proof).
     const appBaseUrl = getCanonicalAppBaseUrl(new URL(request.url).origin)
     const paymentResult = await initiateBookingPayment(normalizedBookingData, {
       callbackUrl: `${appBaseUrl}/api/payments/booking-verify`,
@@ -287,10 +296,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: paymentResult.error }, { status: paymentResult.status })
     }
 
-    if (!paymentResult.requiresPayment) {
-      // requiresQuote: true — created fee-free, exactly as before, awaiting a quote.
-      // Send the "booking request received" notifications immediately, same as always;
-      // this path's timing hasn't changed, only the (now-removed) fee has.
+    if (requiresQuote) {
+      // Created fee-free, exactly as before, awaiting a quote. Send the "booking request
+      // received" notifications immediately, same as always; this path's timing hasn't
+      // changed, only the (now-removed) fee has.
       try {
         const provider = await getUserById(providerId)
         const providerEmail = String(provider?.email || '').trim()
@@ -346,19 +355,15 @@ export async function POST(request: NextRequest) {
       }, { status: 201 })
     }
 
-    // Fixed-price path — booking exists but isn't confirmed yet; confirmation (and its
-    // notifications) happens in lib/booking-payment-confirmation.ts once Paystack
-    // actually confirms the charge, not here.
+    // Fixed-price path — already confirmed at this point; initiateBookingPayment claimed
+    // it as paid internally (via lib/booking-payment-confirmation.ts's handleBookingPaid),
+    // which also sent the customer/provider confirmation email + SMS. Nothing left to do
+    // here but report success.
     return NextResponse.json({
       success: true,
       id: paymentResult.bookingId,
-      requiresPayment: true,
-      authorization_url: paymentResult.authorization_url,
-      reference: paymentResult.reference,
-      depositAmount: paymentResult.depositAmount,
-      bookingFeeAmount: paymentResult.bookingFeeAmount,
-      balanceOwed: paymentResult.balanceOwed,
-      payableAmount: paymentResult.payableAmount,
+      requiresPayment: false,
+      message: 'Booking confirmed.',
     }, { status: 201 })
   } catch (error: any) {
     console.error('Create booking error:', error)

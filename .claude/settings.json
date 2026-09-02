@@ -34,7 +34,10 @@
       "Bash(curl -s -L --location-trusted -X GET \"https://makeitsell.ng/api/admin/backfill-aco-wallet\" -H \"Authorization: Bearer arnold\")",
       "Bash(curl -s \"https://makeitsell.ng/api/logistics/wallet?region=lagos\" -H \"Cookie: $\\(cat .env.local)",
       "Bash(curl -s \"https://makeitsell.ng/api/admin/backfill-aco-wallet\" -H \"Authorization: Bearer arnold\" --location-trusted)",
-      "Bash(python -m json.tool)"
+      "Bash(python -m json.tool)",
+      "Bash(xargs -I{} sh -c 'echo \"--- {} ---\"; grep -n \"^import\\\\|useAuth\\\\|auth-mongo\\\\|auth-client\\\\|sessionToken\" \"{}\"')",
+      "Bash(xargs -I{} sh -c 'echo -n \"{}: \"; grep -c \"enforceRateLimit\" \"{}\"')",
+      "Bash(curl -s -X POST https://www.makeitsell.ng/api/auth/signup -H 'Content-Type: application/json' -d '{\"email\":\"security-audit-test-noreply@example.com\",\"password\":\"password123\",\"name\":\"Audit Test\",\"role\":\"customer\"}')"
     ],
     "additionalDirectories": [
       "c:\\Users\\USER\\.claude\\projects\\c--Users-USER-Desktop-MakeItSell\\memory"

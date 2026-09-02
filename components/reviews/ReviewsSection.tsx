@@ -27,9 +27,11 @@ export function ReviewsSection({ targetType, targetId }: ReviewsSectionProps) {
   const [loading, setLoading] = useState(true)
   const [canReview, setCanReview] = useState(false)
   const [eligibilityKey, setEligibilityKey] = useState<string | null>(null)
+  const [eligibilityReason, setEligibilityReason] = useState<string | null>(null)
   const [rating, setRating] = useState(5)
   const [comment, setComment] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  const [markingReceived, setMarkingReceived] = useState(false)
   const [error, setError] = useState("")
 
   useEffect(() => {
@@ -46,24 +48,49 @@ export function ReviewsSection({ targetType, targetId }: ReviewsSectionProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetId, targetType])
 
-  useEffect(() => {
+  const refreshEligibility = () => {
     if (!user) {
       setCanReview(false)
       return
     }
-    let cancelled = false
     fetch(`${basePath}/can-review`, { credentials: "include" })
       .then((r) => r.json())
       .then((d) => {
-        if (cancelled || !d?.success) return
+        if (!d?.success) return
         setCanReview(!!d.canReview)
+        setEligibilityReason(d.reason || null)
         setEligibilityKey(targetType === "product" ? d.orderId || null : d.bookingId || null)
       })
-    return () => {
-      cancelled = true
-    }
+  }
+
+  useEffect(() => {
+    refreshEligibility()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, targetId, targetType])
+
+  // Services only — a WhatsApp-redirected connection with no in-app booking (services
+  // aren't monetized right now, see app/service/[id]/page.tsx) needs the buyer to
+  // self-report "I received this" before a review is allowed.
+  const handleMarkReceived = async () => {
+    setMarkingReceived(true)
+    setError("")
+    try {
+      const res = await fetch(`${basePath}/contact`, {
+        method: "PATCH",
+        credentials: "include",
+      })
+      const data = await res.json()
+      if (!data.success) {
+        setError(data.error || "Couldn't mark this as received")
+        return
+      }
+      refreshEligibility()
+    } catch {
+      setError("Couldn't mark this as received")
+    } finally {
+      setMarkingReceived(false)
+    }
+  }
 
   const handleSubmit = async () => {
     if (!eligibilityKey) return
@@ -111,6 +138,19 @@ export function ReviewsSection({ targetType, targetId }: ReviewsSectionProps) {
           </div>
         )}
       </div>
+
+      {!canReview && targetType === "service" && eligibilityReason === "awaiting_receipt_confirmation" && (
+        <div className="rounded-xl border border-border/60 p-4 space-y-2">
+          <p className="text-sm font-medium">Got this service already?</p>
+          <p className="text-xs text-muted-foreground">
+            Mark it as received to leave a review — this platform doesn't manage service bookings directly, so we take your word for it.
+          </p>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          <Button size="sm" variant="outline" disabled={markingReceived} onClick={handleMarkReceived}>
+            {markingReceived ? "Marking…" : "Mark as received"}
+          </Button>
+        </div>
+      )}
 
       {canReview && (
         <div className="rounded-xl border border-border/60 p-4 space-y-3">

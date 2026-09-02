@@ -127,6 +127,65 @@ function connectWithUri(uri: string) {
 
 let cached = (global as any).mongoose || { conn: null, promise: null };
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Retries within a single request before giving up, on top of the existing
+// cross-request self-heal below (which only helps the *next* request, not this one).
+// Real-world trigger: a brief Atlas connection-limit/selection blip under a burst of
+// concurrent serverless instances — gone by the next attempt a few hundred ms later,
+// but without this, that one request still fails outright and surfaces as a raw 500 to
+// whichever user happened to hit it (e.g. a password-reset attempt that failed once,
+// then worked immediately on retry — the underlying blip, not the request, was transient).
+const CONNECT_RETRY_DELAYS_MS = [300, 800];
+
+async function connectOnce(): Promise<typeof mongoose> {
+  try {
+    return await connectWithUri(MONGODB_URI);
+  } catch (error) {
+    if (MONGODB_URI.startsWith('mongodb+srv://') && isSrvDnsError(error)) {
+      console.warn('[mongodb] SRV lookup failed; attempting direct-host fallback connection');
+      const directUri = await buildDirectUriFromSrv(MONGODB_URI);
+      return await connectWithUri(directUri);
+    }
+
+    throw error;
+  }
+}
+
+async function connectWithRetry(): Promise<typeof mongoose> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await connectOnce();
+    } catch (error) {
+      const isLastAttempt = attempt >= CONNECT_RETRY_DELAYS_MS.length;
+      if (!isLastAttempt) {
+        console.warn(
+          `[mongodb] Connection attempt ${attempt + 1} failed, retrying in ${CONNECT_RETRY_DELAYS_MS[attempt]}ms:`,
+          (error as any)?.message || error
+        );
+        await sleep(CONNECT_RETRY_DELAYS_MS[attempt]);
+        continue;
+      }
+
+      // Reset cached promise so a later request (if this was a longer outage, not a
+      // blip) starts a fresh attempt rather than replaying a permanently-failed one.
+      cached.promise = null;
+      (global as any).mongoose = cached;
+
+      const message = String((error as any)?.message || error);
+      if (isSrvDnsError(error)) {
+        throw new Error(
+          'MongoDB DNS SRV lookup failed (querySrv ECONNREFUSED). Use a stable DNS (e.g. 8.8.8.8/1.1.1.1) or set MONGODB_URI to a direct mongodb:// Atlas URI.'
+        );
+      }
+      if (isSslError(error)) {
+        throw new Error('Database connection failed (TLS error). Please try again.');
+      }
+      throw new Error(message);
+    }
+  }
+}
+
 export async function connectToDatabase() {
   if (!MONGODB_URI) {
     throw new Error('MONGODB_URI is not set. Add it to your environment variables.');
@@ -139,35 +198,7 @@ export async function connectToDatabase() {
   configureDnsForMongoSrv(MONGODB_URI);
 
   if (!cached.promise) {
-    cached.promise = (async () => {
-      try {
-        return await connectWithUri(MONGODB_URI);
-      } catch (error) {
-        if (MONGODB_URI.startsWith('mongodb+srv://') && isSrvDnsError(error)) {
-          console.warn('[mongodb] SRV lookup failed; attempting direct-host fallback connection');
-          const directUri = await buildDirectUriFromSrv(MONGODB_URI);
-          return await connectWithUri(directUri);
-        }
-
-        throw error;
-      }
-    })().catch((error: any) => {
-      // Reset cached promise so the next request can retry rather than
-      // replaying a permanently-failed promise.
-      cached.promise = null;
-      (global as any).mongoose = cached;
-
-      const message = String(error?.message || error);
-      if (isSrvDnsError(error)) {
-        throw new Error(
-          'MongoDB DNS SRV lookup failed (querySrv ECONNREFUSED). Use a stable DNS (e.g. 8.8.8.8/1.1.1.1) or set MONGODB_URI to a direct mongodb:// Atlas URI.'
-        );
-      }
-      if (isSslError(error)) {
-        throw new Error('Database connection failed (TLS error). Please try again.');
-      }
-      throw new Error(message);
-    });
+    cached.promise = connectWithRetry();
   }
   cached.conn = await cached.promise;
   (global as any).mongoose = cached;

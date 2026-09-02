@@ -198,6 +198,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (addressFieldsChanged) {
       updateData.shipbubbleAddressCode = null
       updateData.shipbubbleAddressVerifiedAt = null
+      updateData.kwikPickupLat = null
+      updateData.kwikPickupLng = null
+      updateData.kwikGeocodedAt = null
     }
 
     // DEBUG: Log updateData

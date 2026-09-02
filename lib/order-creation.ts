@@ -13,7 +13,7 @@ import { v4 as uuidv4 } from 'uuid'
 import connectToDatabase from '@/lib/mongodb'
 import { Store } from '@/lib/models/Store'
 import { createOrder } from '@/lib/mongodb-operations'
-import { parseDeliveryEtaToHours, ESCROW_DISPUTE_GRACE_HOURS, TEST_STORE_VENDOR_ID } from '@/lib/shipbubble'
+import { ESCROW_DISPUTE_GRACE_HOURS, TEST_STORE_VENDOR_ID } from '@/lib/shipbubble'
 
 const OBJECT_ID_REGEX = /^[a-fA-F0-9]{24}$/
 function isValidObjectIdString(value: string): boolean {
@@ -25,7 +25,9 @@ export type BuildOrderInput = {
   items: any[]
   shippingInfo: any
   paymentMethod: string
-  shipbubbleSelections?: Record<string, any>
+  // Keyed by vendorId, each value is { provider, quoteRef, total, etaHours? } — captured
+  // at checkout from the merged multi-provider quote list (lib/logistics/engine.ts).
+  courierSelections?: Record<string, any>
 }
 
 export type BuildOrderResult =
@@ -33,7 +35,7 @@ export type BuildOrderResult =
   | { success: false; error: string; status: number }
 
 export async function buildOrder(input: BuildOrderInput): Promise<BuildOrderResult> {
-  const { customerId, items, shippingInfo, paymentMethod, shipbubbleSelections } = input
+  const { customerId, items, shippingInfo, paymentMethod, courierSelections } = input
 
   // Same hard-required set the inline route logic checked: items, shippingInfo,
   // customerId, shippingInfo.email, shippingInfo.deliveryInstructions. Everything else
@@ -140,13 +142,12 @@ export async function buildOrder(input: BuildOrderInput): Promise<BuildOrderResu
     vendor.storeAddress = pickupAddress || ''
     vendor.storeState = String(store?.state || '')
 
-    const selection = shipbubbleSelections?.[vendor.vendorId]
-    const requestToken = String(selection?.requestToken || '').trim()
-    const serviceCode = String(selection?.serviceCode || '').trim()
-    const courierId = String(selection?.courierId || '').trim()
+    const selection = courierSelections?.[vendor.vendorId]
+    const provider = String(selection?.provider || '').trim()
+    const quoteRef = String(selection?.quoteRef || '').trim()
     const shippingFee = Number(selection?.total)
 
-    if (!requestToken || !serviceCode || !courierId || !Number.isFinite(shippingFee)) {
+    if (!provider || !quoteRef || !Number.isFinite(shippingFee)) {
       missingCourierVendors.push(vendor.vendorName || vendor.vendorId)
       continue
     }
@@ -159,14 +160,33 @@ export async function buildOrder(input: BuildOrderInput): Promise<BuildOrderResu
 
     vendor.shippingFee = effectiveShippingFee
     vendor.shippingFeeLabel = effectiveShippingFee === 0 ? 'FREE' : `NGN ${effectiveShippingFee.toLocaleString('en-NG')}`
-    vendor.shipbubbleRequestToken = requestToken
-    vendor.shipbubbleServiceCode = serviceCode
-    vendor.shipbubbleCourierId = courierId
-    vendor.shipbubbleCourierName = String(selection?.courierName || '')
-    shipping += effectiveShippingFee
 
-    const etaHours = parseDeliveryEtaToHours(selection?.deliveryEta)
-    vendor.shipbubbleDeliveryEtaHours = etaHours
+    // Provider-agnostic fields — what order-dispatch.ts and the cancel route read for
+    // any provider going forward.
+    vendor.deliveryProvider = provider
+    vendor.deliveryQuoteRef = quoteRef
+    const etaHours = selection?.etaHours != null ? Number(selection.etaHours) : null
+    vendor.deliveryEtaHours = etaHours
+
+    // Legacy Shipbubble-specific fields, kept ONLY for shipbubble legs — pure backward
+    // compatibility so every existing reader (the Shipbubble webhook's order lookup, the
+    // cancel route, app/order/page.tsx's tracking link) keeps working unmodified for
+    // Shipbubble orders without needing to know about the new generic fields at all.
+    if (provider === 'shipbubble') {
+      try {
+        const parsed = JSON.parse(quoteRef) as { requestToken?: string; serviceCode?: string; courierId?: string }
+        vendor.shipbubbleRequestToken = parsed.requestToken || ''
+        vendor.shipbubbleServiceCode = parsed.serviceCode || ''
+        vendor.shipbubbleCourierId = parsed.courierId || ''
+      } catch {
+        // Malformed quoteRef — leave legacy fields unset rather than throw; the generic
+        // fields above still carry everything order-dispatch.ts needs to book this leg.
+      }
+      vendor.shipbubbleCourierName = String(selection?.courierName || '')
+      vendor.shipbubbleDeliveryEtaHours = etaHours
+    }
+
+    shipping += effectiveShippingFee
     if (etaHours != null && (maxCourierEtaHours == null || etaHours > maxCourierEtaHours)) {
       maxCourierEtaHours = etaHours
     }

@@ -2,14 +2,11 @@
 // services only. requiresQuote: true is explicitly out of scope here (S3's territory);
 // see handleServiceReply below for where that's turned away.
 //
-// Money-path discipline, same rule lib/whatsapp/checkout.ts states for goods: this file
-// NEVER computes what actually gets CHARGED — lib/booking-payment.ts's
-// initiateBookingPayment (via lib/whatsapp/buyer-bookings.ts) owns the deposit/fee math
-// and is the only path to an actual Paystack link. The price shown to the buyer while
-// picking a package/add-ons here is the package/add-on price arithmetic itself (which
-// package + which add-ons costs how much), the same "package price + add-on amounts"
-// formula components/services/BookingModal.tsx uses for its own live total — not a
-// competing computation of the deposit/fee split.
+// Services aren't monetized on the platform: nothing here is ever charged. The price shown
+// to the buyer while picking a package/add-ons is just the package/add-on price arithmetic
+// itself (which package + which add-ons costs how much), the same "package price + add-on
+// amounts" formula components/services/BookingModal.tsx uses for its own live total — it's
+// the full amount the buyer settles directly with the provider, not a platform charge.
 import { after } from 'next/server'
 import connectToDatabase from '@/lib/mongodb'
 import { getServiceById } from '@/lib/mongodb-operations'
@@ -308,15 +305,6 @@ async function handleSlotSelection(waId: string, text: string, draft: Record<str
 // ---------------------------------------------------------------------------
 
 async function sendConfirmationPrompt(waId: string, draft: Record<string, any>): Promise<void> {
-  // Deposit/fee split itself is NOT computed here — this is just the total the booking
-  // will be created with; lib/booking-payment.ts's initiateBookingPayment (via
-  // createBookingForWaBuyer) is what actually runs computeBookingDeposit and is the
-  // authoritative source of what gets charged. Importing the same pure helper here (it
-  // has zero server-only deps, same reason components/services/BookingModal.tsx can) so
-  // this preview can never drift from what's actually charged a moment later.
-  const { computeBookingDeposit } = await import('@/lib/booking-pricing')
-  const { depositAmount, bookingFeeAmount, balanceOwed, amountDueNow } = computeBookingDeposit(draft.totalPrice)
-
   const addOnNames = (Array.isArray(draft.selectedAddOns) ? draft.selectedAddOns : []).map((a: any) => a.name)
   const dateLabel = new Date(draft.bookingDate).toLocaleDateString('en-NG', { year: 'numeric', month: 'short', day: 'numeric' })
 
@@ -328,10 +316,9 @@ async function sendConfirmationPrompt(waId: string, draft: Record<string, any>):
       addOnNames.length > 0 ? `Add-ons: ${addOnNames.join(', ')}` : null,
       `${draft.negotiationId ? 'Negotiated total' : 'Total'}: ${formatNaira(draft.totalPrice)}`,
       '',
-      `Pay now: ${formatNaira(amountDueNow)} (${formatNaira(depositAmount)} deposit + ${formatNaira(bookingFeeAmount)} booking fee)`,
-      `Balance of ${formatNaira(balanceOwed)} is paid directly to the provider at the appointment.`,
+      'This is paid directly to the provider — nothing is charged through Make It Sell.',
       '',
-      'Reply "confirm" to get your payment link, or "cancel" to stop.',
+      'Reply "confirm" to book this slot, or "cancel" to stop.',
     ].filter(Boolean).join('\n')
   )
 }
@@ -388,18 +375,12 @@ async function handleBookingConfirmation(waId: string, text: string, draft: Reco
     return
   }
 
-  if (!result.requiresPayment) {
-    // Shouldn't happen for requiresQuote: false, but handled rather than left dangling.
-    await resetBookingState(waId)
-    await trySendText(waId, 'Your booking request was submitted.')
-    return
-  }
-
-  await saveState(waId, { stage: 'awaiting_booking_payment', pendingBookingId: result.bookingId })
-  await trySendText(
-    waId,
-    `Tap the link below to pay ${formatNaira(result.payableAmount)} securely:\n\n${result.authorization_url}\n\nOnce payment is confirmed we'll message you here.`
-  )
+  // Services aren't monetized, so requiresPayment is always false here — the booking is
+  // already confirmed at this point (initiateBookingPayment claims it as paid internally
+  // via handleBookingPaid). That same claim fires notifyWaBuyerBookingPaid, which sends
+  // the actual "Booking confirmed!" message a moment later — nothing further to send here,
+  // just clear the conversation state synchronously too, in case that async notify lags.
+  await resetBookingState(waId)
 }
 
 // ---------------------------------------------------------------------------

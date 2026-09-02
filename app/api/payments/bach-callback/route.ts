@@ -6,7 +6,7 @@ import { sendOrderPlacementNotifications } from '@/lib/order-notifications'
 import connectToDatabase from '@/lib/mongodb'
 import mongoose from 'mongoose'
 import { maybeSendLowStockAlert } from '@/lib/stock-alerts'
-import { createShipmentsForOrder } from '@/lib/shipbubble-dispatch'
+import { createShipmentsForOrder } from '@/lib/order-dispatch'
 import { notifyVendorsNewOrder } from '@/lib/whatsapp/notifications'
 
 const BACH_PAID_STATUSES = new Set(['PAID', 'COMPLETE', 'COMPLETED', 'SUCCESS', 'SUCCEEDED'])
