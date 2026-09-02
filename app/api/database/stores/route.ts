@@ -14,7 +14,7 @@ const cleanStateOptions = (rawOptions: any[]): string[] => {
   )].sort((a, b) => a.localeCompare(b))
 }
 import { NextRequest, NextResponse } from 'next/server'
-import { getStores as mongoGetStores, escapeRegex } from '@/lib/mongodb-operations'
+import { getStores as mongoGetStores, escapeRegex, isStoreNameTaken } from '@/lib/mongodb-operations'
 import { requireRoles } from '@/lib/server-route-auth'
 import connectToDatabase from '@/lib/mongodb'
 import { Store } from '@/lib/models/Store'
@@ -577,7 +577,7 @@ export async function POST(request: NextRequest) {
     // Map the data from signup form to the MongoDB store schema
     const mappedStoreData = {
       vendorId: enforcedVendorId,
-      storeName: storeData.storeName || storeData.name,
+      storeName: String(storeData.storeName || storeData.name || '').trim(),
       storeDescription: storeData.storeDescription || storeData.description,
       storeImage: storeData.storeImage || storeData.logoImage || '',
       profileImage: storeData.profileImage || '',
@@ -613,6 +613,16 @@ export async function POST(request: NextRequest) {
         success: false,
         error: `Missing required fields: ${missingFields.join(', ')}`
       }, { status: 400 })
+    }
+
+    // A store name must be unique platform-wide (case-insensitive) — two stores both
+    // named "TOVA" once confused buyers and broke WhatsApp bot store lookups, which can
+    // only resolve a name to one store.
+    if (await isStoreNameTaken(mappedStoreData.storeName)) {
+      return NextResponse.json({
+        success: false,
+        error: `A store named "${mappedStoreData.storeName}" already exists. Please choose a different name.`
+      }, { status: 409 })
     }
 
     // Create store in MongoDB

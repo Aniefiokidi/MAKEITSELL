@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getStoreById, getStoreByVendorId, getUserById, updateStore, deleteStore } from '@/lib/mongodb-operations'
+import { getStoreById, getStoreByVendorId, getUserById, updateStore, deleteStore, isStoreNameTaken } from '@/lib/mongodb-operations'
 import { requireRoles } from '@/lib/server-route-auth'
 import connectToDatabase from '@/lib/mongodb'
 import { Store } from '@/lib/models/Store'
@@ -189,7 +189,25 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (body.profileImage) {
       updateData.profileImage = body.profileImage;
     }
-    
+
+    if ('storeName' in updateData) {
+      updateData.storeName = String(updateData.storeName || '').trim();
+    }
+
+    // Renaming into another active store's name must be blocked the same as at creation
+    // — see isStoreNameTaken's comment for why two stores sharing a name is a real problem
+    // (WhatsApp bot store lookups, buyer confusion), not just cosmetic.
+    if (
+      'storeName' in updateData &&
+      String(updateData.storeName || '').trim().toLowerCase() !== String(existingStore.storeName || '').trim().toLowerCase() &&
+      (await isStoreNameTaken(String(updateData.storeName), id))
+    ) {
+      return NextResponse.json({
+        success: false,
+        error: `A store named "${updateData.storeName}" already exists. Please choose a different name.`
+      }, { status: 409 });
+    }
+
     // Pickup address changed — the cached Shipbubble address_code no longer reflects
     // reality, so clear it and let the next rate request re-validate.
     const addressFieldsChanged = ['address', 'city', 'state'].some(

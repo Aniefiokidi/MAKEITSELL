@@ -843,6 +843,30 @@ export const deleteService = async (id: string) => {
   return true;
 };
 // --- Store Creation (Real) ---
+// Case-insensitive exact-name collision check — two stores both literally named "TOVA"
+// (different vendors, same store name) confused buyers and broke WhatsApp bot store
+// lookups, which can only resolve a name to ONE store (see lib/whatsapp/buyer.ts's
+// tryHandleStoreMention). Excludes inactive/deleted stores (see lib/account-deletion.ts,
+// which sets isActive: false) so a retired store's name becomes available again, and
+// takes an optional excludeStoreId so a vendor editing their OWN store's other fields
+// doesn't collide with themselves.
+export const isStoreNameTaken = async (storeName: string, excludeStoreId?: string): Promise<boolean> => {
+  await connectToDatabase();
+  const trimmed = String(storeName || '').trim();
+  if (!trimmed) return false;
+  // Several real store names in this database carry stray leading/trailing whitespace
+  // from an un-trimmed form save (e.g. "DTO ventures " with a trailing space) — anchored
+  // without tolerating that would let "DTO ventures" and "DTO ventures " coexist as if
+  // they were different names, defeating the whole point of this check.
+  const query: any = {
+    storeName: new RegExp(`^\\s*${escapeRegex(trimmed)}\\s*$`, 'i'),
+    isActive: { $ne: false },
+  };
+  if (excludeStoreId) query._id = { $ne: excludeStoreId };
+  const existing = await StoreModel.findOne(query).select('_id').lean();
+  return Boolean(existing);
+};
+
 export const createStore = async (storeData: any): Promise<string> => {
   await connectToDatabase();
   const preparedStoreData = {
