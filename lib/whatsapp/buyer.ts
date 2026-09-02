@@ -7,6 +7,7 @@
 // browsing/search or a checkout action.
 import connectToDatabase from '@/lib/mongodb'
 import { getProducts, getServices, getBookingsByCustomer } from '@/lib/mongodb-operations'
+import { Store } from '@/lib/models/Store'
 import { WhatsAppBrowseState } from '@/lib/models/WhatsAppBrowseState'
 import { WhatsAppBuyer } from '@/lib/models/WhatsAppBuyer'
 import { Order } from '@/lib/models/Order'
@@ -126,6 +127,103 @@ const SERVICE_BOOKING_SOON_MESSAGE =
   'To book, reply directly to the service you\'re interested in from the results above — that starts booking it. Search first if you haven\'t seen it yet, or reply "categories" to browse.'
 const SERVICE_GREETING_MESSAGE =
   'Looking for a service? Reply "categories" to browse, or type what you need (e.g. "hair braiding", "photographer").\n\nType "shop" anytime to go back to browsing products.'
+
+// A message using first-person/conversational phrasing ("I want...", "can I...", "do you
+// have...") is virtually never a literal product name — real product searches are short
+// noun phrases ("sneakers", "red long sleeve shirt"). Treating a full conversational
+// sentence as a literal $text query against products is what let a real buyer's "I want
+// to book a service from DTO ventures" come back with an unrelated product from a
+// totally different vendor (it matched on a stray word buried in that product's
+// description — see buyer.ts's runSearchAndReply/getProducts' unscoped $text search).
+// Caught here, before the blind search, so a conversational sentence gets routed toward
+// intent (a named store, or services) or a clarifying nudge instead of a confidently
+// wrong result.
+const CONVERSATIONAL_PHRASING_PATTERN =
+  /\b(i want|i'd like|i would like|i need|i wan|abeg|can i|could i|do you have|is there|i am looking|i'm looking|looking for|please (help|show|find))\b/i
+const CONVERSATIONAL_CLARIFY_MESSAGE =
+  'Got it! For the fastest match, reply with just the product name (e.g. "sneakers"), or type "categories" to browse, or "services" to book a service.'
+
+// Extracts a candidate store/vendor name from "... from X" / "... at X" / "... by X"
+// phrasing, falling back to the whole trimmed message (covers a buyer just typing a bare
+// store name, e.g. "DTO ventures", which the product search structurally can't match —
+// Product documents only carry the vendor's personal account name, not their store's
+// business name; see getProducts' comment on vendorName vs storeName).
+const STORE_MENTION_PATTERN = /\b(?:from|at|by)\s+([a-z0-9][a-z0-9 &'-]{1,40})\s*$/i
+// "for" is too generic a preposition to trust in general ("looking for shoes" isn't
+// naming a vendor) — only tried when the message already carries booking intent, where
+// "book/service ... for X" unambiguously means "regarding vendor X" (real Pidgin example:
+// "abeg I wan book service for DTO ventures").
+const STORE_MENTION_FOR_PATTERN = /\bfor\s+([a-z0-9][a-z0-9 &'-]{1,40})\s*$/i
+
+// Resolves a named store via the Store collection's own weighted text index
+// (storeName: 10) and answers with THAT store's real products or services — instead of
+// falling through to a product-only search that can never match a store's business name.
+// Returns false (does nothing) if no store name-level match is found, so the caller can
+// fall back to its normal search.
+async function tryHandleStoreMention(waId: string, trimmed: string, wantsBooking: boolean): Promise<boolean> {
+  const fromMatch = trimmed.match(STORE_MENTION_PATTERN) || (wantsBooking ? trimmed.match(STORE_MENTION_FOR_PATTERN) : null)
+  const candidate = (fromMatch ? fromMatch[1] : trimmed).trim()
+  if (candidate.length < 3) return false
+  // Without an explicit "from/at/by" signal, only try resolving the WHOLE message as a
+  // store name when it's multi-word — a bare single word ("beauty", "shoes") is far more
+  // likely a category/product term than a store name, and this catalog's rare single-word
+  // store names aren't worth the risk of hijacking a real category search whose term
+  // happens to substring-match some unrelated store's name.
+  if (!fromMatch && candidate.split(/\s+/).length < 2) return false
+
+  await connectToDatabase()
+  const store: any = await Store.findOne(
+    { $text: { $search: candidate }, isActive: { $ne: false } },
+    { score: { $meta: 'textScore' } }
+  ).sort({ score: { $meta: 'textScore' } }).lean()
+  if (!store) return false
+
+  // Require the match to actually be the store's NAME, not just a stray word elsewhere
+  // in its description/address/category — same relevance discipline the product search
+  // should have had. A loose $text hit alone isn't enough to confidently address the
+  // buyer by a specific store's name.
+  const nameLower = String(store.storeName || '').toLowerCase()
+  const candidateLower = candidate.toLowerCase()
+  if (!nameLower || (!nameLower.includes(candidateLower) && !candidateLower.includes(nameLower))) return false
+
+  const vendorId = String(store.vendorId || '')
+  if (!vendorId) return false
+
+  if (wantsBooking) {
+    const services = await getServices({ providerId: vendorId, status: 'active', limitCount: RESULTS_PER_PAGE })
+    if (services.length === 0) {
+      await trySendText(
+        waId,
+        `${store.storeName} doesn't have any bookable services right now. Reply "categories" to browse other services, or type "shop" to see what ${store.storeName} sells instead.`
+      )
+      return true
+    }
+    await Promise.all([
+      sendServiceResults(waId, services),
+      WhatsAppBrowseState.findOneAndUpdate(
+        { waId },
+        { $set: { browseMode: 'services', lastQuery: candidate, offset: services.length, updatedAt: new Date() } },
+        { upsert: true }
+      ),
+    ])
+    return true
+  }
+
+  const products = await getProducts({ vendorId, status: 'active', limitCount: RESULTS_PER_PAGE })
+  if (products.length === 0) {
+    await trySendText(waId, `${store.storeName} doesn't have any products listed right now.`)
+    return true
+  }
+  await Promise.all([
+    sendProductResults(waId, products),
+    WhatsAppBrowseState.findOneAndUpdate(
+      { waId },
+      { $set: { lastQuery: candidate, offset: products.length, updatedAt: new Date() } },
+      { upsert: true }
+    ),
+  ])
+  return true
+}
 
 // Mostly clear English with a light Pidgin touch ("how far") rather than full Pidgin
 // throughout — warm and local without reading as a caricature or excluding buyers who
@@ -664,6 +762,30 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
 
   if (THANKS_PATTERN.test(trimmed)) {
     await trySendText(waId, THANKS_REPLY)
+    return
+  }
+
+  // Booking/service intent expressed as a full sentence (not one of the exact
+  // SERVICE_ENTRY_KEYWORDS phrases caught earlier) — e.g. "I want to book a service from
+  // DTO ventures" — and bare/explicit store-name mentions in general. Checked here,
+  // right before the blind search fallback, so neither ever reaches a product-only
+  // $text search that structurally can't answer them correctly (see tryHandleStoreMention
+  // and CONVERSATIONAL_PHRASING_PATTERN's comments for the real incident this fixes).
+  const wantsBooking = SERVICE_BOOK_INTENT_PATTERN.test(trimmed) || /\bservices?\b/i.test(trimmed)
+
+  if (await tryHandleStoreMention(waId, trimmed, wantsBooking)) return
+
+  if (CONVERSATIONAL_PHRASING_PATTERN.test(trimmed)) {
+    if (wantsBooking) {
+      await WhatsAppBrowseState.findOneAndUpdate(
+        { waId },
+        { $set: { browseMode: 'services', updatedAt: new Date() } },
+        { upsert: true }
+      )
+      await trySendText(waId, SERVICE_GREETING_MESSAGE)
+      return
+    }
+    await trySendText(waId, CONVERSATIONAL_CLARIFY_MESSAGE)
     return
   }
 

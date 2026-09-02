@@ -10,6 +10,19 @@ function getConfig() {
   }
 }
 
+// Test-capture mode — when WHATSAPP_TEST_CAPTURE=true, every send is logged (not sent to
+// Meta's real API) so a local script can drive the bot's message handlers end-to-end
+// (e.g. handleBuyerMessage) and inspect exactly what it decided to reply, without risking
+// a real WhatsApp delivery or needing network access. Off by default; same "env var
+// toggle, inert unless deliberately set" pattern used elsewhere in this codebase.
+function isTestCaptureMode(): boolean {
+  return String(process.env.WHATSAPP_TEST_CAPTURE || '').toLowerCase() === 'true'
+}
+
+function captureLog(kind: string, payload: unknown) {
+  console.log(`[WHATSAPP_TEST_CAPTURE:${kind}]`, JSON.stringify(payload))
+}
+
 let cachedDisplayPhoneNumber: { value: string; fetchedAt: number } | null = null
 const DISPLAY_NUMBER_CACHE_MS = 60 * 60 * 1000 // 1h — this rarely changes
 
@@ -93,6 +106,10 @@ export async function sendTemplateMessage(
 }
 
 export async function sendTextMessage(to: string, body: string): Promise<any> {
+  if (isTestCaptureMode()) {
+    captureLog('text', { to, body })
+    return { captured: true }
+  }
   const { accessToken, phoneNumberId } = getConfig()
   if (!accessToken || !phoneNumberId) {
     throw new Error('WhatsApp is not configured — set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID')
@@ -127,6 +144,10 @@ export async function sendTextMessage(to: string, body: string): Promise<any> {
 // it server-side); the caller is responsible for keeping it under WhatsApp's 5MB media
 // limit (see buildWhatsAppImageUrl's Cloudinary transform in lib/whatsapp/buyer.ts).
 export async function sendImageMessage(to: string, imageUrl: string, caption: string): Promise<any> {
+  if (isTestCaptureMode()) {
+    captureLog('image', { to, imageUrl, caption })
+    return { captured: true }
+  }
   const { accessToken, phoneNumberId } = getConfig()
   if (!accessToken || !phoneNumberId) {
     throw new Error('WhatsApp is not configured — set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID')
@@ -172,6 +193,10 @@ export async function sendInteractiveListMessage(
   buttonText: string,
   rows: WhatsAppListRow[]
 ): Promise<any> {
+  if (isTestCaptureMode()) {
+    captureLog('list', { to, bodyText, buttonText, rows })
+    return { captured: true }
+  }
   const { accessToken, phoneNumberId } = getConfig()
   if (!accessToken || !phoneNumberId) {
     throw new Error('WhatsApp is not configured — set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID')
