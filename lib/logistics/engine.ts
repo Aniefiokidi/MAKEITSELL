@@ -9,6 +9,13 @@ import type { CourierQuote, LogisticsProvider, LogisticsProviderId, LogisticsQuo
 
 const PROVIDERS: LogisticsProvider[] = [shipbubbleProvider, kwikProvider, fezProvider]
 
+// Flat markup added to every real quote before it's ever shown to a buyer — MakeItSell's
+// margin on delivery. Applied here, once, to CourierQuote.total only — never touches
+// quoteRef, so booking still pays each provider their real, unmarked-up rate. The
+// TEST_STORE_VENDOR_ID synthetic quote (lib/delivery-quotes.ts) never reaches this
+// engine at all, so it stays free regardless.
+const DELIVERY_FEE_MARKUP_NGN = 1000
+
 export type MergedQuotesResult = {
   couriers: CourierQuote[]
   cheapest: CourierQuote | null
@@ -22,7 +29,9 @@ export async function getMergedQuotesForVendor(params: LogisticsQuoteParams): Pr
   const couriers: CourierQuote[] = []
   for (const result of settled) {
     if (result.status === 'fulfilled') {
-      couriers.push(...result.value)
+      for (const quote of result.value) {
+        couriers.push({ ...quote, total: quote.total + DELIVERY_FEE_MARKUP_NGN })
+      }
     } else {
       console.error('[logistics-engine] A provider failed to quote:', result.reason)
     }
