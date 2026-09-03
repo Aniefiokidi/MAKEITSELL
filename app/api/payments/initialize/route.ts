@@ -8,12 +8,11 @@ import crypto from 'crypto'
 import { calculatePaystackCheckoutAmounts } from '@/lib/paystack-charges'
 import { getCanonicalAppBaseUrl } from '@/lib/app-url'
 import { sendOrderPlacementNotifications } from '@/lib/order-notifications'
-import { Product } from '@/lib/models/Product'
-import { maybeSendLowStockAlert } from '@/lib/stock-alerts'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { createShipmentsForOrder } from '@/lib/order-dispatch'
 import { notifyVendorsNewOrder } from '@/lib/whatsapp/notifications'
 import { buildOrder } from '@/lib/order-creation'
+import { decrementProductStockForOrderItem } from '@/lib/product-stock'
 
 async function deductStock(orderId: string) {
   try {
@@ -22,25 +21,11 @@ async function deductStock(orderId: string) {
     const allItems = (order as any).vendors?.flatMap((v: any) => v.items || []) || []
     for (const item of allItems) {
       if (!item.productId || !item.quantity) continue
-      const current = await Product.findOne({ _id: item.productId }).lean() as any
-      if (!current) continue
-      const qty = Math.abs(item.quantity)
-
-      // Every completed sale counts toward `sales` regardless of the stock/9999-sentinel
-      // branches below — this mirrors the Paystack path (app/api/payments/verify/route.ts),
-      // which already did this correctly. This wallet path never incremented sales at all,
-      // which is why every product showed 0 sales despite real completed wallet-paid orders.
-      await Product.updateOne({ _id: item.productId }, { $inc: { sales: qty } })
-
-      if (current.stock === 9999) continue
-      const oldStock = current.stock || 0
-      const deduction = Math.min(qty, oldStock)
-      if (deduction > 0) {
-        await Product.updateOne({ _id: item.productId }, { $inc: { stock: -deduction } })
-        const newStock = oldStock - deduction
-        if (newStock <= 0) await Product.updateOne({ _id: item.productId }, { $set: { status: 'out_of_stock' } })
-        void maybeSendLowStockAlert(current, oldStock, newStock)
-      }
+      await decrementProductStockForOrderItem({
+        productId: item.productId,
+        quantity: Math.abs(item.quantity),
+        selectedPhoneModel: item.selectedPhoneModel,
+      })
     }
   } catch (err) {
     console.error('[deductStock]', err)

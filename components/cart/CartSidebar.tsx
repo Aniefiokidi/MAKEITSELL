@@ -102,6 +102,9 @@ export default function CartSidebar() {
                     <div className="flex-1 space-y-1">
                       <h4 className="text-sm font-medium line-clamp-2">{item.title}</h4>
                       <p className="text-xs text-muted-foreground">by {storeNames[item.vendorId] || item.vendorName}</p>
+                      {item.selectedPhoneModel && (
+                        <p className="text-xs text-muted-foreground">For: {item.selectedPhoneModel}</p>
+                      )}
                       <p className="text-sm font-semibold">₦{item.price.toFixed(2)}</p>
                     </div>
                     <div className="flex flex-col items-end space-y-2">
@@ -110,7 +113,7 @@ export default function CartSidebar() {
                           variant="outline"
                           size="icon"
                           className="h-6 w-6 bg-transparent"
-                          onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                          onClick={() => updateQuantity(item.productId, item.quantity - 1, item.selectedPhoneModel)}
                         >
                           <Minus className="h-3 w-3" />
                         </Button>
@@ -119,7 +122,7 @@ export default function CartSidebar() {
                           variant="outline"
                           size="icon"
                           className="h-6 w-6 bg-transparent"
-                          onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                          onClick={() => updateQuantity(item.productId, item.quantity + 1, item.selectedPhoneModel)}
                           disabled={item.quantity >= item.maxStock}
                         >
                           <Plus className="h-3 w-3" />
@@ -129,7 +132,7 @@ export default function CartSidebar() {
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6 text-destructive hover:text-destructive"
-                        onClick={() => removeItem(item.productId)}
+                        onClick={() => removeItem(item.productId, item.selectedPhoneModel)}
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>

@@ -23,8 +23,11 @@ export interface IProduct extends Document {
   sizes?: string[];
   colorImages?: { [key: string]: string };
   // Phone Cases only (category: Electronics, subcategory: Phone Cases) — which phone
-  // models this case fits, picked from the curated list in lib/phone-models.ts.
-  compatiblePhoneModels?: string[];
+  // models this case fits, and how many units are in stock for each, picked from the
+  // curated list in lib/phone-models.ts. Legacy products created before per-model stock
+  // existed may still have this as a plain string[] — see normalizeCompatiblePhoneModels
+  // in lib/phone-models.ts, which every reader of this field goes through.
+  compatiblePhoneModels?: Array<{ model: string; stock: number }> | string[];
   weightKg?: number;
   dimensions?: { length: number; width: number; height: number };
   // Perceptual hash (dHash, 16 hex chars = 64 bits) of images[0] — near-duplicate
@@ -62,7 +65,14 @@ const ProductSchema = new Schema<IProduct>({
   colors: { type: [String], default: [] },
   sizes: { type: [String], default: [] },
   colorImages: { type: Schema.Types.Mixed, default: {} },
-  compatiblePhoneModels: { type: [String], default: [] },
+  // Mixed, not a typed subdocument array — deliberately, so Mongoose never attempts to
+  // cast a legacy string[] value (pre-dating per-model stock) into the new
+  // {model,stock} shape and throw on it. Both shapes are handled at the application
+  // level (see normalizeCompatiblePhoneModels in lib/phone-models.ts); the atomic
+  // per-model $elemMatch/positional-$ update in lib/product-stock.ts operates on the
+  // raw stored array and works the same regardless of this field's declared Mongoose
+  // type.
+  compatiblePhoneModels: { type: Schema.Types.Mixed, default: [] },
   // Optional — used for real shipping-rate quotes (Shipbubble). Left unset, rate
   // requests fall back to a sensible default box + weight rather than failing.
   weightKg: { type: Number },

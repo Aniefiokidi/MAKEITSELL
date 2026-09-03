@@ -405,7 +405,8 @@ export default function CheckoutPage() {
           quantity: item.quantity,
           price: item.price,
           vendorId: item.vendorId,
-          vendorName: item.vendorName
+          vendorName: item.vendorName,
+          selectedPhoneModel: item.selectedPhoneModel
         })) : [],
         shippingInfo: {
           firstName: shippingInfo.firstName || '',

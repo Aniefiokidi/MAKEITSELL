@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2 } from "lucide-react"
 import { useNotification } from "@/contexts/NotificationContext"
 import Image from "next/image"
-import { PHONE_MODEL_GROUPS } from "@/lib/phone-models"
+import { PHONE_MODEL_GROUPS, normalizeCompatiblePhoneModels } from "@/lib/phone-models"
 
 const electronicsSubcategories = ["Phone Cases"]
 
@@ -40,7 +40,8 @@ export default function ProductEditPage() {
   const [colors, setColors] = useState<string[]>([])
   const [sizes, setSizes] = useState<string[]>([])
   const [colorImageMapping, setColorImageMapping] = useState<{ [color: string]: number }>({})
-  const [compatiblePhoneModels, setCompatiblePhoneModels] = useState<string[]>([])
+  // model name -> stock count — see the "new" product page's identical comment.
+  const [compatiblePhoneModels, setCompatiblePhoneModels] = useState<Record<string, number>>({})
   const [phoneModelFilter, setPhoneModelFilter] = useState("")
 
   const isPhoneCaseSubcategory =
@@ -48,9 +49,18 @@ export default function ProductEditPage() {
     String(product?.subcategory || "").trim() === "Phone Cases"
 
   const togglePhoneModel = (model: string) => {
-    setCompatiblePhoneModels((prev) =>
-      prev.includes(model) ? prev.filter((m) => m !== model) : [...prev, model]
-    )
+    setCompatiblePhoneModels((prev) => {
+      if (model in prev) {
+        const next = { ...prev }
+        delete next[model]
+        return next
+      }
+      return { ...prev, [model]: 0 }
+    })
+  }
+
+  const setPhoneModelStock = (model: string, stock: number) => {
+    setCompatiblePhoneModels((prev) => ({ ...prev, [model]: Math.max(0, stock) }))
   }
 
   useEffect(() => {
@@ -69,7 +79,11 @@ export default function ProductEditPage() {
         setProduct(prod)
         setColors(prod.colors || [])
         setSizes(prod.sizes || [])
-        setCompatiblePhoneModels(prod.compatiblePhoneModels || [])
+        setCompatiblePhoneModels(
+          Object.fromEntries(
+            normalizeCompatiblePhoneModels(prod.compatiblePhoneModels).map((entry) => [entry.model, entry.stock])
+          )
+        )
         
         // Build color to image mapping from colorImages
         if (prod.colorImages && prod.images) {
@@ -157,7 +171,11 @@ export default function ProductEditPage() {
           price: Number(product.price),
           category: product.category,
           subcategory: product.subcategory || null,
-          stock: product.category === 'Food & Beverages' ? 9999 : (Number(product.stock) || 0),
+          stock: product.category === 'Food & Beverages'
+            ? 9999
+            : isPhoneCaseSubcategory
+              ? Object.values(compatiblePhoneModels).reduce((sum, n) => sum + n, 0)
+              : (Number(product.stock) || 0),
           lowStockThreshold: product.category === 'Food & Beverages' ? 3 : Math.max(0, Number(product.lowStockThreshold) || 3),
           sku: product.sku,
           featured: product.featured || false,
@@ -166,7 +184,9 @@ export default function ProductEditPage() {
           colors: colors,
           sizes: sizes,
           colorImages: colorImageUrls,
-          compatiblePhoneModels: isPhoneCaseSubcategory ? compatiblePhoneModels : [],
+          compatiblePhoneModels: isPhoneCaseSubcategory
+            ? Object.entries(compatiblePhoneModels).map(([model, stock]) => ({ model, stock }))
+            : [],
           images: product.images, // <-- persist reordered images
           weightKg: product.weightKg !== undefined && product.weightKg !== "" ? Number(product.weightKg) : undefined,
         })
@@ -309,7 +329,7 @@ export default function ProductEditPage() {
                     value={product.subcategory || ""}
                     onValueChange={(value) => {
                       handleInputChange("subcategory", value)
-                      if (value !== "Phone Cases") setCompatiblePhoneModels([])
+                      if (value !== "Phone Cases") setCompatiblePhoneModels({})
                     }}
                   >
                     <SelectTrigger>
@@ -327,7 +347,14 @@ export default function ProductEditPage() {
               )}
 
               <div className="grid grid-cols-2 gap-4">
-                {product.category !== 'Food & Beverages' ? (
+                {isPhoneCaseSubcategory ? (
+                  <div className="space-y-2">
+                    <Label>Stock</Label>
+                    <div className="flex h-10 items-center rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
+                      Set per phone model below
+                    </div>
+                  </div>
+                ) : product.category !== 'Food & Beverages' ? (
                   <div className="space-y-2">
                     <Label htmlFor="stock">Stock Quantity</Label>
                     <Input
@@ -564,7 +591,7 @@ export default function ProductEditPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Phone Compatibility</CardTitle>
-                <CardDescription>Which phone models does this case fit?</CardDescription>
+                <CardDescription>Which phone models does this case fit, and how many do you have for each?</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <Input
@@ -581,28 +608,43 @@ export default function ProductEditPage() {
                     return (
                       <div key={brand} className="space-y-2">
                         <Label className="text-sm font-semibold">{brand}</Label>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                          {filtered.map((model) => (
-                            <div key={model} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`phone-model-${model}`}
-                                checked={compatiblePhoneModels.includes(model)}
-                                onCheckedChange={() => togglePhoneModel(model)}
-                                disabled={saving}
-                              />
-                              <Label htmlFor={`phone-model-${model}`} className="cursor-pointer text-sm">
-                                {model}
-                              </Label>
-                            </div>
-                          ))}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                          {filtered.map((model) => {
+                            const isSelected = model in compatiblePhoneModels
+                            return (
+                              <div key={model} className="flex items-center gap-2">
+                                <Checkbox
+                                  id={`phone-model-${model}`}
+                                  checked={isSelected}
+                                  onCheckedChange={() => togglePhoneModel(model)}
+                                  disabled={saving}
+                                />
+                                <Label htmlFor={`phone-model-${model}`} className="cursor-pointer text-sm flex-1">
+                                  {model}
+                                </Label>
+                                {isSelected && (
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    value={compatiblePhoneModels[model]}
+                                    onChange={(e) => setPhoneModelStock(model, Number(e.target.value) || 0)}
+                                    placeholder="Stock"
+                                    className="w-20 h-8"
+                                    disabled={saving}
+                                  />
+                                )}
+                              </div>
+                            )
+                          })}
                         </div>
                       </div>
                     )
                   })}
                 </div>
-                {compatiblePhoneModels.length > 0 && (
+                {Object.keys(compatiblePhoneModels).length > 0 && (
                   <p className="text-sm text-muted-foreground">
-                    {compatiblePhoneModels.length} model{compatiblePhoneModels.length === 1 ? "" : "s"} selected
+                    {Object.keys(compatiblePhoneModels).length} model{Object.keys(compatiblePhoneModels).length === 1 ? "" : "s"} selected —{" "}
+                    {Object.values(compatiblePhoneModels).reduce((sum, n) => sum + n, 0)} total units in stock
                   </p>
                 )}
               </CardContent>

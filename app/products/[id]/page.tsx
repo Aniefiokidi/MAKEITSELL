@@ -13,6 +13,7 @@ import { useCart } from "@/contexts/CartContext"
 import { useNotification } from "@/contexts/NotificationContext"
 import Header from "@/components/Header"
 import { ReviewsSection } from "@/components/reviews/ReviewsSection"
+import { normalizeCompatiblePhoneModels } from "@/lib/phone-models"
 
 async function getProduct(id: string) {
   if (!id) return null
@@ -34,22 +35,29 @@ export default function ProductPage() {
   const [loading, setLoading] = useState(true)
   const [selectedColor, setSelectedColor] = useState<string>("")
   const [selectedSize, setSelectedSize] = useState<string>("")
+  const [selectedPhoneModel, setSelectedPhoneModel] = useState<string>("")
   const [mainImage, setMainImage] = useState<string>("")
   const [viewTracked, setViewTracked] = useState(false)
   const [justAddedToCart, setJustAddedToCart] = useState(false)
 
+  const isPhoneCaseSubcategory = product?.category === "Electronics" && product?.subcategory === "Phone Cases"
+  const phoneModelStocks = isPhoneCaseSubcategory ? normalizeCompatiblePhoneModels(product?.compatiblePhoneModels) : []
+  const selectedModelStock = phoneModelStocks.find((m) => m.model === selectedPhoneModel)?.stock ?? 0
+
   const handleAddToCart = () => {
     if (!product || isOutOfStock) return
+    if (isPhoneCaseSubcategory && (!selectedPhoneModel || selectedModelStock <= 0)) return
     addItem({
       productId: String(product.id || productId),
       id: String(product.id || productId),
       title: product.title || product.name || "Product",
       price: Number(product.price || 0),
       image: product.images?.[0] || "",
-      maxStock: Number(product.stock || 100),
+      maxStock: isPhoneCaseSubcategory ? selectedModelStock : Number(product.stock || 100),
       vendorId: String(product.vendorId || ""),
       vendorName: product.vendorName || "Unknown Vendor",
       category: product.category || "",
+      selectedPhoneModel: isPhoneCaseSubcategory ? selectedPhoneModel : undefined,
     })
     notification.success("Product added to cart", product.title || product.name, 3000)
     setJustAddedToCart(true)
@@ -275,21 +283,41 @@ export default function ProductPage() {
                 </div>
               )}
 
-              {/* Compatible phone models (Phone Cases only) — informational, not selectable
-                  like colors/sizes, since picking one doesn't change the image/price. */}
-              {product.compatiblePhoneModels && product.compatiblePhoneModels.length > 0 && (
+              {/* Compatible phone models (Phone Cases only) — selectable, each with its
+                  own stock. A model must be picked before Add to Cart is enabled, since
+                  its stock is what actually gets validated/decremented at order time. */}
+              {isPhoneCaseSubcategory && phoneModelStocks.length > 0 && (
                 <div className="mb-4">
-                  <h3 className="font-semibold text-sm mb-2">Compatible With</h3>
+                  <h3 className="font-semibold text-sm mb-2">
+                    Compatible With{selectedPhoneModel ? ` — ${selectedPhoneModel}` : ""}
+                  </h3>
                   <div className="flex gap-2 flex-wrap">
-                    {product.compatiblePhoneModels.map((model: string) => (
-                      <span
-                        key={model}
-                        className="px-3 py-1.5 rounded-full text-sm font-medium bg-muted text-foreground border border-border"
-                      >
-                        {model}
-                      </span>
-                    ))}
+                    {phoneModelStocks.map(({ model, stock }) => {
+                      const modelOutOfStock = stock <= 0
+                      const isSelected = selectedPhoneModel === model
+                      return (
+                        <button
+                          key={model}
+                          type="button"
+                          disabled={modelOutOfStock}
+                          onClick={() => setSelectedPhoneModel(model)}
+                          className={`px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all ${
+                            modelOutOfStock
+                              ? "bg-muted text-muted-foreground border-border opacity-50 cursor-not-allowed"
+                              : isSelected
+                                ? "bg-accent text-white border-accent"
+                                : "bg-background text-foreground border-border hover:border-accent hover:bg-accent/10"
+                          }`}
+                        >
+                          {model}
+                          {modelOutOfStock && " (Out of stock)"}
+                        </button>
+                      )
+                    })}
                   </div>
+                  {!selectedPhoneModel && (
+                    <p className="text-xs text-muted-foreground mt-2">Select your phone model to add to cart.</p>
+                  )}
                 </div>
               )}
 
@@ -344,7 +372,11 @@ export default function ProductPage() {
                 <button
                   onClick={handleAddToCart}
                   className="w-full bg-accent text-white font-bold py-3 px-4 rounded-lg hover:bg-accent/90 transition disabled:opacity-60 disabled:cursor-not-allowed"
-                  disabled={product.status !== "active" || justAddedToCart}
+                  disabled={
+                    product.status !== "active" ||
+                    justAddedToCart ||
+                    (isPhoneCaseSubcategory && (!selectedPhoneModel || selectedModelStock <= 0))
+                  }
                 >
                   {justAddedToCart ? "Added!" : "Add to Cart"}
                 </button>

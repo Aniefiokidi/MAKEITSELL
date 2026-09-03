@@ -162,6 +162,9 @@ export default function CartPage() {
                         <p className="text-xs text-muted-foreground mt-0.5 truncate">
                           {storeNames[item.vendorId] || item.vendorName || 'Store'}
                         </p>
+                        {item.selectedPhoneModel && (
+                          <p className="text-xs text-muted-foreground mt-0.5">For: {item.selectedPhoneModel}</p>
+                        )}
                       </div>
                       <p className="text-accent font-bold text-sm sm:text-base mt-1">
                         ₦{item.price.toLocaleString('en-NG', { minimumFractionDigits: 2 })}
@@ -174,14 +177,14 @@ export default function CartPage() {
                     {/* Quantity stepper */}
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                        onClick={() => updateQuantity(item.productId, item.quantity - 1, item.selectedPhoneModel)}
                         className="w-8 h-8 rounded-full border border-border flex items-center justify-center hover:border-accent hover:text-accent transition-colors"
                       >
                         <Minus className="h-3 w-3" />
                       </button>
                       <span className="w-7 text-center font-bold text-sm">{item.quantity}</span>
                       <button
-                        onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                        onClick={() => updateQuantity(item.productId, item.quantity + 1, item.selectedPhoneModel)}
                         disabled={item.quantity >= item.maxStock}
                         className="w-8 h-8 rounded-full border border-border flex items-center justify-center hover:border-accent hover:text-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                       >
@@ -195,7 +198,7 @@ export default function CartPage() {
                         ₦{(item.price * item.quantity).toLocaleString('en-NG', { minimumFractionDigits: 2 })}
                       </span>
                       <button
-                        onClick={() => removeItem(item.productId)}
+                        onClick={() => removeItem(item.productId, item.selectedPhoneModel)}
                         className="w-8 h-8 rounded-full flex items-center justify-center text-destructive hover:bg-destructive hover:text-white transition-colors"
                       >
                         <Trash2 className="h-3.5 w-3.5" />

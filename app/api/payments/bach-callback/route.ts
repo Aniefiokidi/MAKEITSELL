@@ -3,9 +3,7 @@ import { bachService } from '@/lib/bach'
 import { updateOrder, getOrderById } from '@/lib/mongodb-operations'
 import { getCanonicalAppBaseUrl } from '@/lib/app-url'
 import { sendOrderPlacementNotifications } from '@/lib/order-notifications'
-import connectToDatabase from '@/lib/mongodb'
-import mongoose from 'mongoose'
-import { maybeSendLowStockAlert } from '@/lib/stock-alerts'
+import { decrementProductStockForOrderItem } from '@/lib/product-stock'
 import { createShipmentsForOrder } from '@/lib/order-dispatch'
 import { notifyVendorsNewOrder } from '@/lib/whatsapp/notifications'
 
@@ -52,40 +50,18 @@ export async function GET(request: NextRequest) {
 
     if (order && (order.items || order.vendors)) {
       try {
-        await connectToDatabase()
-        const db = mongoose.connection.db
-        if (db) {
-          const items: any[] = [
-            ...(Array.isArray(order.items) ? order.items : []),
-            ...(Array.isArray(order.vendors)
-              ? order.vendors.flatMap((v: any) => (Array.isArray(v.items) ? v.items : []))
-              : []),
-          ]
-          for (const item of items) {
-            const qty = item.quantity || 1
-            const filters: any[] = []
-            if (item.productId) {
-              if (mongoose.Types.ObjectId.isValid(item.productId)) {
-                filters.push({ _id: new mongoose.Types.ObjectId(item.productId) })
-              }
-              filters.push({ productId: item.productId }, { id: item.productId })
-            }
-            if (filters.length === 0) continue
-            const currentProduct = await db.collection('products').findOne({ $or: filters })
-            if (currentProduct?.stock === 9999) {
-              await db.collection('products').updateOne({ $or: filters }, { $inc: { sales: qty } })
-              continue
-            }
-            const currentStock = currentProduct?.stock || 0
-            const stockDeduction = Math.min(qty, currentStock)
-            await db.collection('products').updateOne(
-              { $or: filters },
-              { $inc: { stock: -stockDeduction, sales: qty } }
-            )
-            if (stockDeduction > 0 && currentProduct) {
-              void maybeSendLowStockAlert(currentProduct, currentStock, currentStock - stockDeduction)
-            }
-          }
+        const items: any[] = [
+          ...(Array.isArray(order.items) ? order.items : []),
+          ...(Array.isArray(order.vendors)
+            ? order.vendors.flatMap((v: any) => (Array.isArray(v.items) ? v.items : []))
+            : []),
+        ]
+        for (const item of items) {
+          await decrementProductStockForOrderItem({
+            productId: item.productId,
+            quantity: item.quantity || 1,
+            selectedPhoneModel: item.selectedPhoneModel,
+          })
         }
       } catch (err) {
         console.error('[BACH CALLBACK] Stock update error:', err)

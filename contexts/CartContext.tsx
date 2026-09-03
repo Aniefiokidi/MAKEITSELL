@@ -14,6 +14,11 @@ export interface CartItem {
   vendorName: string
   maxStock: number
   category?: string
+  // Phone Cases only — which compatible model the buyer picked on the product page.
+  // Two cart lines for the SAME productId but different models are legitimately
+  // different lines (see the composite key used by addItem/removeItem/updateQuantity
+  // below), not duplicates to merge.
+  selectedPhoneModel?: string
 }
 
 
@@ -23,8 +28,8 @@ interface CartContextType {
   totalPrice: number
   addItem: (item: Omit<CartItem, "quantity"> & { title: string }) => void // Ensure title is present
   addToCart: (item: Omit<CartItem, "quantity"> & { title: string }) => void // Alias for legacy usage
-  removeItem: (productId: string) => void
-  updateQuantity: (productId: string, quantity: number) => void
+  removeItem: (productId: string, selectedPhoneModel?: string) => void
+  updateQuantity: (productId: string, quantity: number, selectedPhoneModel?: string) => void
   clearCart: () => Promise<void>
   removeItems: (productIds: string[]) => Promise<void>
   isOpen: boolean
@@ -144,7 +149,8 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
             image: item.image || '',
             vendorId: item.vendorId || '',
             vendorName: item.vendorName || '',
-            maxStock: typeof item.maxStock === 'number' ? item.maxStock : 100
+            maxStock: typeof item.maxStock === 'number' ? item.maxStock : 100,
+            selectedPhoneModel: item.selectedPhoneModel || undefined
           })).filter(item => item.productId)
           await setUserCart(user.uid, sanitizedItems)
         } catch (error) {}
@@ -167,16 +173,21 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       image: newItem.image || '',
       vendorId: newItem.vendorId || '',
       vendorName: newItem.vendorName || '',
-      maxStock: typeof newItem.maxStock === 'number' ? newItem.maxStock : 100
+      maxStock: typeof newItem.maxStock === 'number' ? newItem.maxStock : 100,
+      selectedPhoneModel: newItem.selectedPhoneModel || undefined
     }
     if (!sanitizedItem.productId || !sanitizedItem.title) {
       return
     }
+    // Two lines with the same productId but different selectedPhoneModel are genuinely
+    // different lines (a case for two different phones) — only merge when both match.
+    const matches = (item: CartItem) =>
+      item.productId === sanitizedItem.productId && item.selectedPhoneModel === sanitizedItem.selectedPhoneModel
     setItems((prevItems) => {
-      const existingItem = prevItems.find((item) => item.productId === sanitizedItem.productId)
+      const existingItem = prevItems.find(matches)
       if (existingItem) {
         return prevItems.map((item) =>
-          item.productId === sanitizedItem.productId
+          matches(item)
             ? { ...item, quantity: Math.min(item.quantity + 1, item.maxStock) }
             : item,
         )
@@ -186,18 +197,22 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     })
   }
 
-  const removeItem = (productId: string) => {
-    setItems((prevItems) => prevItems.filter((item) => item.productId !== productId))
+  const removeItem = (productId: string, selectedPhoneModel?: string) => {
+    setItems((prevItems) =>
+      prevItems.filter((item) => !(item.productId === productId && item.selectedPhoneModel === selectedPhoneModel))
+    )
   }
 
-  const updateQuantity = (productId: string, quantity: number) => {
+  const updateQuantity = (productId: string, quantity: number, selectedPhoneModel?: string) => {
     if (quantity <= 0) {
-      removeItem(productId)
+      removeItem(productId, selectedPhoneModel)
       return
     }
     setItems((prevItems) =>
       prevItems.map((item) =>
-        item.productId === productId ? { ...item, quantity: Math.min(quantity, item.maxStock) } : item,
+        item.productId === productId && item.selectedPhoneModel === selectedPhoneModel
+          ? { ...item, quantity: Math.min(quantity, item.maxStock) }
+          : item,
       ),
     )
   }

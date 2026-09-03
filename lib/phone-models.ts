@@ -8,6 +8,21 @@ export type PhoneModelGroup = {
   models: string[]
 }
 
+export type PhoneModelStock = { model: string; stock: number }
+
+// Normalizes either shape of Product.compatiblePhoneModels into the current
+// {model, stock} shape. A legacy plain-string entry (from before per-model stock
+// existed) becomes stock: 0 — conservatively "not known to be in stock" rather than
+// assuming availability, until a vendor opens the edit form and sets a real number.
+export function normalizeCompatiblePhoneModels(
+  value: Array<{ model: string; stock: number }> | string[] | null | undefined
+): PhoneModelStock[] {
+  if (!Array.isArray(value)) return []
+  return value.map((entry) =>
+    typeof entry === "string" ? { model: entry, stock: 0 } : { model: entry.model, stock: Number(entry.stock) || 0 }
+  )
+}
+
 export const PHONE_MODEL_GROUPS: PhoneModelGroup[] = [
   {
     brand: "Apple",

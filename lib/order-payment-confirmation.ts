@@ -7,78 +7,37 @@
 // side effects (courier dispatch, vendor notification, stock/sales decrement, customer/
 // vendor notifications) exactly once.
 import connectToDatabase from '@/lib/mongodb'
-import mongoose from 'mongoose'
 import { Order } from '@/lib/models/Order'
 import { createShipmentsForOrder } from '@/lib/order-dispatch'
 import { notifyVendorsNewOrder } from '@/lib/whatsapp/notifications'
 import { notifyWaBuyerOrderPaid } from '@/lib/whatsapp/checkout'
 import { sendOrderPlacementNotifications } from '@/lib/order-notifications'
-import { maybeSendLowStockAlert } from '@/lib/stock-alerts'
+import { decrementProductStockForOrderItem } from '@/lib/product-stock'
 
 // Any status at or past "paid" — a caller arriving after one of these is already set
 // means some earlier call already claimed this order, so skip every downstream side
 // effect rather than repeat them.
 const ALREADY_PAID_STATUSES = ['escrow', 'completed', 'released', 'refunded']
 
-// Consolidates what used to be two independently-drifted copies of this loop (the GET and
-// POST handlers in app/api/payments/verify/route.ts) into one. The POST copy had a
-// stock === 9999 "made-to-order, never deplete" sentinel check that the GET copy was
-// missing — kept here since it's the more correct of the two.
+// Delegates per-item to the shared lib/product-stock.ts helper (also used by the wallet
+// and Bach payment-confirmation paths), which additionally handles a race-safe atomic
+// decrement when an item carries a selectedPhoneModel.
 async function decrementStockAndSales(order: any): Promise<void> {
   if (!order || !(order.items || order.vendors)) return
 
-  try {
-    await connectToDatabase()
-    const db = mongoose.connection.db
-    if (!db) return
+  const items: any[] = [
+    ...(Array.isArray(order.items) ? order.items : []),
+    ...(Array.isArray(order.vendors)
+      ? order.vendors.flatMap((v: any) => (Array.isArray(v.items) ? v.items : []))
+      : []),
+  ]
 
-    const items: any[] = [
-      ...(Array.isArray(order.items) ? order.items : []),
-      ...(Array.isArray(order.vendors)
-        ? order.vendors.flatMap((v: any) => (Array.isArray(v.items) ? v.items : []))
-        : []),
-    ]
-
-    for (const item of items) {
-      const qty = item.quantity || 1
-
-      const filters: any[] = []
-      if (item.productId) {
-        if (mongoose.Types.ObjectId.isValid(item.productId)) {
-          filters.push({ _id: new mongoose.Types.ObjectId(item.productId) })
-        }
-        filters.push({ productId: item.productId })
-        filters.push({ id: item.productId })
-      }
-      if (filters.length === 0) {
-        console.warn('[order-payment] Skipping stock update; no valid productId on item', item)
-        continue
-      }
-
-      const currentProduct = await db.collection('products').findOne({ $or: filters })
-
-      if (currentProduct?.stock === 9999) {
-        await db.collection('products').updateOne({ $or: filters }, { $inc: { sales: qty } })
-        continue
-      }
-
-      const currentStock = currentProduct?.stock || 0
-      const stockDeduction = Math.min(qty, currentStock)
-
-      if (stockDeduction > 0) {
-        await db.collection('products').updateOne(
-          { $or: filters },
-          { $inc: { stock: -stockDeduction, sales: qty } }
-        )
-        if (currentProduct) void maybeSendLowStockAlert(currentProduct, currentStock, currentStock - stockDeduction)
-      } else {
-        // Still record the sale even if there's no stock left to deduct.
-        await db.collection('products').updateOne({ $or: filters }, { $inc: { sales: qty } })
-      }
-    }
-  } catch (error) {
-    console.error('[order-payment] Error updating product stock/sales:', error)
-    // Non-fatal — the order stays confirmed even if a stock update fails.
+  for (const item of items) {
+    await decrementProductStockForOrderItem({
+      productId: item.productId,
+      quantity: item.quantity || 1,
+      selectedPhoneModel: item.selectedPhoneModel,
+    })
   }
 }
 
