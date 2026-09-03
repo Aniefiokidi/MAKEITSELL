@@ -325,7 +325,7 @@ export default function ProductPage() {
                           key={model}
                           type="button"
                           disabled={modelOutOfStock}
-                          onClick={() => setSelectedPhoneModel(model)}
+                          onClick={() => setSelectedPhoneModel(isSelected ? "" : model)}
                           className={`px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all ${
                             modelOutOfStock
                               ? "bg-muted text-muted-foreground border-border opacity-50 cursor-not-allowed"
