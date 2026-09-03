@@ -25,7 +25,19 @@ export async function GET(
       )
     }
 
-    const cacheKey = JSON.stringify({ id })
+    // `byPath: true` keeps this route's cache entry distinct from
+    // app/api/database/products/route.ts's `?id=` lookup, which shares this same
+    // namespace but wraps its payload as `data: [product]` (an array) instead of this
+    // route's `data: product` (a single object) — an identical key on both routes meant
+    // whichever one ran first for a given product silently "poisoned" the shared cache
+    // slot with its own shape for the other for up to 120s (longer via the CDN's
+    // stale-while-revalidate), intermittently breaking whichever caller read the wrong
+    // shape back (an array-expecting reader treating a plain object as empty, or vice
+    // versa). Both still live in the same namespace, so the existing
+    // invalidateCacheNamespace(cacheNamespaces.productsDetail) calls elsewhere still
+    // correctly clear both shapes' entries — namespace invalidation bumps a version that
+    // every key under it incorporates, regardless of the key's own content.
+    const cacheKey = JSON.stringify({ id, byPath: true })
     const cached = await getCachedPayload<any>(cacheNamespaces.productsDetail, cacheKey)
     if (cached) {
       cacheHit = true
