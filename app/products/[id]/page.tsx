@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react"
 import { notFound, useParams, useSearchParams } from "next/navigation"
 import Image from "next/image"
-import { Heart, Bell } from "lucide-react"
+import { Heart, Bell, X, ZoomIn, ChevronLeft, ChevronRight } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { trackFunnelEvent } from "@/lib/funnel-tracker"
 import { trackProductQuickView } from "@/lib/personalization"
@@ -39,7 +39,9 @@ export default function ProductPage() {
   const [mainImage, setMainImage] = useState<string>("")
   const [viewTracked, setViewTracked] = useState(false)
   const [justAddedToCart, setJustAddedToCart] = useState(false)
+  const [isZoomOpen, setIsZoomOpen] = useState(false)
 
+  const isElectronicsCategory = (product?.category || "").toLowerCase().includes("electronics")
   const isPhoneCaseSubcategory = product?.category === "Electronics" && product?.subcategory === "Phone Cases"
   const phoneModelStocks = isPhoneCaseSubcategory ? normalizeCompatiblePhoneModels(product?.compatiblePhoneModels) : []
   const selectedModelStock = phoneModelStocks.find((m) => m.model === selectedPhoneModel)?.stock ?? 0
@@ -95,6 +97,15 @@ export default function ProductPage() {
     trackReferralClick(searchParams.get('ref'))
   }, [product, productId, viewTracked, searchParams])
 
+  useEffect(() => {
+    if (!isZoomOpen) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsZoomOpen(false)
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [isZoomOpen])
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
@@ -138,15 +149,23 @@ export default function ProductPage() {
           <div className="flex flex-col md:grid md:grid-cols-2 gap-6">
             {/* Image gallery */}
             <div className="flex flex-col items-center gap-3">
-              <div className="relative w-full max-w-sm aspect-square rounded-xl border border-border overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setIsZoomOpen(true)}
+                className="relative w-full max-w-sm aspect-square rounded-xl border border-border overflow-hidden cursor-zoom-in group"
+                aria-label="View full image"
+              >
                 <Image
                   src={displayImage}
                   alt={product.title || product.name || "Product"}
                   fill
                   sizes="(max-width: 768px) 90vw, 420px"
-                  className="object-cover"
+                  className={isElectronicsCategory ? "object-contain bg-white" : "object-cover"}
                 />
-              </div>
+                <span className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <ZoomIn className="w-4 h-4" />
+                </span>
+              </button>
               {(product.images || []).length > 1 && (
                 <div className="flex gap-2 flex-wrap justify-center">
                   {(product.images || []).map((img: string, i: number) => (
@@ -160,7 +179,13 @@ export default function ProductPage() {
                       }`}
                     >
                       <div className="relative w-full h-full">
-                        <Image src={img} alt={`Thumbnail ${i + 1}`} fill sizes="64px" className="object-cover" />
+                        <Image
+                          src={img}
+                          alt={`Thumbnail ${i + 1}`}
+                          fill
+                          sizes="64px"
+                          className={isElectronicsCategory ? "object-contain bg-white" : "object-cover"}
+                        />
                       </div>
                     </button>
                   ))}
@@ -389,6 +414,64 @@ export default function ProductPage() {
           <ReviewsSection targetType="product" targetId={String(product.id || productId)} />
         </div>
       </main>
+
+      {/* Full-image zoom overlay, Shein-style: tap the image to see it full-screen, tap
+          anywhere (or the close button) to dismiss. Reuses the same gallery images/
+          mainImage state as the thumbnail strip above, so arrow navigation here stays in
+          sync with whichever thumbnail was last selected. */}
+      {isZoomOpen && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/95 flex items-center justify-center cursor-zoom-out"
+          onClick={() => setIsZoomOpen(false)}
+        >
+          <button
+            onClick={() => setIsZoomOpen(false)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center z-10"
+            aria-label="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          {(product.images || []).length > 1 && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const images = product.images || []
+                  const idx = images.indexOf(displayImage)
+                  setMainImage(images[(idx - 1 + images.length) % images.length])
+                }}
+                className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center z-10"
+                aria-label="Previous image"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const images = product.images || []
+                  const idx = images.indexOf(displayImage)
+                  setMainImage(images[(idx + 1) % images.length])
+                }}
+                className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center z-10"
+                aria-label="Next image"
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            </>
+          )}
+
+          <div className="relative w-[90vw] h-[85vh]" onClick={(e) => e.stopPropagation()}>
+            <Image
+              src={displayImage}
+              alt={product.title || product.name || "Product"}
+              fill
+              sizes="90vw"
+              className="object-contain"
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
