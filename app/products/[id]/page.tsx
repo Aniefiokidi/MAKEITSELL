@@ -275,6 +275,24 @@ export default function ProductPage() {
                 </div>
               )}
 
+              {/* Compatible phone models (Phone Cases only) — informational, not selectable
+                  like colors/sizes, since picking one doesn't change the image/price. */}
+              {product.compatiblePhoneModels && product.compatiblePhoneModels.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="font-semibold text-sm mb-2">Compatible With</h3>
+                  <div className="flex gap-2 flex-wrap">
+                    {product.compatiblePhoneModels.map((model: string) => (
+                      <span
+                        key={model}
+                        className="px-3 py-1.5 rounded-full text-sm font-medium bg-muted text-foreground border border-border"
+                      >
+                        {model}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Description */}
               <div className="mb-4 bg-muted/50 rounded-lg p-3">
                 <h3 className="font-semibold text-sm mb-2">Description</h3>

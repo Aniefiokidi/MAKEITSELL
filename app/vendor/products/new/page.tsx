@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Upload, X, Loader2, Plus } from "lucide-react"
+import { PHONE_MODEL_GROUPS } from "@/lib/phone-models"
 
 const categories = [
   "Electronics",
@@ -46,6 +47,8 @@ const fashionSubcategories = [
   "Hats & Caps",
   "Socks & Underwear",
 ]
+
+const electronicsSubcategories = ["Phone Cases"]
 
 const predefinedSizes = ["S", "M", "L", "XL", "XXL"]
 const shoeSizes = Array.from({ length: 31 }, (_, index) => String(index + 35))
@@ -108,12 +111,23 @@ export default function NewProduct() {
   const [colorImages, setColorImages] = useState<{ [color: string]: File[] }>({})
   const [colorPreviews, setColorPreviews] = useState<{ [color: string]: string[] }>({})
   const [colorImageMapping, setColorImageMapping] = useState<{ [color: string]: number }>({})
+  const [compatiblePhoneModels, setCompatiblePhoneModels] = useState<string[]>([])
+  const [phoneModelFilter, setPhoneModelFilter] = useState("")
 
   const isShoeSubcategory =
     formData.category === "Fashion" &&
     ["shoe", "shoes"].includes(formData.subcategory.toLowerCase())
 
+  const isPhoneCaseSubcategory =
+    formData.category === "Electronics" && formData.subcategory === "Phone Cases"
+
   const availableSizeOptions = isShoeSubcategory ? shoeSizes : predefinedSizes
+
+  const togglePhoneModel = (model: string) => {
+    setCompatiblePhoneModels((prev) =>
+      prev.includes(model) ? prev.filter((m) => m !== model) : [...prev, model]
+    )
+  }
 
   const addColor = () => {
     if (newColor && !colors.includes(newColor)) {
@@ -300,6 +314,7 @@ export default function NewProduct() {
           colors: colors,
           sizes: sizes,
           colorImages: colorImageUrls,
+          compatiblePhoneModels: isPhoneCaseSubcategory ? compatiblePhoneModels : undefined,
           weightKg: formData.weightKg ? Number(formData.weightKg) : undefined,
         })
       })
@@ -394,11 +409,13 @@ export default function NewProduct() {
                   <Label htmlFor="category">Category *</Label>
                   <Select value={formData.category} onValueChange={(value) => {
                     handleInputChange("category", value)
-                    // Reset subcategory when category changes
-                    if (value !== "Fashion") {
-                      handleInputChange("subcategory", "")
-                    }
+                    // Reset subcategory (and anything scoped to it) whenever category
+                    // actually changes — Fashion's and Electronics' subcategory lists are
+                    // disjoint, so carrying one over into the other would show a value
+                    // that doesn't belong to either list.
+                    handleInputChange("subcategory", "")
                     setSizes([])
+                    setCompatiblePhoneModels([])
                   }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select category" />
@@ -427,6 +444,28 @@ export default function NewProduct() {
                     </SelectTrigger>
                     <SelectContent>
                       {fashionSubcategories.map((subcategory) => (
+                        <SelectItem key={subcategory} value={subcategory}>
+                          {subcategory}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Electronics Subcategory */}
+              {formData.category === "Electronics" && (
+                <div className="space-y-2">
+                  <Label htmlFor="subcategory">Electronics Subcategory</Label>
+                  <Select value={formData.subcategory} onValueChange={(value) => {
+                    handleInputChange("subcategory", value)
+                    if (value !== "Phone Cases") setCompatiblePhoneModels([])
+                  }}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select electronics subcategory" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {electronicsSubcategories.map((subcategory) => (
                         <SelectItem key={subcategory} value={subcategory}>
                           {subcategory}
                         </SelectItem>
@@ -679,6 +718,55 @@ export default function NewProduct() {
                 )}
               </CardContent>
             </Card>
+
+          {isPhoneCaseSubcategory && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Phone Compatibility</CardTitle>
+                <CardDescription>Which phone models does this case fit?</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Input
+                  placeholder="Search models (e.g. iPhone 15, Galaxy A54)"
+                  value={phoneModelFilter}
+                  onChange={(e) => setPhoneModelFilter(e.target.value)}
+                />
+                <div className="space-y-4 max-h-96 overflow-y-auto pr-1">
+                  {PHONE_MODEL_GROUPS.map(({ brand, models }) => {
+                    const filtered = phoneModelFilter
+                      ? models.filter((m) => m.toLowerCase().includes(phoneModelFilter.toLowerCase()))
+                      : models
+                    if (filtered.length === 0) return null
+                    return (
+                      <div key={brand} className="space-y-2">
+                        <Label className="text-sm font-semibold">{brand}</Label>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                          {filtered.map((model) => (
+                            <div key={model} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`phone-model-${model}`}
+                                checked={compatiblePhoneModels.includes(model)}
+                                onCheckedChange={() => togglePhoneModel(model)}
+                                disabled={loading}
+                              />
+                              <Label htmlFor={`phone-model-${model}`} className="cursor-pointer text-sm">
+                                {model}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                {compatiblePhoneModels.length > 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    {compatiblePhoneModels.length} model{compatiblePhoneModels.length === 1 ? "" : "s"} selected
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Actions */}
           <div className="flex gap-4">

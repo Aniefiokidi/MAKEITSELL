@@ -22,6 +22,9 @@ export interface IProduct extends Document {
   colors?: string[];
   sizes?: string[];
   colorImages?: { [key: string]: string };
+  // Phone Cases only (category: Electronics, subcategory: Phone Cases) — which phone
+  // models this case fits, picked from the curated list in lib/phone-models.ts.
+  compatiblePhoneModels?: string[];
   weightKg?: number;
   dimensions?: { length: number; width: number; height: number };
   // Perceptual hash (dHash, 16 hex chars = 64 bits) of images[0] — near-duplicate
@@ -59,6 +62,7 @@ const ProductSchema = new Schema<IProduct>({
   colors: { type: [String], default: [] },
   sizes: { type: [String], default: [] },
   colorImages: { type: Schema.Types.Mixed, default: {} },
+  compatiblePhoneModels: { type: [String], default: [] },
   // Optional — used for real shipping-rate quotes (Shipbubble). Left unset, rate
   // requests fall back to a sensible default box + weight rather than failing.
   weightKg: { type: Number },

@@ -14,6 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2 } from "lucide-react"
 import { useNotification } from "@/contexts/NotificationContext"
 import Image from "next/image"
+import { PHONE_MODEL_GROUPS } from "@/lib/phone-models"
+
+const electronicsSubcategories = ["Phone Cases"]
 
 const predefinedSizes = ["S", "M", "L", "XL", "XXL"]
 
@@ -37,6 +40,18 @@ export default function ProductEditPage() {
   const [colors, setColors] = useState<string[]>([])
   const [sizes, setSizes] = useState<string[]>([])
   const [colorImageMapping, setColorImageMapping] = useState<{ [color: string]: number }>({})
+  const [compatiblePhoneModels, setCompatiblePhoneModels] = useState<string[]>([])
+  const [phoneModelFilter, setPhoneModelFilter] = useState("")
+
+  const isPhoneCaseSubcategory =
+    String(product?.category || "").trim() === "Electronics" &&
+    String(product?.subcategory || "").trim() === "Phone Cases"
+
+  const togglePhoneModel = (model: string) => {
+    setCompatiblePhoneModels((prev) =>
+      prev.includes(model) ? prev.filter((m) => m !== model) : [...prev, model]
+    )
+  }
 
   useEffect(() => {
     async function fetchProduct() {
@@ -54,6 +69,7 @@ export default function ProductEditPage() {
         setProduct(prod)
         setColors(prod.colors || [])
         setSizes(prod.sizes || [])
+        setCompatiblePhoneModels(prod.compatiblePhoneModels || [])
         
         // Build color to image mapping from colorImages
         if (prod.colorImages && prod.images) {
@@ -140,6 +156,7 @@ export default function ProductEditPage() {
           description: product.description,
           price: Number(product.price),
           category: product.category,
+          subcategory: product.subcategory || null,
           stock: product.category === 'Food & Beverages' ? 9999 : (Number(product.stock) || 0),
           lowStockThreshold: product.category === 'Food & Beverages' ? 3 : Math.max(0, Number(product.lowStockThreshold) || 3),
           sku: product.sku,
@@ -149,6 +166,7 @@ export default function ProductEditPage() {
           colors: colors,
           sizes: sizes,
           colorImages: colorImageUrls,
+          compatiblePhoneModels: isPhoneCaseSubcategory ? compatiblePhoneModels : [],
           images: product.images, // <-- persist reordered images
           weightKg: product.weightKg !== undefined && product.weightKg !== "" ? Number(product.weightKg) : undefined,
         })
@@ -283,6 +301,30 @@ export default function ProductEditPage() {
                   />
                 </div>
               </div>
+
+              {String(product.category || "").trim() === "Electronics" && (
+                <div className="space-y-2">
+                  <Label htmlFor="subcategory">Electronics Subcategory</Label>
+                  <Select
+                    value={product.subcategory || ""}
+                    onValueChange={(value) => {
+                      handleInputChange("subcategory", value)
+                      if (value !== "Phone Cases") setCompatiblePhoneModels([])
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select electronics subcategory" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {electronicsSubcategories.map((subcategory) => (
+                        <SelectItem key={subcategory} value={subcategory}>
+                          {subcategory}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 {product.category !== 'Food & Beverages' ? (
@@ -517,6 +559,55 @@ export default function ProductEditPage() {
               )}
             </CardContent>
           </Card>
+
+          {isPhoneCaseSubcategory && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Phone Compatibility</CardTitle>
+                <CardDescription>Which phone models does this case fit?</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Input
+                  placeholder="Search models (e.g. iPhone 15, Galaxy A54)"
+                  value={phoneModelFilter}
+                  onChange={(e) => setPhoneModelFilter(e.target.value)}
+                />
+                <div className="space-y-4 max-h-96 overflow-y-auto pr-1">
+                  {PHONE_MODEL_GROUPS.map(({ brand, models }) => {
+                    const filtered = phoneModelFilter
+                      ? models.filter((m) => m.toLowerCase().includes(phoneModelFilter.toLowerCase()))
+                      : models
+                    if (filtered.length === 0) return null
+                    return (
+                      <div key={brand} className="space-y-2">
+                        <Label className="text-sm font-semibold">{brand}</Label>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                          {filtered.map((model) => (
+                            <div key={model} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`phone-model-${model}`}
+                                checked={compatiblePhoneModels.includes(model)}
+                                onCheckedChange={() => togglePhoneModel(model)}
+                                disabled={saving}
+                              />
+                              <Label htmlFor={`phone-model-${model}`} className="cursor-pointer text-sm">
+                                {model}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                {compatiblePhoneModels.length > 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    {compatiblePhoneModels.length} model{compatiblePhoneModels.length === 1 ? "" : "s"} selected
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Actions */}
           <div className="flex gap-4">

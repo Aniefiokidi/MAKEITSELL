@@ -107,6 +107,8 @@ const dedupeById = <T extends { id?: string; _id?: string }>(items: T[]) => {
   return Array.from(map.values())
 }
 
+const electronicsSubcategories = ["All Electronics", "Phone Cases"]
+
 const fashionSubcategories = [
   "All Fashion",
   "Shoes",
@@ -169,6 +171,7 @@ export default function CategoryPage() {
   const [sortBy, setSortBy] = useState("featured")
   const [activeSegment, setActiveSegment] = useState<"products" | "services" | "stores">("products")
   const [fashionSubcategory, setFashionSubcategory] = useState("All Fashion")
+  const [electronicsSubcategory, setElectronicsSubcategory] = useState("All Electronics")
   
   // Advanced filtering states
   const [priceFilterMax, setPriceFilterMax] = useState<string>("")  // "" = no price filter active
@@ -484,7 +487,14 @@ export default function CategoryPage() {
         (product) => product.subcategory?.toLowerCase() === fashionSubcategory.toLowerCase()
       )
     }
-    
+
+    // Apply electronics subcategory filter
+    if (categorySlug === "electronics" && electronicsSubcategory !== "All Electronics") {
+      filtered = filtered.filter(
+        (product) => product.subcategory?.toLowerCase() === electronicsSubcategory.toLowerCase()
+      )
+    }
+
     // Apply search filter
     if (searchQuery) {
       filtered = filtered.filter(
@@ -533,7 +543,7 @@ export default function CategoryPage() {
     }
     
     setFilteredProducts(filtered)
-  }, [searchQuery, sortBy, products, fashionSubcategory, categorySlug, priceFilterMax, selectedBrands, minRating])
+  }, [searchQuery, sortBy, products, fashionSubcategory, electronicsSubcategory, categorySlug, priceFilterMax, selectedBrands, minRating])
 
   // Handle brand selection
   const handleBrandToggle = (brand: string) => {
@@ -550,6 +560,7 @@ export default function CategoryPage() {
     setSelectedBrands([])
     setMinRating(0)
     setFashionSubcategory("All Fashion")
+    setElectronicsSubcategory("All Electronics")
     setPriceFilterMax("")
   }
 
@@ -763,6 +774,24 @@ export default function CategoryPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {fashionSubcategories.map((sub) => (
+                            <SelectItem key={sub} value={sub}>
+                              {sub}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  {/* Electronics Subcategory Dropdown */}
+                  {categorySlug === "electronics" && (
+                    <div className="space-y-3">
+                      <label className="text-sm font-medium">Electronics</label>
+                      <Select value={electronicsSubcategory} onValueChange={setElectronicsSubcategory}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="All Electronics" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {electronicsSubcategories.map((sub) => (
                             <SelectItem key={sub} value={sub}>
                               {sub}
                             </SelectItem>
