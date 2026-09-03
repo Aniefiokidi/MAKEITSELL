@@ -41,31 +41,47 @@ const colorToCss = (color: string) => color.toLowerCase().replace(/\s+/g, '')
 const ImageCycler = React.memo(({ product, contain }: { product: ProductCardProduct; contain: boolean }) => {
   const [index, setIndex] = useState(0)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const images = (product.images || []).filter((src): src is string => typeof src === "string" && src.trim().length > 0)
   const isOos = (product.stock ?? 0) === 0 && product.category !== "Food & Beverages"
 
-  const handleEnter = useCallback(() => {
-    if (images.length > 1) {
-      intervalRef.current = setInterval(() => {
-        setIndex((prev) => (prev + 1 >= images.length ? 0 : prev + 1))
-      }, 1200)
-    }
-  }, [images.length])
-
-  const handleLeave = useCallback(() => {
+  const stopCycling = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current)
       intervalRef.current = null
     }
-    setIndex(0)
   }, [])
 
-  useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current) }, [])
+  const handleEnter = useCallback(() => {
+    stopCycling() // never let two intervals stack (e.g. a re-enter after a missed leave)
+    if (images.length > 1) {
+      intervalRef.current = setInterval(() => {
+        // Self-healing: a browser can occasionally suppress mouseleave (e.g. a layout
+        // reflow while the card is hovered — images finishing loading and shifting the
+        // grid), which would otherwise orphan this interval and cycle the image forever
+        // with the cursor nowhere near the card. Confirm the pointer is still actually
+        // over the card on every tick, not just when the leave event fires.
+        if (!containerRef.current?.matches(":hover")) {
+          stopCycling()
+          setIndex(0)
+          return
+        }
+        setIndex((prev) => (prev + 1 >= images.length ? 0 : prev + 1))
+      }, 1200)
+    }
+  }, [images.length, stopCycling])
+
+  const handleLeave = useCallback(() => {
+    stopCycling()
+    setIndex(0)
+  }, [stopCycling])
+
+  useEffect(() => stopCycling, [stopCycling])
 
   const src = optimizedImageUrl(images[index] || images[0], { width: 500 }) || FALLBACK_IMAGE
 
   return (
-    <div className="absolute inset-0 w-full h-full" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
+    <div ref={containerRef} className="absolute inset-0 w-full h-full" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
       <img
         key={index}
         src={src}

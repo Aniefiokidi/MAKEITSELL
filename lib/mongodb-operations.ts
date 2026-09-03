@@ -476,6 +476,19 @@ const ensureStorePublicSlug = async (store: any): Promise<string> => {
   return publicSlug
 }
 
+// Called from the store-rename path (app/api/database/stores/[id]/route.ts's PATCH
+// handler) when storeName actually changes. Deliberately regenerates the slug to match
+// the new name rather than keeping the original — an explicit product decision (any
+// previously shared link/QR code/bookmark to the old URL will 404 after a rename; the
+// alternative of keeping URLs permanent was considered and rejected in favor of a
+// vendor's storefront URL always matching their current store name).
+export const regenerateStorePublicSlugForRename = async (
+  storeId: string,
+  newStoreName: string
+): Promise<string> => {
+  return generateUniquePublicSlug(StoreModel, newStoreName, storeId)
+}
+
 const ensureServicePublicSlug = async (service: any): Promise<string> => {
   const existing = String(service?.publicSlug || '').trim()
   if (existing) return existing

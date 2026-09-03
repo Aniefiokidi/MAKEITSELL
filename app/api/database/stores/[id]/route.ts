@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getStoreById, getStoreByVendorId, getUserById, updateStore, deleteStore, isStoreNameTaken } from '@/lib/mongodb-operations'
+import { getStoreById, getStoreByVendorId, getUserById, updateStore, deleteStore, isStoreNameTaken, regenerateStorePublicSlugForRename } from '@/lib/mongodb-operations'
 import { requireRoles } from '@/lib/server-route-auth'
 import connectToDatabase from '@/lib/mongodb'
 import { Store } from '@/lib/models/Store'
@@ -194,18 +194,26 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       updateData.storeName = String(updateData.storeName || '').trim();
     }
 
+    const isRename =
+      'storeName' in updateData &&
+      String(updateData.storeName || '').trim().toLowerCase() !== String(existingStore.storeName || '').trim().toLowerCase()
+
     // Renaming into another active store's name must be blocked the same as at creation
     // — see isStoreNameTaken's comment for why two stores sharing a name is a real problem
     // (WhatsApp bot store lookups, buyer confusion), not just cosmetic.
-    if (
-      'storeName' in updateData &&
-      String(updateData.storeName || '').trim().toLowerCase() !== String(existingStore.storeName || '').trim().toLowerCase() &&
-      (await isStoreNameTaken(String(updateData.storeName), id))
-    ) {
+    if (isRename && (await isStoreNameTaken(String(updateData.storeName), id))) {
       return NextResponse.json({
         success: false,
         error: `A store named "${updateData.storeName}" already exists. Please choose a different name.`
       }, { status: 409 });
+    }
+
+    // Keep the store's public URL in sync with its current name — a deliberate choice to
+    // prioritize the URL always matching what a vendor is actually called over keeping
+    // old links permanent (any previously shared link/QR code/bookmark to the old slug
+    // will 404 after this).
+    if (isRename) {
+      updateData.publicSlug = await regenerateStorePublicSlugForRename(id, String(updateData.storeName))
     }
 
     // Pickup address changed — the cached Shipbubble address_code no longer reflects
