@@ -8,7 +8,13 @@ const nextConfig = {
   // Turbopack/webpack's build tracing rewrites incorrectly when the package is bundled —
   // confirmed live (MODULE_NOT_FOUND for worker-script/node/index.js). Marking it external
   // leaves it to plain Node `require` at runtime, which resolves correctly.
-  serverExternalPackages: ["tesseract.js"],
+  //
+  // sharp is the same failure class — its native binary (libvips) is platform-specific
+  // and loaded via a path lookup that bundling breaks. Confirmed live in production:
+  // "Could not load the sharp module using the linux-x64 runtime, ERR_DLOPEN_FAILED:
+  // libvips-cpp.so.8.18.6: cannot open shared object file" — this is Vercel/Next's own
+  // documented fix for sharp specifically, not a guess.
+  serverExternalPackages: ["tesseract.js", "sharp"],
 
   // If you're hosting on Vercel, you DO NOT need this:
   // output: "export",
