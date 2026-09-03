@@ -688,8 +688,19 @@ export const createProduct = async (productData: any): Promise<string> => {
     // synchronously within the request's lifecycle, before the response is sent, or it can
     // fail with "after() called outside a request context". The heavy part (model weight
     // load + inference) still only happens later, inside that deferred after() callback.
-    const { scheduleProductImageAnalysis } = await import('./product-image-analysis');
-    scheduleProductImageAnalysis(productId, firstImage);
+    // Best-effort — this whole block must never fail product creation itself (that's the
+    // entire point of deferring analysis to after() in the first place). Confirmed live:
+    // sharp's native binary failing to load on Vercel's runtime (a packaging issue, not a
+    // logic bug) threw synchronously right here, since lib/image-hash.ts/image-classify.ts
+    // import sharp at module top level and a dynamic import() propagates a module-load
+    // failure as a rejection — taking down every new product creation with it until this
+    // was caught.
+    try {
+      const { scheduleProductImageAnalysis } = await import('./product-image-analysis');
+      scheduleProductImageAnalysis(productId, firstImage);
+    } catch (error) {
+      console.error('[createProduct] Failed to schedule image analysis (product still created):', error);
+    }
   }
 
   return productId;
@@ -1265,9 +1276,14 @@ export const updateProduct = async (id: string, data: any) => {
     // See createProduct's comment above — must be an awaited dynamic import, not a
     // top-level one, so TF.js isn't a load-time dependency of every mongodb-operations.ts
     // caller, and must be awaited (not fire-and-forget) so after() inside it still runs
-    // within this request's lifecycle.
-    const { scheduleProductImageAnalysis } = await import('./product-image-analysis');
-    scheduleProductImageAnalysis(id, pendingAnalysisImage);
+    // within this request's lifecycle. Also best-effort for the same reason as
+    // createProduct — must never fail the product update itself.
+    try {
+      const { scheduleProductImageAnalysis } = await import('./product-image-analysis');
+      scheduleProductImageAnalysis(id, pendingAnalysisImage);
+    } catch (error) {
+      console.error('[updateProduct] Failed to schedule image analysis (product still updated):', error);
+    }
   }
 
   const { _id, ...rest } = product as any;

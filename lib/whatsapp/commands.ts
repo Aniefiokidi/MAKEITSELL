@@ -156,8 +156,16 @@ export async function handleInboundImageMessage(waId: string, mediaId: string): 
     // resolves before this function returns, but the call into handleBuyerImageMessage is
     // NOT awaited — it self-defers via after() internally, since classification takes
     // several seconds and must never block this webhook's response to Meta.
-    const { handleBuyerImageMessage } = await import('@/lib/whatsapp/image-search')
-    handleBuyerImageMessage(waId, mediaId)
+    // Best-effort — a broken/missing native dependency (confirmed live: sharp's binary
+    // failing to load on Vercel) must never crash the buyer's whole message handling;
+    // it should degrade to "try text search" instead.
+    try {
+      const { handleBuyerImageMessage } = await import('@/lib/whatsapp/image-search')
+      handleBuyerImageMessage(waId, mediaId)
+    } catch (error) {
+      console.error('[whatsapp-commands] Failed to load image search:', error)
+      await trySend(waId, "Sorry, photo search isn't working right now — try searching by typing what you're looking for instead.")
+    }
     return
   }
   await trySend(waId, "I can't do anything with a photo right now. Try: dispatched [order ref] or balance.")

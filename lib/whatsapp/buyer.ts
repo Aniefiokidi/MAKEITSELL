@@ -376,8 +376,15 @@ async function handleMoreCommand(waId: string): Promise<void> {
     // which must not be a load-time dependency of this whole file (buyer.ts is imported by
     // lib/whatsapp/commands.ts, itself imported by the webhook route hit by EVERY inbound
     // message). Only actually loaded when a buyer is paging through image-search results.
-    const { continueImageMatchPaging } = await import('@/lib/whatsapp/image-search')
-    await continueImageMatchPaging(waId, state)
+    // Best-effort — a broken/missing native dependency (confirmed live: sharp's binary
+    // failing to load on Vercel) must never crash "more" handling for the buyer.
+    try {
+      const { continueImageMatchPaging } = await import('@/lib/whatsapp/image-search')
+      await continueImageMatchPaging(waId, state)
+    } catch (error) {
+      console.error('[whatsapp-buyer] Failed to load image search for paging:', error)
+      await trySendText(waId, "Sorry, photo search isn't working right now — try searching by typing what you're looking for instead.")
+    }
     return
   }
 
