@@ -143,6 +143,9 @@ export function ProductQuickView({
 
   const stockCount = product.stock ?? 0
   const isFoodCategory = product.category === 'Food & Beverages'
+  // Electronics (phone cases especially) get cropped into unrecognizable slivers by a
+  // cover fit — letterbox them instead, same as the listing card and full detail page.
+  const isElectronicsCategory = (product.category || "").toLowerCase().includes("electronics")
   const isOutOfStock = stockCount === 0 && !isFoodCategory
   const isLowStock = stockCount > 0 && stockCount <= 10 && !isFoodCategory
 
@@ -292,7 +295,7 @@ export function ProductQuickView({
                   alt={displayName}
                   fill
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 98vw, 70vw"
-                  className="object-cover transition-transform duration-500 group-hover:scale-105"
+                  className={`transition-transform duration-500 group-hover:scale-105 ${isElectronicsCategory ? "object-contain bg-white" : "object-cover"}`}
                   priority
                 />
 
@@ -385,7 +388,7 @@ export function ProductQuickView({
                         alt={`Thumbnail ${i + 1}`}
                         width={64}
                         height={64}
-                        className="object-cover w-full h-full"
+                        className={`w-full h-full ${isElectronicsCategory ? "object-contain bg-white" : "object-cover"}`}
                       />
                     </button>
                   ))}
