@@ -406,7 +406,7 @@ export default function CheckoutPage() {
           price: item.price,
           vendorId: item.vendorId,
           vendorName: item.vendorName,
-          selectedPhoneModel: item.selectedPhoneModel
+          selectedVariants: item.selectedVariants
         })) : [],
         shippingInfo: {
           firstName: shippingInfo.firstName || '',

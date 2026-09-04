@@ -15,7 +15,7 @@ import { Store } from '@/lib/models/Store'
 import { Product } from '@/lib/models/Product'
 import { createOrder } from '@/lib/mongodb-operations'
 import { ESCROW_DISPUTE_GRACE_HOURS, TEST_STORE_VENDOR_ID } from '@/lib/shipbubble'
-import { normalizeCompatiblePhoneModels } from '@/lib/phone-models'
+import { normalizeProductVariants } from '@/lib/product-variants'
 
 const OBJECT_ID_REGEX = /^[a-fA-F0-9]{24}$/
 function isValidObjectIdString(value: string): boolean {
@@ -62,27 +62,33 @@ export async function buildOrder(input: BuildOrderInput): Promise<BuildOrderResu
 
   await connectToDatabase()
 
-  // Fast-fail check for Phone Cases with a specific model selected. This is a UX
-  // nicety, not the real correctness guarantee — two simultaneous buyers could still
-  // both pass this check for the last unit; the actual race-safe guard is the atomic
-  // findOneAndUpdate in lib/product-stock.ts, run later at payment-confirmation time.
-  // This just avoids charging a customer for a model that's already visibly out of stock.
-  const phoneModelItems = (Array.isArray(items) ? items : []).filter((item: any) => item?.selectedPhoneModel)
-  if (phoneModelItems.length > 0) {
+  // Fast-fail check for any item with a variant selected (a compatible device model, a
+  // color, a size, ...). This is a UX nicety, not the real correctness guarantee — two
+  // simultaneous buyers could still both pass this check for the last unit; the actual
+  // race-safe guard is the atomic findOneAndUpdate in lib/product-stock.ts, run later at
+  // payment-confirmation time. This just avoids charging a customer for a variant value
+  // that's already visibly out of stock.
+  const variantItems = (Array.isArray(items) ? items : []).filter(
+    (item: any) => Array.isArray(item?.selectedVariants) && item.selectedVariants.length > 0
+  )
+  if (variantItems.length > 0) {
     const productIds = Array.from(
-      new Set(phoneModelItems.map((item: any) => String(item.productId || '').trim()).filter(isValidObjectIdString))
+      new Set(variantItems.map((item: any) => String(item.productId || '').trim()).filter(isValidObjectIdString))
     )
-    const phoneCaseProducts = productIds.length > 0 ? await Product.find({ _id: { $in: productIds } }).lean() : []
-    const productById = new Map(phoneCaseProducts.map((p: any) => [String(p._id), p]))
-    for (const item of phoneModelItems) {
+    const variantProducts = productIds.length > 0 ? await Product.find({ _id: { $in: productIds } }).lean() : []
+    const productById = new Map(variantProducts.map((p: any) => [String(p._id), p]))
+    for (const item of variantItems) {
       const product = productById.get(String(item.productId || '').trim())
-      const modelStocks = normalizeCompatiblePhoneModels(product?.compatiblePhoneModels)
-      const modelStock = modelStocks.find((m) => m.model === item.selectedPhoneModel)?.stock ?? 0
-      if (modelStock < Number(item?.quantity || 0)) {
-        return {
-          success: false,
-          error: `${item.title || 'This item'} (${item.selectedPhoneModel}) only has ${modelStock} in stock.`,
-          status: 409,
+      const productVariants = normalizeProductVariants(product)
+      for (const selected of item.selectedVariants) {
+        const variantStock =
+          productVariants.find((v) => v.label === selected.label && v.value === selected.value)?.stock ?? 0
+        if (variantStock < Number(item?.quantity || 0)) {
+          return {
+            success: false,
+            error: `${item.title || 'This item'} (${selected.label}: ${selected.value}) only has ${variantStock} in stock.`,
+            status: 409,
+          }
         }
       }
     }

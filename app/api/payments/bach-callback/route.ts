@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
           await decrementProductStockForOrderItem({
             productId: item.productId,
             quantity: item.quantity || 1,
-            selectedPhoneModel: item.selectedPhoneModel,
+            selectedVariants: item.selectedVariants,
           })
         }
       } catch (err) {

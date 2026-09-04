@@ -16,75 +16,18 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Upload, X, Loader2, Plus } from "lucide-react"
-import { PHONE_MODEL_GROUPS } from "@/lib/phone-models"
-
-const categories = [
-  "Electronics",
-  "Fashion",
-  "Home & Garden",
-  "Sports & Outdoors",
-  "Books",
-  "Toys & Games",
-  "Health & Beauty",
-  "Automotive",
-  "Tools",
-  "Food & Beverages",
-]
-
-const fashionSubcategories = [
-  "Shoes",
-  "Wig",
-  "Jewelry",
-  "Shirts",
-  "Sweaters",
-  "Swimwear",
-  "Pants & Jeans",
-  "Dresses",
-  "Jackets & Coats",
-  "Accessories",
-  "Bags",
-  "Hats & Caps",
-  "Socks & Underwear",
-]
-
-const electronicsSubcategories = ["Phone Cases"]
-
-const predefinedSizes = ["S", "M", "L", "XL", "XXL"]
-const shoeSizes = Array.from({ length: 31 }, (_, index) => String(index + 35))
-
-const predefinedColors = [
-  "Black",
-  "White",
-  "Gray",
-  "Red",
-  "Blue",
-  "Navy Blue",
-  "Green",
-  "Yellow",
-  "Orange",
-  "Pink",
-  "Purple",
-  "Brown",
-  "Beige",
-  "Cream",
-  "Maroon",
-  "Teal",
-  "Turquoise",
-  "Gold",
-  "Silver",
-  "Olive",
-  "Burgundy",
-  "Mint",
-  "Lavender",
-  "Coral"
-]
+import { Upload, X, Loader2 } from "lucide-react"
+import { CATEGORIES, FASHION_SUBCATEGORIES, ELECTRONICS_SUBCATEGORIES } from "@/lib/vendor-product-taxonomy"
+import { ProductVariantsEditor } from "@/components/vendor/ProductVariantsEditor"
+import type { ProductVariant } from "@/lib/product-variants"
+import { groupVariantsByLabel } from "@/lib/product-variants"
+import { VARIANT_SUGGESTIONS } from "@/lib/variant-suggestions"
 
 export default function NewProduct() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, userProfile } = useAuth()
-  const { success, error: showError, warning, info } = useNotification()
+  const { success, error: showError, warning } = useNotification()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [formData, setFormData] = useState({
@@ -97,126 +40,38 @@ export default function NewProduct() {
     lowStockThreshold: "3",
     sku: "",
     featured: false,
-    hasColorOptions: false,
-    hasSizeOptions: false,
     weightKg: "",
   })
   const [images, setImages] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
   const [productDocuments, setProductDocuments] = useState<File[]>([])
-  const [colors, setColors] = useState<string[]>([])
-  const [sizes, setSizes] = useState<string[]>([])
-  const [newColor, setNewColor] = useState("")
-  const [newSize, setNewSize] = useState("")
-  const [colorImages, setColorImages] = useState<{ [color: string]: File[] }>({})
-  const [colorPreviews, setColorPreviews] = useState<{ [color: string]: string[] }>({})
-  const [colorImageMapping, setColorImageMapping] = useState<{ [color: string]: number }>({})
-  // model name -> stock count. A model's presence as a key is what "selected" means —
-  // removing a model deletes its key entirely rather than leaving a stale stock number
-  // an unchecked box could confuse for "still active."
-  const [compatiblePhoneModels, setCompatiblePhoneModels] = useState<Record<string, number>>({})
-  const [phoneModelFilter, setPhoneModelFilter] = useState("")
+  const [variants, setVariants] = useState<ProductVariant[]>([])
+  // color -> preview data URL (local, pre-upload) — resolved to the matching uploaded
+  // Cloudinary URL at submit time via previews.indexOf, since previews and the
+  // eventually-uploaded imageUrls stay in the same order.
+  const [colorImagePreviews, setColorImagePreviews] = useState<Record<string, string>>({})
 
-  const isShoeSubcategory =
-    formData.category === "Fashion" &&
-    ["shoe", "shoes"].includes(formData.subcategory.toLowerCase())
-
-  const isPhoneCaseSubcategory =
-    formData.category === "Electronics" && formData.subcategory === "Phone Cases"
-
-  const availableSizeOptions = isShoeSubcategory ? shoeSizes : predefinedSizes
-
-  const togglePhoneModel = (model: string) => {
-    setCompatiblePhoneModels((prev) => {
-      if (model in prev) {
-        const next = { ...prev }
-        delete next[model]
-        return next
-      }
-      return { ...prev, [model]: 0 }
-    })
-  }
-
-  const setPhoneModelStock = (model: string, stock: number) => {
-    setCompatiblePhoneModels((prev) => ({ ...prev, [model]: Math.max(0, stock) }))
-  }
-
-  const addColor = () => {
-    if (newColor && !colors.includes(newColor)) {
-      setColors([...colors, newColor])
-      setNewColor("")
-    }
-  }
-
-  const removeColor = (color: string) => {
-    setColors(colors.filter(c => c !== color))
-    // Remove color images and mapping too
-    const newColorImages = { ...colorImages }
-    const newColorPreviews = { ...colorPreviews }
-    const newColorImageMapping = { ...colorImageMapping }
-    delete newColorImages[color]
-    delete newColorPreviews[color]
-    delete newColorImageMapping[color]
-    setColorImages(newColorImages)
-    setColorPreviews(newColorPreviews)
-    setColorImageMapping(newColorImageMapping)
-  }
-
-  const toggleSize = (size: string) => {
-    if (sizes.includes(size)) {
-      setSizes(sizes.filter(s => s !== size))
-    } else {
-      setSizes([...sizes, size])
-    }
-  }
-
-  const toggleColor = (color: string) => {
-    if (colors.includes(color)) {
-      removeColor(color)
-    } else {
-      setColors([...colors, color])
-    }
-  }
-
-  const addSize = () => {
-    if (newSize && !sizes.includes(newSize)) {
-      setSizes([...sizes, newSize])
-      setNewSize("")
-    }
-  }
-
-  const removeSize = (size: string) => {
-    setSizes(sizes.filter(s => s !== size))
-  }
-
-  const handleColorImagesUpload = (color: string, files: FileList | null) => {
-    if (!files) return
-    
-    const fileArray = Array.from(files)
-    const newPreviews: string[] = []
-    
-    fileArray.forEach(file => {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        newPreviews.push(e.target?.result as string)
-        if (newPreviews.length === fileArray.length) {
-          setColorPreviews(prev => ({
-            ...prev,
-            [color]: [...(prev[color] || []), ...newPreviews]
-          }))
-        }
-      }
-      reader.readAsDataURL(file)
-    })
-    
-    setColorImages(prev => ({
-      ...prev,
-      [color]: [...(prev[color] || []), ...fileArray]
-    }))
-  }
+  const hasVariants = variants.length > 0
+  const isFoodCategory = formData.category === "Food & Beverages"
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handleCategoryChange = (value: string) => {
+    handleInputChange("category", value)
+    handleInputChange("subcategory", "")
+    // Device-compatibility variant groups are tied to the old subcategory and no longer
+    // make sense once category changes; Color/Size are category-agnostic and are kept.
+    setVariants((prev) => prev.filter((v) => v.label === "Color" || v.label === "Size"))
+  }
+
+  const handleSubcategoryChange = (value: string) => {
+    const previousSuggestion = VARIANT_SUGGESTIONS[formData.subcategory]
+    handleInputChange("subcategory", value)
+    if (previousSuggestion) {
+      setVariants((prev) => prev.filter((v) => v.label !== previousSuggestion.label))
+    }
   }
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -250,8 +105,8 @@ export default function NewProduct() {
   }
 
   const removeImage = (index: number) => {
-  setImages((prev) => prev.filter((_, i) => i !== index))
-  setPreviews((prev) => prev.filter((_, i) => i !== index))
+    setImages((prev) => prev.filter((_, i) => i !== index))
+    setPreviews((prev) => prev.filter((_, i) => i !== index))
   }
 
   const removeDocument = (index: number) => {
@@ -271,7 +126,7 @@ export default function NewProduct() {
       if (Number.parseFloat(formData.price) <= 0) {
         throw new Error("Price must be greater than 0")
       }
-      if (Number.parseInt(formData.stock) < 0) {
+      if (!hasVariants && !isFoodCategory && Number.parseInt(formData.stock || "0") < 0) {
         throw new Error("Stock cannot be negative")
       }
       if (!user || !userProfile) {
@@ -291,13 +146,24 @@ export default function NewProduct() {
         documentUrls.push(url)
       }
 
-      // Create color to image URL mapping
+      // Resolve each color's locally-previewed image to its uploaded URL — previews and
+      // imageUrls stay in the same order since both are built by iterating `images` once.
       const colorImageUrls: { [key: string]: string } = {}
-      for (const [color, imageIndex] of Object.entries(colorImageMapping)) {
-        if (imageUrls[imageIndex]) {
-          colorImageUrls[color] = imageUrls[imageIndex]
+      for (const [color, previewDataUrl] of Object.entries(colorImagePreviews)) {
+        const index = previews.indexOf(previewDataUrl)
+        if (index !== -1 && imageUrls[index]) {
+          colorImageUrls[color] = imageUrls[index]
         }
       }
+
+      // Overall stock: the sum of the first variant group's values when variants exist —
+      // one authoritative number, not a second vendor-editable figure that could disagree
+      // with the per-variant breakdown. Multiple independent variant groups (e.g. Color +
+      // Size) would double-count if summed together, so only the first is used.
+      const firstVariantGroup = groupVariantsByLabel(variants)[0]
+      const computedStock = firstVariantGroup
+        ? firstVariantGroup.values.reduce((sum, v) => sum + v.stock, 0)
+        : Number(formData.stock) || 0
 
       // Create product via API
       const response = await fetch('/api/database/products', {
@@ -315,27 +181,14 @@ export default function NewProduct() {
           productDocuments: documentUrls,
           vendorId: user.uid,
           vendorName: userProfile?.displayName || user.email || "Vendor",
-          // Phone Cases: overall stock is the sum of what's set per model — one
-          // authoritative number, not a second vendor-editable figure that could disagree
-          // with the per-model breakdown.
-          stock: formData.category === 'Food & Beverages'
-            ? 9999
-            : isPhoneCaseSubcategory
-              ? Object.values(compatiblePhoneModels).reduce((sum, n) => sum + n, 0)
-              : (Number(formData.stock) || 0),
-          lowStockThreshold: formData.category === 'Food & Beverages' ? 3 : Math.max(0, Number(formData.lowStockThreshold) || 3),
+          stock: isFoodCategory ? 9999 : computedStock,
+          lowStockThreshold: isFoodCategory ? 3 : Math.max(0, Number(formData.lowStockThreshold) || 3),
           sku: formData.sku,
           featured: formData.featured,
           status: "active",
           sales: 0,
-          hasColorOptions: colors.length > 0,
-          hasSizeOptions: sizes.length > 0,
-          colors: colors,
-          sizes: sizes,
+          variants,
           colorImages: colorImageUrls,
-          compatiblePhoneModels: isPhoneCaseSubcategory
-            ? Object.entries(compatiblePhoneModels).map(([model, stock]) => ({ model, stock }))
-            : undefined,
           weightKg: formData.weightKg ? Number(formData.weightKg) : undefined,
         })
       })
@@ -428,21 +281,12 @@ export default function NewProduct() {
 
                 <div className="space-y-2">
                   <Label htmlFor="category">Category *</Label>
-                  <Select value={formData.category} onValueChange={(value) => {
-                    handleInputChange("category", value)
-                    // Reset subcategory (and anything scoped to it) whenever category
-                    // actually changes — Fashion's and Electronics' subcategory lists are
-                    // disjoint, so carrying one over into the other would show a value
-                    // that doesn't belong to either list.
-                    handleInputChange("subcategory", "")
-                    setSizes([])
-                    setCompatiblePhoneModels({})
-                  }}>
+                  <Select value={formData.category} onValueChange={handleCategoryChange}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map((category) => (
+                      {CATEGORIES.map((category) => (
                         <SelectItem key={category} value={category}>
                           {category}
                         </SelectItem>
@@ -456,15 +300,12 @@ export default function NewProduct() {
               {formData.category === "Fashion" && (
                 <div className="space-y-2">
                   <Label htmlFor="subcategory">Fashion Subcategory</Label>
-                  <Select value={formData.subcategory} onValueChange={(value) => {
-                    handleInputChange("subcategory", value)
-                    setSizes([])
-                  }}>
+                  <Select value={formData.subcategory} onValueChange={handleSubcategoryChange}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select fashion subcategory" />
                     </SelectTrigger>
                     <SelectContent>
-                      {fashionSubcategories.map((subcategory) => (
+                      {FASHION_SUBCATEGORIES.map((subcategory) => (
                         <SelectItem key={subcategory} value={subcategory}>
                           {subcategory}
                         </SelectItem>
@@ -478,15 +319,12 @@ export default function NewProduct() {
               {formData.category === "Electronics" && (
                 <div className="space-y-2">
                   <Label htmlFor="subcategory">Electronics Subcategory</Label>
-                  <Select value={formData.subcategory} onValueChange={(value) => {
-                    handleInputChange("subcategory", value)
-                    if (value !== "Phone Cases") setCompatiblePhoneModels({})
-                  }}>
+                  <Select value={formData.subcategory} onValueChange={handleSubcategoryChange}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select electronics subcategory" />
                     </SelectTrigger>
                     <SelectContent>
-                      {electronicsSubcategories.map((subcategory) => (
+                      {ELECTRONICS_SUBCATEGORIES.map((subcategory) => (
                         <SelectItem key={subcategory} value={subcategory}>
                           {subcategory}
                         </SelectItem>
@@ -497,14 +335,14 @@ export default function NewProduct() {
               )}
 
               <div className="grid grid-cols-2 gap-4">
-                {isPhoneCaseSubcategory ? (
+                {hasVariants ? (
                   <div className="space-y-2">
                     <Label>Stock</Label>
                     <div className="flex h-10 items-center rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
-                      Set per phone model below
+                      Set per variant below
                     </div>
                   </div>
-                ) : formData.category !== 'Food & Beverages' ? (
+                ) : !isFoodCategory ? (
                   <div className="space-y-2">
                     <Label htmlFor="stock">Stock Quantity</Label>
                     <Input
@@ -538,7 +376,7 @@ export default function NewProduct() {
                 </div>
               </div>
 
-              {formData.category !== 'Food & Beverages' && (
+              {!isFoodCategory && (
                 <div className="space-y-2">
                   <Label htmlFor="lowStockThreshold">Low Stock Alert Threshold</Label>
                   <Input
@@ -647,169 +485,20 @@ export default function NewProduct() {
             </CardContent>
           </Card>
 
-          {/* Product Options */}
+          {/* Product Variants */}
           <Card>
-            <CardHeader>
-              <CardTitle>Product Options</CardTitle>
-              <CardDescription>Add color and size options for your product</CardDescription>
-            </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Sizes Section */}
-                <div className="space-y-4">
-                  <Label className="text-base font-semibold">Available Sizes</Label>
-                  {isShoeSubcategory && (
-                    <p className="text-xs text-muted-foreground">Shoe sizes (EU): 35-65</p>
-                  )}
-                  <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-3">
-                    {availableSizeOptions.map((size) => (
-                      <div key={size} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`size-${size}`}
-                          checked={sizes.includes(size)}
-                          onCheckedChange={() => toggleSize(size)}
-                          disabled={loading}
-                        />
-                        <Label htmlFor={`size-${size}`} className="cursor-pointer">
-                          {size}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Colors Section */}
-                <div className="space-y-4">
-                  <Label className="text-base font-semibold">Available Colors</Label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    {predefinedColors.map((color) => (
-                      <div key={color} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`color-${color}`}
-                          checked={colors.includes(color)}
-                          onCheckedChange={() => toggleColor(color)}
-                          disabled={loading}
-                        />
-                        <Label htmlFor={`color-${color}`} className="cursor-pointer flex items-center gap-2">
-                          <div 
-                            className="w-4 h-4 rounded-full border border-border" 
-                            style={{ backgroundColor: color.toLowerCase().replace(/ /g, '') }}
-                          />
-                          {color}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Color to Image Mapping */}
-                {colors.length > 0 && previews.length > 0 && (
-                  <div className="space-y-4">
-                    <Label className="text-base font-semibold">Link Colors to Product Images</Label>
-                    <p className="text-sm text-muted-foreground">Select which image represents each color</p>
-                    <div className="grid gap-4">
-                      {colors.map((color) => (
-                        <div key={color} className="flex items-center gap-4 p-3 border rounded-lg">
-                          <div className="flex items-center gap-2 min-w-[120px]">
-                            <div 
-                              className="w-4 h-4 rounded-full border border-border" 
-                              style={{ backgroundColor: color.toLowerCase().replace(/ /g, '') }}
-                            />
-                            <Label className="font-medium">{color}</Label>
-                          </div>
-                          <Select 
-                            value={colorImageMapping[color]?.toString() || ""} 
-                            onValueChange={(value) => {
-                              setColorImageMapping(prev => ({
-                                ...prev,
-                                [color]: parseInt(value)
-                              }))
-                            }}
-                          >
-                            <SelectTrigger className="flex-1">
-                              <SelectValue placeholder="Select image for this color" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {previews.map((preview, index) => (
-                                <SelectItem key={index} value={index.toString()}>
-                                  <div className="flex items-center gap-2">
-                                    <img src={preview} alt={`Image ${index + 1}`} className="w-8 h-8 object-cover rounded" />
-                                    Image {index + 1}
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-          {isPhoneCaseSubcategory && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Phone Compatibility</CardTitle>
-                <CardDescription>Which phone models does this case fit, and how many do you have for each?</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Input
-                  placeholder="Search models (e.g. iPhone 15, Galaxy A54)"
-                  value={phoneModelFilter}
-                  onChange={(e) => setPhoneModelFilter(e.target.value)}
-                />
-                <div className="space-y-4 max-h-96 overflow-y-auto pr-1">
-                  {PHONE_MODEL_GROUPS.map(({ brand, models }) => {
-                    const filtered = phoneModelFilter
-                      ? models.filter((m) => m.toLowerCase().includes(phoneModelFilter.toLowerCase()))
-                      : models
-                    if (filtered.length === 0) return null
-                    return (
-                      <div key={brand} className="space-y-2">
-                        <Label className="text-sm font-semibold">{brand}</Label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                          {filtered.map((model) => {
-                            const isSelected = model in compatiblePhoneModels
-                            return (
-                              <div key={model} className="flex items-center gap-2">
-                                <Checkbox
-                                  id={`phone-model-${model}`}
-                                  checked={isSelected}
-                                  onCheckedChange={() => togglePhoneModel(model)}
-                                  disabled={loading}
-                                />
-                                <Label htmlFor={`phone-model-${model}`} className="cursor-pointer text-sm flex-1">
-                                  {model}
-                                </Label>
-                                {isSelected && (
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    value={compatiblePhoneModels[model]}
-                                    onChange={(e) => setPhoneModelStock(model, Number(e.target.value) || 0)}
-                                    placeholder="Stock"
-                                    className="w-20 h-8"
-                                    disabled={loading}
-                                  />
-                                )}
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-                {Object.keys(compatiblePhoneModels).length > 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    {Object.keys(compatiblePhoneModels).length} model{Object.keys(compatiblePhoneModels).length === 1 ? "" : "s"} selected —{" "}
-                    {Object.values(compatiblePhoneModels).reduce((sum, n) => sum + n, 0)} total units in stock
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          )}
+            <CardContent className="pt-6">
+              <ProductVariantsEditor
+                category={formData.category}
+                subcategory={formData.subcategory}
+                images={previews}
+                variants={variants}
+                onVariantsChange={setVariants}
+                colorImages={colorImagePreviews}
+                onColorImagesChange={setColorImagePreviews}
+              />
+            </CardContent>
+          </Card>
 
           {/* Actions */}
           <div className="flex gap-4">

@@ -8,23 +8,16 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2 } from "lucide-react"
 import { useNotification } from "@/contexts/NotificationContext"
 import Image from "next/image"
-import { PHONE_MODEL_GROUPS, normalizeCompatiblePhoneModels } from "@/lib/phone-models"
-
-const electronicsSubcategories = ["Phone Cases"]
-
-const predefinedSizes = ["S", "M", "L", "XL", "XXL"]
-
-const predefinedColors = [
-  "Black", "White", "Gray", "Red", "Blue", "Navy Blue", "Green", "Yellow", 
-  "Orange", "Pink", "Purple", "Brown", "Beige", "Cream", "Maroon", "Teal", 
-  "Turquoise", "Gold", "Silver", "Olive", "Burgundy", "Mint", "Lavender", "Coral"
-]
+import { CATEGORIES, FASHION_SUBCATEGORIES, ELECTRONICS_SUBCATEGORIES } from "@/lib/vendor-product-taxonomy"
+import { ProductVariantsEditor } from "@/components/vendor/ProductVariantsEditor"
+import type { ProductVariant } from "@/lib/product-variants"
+import { normalizeProductVariants, groupVariantsByLabel } from "@/lib/product-variants"
+import { VARIANT_SUGGESTIONS } from "@/lib/variant-suggestions"
 
 export default function ProductEditPage() {
   const router = useRouter()
@@ -37,31 +30,13 @@ export default function ProductEditPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
-  const [colors, setColors] = useState<string[]>([])
-  const [sizes, setSizes] = useState<string[]>([])
-  const [colorImageMapping, setColorImageMapping] = useState<{ [color: string]: number }>({})
-  // model name -> stock count — see the "new" product page's identical comment.
-  const [compatiblePhoneModels, setCompatiblePhoneModels] = useState<Record<string, number>>({})
-  const [phoneModelFilter, setPhoneModelFilter] = useState("")
+  const [variants, setVariants] = useState<ProductVariant[]>([])
+  // color -> already-uploaded photo URL (unlike the create page, there are no local
+  // previews to resolve here — product.images are already real Cloudinary URLs).
+  const [colorImageUrls, setColorImageUrls] = useState<Record<string, string>>({})
 
-  const isPhoneCaseSubcategory =
-    String(product?.category || "").trim() === "Electronics" &&
-    String(product?.subcategory || "").trim() === "Phone Cases"
-
-  const togglePhoneModel = (model: string) => {
-    setCompatiblePhoneModels((prev) => {
-      if (model in prev) {
-        const next = { ...prev }
-        delete next[model]
-        return next
-      }
-      return { ...prev, [model]: 0 }
-    })
-  }
-
-  const setPhoneModelStock = (model: string, stock: number) => {
-    setCompatiblePhoneModels((prev) => ({ ...prev, [model]: Math.max(0, stock) }))
-  }
+  const hasVariants = variants.length > 0
+  const isFoodCategory = String(product?.category || "").trim() === "Food & Beverages"
 
   useEffect(() => {
     async function fetchProduct() {
@@ -77,25 +52,13 @@ export default function ProductEditPage() {
         }
         const prod = data.data[0]
         setProduct(prod)
-        setColors(prod.colors || [])
-        setSizes(prod.sizes || [])
-        setCompatiblePhoneModels(
-          Object.fromEntries(
-            normalizeCompatiblePhoneModels(prod.compatiblePhoneModels).map((entry) => [entry.model, entry.stock])
-          )
-        )
-        
-        // Build color to image mapping from colorImages
-        if (prod.colorImages && prod.images) {
-          const mapping: { [color: string]: number } = {}
-          Object.entries(prod.colorImages).forEach(([color, imageUrl]) => {
-            const imageIndex = prod.images.findIndex((img: string) => img === imageUrl)
-            if (imageIndex !== -1) {
-              mapping[color] = imageIndex
-            }
-          })
-          setColorImageMapping(mapping)
-        }
+        // Critical: seed from the normalizer, never from the raw legacy fields directly —
+        // normalizeProductVariants is the only thing that correctly reads BOTH the new
+        // `variants` field and legacy compatiblePhoneModels/colors/sizes. Seeding from a
+        // raw legacy field here would silently drop the other legacy data the moment this
+        // form saves (see lib/models/Product.ts's `variants` field comment).
+        setVariants(normalizeProductVariants(prod))
+        setColorImageUrls(prod.colorImages || {})
       } catch (err: any) {
         setError("Product not found")
       } finally {
@@ -105,32 +68,6 @@ export default function ProductEditPage() {
     if (id) fetchProduct()
   }, [id])
 
-  const toggleSize = (size: string) => {
-    if (sizes.includes(size)) {
-      setSizes(sizes.filter(s => s !== size))
-    } else {
-      setSizes([...sizes, size])
-    }
-  }
-
-  const toggleColor = (color: string) => {
-    if (colors.includes(color)) {
-      // Remove color and its mapping
-      setColors(colors.filter(c => c !== color))
-      const newMapping = { ...colorImageMapping }
-      delete newMapping[color]
-      setColorImageMapping(newMapping)
-    } else {
-      // Only allow selecting colors if there are images available
-      const maxColors = product?.images?.length || 0
-      if (colors.length >= maxColors) {
-        showError(`You can only select up to ${maxColors} colors (one per image)`, 'Color Limit Reached')
-        return
-      }
-      setColors([...colors, color])
-    }
-  }
-
   const handleInputChange = (field: string, value: any) => {
     setProduct((prev: any) => ({
       ...prev,
@@ -138,27 +75,30 @@ export default function ProductEditPage() {
     }))
   }
 
+  const handleCategoryChange = (value: string) => {
+    handleInputChange("category", value)
+    handleInputChange("subcategory", "")
+    setVariants((prev) => prev.filter((v) => v.label === "Color" || v.label === "Size"))
+  }
+
+  const handleSubcategoryChange = (value: string) => {
+    const previousSuggestion = VARIANT_SUGGESTIONS[String(product?.subcategory || "")]
+    handleInputChange("subcategory", value)
+    if (previousSuggestion) {
+      setVariants((prev) => prev.filter((v) => v.label !== previousSuggestion.label))
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
     setError("")
-    
-    try {
-      // Validate that all selected colors have images mapped
-      if (colors.length > 0) {
-        const unmappedColors = colors.filter(color => !colorImageMapping[color] && colorImageMapping[color] !== 0)
-        if (unmappedColors.length > 0) {
-          throw new Error(`Please link images to these colors: ${unmappedColors.join(', ')}`)
-        }
-      }
 
-      // Create color to image URL mapping
-      const colorImageUrls: { [key: string]: string } = {}
-      for (const [color, imageIndex] of Object.entries(colorImageMapping)) {
-        if (product.images && product.images[imageIndex]) {
-          colorImageUrls[color] = product.images[imageIndex]
-        }
-      }
+    try {
+      const firstVariantGroup = groupVariantsByLabel(variants)[0]
+      const computedStock = firstVariantGroup
+        ? firstVariantGroup.values.reduce((sum, v) => sum + v.stock, 0)
+        : Number(product.stock) || 0
 
       const response = await fetch(`/api/database/products/${id}`, {
         method: 'PUT',
@@ -171,32 +111,22 @@ export default function ProductEditPage() {
           price: Number(product.price),
           category: product.category,
           subcategory: product.subcategory || null,
-          stock: product.category === 'Food & Beverages'
-            ? 9999
-            : isPhoneCaseSubcategory
-              ? Object.values(compatiblePhoneModels).reduce((sum, n) => sum + n, 0)
-              : (Number(product.stock) || 0),
-          lowStockThreshold: product.category === 'Food & Beverages' ? 3 : Math.max(0, Number(product.lowStockThreshold) || 3),
+          stock: isFoodCategory ? 9999 : computedStock,
+          lowStockThreshold: isFoodCategory ? 3 : Math.max(0, Number(product.lowStockThreshold) || 3),
           sku: product.sku,
           featured: product.featured || false,
-          hasColorOptions: colors.length > 0,
-          hasSizeOptions: sizes.length > 0,
-          colors: colors,
-          sizes: sizes,
+          variants,
           colorImages: colorImageUrls,
-          compatiblePhoneModels: isPhoneCaseSubcategory
-            ? Object.entries(compatiblePhoneModels).map(([model, stock]) => ({ model, stock }))
-            : [],
           images: product.images, // <-- persist reordered images
           weightKg: product.weightKg !== undefined && product.weightKg !== "" ? Number(product.weightKg) : undefined,
         })
       })
-      
+
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || 'Failed to update product')
       }
-      
+
       success('Product updated successfully!', 'Your changes have been saved')
       router.push('/vendor/products')
     } catch (err: any) {
@@ -215,7 +145,7 @@ export default function ProductEditPage() {
       </div>
     </VendorLayout>
   )
-  
+
   if (error && !product) return (
     <VendorLayout>
       <div className="p-8">
@@ -225,7 +155,7 @@ export default function ProductEditPage() {
       </div>
     </VendorLayout>
   )
-  
+
 
   // Drag-and-drop handlers for image reordering
   const handleDragStart = (index: number) => {
@@ -312,31 +242,48 @@ export default function ProductEditPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="category">Category *</Label>
-                  <Input
-                    id="category"
-                    value={product.category || ""}
-                    onChange={(e) => handleInputChange("category", e.target.value)}
-                    required
-                    disabled={saving}
-                  />
+                  <Select value={product.category || ""} onValueChange={handleCategoryChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIES.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
+
+              {String(product.category || "").trim() === "Fashion" && (
+                <div className="space-y-2">
+                  <Label htmlFor="subcategory">Fashion Subcategory</Label>
+                  <Select value={product.subcategory || ""} onValueChange={handleSubcategoryChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select fashion subcategory" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FASHION_SUBCATEGORIES.map((subcategory) => (
+                        <SelectItem key={subcategory} value={subcategory}>
+                          {subcategory}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {String(product.category || "").trim() === "Electronics" && (
                 <div className="space-y-2">
                   <Label htmlFor="subcategory">Electronics Subcategory</Label>
-                  <Select
-                    value={product.subcategory || ""}
-                    onValueChange={(value) => {
-                      handleInputChange("subcategory", value)
-                      if (value !== "Phone Cases") setCompatiblePhoneModels({})
-                    }}
-                  >
+                  <Select value={product.subcategory || ""} onValueChange={handleSubcategoryChange}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select electronics subcategory" />
                     </SelectTrigger>
                     <SelectContent>
-                      {electronicsSubcategories.map((subcategory) => (
+                      {ELECTRONICS_SUBCATEGORIES.map((subcategory) => (
                         <SelectItem key={subcategory} value={subcategory}>
                           {subcategory}
                         </SelectItem>
@@ -347,14 +294,14 @@ export default function ProductEditPage() {
               )}
 
               <div className="grid grid-cols-2 gap-4">
-                {isPhoneCaseSubcategory ? (
+                {hasVariants ? (
                   <div className="space-y-2">
                     <Label>Stock</Label>
                     <div className="flex h-10 items-center rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground">
-                      Set per phone model below
+                      Set per variant below
                     </div>
                   </div>
-                ) : product.category !== 'Food & Beverages' ? (
+                ) : !isFoodCategory ? (
                   <div className="space-y-2">
                     <Label htmlFor="stock">Stock Quantity</Label>
                     <Input
@@ -386,7 +333,7 @@ export default function ProductEditPage() {
                 </div>
               </div>
 
-              {product.category !== 'Food & Beverages' && (
+              {!isFoodCategory && (
                 <div className="space-y-2">
                   <Label htmlFor="lowStockThreshold">Low Stock Alert Threshold</Label>
                   <Input
@@ -456,200 +403,24 @@ export default function ProductEditPage() {
                 <p className="text-sm text-muted-foreground mt-4">
                   Drag and drop images to change their order. The first image will be the main display image.
                 </p>
-                <p className="text-sm text-muted-foreground">
-                  You can select up to {product.images.length} color{product.images.length !== 1 ? 's' : ''} (one per image)
-                </p>
               </CardContent>
             </Card>
           )}
 
-          {/* Product Options */}
+          {/* Product Variants */}
           <Card>
-            <CardHeader>
-              <CardTitle>Product Options</CardTitle>
-              <CardDescription>Add color and size options for your product</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Sizes Section */}
-              <div className="space-y-4">
-                <Label className="text-base font-semibold">Available Sizes</Label>
-                <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-                  {predefinedSizes.map((size) => (
-                    <div key={size} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`size-${size}`}
-                        checked={sizes.includes(size)}
-                        onCheckedChange={() => toggleSize(size)}
-                        disabled={saving}
-                      />
-                      <Label htmlFor={`size-${size}`} className="cursor-pointer">
-                        {size}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-                {sizes.length > 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    Selected: {sizes.join(", ")}
-                  </p>
-                )}
-              </div>
-
-              {/* Colors Section */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-base font-semibold">Available Colors</Label>
-                  {product?.images && product.images.length > 0 && (
-                    <span className="text-sm text-muted-foreground">
-                      {colors.length}/{product.images.length} selected
-                    </span>
-                  )}
-                </div>
-                {!product?.images || product.images.length === 0 ? (
-                  <Alert>
-                    <AlertDescription>
-                      Product must have images before you can add colors. Colors are linked to specific images.
-                    </AlertDescription>
-                  </Alert>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    {predefinedColors.map((color) => (
-                      <div key={color} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`color-${color}`}
-                          checked={colors.includes(color)}
-                          onCheckedChange={() => toggleColor(color)}
-                          disabled={saving}
-                        />
-                        <Label htmlFor={`color-${color}`} className="cursor-pointer flex items-center gap-2">
-                          <div 
-                            className="w-4 h-4 rounded-full border border-border" 
-                            style={{ backgroundColor: color.toLowerCase().replace(/ /g, '') }}
-                          />
-                          {color}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {colors.length > 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    Selected: {colors.join(", ")}
-                  </p>
-                )}
-              </div>
-
-              {/* Color to Image Mapping */}
-              {colors.length > 0 && product?.images && product.images.length > 0 && (
-                <div className="space-y-4">
-                  <Label className="text-base font-semibold">Link Colors to Product Images</Label>
-                  <p className="text-sm text-muted-foreground">Select which image represents each color</p>
-                  <div className="grid gap-4">
-                    {colors.map((color) => (
-                      <div key={color} className="flex items-center gap-4 p-3 border rounded-lg">
-                        <div className="flex items-center gap-2 min-w-[120px]">
-                          <div 
-                            className="w-4 h-4 rounded-full border border-border" 
-                            style={{ backgroundColor: color.toLowerCase().replace(/ /g, '') }}
-                          />
-                          <Label className="font-medium">{color}</Label>
-                        </div>
-                        <Select 
-                          value={colorImageMapping[color]?.toString() || ""} 
-                          onValueChange={(value) => {
-                            setColorImageMapping(prev => ({
-                              ...prev,
-                              [color]: parseInt(value)
-                            }))
-                          }}
-                        >
-                          <SelectTrigger className="flex-1">
-                            <SelectValue placeholder="Select image for this color" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {product.images.map((img: string, index: number) => (
-                              <SelectItem key={index} value={index.toString()}>
-                                <div className="flex items-center gap-2">
-                                  <div className="relative w-8 h-8 rounded overflow-hidden">
-                                    <Image src={img} alt={`Image ${index + 1}`} fill sizes="32px" className="object-cover" />
-                                  </div>
-                                  Image {index + 1}
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+            <CardContent className="pt-6">
+              <ProductVariantsEditor
+                category={product.category || ""}
+                subcategory={product.subcategory || ""}
+                images={product.images || []}
+                variants={variants}
+                onVariantsChange={setVariants}
+                colorImages={colorImageUrls}
+                onColorImagesChange={setColorImageUrls}
+              />
             </CardContent>
           </Card>
-
-          {isPhoneCaseSubcategory && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Phone Compatibility</CardTitle>
-                <CardDescription>Which phone models does this case fit, and how many do you have for each?</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Input
-                  placeholder="Search models (e.g. iPhone 15, Galaxy A54)"
-                  value={phoneModelFilter}
-                  onChange={(e) => setPhoneModelFilter(e.target.value)}
-                />
-                <div className="space-y-4 max-h-96 overflow-y-auto pr-1">
-                  {PHONE_MODEL_GROUPS.map(({ brand, models }) => {
-                    const filtered = phoneModelFilter
-                      ? models.filter((m) => m.toLowerCase().includes(phoneModelFilter.toLowerCase()))
-                      : models
-                    if (filtered.length === 0) return null
-                    return (
-                      <div key={brand} className="space-y-2">
-                        <Label className="text-sm font-semibold">{brand}</Label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                          {filtered.map((model) => {
-                            const isSelected = model in compatiblePhoneModels
-                            return (
-                              <div key={model} className="flex items-center gap-2">
-                                <Checkbox
-                                  id={`phone-model-${model}`}
-                                  checked={isSelected}
-                                  onCheckedChange={() => togglePhoneModel(model)}
-                                  disabled={saving}
-                                />
-                                <Label htmlFor={`phone-model-${model}`} className="cursor-pointer text-sm flex-1">
-                                  {model}
-                                </Label>
-                                {isSelected && (
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    value={compatiblePhoneModels[model]}
-                                    onChange={(e) => setPhoneModelStock(model, Number(e.target.value) || 0)}
-                                    placeholder="Stock"
-                                    className="w-20 h-8"
-                                    disabled={saving}
-                                  />
-                                )}
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-                {Object.keys(compatiblePhoneModels).length > 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    {Object.keys(compatiblePhoneModels).length} model{Object.keys(compatiblePhoneModels).length === 1 ? "" : "s"} selected —{" "}
-                    {Object.values(compatiblePhoneModels).reduce((sum, n) => sum + n, 0)} total units in stock
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          )}
 
           {/* Actions */}
           <div className="flex gap-4">
@@ -657,9 +428,9 @@ export default function ProductEditPage() {
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save Changes
             </Button>
-            <Button 
-              type="button" 
-              variant="outline" 
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => router.push('/vendor/products')}
               disabled={saving}
             >

@@ -5,6 +5,8 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import Image from "next/image"
+import Link from "next/link"
+import { normalizeProductVariants, groupVariantsByLabel } from "@/lib/product-variants"
 import { Heart, Copy, Check, X, ChevronLeft, ChevronRight, ZoomIn } from "lucide-react"
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 import {
@@ -34,6 +36,8 @@ interface Product {
   colors?: string[]
   sizes?: string[]
   colorImages?: { [key: string]: string }
+  variants?: Array<{ label: string; value: string; stock: number }>
+  compatiblePhoneModels?: Array<{ model: string; stock: number }> | string[]
   createdAt?: string
   updatedAt?: string
 }
@@ -75,8 +79,6 @@ export function ProductQuickView({
   className,
 }: ProductQuickViewProps) {
   const [mainImage, setMainImage] = useState<string | null>(null)
-  const [selectedColor, setSelectedColor] = useState<string | null>(null)
-  const [selectedSize, setSelectedSize] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [isMainImageLight, setIsMainImageLight] = useState(true)
   const [imageZoomed, setImageZoomed] = useState(false)
@@ -86,19 +88,11 @@ export function ProductQuickView({
   // Reset state when product or open changes
   useEffect(() => {
     setMainImage(null)
-    setSelectedColor(null)
-    setSelectedSize(null)
     setCopied(false)
     setImageZoomed(false)
     setAddedToCart(false)
   }, [product?.id, open])
 
-  // Auto-select first color/size if available
-  useEffect(() => {
-    if (!product) return
-    if (product.colors?.length && !selectedColor) setSelectedColor(product.colors[0])
-    if (product.sizes?.length && !selectedSize) setSelectedSize(product.sizes[0])
-  }, [product])
 
   // Keyboard navigation for image gallery
   const handleKeyDown = useCallback(
@@ -131,15 +125,19 @@ export function ProductQuickView({
   const fallbackStoreName = storeName || product.vendorName || ""
   const images = product.images || []
 
-  // Resolve display image: color image override → mainImage → first image → placeholder
-  const colorImageSrc =
-    selectedColor && product.colorImages?.[selectedColor]
-      ? product.colorImages[selectedColor]
-      : null
-  const displayImage = colorImageSrc || mainImage || images[0] || "/placeholder.svg"
+  // Resolve display image: mainImage → first image → placeholder
+  const displayImage = mainImage || images[0] || "/placeholder.svg"
 
-  const hasColorOptions = Array.isArray(product.colors) && product.colors.length > 0
-  const hasSizeOptions = Array.isArray(product.sizes) && product.sizes.length > 0
+  // Variants (a compatible device model, a color, a size, ...) now carry real per-value
+  // stock enforcement everywhere they're selectable — the full product detail page. This
+  // quick-view modal's onAddToCart is a plain (product) => void callback with 6 different
+  // callers across the site, none of which know about a selection made in here, so rather
+  // than silently letting a buyer "pick" something that has no effect on what gets added,
+  // a product with any variants shows them read-only here and sends the buyer to the full
+  // page to actually choose. Products with no variants keep the exact original one-click
+  // add-to-cart behavior.
+  const variantGroups = groupVariantsByLabel(normalizeProductVariants(product))
+  const hasVariants = variantGroups.length > 0
 
   const stockCount = product.stock ?? 0
   const isFoodCategory = product.category === 'Food & Beverages'
@@ -155,13 +153,6 @@ export function ProductQuickView({
       : `https://makeitsell.com/products/${product.id}`
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
-
-  const handleColorSelect = (color: string) => {
-    setSelectedColor(color)
-    if (product.colorImages?.[color]) {
-      setMainImage(product.colorImages[color])
-    }
-  }
 
   const handleCopyLink = async () => {
     try {
@@ -431,87 +422,80 @@ export function ProductQuickView({
                   </div>
                 )}
 
-                {/* Options */}
-                {(hasColorOptions || hasSizeOptions) && (
+                {/* Options preview — read-only here. Variants now carry real per-value
+                    stock enforcement, which only the full product page (linked below)
+                    can actually apply; showing them as pickable here without that would
+                    silently let a buyer "choose" something with no effect on the cart. */}
+                {hasVariants && (
                   <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3.5">
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Options</p>
-
-                    {hasColorOptions && (
-                      <div className="space-y-2">
-                        <p className="text-xs text-slate-500">
-                          Color{selectedColor ? <span className="font-semibold text-slate-700 ml-1">— {selectedColor}</span> : ""}
-                        </p>
+                    {variantGroups.map(({ label, values }) => (
+                      <div key={label} className="space-y-2">
+                        <p className="text-xs text-slate-500">{label}</p>
                         <div className="flex gap-2 flex-wrap">
-                          {product.colors!.map((color) => (
-                            <button
-                              key={color}
-                              onClick={() => handleColorSelect(color)}
-                              className={`px-2.5 py-1.5 rounded-full border text-xs font-medium transition-all inline-flex items-center gap-1.5 ${
-                                selectedColor === color
-                                  ? "bg-accent text-white border-accent shadow-sm"
-                                  : "bg-white text-slate-700 border-slate-300 hover:border-accent hover:bg-accent/5"
+                          {values.map(({ value, stock }) => (
+                            <span
+                              key={value}
+                              className={`px-2.5 py-1.5 rounded-full border text-xs font-medium inline-flex items-center gap-1.5 ${
+                                stock > 0
+                                  ? "bg-white text-slate-700 border-slate-300"
+                                  : "bg-slate-50 text-slate-400 border-slate-200"
                               }`}
                             >
-                              <span
-                                className="w-3 h-3 rounded-full border border-black/10 shrink-0"
-                                style={{ backgroundColor: color.toLowerCase().replace(/ /g, "") }}
-                              />
-                              {color}
-                            </button>
+                              {label === "Color" && (
+                                <span
+                                  className="w-3 h-3 rounded-full border border-black/10 shrink-0"
+                                  style={{ backgroundColor: value.toLowerCase().replace(/\s+/g, "") }}
+                                />
+                              )}
+                              {value}
+                              {stock <= 0 && " (Out of stock)"}
+                            </span>
                           ))}
                         </div>
                       </div>
-                    )}
-
-                    {hasSizeOptions && (
-                      <div className="space-y-2">
-                        <p className="text-xs text-slate-500">
-                          Size{selectedSize ? <span className="font-semibold text-slate-700 ml-1">— {selectedSize}</span> : ""}
-                        </p>
-                        <div className="flex gap-2 flex-wrap">
-                          {product.sizes!.map((size) => (
-                            <button
-                              key={size}
-                              onClick={() => setSelectedSize(size)}
-                              className={`px-2.5 py-1.5 rounded-full border text-xs font-medium transition-all ${
-                                selectedSize === size
-                                  ? "bg-accent text-white border-accent shadow-sm"
-                                  : "bg-white text-slate-700 border-slate-300 hover:border-accent hover:bg-accent/5"
-                              }`}
-                            >
-                              {size}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                    ))}
+                    <p className="text-xs text-slate-500">Choose your options on the full product page.</p>
                   </div>
                 )}
 
                 {/* CTA buttons */}
                 <div className="flex gap-2">
-                  <Button
-                    size="lg"
-                    className={`flex-1 flex items-center gap-2 justify-center rounded-xl h-12 text-base font-semibold transition-all duration-200 ${
-                      addedToCart
-                        ? "bg-emerald-500 border-emerald-500 text-white hover:bg-emerald-600"
-                        : "border border-accent bg-white text-accent   shadow-none hover:scale-[1.02] active:scale-95"
-                    }`}
-                    disabled={isOutOfStock}
-                    onClick={handleAddToCart}
-                  >
-                    {addedToCart ? (
-                      <>
-                        <Check className="w-5 h-5" />
-                        <span>Added!</span>
-                      </>
-                    ) : (
-                      <>
+                  {hasVariants ? (
+                    <Button
+                      asChild
+                      size="lg"
+                      className="flex-1 flex items-center gap-2 justify-center rounded-xl h-12 text-base font-semibold border border-accent bg-white text-accent shadow-none hover:scale-[1.02] active:scale-95"
+                    >
+                      <Link href={`/products/${product.id}`} onClick={onClose}>
                         <img src="/images/logo3.png" alt="" className="w-6 h-6 -mt-0.5" />
-                        <span>{isOutOfStock ? "Out of stock" : "Add to cart"}</span>
-                      </>
-                    )}
-                  </Button>
+                        <span>{isOutOfStock ? "Out of stock" : "Select Options"}</span>
+                      </Link>
+                    </Button>
+                  ) : (
+                    <Button
+                      size="lg"
+                      className={`flex-1 flex items-center gap-2 justify-center rounded-xl h-12 text-base font-semibold transition-all duration-200 ${
+                        addedToCart
+                          ? "bg-emerald-500 border-emerald-500 text-white hover:bg-emerald-600"
+                          : "border border-accent bg-white text-accent   shadow-none hover:scale-[1.02] active:scale-95"
+                      }`}
+                      disabled={isOutOfStock}
+                      onClick={handleAddToCart}
+                    >
+                      {addedToCart ? (
+                        <>
+                          <Check className="w-5 h-5" />
+                          <span>Added!</span>
+                        </>
+                      ) : (
+                        <>
+                          <img src="/images/logo3.png" alt="" className="w-6 h-6 -mt-0.5" />
+                          <span>{isOutOfStock ? "Out of stock" : "Add to cart"}</span>
+                        </>
+                      )}
+                    </Button>
+                  )}
                   <Button
                     size="lg"
                     variant="outline"

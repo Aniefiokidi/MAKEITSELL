@@ -24,7 +24,7 @@ async function deductStock(orderId: string) {
       await decrementProductStockForOrderItem({
         productId: item.productId,
         quantity: Math.abs(item.quantity),
-        selectedPhoneModel: item.selectedPhoneModel,
+        selectedVariants: item.selectedVariants,
       })
     }
   } catch (err) {

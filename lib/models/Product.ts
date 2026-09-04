@@ -17,6 +17,9 @@ export interface IProduct extends Document {
   featured?: boolean;
   status?: 'active' | 'inactive' | 'out_of_stock';
   sales?: number;
+  // Deprecated in favor of `variants` (label: "Color"/"Size") below — see
+  // lib/product-variants.ts. Kept for backward compatibility with existing products;
+  // never written to by new code.
   hasColorOptions?: boolean;
   hasSizeOptions?: boolean;
   colors?: string[];
@@ -27,7 +30,26 @@ export interface IProduct extends Document {
   // curated list in lib/phone-models.ts. Legacy products created before per-model stock
   // existed may still have this as a plain string[] — see normalizeCompatiblePhoneModels
   // in lib/phone-models.ts, which every reader of this field goes through.
+  // Deprecated in favor of the generalized `variants` field below — kept for backward
+  // compatibility with already-live Phone Cases products; see lib/product-variants.ts's
+  // normalizeProductVariants, which synthesizes `variants`-shaped entries from this field
+  // on read. Never written to by new code.
   compatiblePhoneModels?: Array<{ model: string; stock: number }> | string[];
+  // Generalized per-variant stock, replacing compatiblePhoneModels/colors/sizes as the
+  // single source of truth for any product needing per-option inventory — a specific
+  // compatible device model, a color, a size, or a vendor's own custom dimension (e.g.
+  // "Compatible Car Model"). `label` names the dimension ("Compatible Phone Model",
+  // "Color", ...), `value` is the specific option ("iPhone 15 Pro", "Red", ...). Multiple
+  // labels on one product (e.g. both "Color" and "Size") are tracked as independent stock
+  // pools, not a combination matrix — see lib/product-variants.ts for the full contract
+  // and normalizeProductVariants, which every reader of variant data goes through
+  // (transparently falling back to the legacy fields above for products that predate this
+  // field). A real typed subdocument array, not Schema.Types.Mixed — unlike
+  // compatiblePhoneModels there is no legacy shape to tolerate here, and the atomic
+  // per-variant stock decrement (lib/product-stock.ts) already bypasses Mongoose casting
+  // entirely via the raw driver, so a real schema costs nothing on that path while buying
+  // real validation on the normal vendor-form write path.
+  variants?: Array<{ label: string; value: string; stock: number }>;
   weightKg?: number;
   dimensions?: { length: number; width: number; height: number };
   // Perceptual hash (dHash, 16 hex chars = 64 bits) of images[0] — near-duplicate
@@ -73,6 +95,17 @@ const ProductSchema = new Schema<IProduct>({
   // raw stored array and works the same regardless of this field's declared Mongoose
   // type.
   compatiblePhoneModels: { type: Schema.Types.Mixed, default: [] },
+  // Real typed subdocument array — see the interface comment above for why this one
+  // (unlike compatiblePhoneModels/colorImages) doesn't need Schema.Types.Mixed.
+  variants: {
+    type: [{
+      label: { type: String, required: true },
+      value: { type: String, required: true },
+      stock: { type: Number, required: true, min: 0, default: 0 },
+      _id: false,
+    }],
+    default: [],
+  },
   // Optional — used for real shipping-rate quotes (Shipbubble). Left unset, rate
   // requests fall back to a sensible default box + weight rather than failing.
   weightKg: { type: Number },

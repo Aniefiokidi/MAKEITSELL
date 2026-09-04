@@ -18,6 +18,7 @@ import { ProductQuickView } from "@/components/ui/product-quick-view"
 import { ProductCard } from "@/components/products/ProductCard"
 import Link from "next/link"
 import Header from "@/components/Header"
+import { ELECTRONICS_SUBCATEGORIES, FASHION_SUBCATEGORIES } from "@/lib/vendor-product-taxonomy"
 import { buildPublicServicePath, buildPublicStorePath } from "@/lib/public-links"
 import { optimizedImageUrl } from "@/lib/cloudinary-url"
 // import { getProducts } from "@/lib/firestore"
@@ -107,24 +108,12 @@ const dedupeById = <T extends { id?: string; _id?: string }>(items: T[]) => {
   return Array.from(map.values())
 }
 
-const electronicsSubcategories = ["All Electronics", "Phone Cases"]
-
-const fashionSubcategories = [
-  "All Fashion",
-  "Shoes",
-  "Wig",
-  "Jewelry",
-  "Shirts",
-  "Sweaters",
-  "Swimwear",
-  "Pants & Jeans",
-  "Dresses",
-  "Jackets & Coats",
-  "Accessories",
-  "Bags",
-  "Hats & Caps",
-  "Socks & Underwear",
-]
+// "All ___" is a browse-only filter option prepended to the shared vendor-facing list
+// (lib/vendor-product-taxonomy.ts) — this used to be its own hand-maintained copy, which
+// had already drifted (missing the newer Electronics subcategories the vendor forms
+// gained). One shared source now.
+const electronicsSubcategories = ["All Electronics", ...ELECTRONICS_SUBCATEGORIES]
+const fashionSubcategories = ["All Fashion", ...FASHION_SUBCATEGORIES]
 
 const CATEGORY_UNSPLASH: Record<string, string> = {
   electronics: "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=1200&h=500&fit=crop&auto=format",

@@ -13,7 +13,7 @@ import { useCart } from "@/contexts/CartContext"
 import { useNotification } from "@/contexts/NotificationContext"
 import Header from "@/components/Header"
 import { ReviewsSection } from "@/components/reviews/ReviewsSection"
-import { normalizeCompatiblePhoneModels } from "@/lib/phone-models"
+import { normalizeProductVariants, groupVariantsByLabel } from "@/lib/product-variants"
 
 async function getProduct(id: string) {
   if (!id) return null
@@ -33,33 +33,43 @@ export default function ProductPage() {
   const notification = useNotification()
   const [product, setProduct] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [selectedColor, setSelectedColor] = useState<string>("")
-  const [selectedSize, setSelectedSize] = useState<string>("")
-  const [selectedPhoneModel, setSelectedPhoneModel] = useState<string>("")
+  // label -> selected value. A product needs one selection per variant label it has
+  // before Add to Cart enables (independent per-label requirement, not a combination).
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({})
   const [mainImage, setMainImage] = useState<string>("")
   const [viewTracked, setViewTracked] = useState(false)
   const [justAddedToCart, setJustAddedToCart] = useState(false)
   const [isZoomOpen, setIsZoomOpen] = useState(false)
 
   const isElectronicsCategory = (product?.category || "").toLowerCase().includes("electronics")
-  const isPhoneCaseSubcategory = product?.category === "Electronics" && product?.subcategory === "Phone Cases"
-  const phoneModelStocks = isPhoneCaseSubcategory ? normalizeCompatiblePhoneModels(product?.compatiblePhoneModels) : []
-  const selectedModelStock = phoneModelStocks.find((m) => m.model === selectedPhoneModel)?.stock ?? 0
+  const variantGroups = groupVariantsByLabel(normalizeProductVariants(product))
+  const allVariantsSelected = variantGroups.every((g) => !!selectedVariants[g.label])
+  // Independent stock pools, not a combination matrix (see lib/models/Product.ts) —
+  // the true bound on quantity for a multi-label selection is the smallest of the
+  // selected values' own pools, a conservative cap given the two pools don't know about
+  // each other.
+  const selectedVariantStocks = variantGroups.map(
+    (g) => g.values.find((v) => v.value === selectedVariants[g.label])?.stock ?? 0
+  )
+  const maxSelectableStock = variantGroups.length > 0 ? Math.min(...selectedVariantStocks, Infinity) : Number(product?.stock || 100)
 
   const handleAddToCart = () => {
     if (!product || isOutOfStock) return
-    if (isPhoneCaseSubcategory && (!selectedPhoneModel || selectedModelStock <= 0)) return
+    if (variantGroups.length > 0 && (!allVariantsSelected || maxSelectableStock <= 0)) return
     addItem({
       productId: String(product.id || productId),
       id: String(product.id || productId),
       title: product.title || product.name || "Product",
       price: Number(product.price || 0),
       image: product.images?.[0] || "",
-      maxStock: isPhoneCaseSubcategory ? selectedModelStock : Number(product.stock || 100),
+      maxStock: maxSelectableStock,
       vendorId: String(product.vendorId || ""),
       vendorName: product.vendorName || "Unknown Vendor",
       category: product.category || "",
-      selectedPhoneModel: isPhoneCaseSubcategory ? selectedPhoneModel : undefined,
+      selectedVariants:
+        variantGroups.length > 0
+          ? variantGroups.map((g) => ({ label: g.label, value: selectedVariants[g.label] }))
+          : undefined,
     })
     notification.success("Product added to cart", product.title || product.name, 3000)
     setJustAddedToCart(true)
@@ -130,10 +140,18 @@ export default function ProductPage() {
 
   if (!product) return notFound()
 
-  const handleColorSelect = (color: string) => {
-    setSelectedColor(color)
-    if (product.colorImages && product.colorImages[color]) {
-      setMainImage(product.colorImages[color])
+  const selectVariantValue = (label: string, value: string) => {
+    setSelectedVariants((prev) => {
+      const next = { ...prev }
+      if (next[label] === value) {
+        delete next[label]
+      } else {
+        next[label] = value
+      }
+      return next
+    })
+    if (label === "Color" && product.colorImages && product.colorImages[value]) {
+      setMainImage(product.colorImages[value])
     }
   }
 
@@ -260,91 +278,50 @@ export default function ProductPage() {
                 </div>
               )}
 
-              {/* Color options */}
-              {product.hasColorOptions && product.colors && product.colors.length > 0 && (
-                <div className="mb-4">
-                  <h3 className="font-semibold text-sm mb-2">Select Color</h3>
-                  <div className="flex gap-2 flex-wrap">
-                    {product.colors.map((color: string) => (
-                      <button
-                        key={color}
-                        onClick={() => handleColorSelect(color)}
-                        className={`px-4 py-2 rounded-full text-sm font-medium border-2 transition-all flex items-center gap-2 ${
-                          selectedColor === color
-                            ? "bg-accent text-white border-accent"
-                            : "bg-background text-foreground border-border hover:border-accent hover:bg-accent/10"
-                        }`}
-                      >
-                        <div
-                          className="w-4 h-4 rounded-full border border-border"
-                          style={{ backgroundColor: color.toLowerCase().replace(/ /g, "") }}
-                        />
-                        {color}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Size options */}
-              {product.hasSizeOptions && product.sizes && product.sizes.length > 0 && (
-                <div className="mb-4">
-                  <h3 className="font-semibold text-sm mb-2">Select Size</h3>
-                  <div className="flex gap-2 flex-wrap">
-                    {product.sizes.map((size: string) => (
-                      <button
-                        key={size}
-                        onClick={() => setSelectedSize(size)}
-                        className={`px-4 py-2 rounded-full text-sm font-medium border-2 transition-all ${
-                          selectedSize === size
-                            ? "bg-accent text-white border-accent"
-                            : "bg-background text-foreground border-border hover:border-accent hover:bg-accent/10"
-                        }`}
-                      >
-                        {size}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Compatible phone models (Phone Cases only) — selectable, each with its
-                  own stock. A model must be picked before Add to Cart is enabled, since
-                  its stock is what actually gets validated/decremented at order time. */}
-              {isPhoneCaseSubcategory && phoneModelStocks.length > 0 && (
-                <div className="mb-4">
+              {/* Variant pickers — one section per label (Color, Size, a compatible
+                  device model, or a vendor's own custom dimension). Each label needs a
+                  selection before Add to Cart is enabled, since the selected value's own
+                  stock is what actually gets validated/decremented at order time. */}
+              {variantGroups.map(({ label, values }) => (
+                <div key={label} className="mb-4">
                   <h3 className="font-semibold text-sm mb-2">
-                    Compatible With{selectedPhoneModel ? ` — ${selectedPhoneModel}` : ""}
+                    {label}{selectedVariants[label] ? ` — ${selectedVariants[label]}` : ""}
                   </h3>
                   <div className="flex gap-2 flex-wrap">
-                    {phoneModelStocks.map(({ model, stock }) => {
-                      const modelOutOfStock = stock <= 0
-                      const isSelected = selectedPhoneModel === model
+                    {values.map(({ value, stock }) => {
+                      const valueOutOfStock = stock <= 0
+                      const isSelected = selectedVariants[label] === value
                       return (
                         <button
-                          key={model}
+                          key={value}
                           type="button"
-                          disabled={modelOutOfStock}
-                          onClick={() => setSelectedPhoneModel(isSelected ? "" : model)}
-                          className={`px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all ${
-                            modelOutOfStock
+                          disabled={valueOutOfStock}
+                          onClick={() => selectVariantValue(label, value)}
+                          className={`px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all flex items-center gap-2 ${
+                            valueOutOfStock
                               ? "bg-muted text-muted-foreground border-border opacity-50 cursor-not-allowed"
                               : isSelected
                                 ? "bg-accent text-white border-accent"
                                 : "bg-background text-foreground border-border hover:border-accent hover:bg-accent/10"
                           }`}
                         >
-                          {model}
-                          {modelOutOfStock && " (Out of stock)"}
+                          {label === "Color" && (
+                            <span
+                              className="inline-block w-3.5 h-3.5 rounded-full border border-border"
+                              style={{ backgroundColor: value.toLowerCase().replace(/\s+/g, "") }}
+                            />
+                          )}
+                          {value}
+                          {valueOutOfStock && " (Out of stock)"}
                         </button>
                       )
                     })}
                   </div>
-                  {!selectedPhoneModel && (
-                    <p className="text-xs text-muted-foreground mt-2">Select your phone model to add to cart.</p>
+                  {!selectedVariants[label] && (
+                    <p className="text-xs text-muted-foreground mt-2">Select a {label.toLowerCase()} to add to cart.</p>
                   )}
                 </div>
-              )}
+              ))}
 
               {/* Description */}
               <div className="mb-4 bg-muted/50 rounded-lg p-3">
@@ -400,7 +377,7 @@ export default function ProductPage() {
                   disabled={
                     product.status !== "active" ||
                     justAddedToCart ||
-                    (isPhoneCaseSubcategory && (!selectedPhoneModel || selectedModelStock <= 0))
+                    (variantGroups.length > 0 && (!allVariantsSelected || maxSelectableStock <= 0))
                   }
                 >
                   {justAddedToCart ? "Added!" : "Add to Cart"}

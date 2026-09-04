@@ -21,7 +21,7 @@ const ALREADY_PAID_STATUSES = ['escrow', 'completed', 'released', 'refunded']
 
 // Delegates per-item to the shared lib/product-stock.ts helper (also used by the wallet
 // and Bach payment-confirmation paths), which additionally handles a race-safe atomic
-// decrement when an item carries a selectedPhoneModel.
+// decrement when an item carries selectedVariants.
 async function decrementStockAndSales(order: any): Promise<void> {
   if (!order || !(order.items || order.vendors)) return
 
@@ -36,7 +36,7 @@ async function decrementStockAndSales(order: any): Promise<void> {
     await decrementProductStockForOrderItem({
       productId: item.productId,
       quantity: item.quantity || 1,
-      selectedPhoneModel: item.selectedPhoneModel,
+      selectedVariants: item.selectedVariants,
     })
   }
 }

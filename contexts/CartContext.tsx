@@ -2,6 +2,7 @@
 import type React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
 import { useAuth } from "./AuthContext"
+import { canonicalSelectedVariantsKey } from "@/lib/product-variants"
 
 export interface CartItem {
   id: string
@@ -14,11 +15,12 @@ export interface CartItem {
   vendorName: string
   maxStock: number
   category?: string
-  // Phone Cases only — which compatible model the buyer picked on the product page.
-  // Two cart lines for the SAME productId but different models are legitimately
-  // different lines (see the composite key used by addItem/removeItem/updateQuantity
-  // below), not duplicates to merge.
-  selectedPhoneModel?: string
+  // Which variant value(s) the buyer picked on the product page — a compatible device
+  // model, a color, a size, or a combination of independent labels. Two cart lines for
+  // the SAME productId but different selections are legitimately different lines (see
+  // the composite key used by addItem/removeItem/updateQuantity below, built via
+  // canonicalSelectedVariantsKey), not duplicates to merge.
+  selectedVariants?: Array<{ label: string; value: string }>
 }
 
 
@@ -28,8 +30,8 @@ interface CartContextType {
   totalPrice: number
   addItem: (item: Omit<CartItem, "quantity"> & { title: string }) => void // Ensure title is present
   addToCart: (item: Omit<CartItem, "quantity"> & { title: string }) => void // Alias for legacy usage
-  removeItem: (productId: string, selectedPhoneModel?: string) => void
-  updateQuantity: (productId: string, quantity: number, selectedPhoneModel?: string) => void
+  removeItem: (productId: string, selectedVariants?: Array<{ label: string; value: string }>) => void
+  updateQuantity: (productId: string, quantity: number, selectedVariants?: Array<{ label: string; value: string }>) => void
   clearCart: () => Promise<void>
   removeItems: (productIds: string[]) => Promise<void>
   isOpen: boolean
@@ -150,7 +152,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
             vendorId: item.vendorId || '',
             vendorName: item.vendorName || '',
             maxStock: typeof item.maxStock === 'number' ? item.maxStock : 100,
-            selectedPhoneModel: item.selectedPhoneModel || undefined
+            selectedVariants: item.selectedVariants || undefined
           })).filter(item => item.productId)
           await setUserCart(user.uid, sanitizedItems)
         } catch (error) {}
@@ -174,15 +176,17 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       vendorId: newItem.vendorId || '',
       vendorName: newItem.vendorName || '',
       maxStock: typeof newItem.maxStock === 'number' ? newItem.maxStock : 100,
-      selectedPhoneModel: newItem.selectedPhoneModel || undefined
+      selectedVariants: newItem.selectedVariants || undefined
     }
     if (!sanitizedItem.productId || !sanitizedItem.title) {
       return
     }
-    // Two lines with the same productId but different selectedPhoneModel are genuinely
-    // different lines (a case for two different phones) — only merge when both match.
+    // Two lines with the same productId but different selectedVariants are genuinely
+    // different lines (e.g. two different phone models, or a different color) — only
+    // merge when both match, compared via the same canonical key used everywhere else.
     const matches = (item: CartItem) =>
-      item.productId === sanitizedItem.productId && item.selectedPhoneModel === sanitizedItem.selectedPhoneModel
+      item.productId === sanitizedItem.productId &&
+      canonicalSelectedVariantsKey(item.selectedVariants) === canonicalSelectedVariantsKey(sanitizedItem.selectedVariants)
     setItems((prevItems) => {
       const existingItem = prevItems.find(matches)
       if (existingItem) {
@@ -197,20 +201,22 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     })
   }
 
-  const removeItem = (productId: string, selectedPhoneModel?: string) => {
+  const removeItem = (productId: string, selectedVariants?: Array<{ label: string; value: string }>) => {
+    const targetKey = canonicalSelectedVariantsKey(selectedVariants)
     setItems((prevItems) =>
-      prevItems.filter((item) => !(item.productId === productId && item.selectedPhoneModel === selectedPhoneModel))
+      prevItems.filter((item) => !(item.productId === productId && canonicalSelectedVariantsKey(item.selectedVariants) === targetKey))
     )
   }
 
-  const updateQuantity = (productId: string, quantity: number, selectedPhoneModel?: string) => {
+  const updateQuantity = (productId: string, quantity: number, selectedVariants?: Array<{ label: string; value: string }>) => {
     if (quantity <= 0) {
-      removeItem(productId, selectedPhoneModel)
+      removeItem(productId, selectedVariants)
       return
     }
+    const targetKey = canonicalSelectedVariantsKey(selectedVariants)
     setItems((prevItems) =>
       prevItems.map((item) =>
-        item.productId === productId && item.selectedPhoneModel === selectedPhoneModel
+        item.productId === productId && canonicalSelectedVariantsKey(item.selectedVariants) === targetKey
           ? { ...item, quantity: Math.min(quantity, item.maxStock) }
           : item,
       ),
