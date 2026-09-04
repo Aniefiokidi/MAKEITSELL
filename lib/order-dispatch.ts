@@ -7,7 +7,6 @@
 // provider.
 import connectToDatabase from '@/lib/mongodb'
 import { Order } from '@/lib/models/Order'
-import { TEST_STORE_VENDOR_ID } from '@/lib/shipbubble'
 import { findLogisticsProvider } from '@/lib/logistics/engine'
 import type { LogisticsProviderId } from '@/lib/logistics/types'
 
@@ -39,14 +38,6 @@ export async function createShipmentsForOrder(orderId: string): Promise<void> {
 
   for (const vendor of order.vendors) {
     const vendorId = String(vendor?.vendorId || '').trim()
-
-    // Test-store bypass: this vendor's leg never creates a real shipment — that would
-    // dispatch an actual courier and spend real money. Per-vendor (not whole-order) so a
-    // mixed cart's real vendor legs still dispatch normally.
-    if (vendorId === TEST_STORE_VENDOR_ID) {
-      console.log(`[order-dispatch] Skipping real shipment creation for order ${orderId}, vendor ${vendorId} — test store`)
-      continue
-    }
 
     const alreadyDispatched = Boolean(vendor?.deliveryProviderOrderId || vendor?.shipbubbleOrderId)
     if (!vendorId || alreadyDispatched) continue

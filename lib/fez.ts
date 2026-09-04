@@ -5,8 +5,7 @@
 // THIS IS A REAL PRODUCTION ACCOUNT (org: MAKE IT SELL), not a sandbox — confirmed via
 // FEZ_BASE_URL=https://api.fezdelivery.co/v1. createFezOrder() and cancelFezOrder() are
 // real, billable, live courier actions. Never call them outside the real checkout/
-// cancellation flow — there is no free "test order" concept here the way
-// TEST_STORE_VENDOR_ID gives Shipbubble/Kwik.
+// cancellation flow.
 //
 // Auth is a two-step model: a stable, long-lived `secret-key` (FEZ_SECRET_KEY, shown on
 // the org's dashboard) sent on every request, PLUS a short-lived JWT `authToken`

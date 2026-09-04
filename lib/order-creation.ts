@@ -14,7 +14,7 @@ import connectToDatabase from '@/lib/mongodb'
 import { Store } from '@/lib/models/Store'
 import { Product } from '@/lib/models/Product'
 import { createOrder } from '@/lib/mongodb-operations'
-import { ESCROW_DISPUTE_GRACE_HOURS, TEST_STORE_VENDOR_ID } from '@/lib/shipbubble'
+import { ESCROW_DISPUTE_GRACE_HOURS } from '@/lib/shipbubble'
 import { normalizeProductVariants } from '@/lib/product-variants'
 
 const OBJECT_ID_REGEX = /^[a-fA-F0-9]{24}$/
@@ -186,14 +186,8 @@ export async function buildOrder(input: BuildOrderInput): Promise<BuildOrderResu
       continue
     }
 
-    // Test-store delivery-fee waiver: anyone ordering from the "test" store never pays
-    // a delivery fee, regardless of which customer is buying. Server-enforced here
-    // (not trusting whatever total the caller submitted).
-    const isTestStoreWaiver = vendor.vendorId === TEST_STORE_VENDOR_ID
-    const effectiveShippingFee = isTestStoreWaiver ? 0 : shippingFee
-
-    vendor.shippingFee = effectiveShippingFee
-    vendor.shippingFeeLabel = effectiveShippingFee === 0 ? 'FREE' : `NGN ${effectiveShippingFee.toLocaleString('en-NG')}`
+    vendor.shippingFee = shippingFee
+    vendor.shippingFeeLabel = shippingFee === 0 ? 'FREE' : `NGN ${shippingFee.toLocaleString('en-NG')}`
 
     // Provider-agnostic fields — what order-dispatch.ts and the cancel route read for
     // any provider going forward.
@@ -220,7 +214,7 @@ export async function buildOrder(input: BuildOrderInput): Promise<BuildOrderResu
       vendor.shipbubbleDeliveryEtaHours = etaHours
     }
 
-    shipping += effectiveShippingFee
+    shipping += shippingFee
     if (etaHours != null && (maxCourierEtaHours == null || etaHours > maxCourierEtaHours)) {
       maxCourierEtaHours = etaHours
     }

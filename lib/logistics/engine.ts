@@ -11,9 +11,7 @@ const PROVIDERS: LogisticsProvider[] = [shipbubbleProvider, kwikProvider, fezPro
 
 // Flat markup added to every real quote before it's ever shown to a buyer — MakeItSell's
 // margin on delivery. Applied here, once, to CourierQuote.total only — never touches
-// quoteRef, so booking still pays each provider their real, unmarked-up rate. The
-// TEST_STORE_VENDOR_ID synthetic quote (lib/delivery-quotes.ts) never reaches this
-// engine at all, so it stays free regardless.
+// quoteRef, so booking still pays each provider their real, unmarked-up rate.
 const DELIVERY_FEE_MARKUP_NGN = 1000
 
 export type MergedQuotesResult = {

@@ -6,23 +6,9 @@
 import connectToDatabase from '@/lib/mongodb'
 import { Product } from '@/lib/models/Product'
 import { Store } from '@/lib/models/Store'
-import { DEFAULT_WEIGHT_KG, TEST_STORE_VENDOR_ID } from '@/lib/shipbubble'
+import { DEFAULT_WEIGHT_KG } from '@/lib/shipbubble'
 import { getMergedQuotesForVendor } from '@/lib/logistics/engine'
 import type { CourierQuote } from '@/lib/logistics/types'
-
-// Synthetic zero-cost "courier" for the test store — never comes from a real provider
-// call, so its quoteRef needs no real meaning. buildOrder only checks provider/quoteRef
-// for presence, not that they resolve to a real booking (see order-creation.ts and
-// order-dispatch.ts's TEST_STORE_VENDOR_ID short-circuits).
-const TEST_STORE_COURIER: CourierQuote = {
-  provider: 'shipbubble',
-  quoteRef: 'test-store-no-real-provider',
-  serviceLabel: 'Free Delivery (Test Store)',
-  total: 0,
-  currency: 'NGN',
-  etaHours: null,
-  etaLabel: 'No real courier — test store',
-}
 
 // Next business-ish day in Lagos time — Shipbubble wants pickup_date as yyyy-mm-dd.
 // Same day is usually too tight for a vendor to have a package ready for pickup.
@@ -98,19 +84,6 @@ export async function getDeliveryQuotesForCart(params: {
   const vendorResults: VendorDeliveryQuote[] = await Promise.all(
     vendorIds.map(async (vendorId): Promise<VendorDeliveryQuote> => {
       const store: any = storeByVendorId.get(vendorId)
-
-      if (vendorId === TEST_STORE_VENDOR_ID) {
-        // Free delivery, no real provider call at all. Applies to whoever is buying, not
-        // just a specific test customer.
-        return {
-          vendorId,
-          storeName: store?.storeName || 'Test Store',
-          couriers: [TEST_STORE_COURIER],
-          cheapestCourier: TEST_STORE_COURIER,
-          fastestCourier: TEST_STORE_COURIER,
-          error: null,
-        }
-      }
 
       if (!store) {
         return { vendorId, storeName: 'Store', couriers: [], cheapestCourier: null, fastestCourier: null, error: 'Store not found' }

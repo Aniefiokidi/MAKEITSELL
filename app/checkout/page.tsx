@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ArrowLeft, CreditCard, Truck, Shield, Loader2, Zap } from "lucide-react"
+import { ArrowLeft, CreditCard, Truck, Shield, Loader2, Zap, Check } from "lucide-react"
 import type { CourierQuote } from "@/lib/logistics/types"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import Image from "next/image"
@@ -987,46 +987,93 @@ export default function CheckoutPage() {
                               ) : rate.error ? (
                                 <p className="text-xs text-destructive">{rate.error}</p>
                               ) : (
-                                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                                  {hasDistinctExpress && express && (
-                                    <button
-                                      type="button"
-                                      disabled={loading}
-                                      onClick={() => selectTier('express', express)}
-                                      className={`text-left text-xs px-3 py-2 rounded-md border transition-all ${
-                                        selected?.quoteRef === express.quoteRef
-                                          ? "bg-accent/10 border-accent ring-1 ring-accent/60"
-                                          : "bg-white border-border hover:border-accent/40"
-                                      }`}
-                                    >
-                                      <div className="flex items-center gap-1 font-medium">
-                                        <Zap className="h-3 w-3" />
-                                        <span>Express Delivery</span>
-                                      </div>
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-muted-foreground">{express.etaLabel || "Fastest option"}</span>
-                                        <span className="font-semibold">₦{Number(express.total || 0).toLocaleString()}</span>
-                                      </div>
-                                    </button>
-                                  )}
+                                <div className="space-y-2">
                                   {standard && (
                                     <button
                                       type="button"
                                       disabled={loading}
                                       onClick={() => selectTier('standard', standard)}
-                                      className={`text-left text-xs px-3 py-2 rounded-md border transition-all ${
+                                      className={`w-full flex items-center gap-3 rounded-xl border-2 p-3 text-left transition-all ${
                                         selected?.quoteRef === standard.quoteRef
-                                          ? "bg-accent/10 border-accent ring-1 ring-accent/60"
-                                          : "bg-white border-border hover:border-accent/40"
+                                          ? "border-accent bg-accent/5"
+                                          : "border-border bg-white hover:border-accent/30"
                                       }`}
                                     >
-                                      <div className="flex items-center gap-1 font-medium">
-                                        <Truck className="h-3 w-3" />
-                                        <span>Standard Delivery</span>
+                                      <div
+                                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                                          selected?.quoteRef === standard.quoteRef
+                                            ? "bg-accent text-white"
+                                            : "bg-muted text-muted-foreground"
+                                        }`}
+                                      >
+                                        <Truck className="h-5 w-5" />
                                       </div>
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-muted-foreground">{standard.etaLabel || "1-2 business days"}</span>
-                                        <span className="font-semibold">₦{Number(standard.total || 0).toLocaleString()}</span>
+                                      <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-semibold text-foreground">Standard Delivery</p>
+                                        <p className="text-xs text-muted-foreground">
+                                          {standard.etaLabel || "1-2 business days"}
+                                        </p>
+                                      </div>
+                                      <p className="shrink-0 text-sm font-bold text-foreground">
+                                        ₦{Number(standard.total || 0).toLocaleString()}
+                                      </p>
+                                      <div
+                                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                                          selected?.quoteRef === standard.quoteRef
+                                            ? "border-accent bg-accent"
+                                            : "border-border"
+                                        }`}
+                                      >
+                                        {selected?.quoteRef === standard.quoteRef && (
+                                          <Check className="h-3 w-3 text-white" strokeWidth={3} />
+                                        )}
+                                      </div>
+                                    </button>
+                                  )}
+                                  {hasDistinctExpress && express && (
+                                    <button
+                                      type="button"
+                                      disabled={loading}
+                                      onClick={() => selectTier('express', express)}
+                                      className={`w-full flex items-center gap-3 rounded-xl border-2 p-3 text-left transition-all ${
+                                        selected?.quoteRef === express.quoteRef
+                                          ? "border-accent bg-accent/5"
+                                          : "border-border bg-white hover:border-accent/30"
+                                      }`}
+                                    >
+                                      <div
+                                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                                          selected?.quoteRef === express.quoteRef
+                                            ? "bg-accent text-white"
+                                            : "bg-muted text-muted-foreground"
+                                        }`}
+                                      >
+                                        <Zap className="h-5 w-5" />
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-1.5">
+                                          <p className="text-sm font-semibold text-foreground">Express Delivery</p>
+                                          <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                                            Fastest
+                                          </span>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">
+                                          {express.etaLabel || "Fastest option"}
+                                        </p>
+                                      </div>
+                                      <p className="shrink-0 text-sm font-bold text-foreground">
+                                        ₦{Number(express.total || 0).toLocaleString()}
+                                      </p>
+                                      <div
+                                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                                          selected?.quoteRef === express.quoteRef
+                                            ? "border-accent bg-accent"
+                                            : "border-border"
+                                        }`}
+                                      >
+                                        {selected?.quoteRef === express.quoteRef && (
+                                          <Check className="h-3 w-3 text-white" strokeWidth={3} />
+                                        )}
                                       </div>
                                     </button>
                                   )}
