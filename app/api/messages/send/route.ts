@@ -5,6 +5,7 @@ import { getSessionUserFromRequest } from '@/lib/server-route-auth';
 import connectToDatabase from '@/lib/mongodb';
 import ConversationModel from '@/lib/models/Conversation';
 import { UserBlock } from '@/lib/models/UserBlock';
+import { containsObjectionableContent, OBJECTIONABLE_CONTENT_MESSAGE } from '@/lib/content-moderation';
 
 export async function POST(req: NextRequest) {
   try {
@@ -51,6 +52,12 @@ export async function POST(req: NextRequest) {
     })
     if (blockExists) {
       return NextResponse.json({ error: 'You can no longer message this user.' }, { status: 403 })
+    }
+
+    // Required for App Store Guideline 1.2 — objectionable content must be filtered
+    // before it's ever posted, not moderated after the fact.
+    if (containsObjectionableContent(body.message)) {
+      return NextResponse.json({ error: OBJECTIONABLE_CONTENT_MESSAGE }, { status: 400 })
     }
 
     const payload = {

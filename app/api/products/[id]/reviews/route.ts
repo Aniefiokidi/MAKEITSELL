@@ -5,6 +5,7 @@ import { Order } from '@/lib/models/Order'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { getProductById } from '@/lib/mongodb-operations'
 import { notifyReviewSubmitted } from '@/lib/review-notifications'
+import { containsObjectionableContent, OBJECTIONABLE_CONTENT_MESSAGE } from '@/lib/content-moderation'
 
 export async function GET(
   _request: NextRequest,
@@ -67,6 +68,10 @@ export async function POST(
       { success: false, error: 'You have already reviewed this product for this order' },
       { status: 409 }
     )
+  }
+
+  if (containsObjectionableContent(comment)) {
+    return NextResponse.json({ success: false, error: OBJECTIONABLE_CONTENT_MESSAGE }, { status: 400 })
   }
 
   const review = await Review.create({
