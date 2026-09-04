@@ -160,6 +160,12 @@ export async function POST(request: NextRequest) {
       user.resetToken = undefined
       user.resetTokenExpiry = undefined
       user.sessionToken = crypto.randomBytes(32).toString('hex')
+      // A completed reset is a complete fix — clear any leftover forced-change state from
+      // the old temp-password flow so this account isn't still flagged as pending
+      // afterward (this is what was making users see "set new password" again right
+      // after they'd just done exactly that).
+      user.mustChangePassword = false
+      user.temporaryPasswordIssuedAt = undefined
       await user.save()
 
       console.log(`[forgot-password] Password reset for user: ${normalizedEmail}`)
