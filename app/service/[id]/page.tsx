@@ -339,8 +339,6 @@ export default function ServiceDetailPage() {
 
   const responseHours = Number((service as any)?.quoteSlaHours || 24)
   const completedJobs = Number((service as any)?.completedBookings || 0)
-  const cancellationPolicyPercent = Number((service as any)?.cancellationPolicyPercent || 30)
-  const cancellationWindowHours = Number((service as any)?.cancellationWindowHours || 24)
   const trustTier = service?.featured ? "Premium Verified" : "Verified Provider"
   const updatedAtDate = service?.updatedAt ? new Date(service.updatedAt) : null
   const lastUpdatedLabel = updatedAtDate && !Number.isNaN(updatedAtDate.getTime())
@@ -886,7 +884,7 @@ export default function ServiceDetailPage() {
               </CardContent>
               <CardContent className="pt-0">
                 <p className="text-xs text-muted-foreground">
-                  Cancellation policy: {cancellationPolicyPercent}% fee applies within {cancellationWindowHours} hours of start time.
+                  Free to cancel — no booking fee, no cancellation fee.
                 </p>
               </CardContent>
             </Card>

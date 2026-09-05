@@ -5,10 +5,11 @@ import { Booking as BookingModel } from "@/lib/models/Booking"
 
 // Bookings have no other path to 'completed' today — no cron, no UI button (confirmed:
 // app/vendor/bookings/page.tsx only has approve/quote/reject handlers). Unlike goods
-// orders, a booking's money isn't gated on completion (the deposit is charged at booking
-// time, the balance is settled offline with the provider) — 'completed' is a pure
-// lifecycle/reporting flag whose main effect is unlocking review eligibility
-// (app/api/services/[id]/reviews/route.ts requires status:'completed').
+// orders, a booking's money isn't gated on completion at all — services aren't
+// monetized on the platform (lib/booking-payment.ts), the full price is settled
+// directly with the provider — so 'completed' is a pure lifecycle/reporting flag whose
+// main effect is unlocking review eligibility (app/api/services/[id]/reviews/route.ts
+// requires status:'completed').
 //
 // 24h after the scheduled end time, not 96h like the goods escrow-automation job — that
 // longer window exists for courier-transit uncertainty, which doesn't apply to a fixed,

@@ -311,8 +311,8 @@ const FAQ: FaqEntry[] = [
     id: 'services-booking',
     keywords: ['book service', 'find service', 'where book service', 'how to book', 'service booking', 'booking fee', 'appointment', 'book appointment'],
     answer: {
-      en: "Go to **/services**, pick a provider, choose a package (Basic/Standard/Premium) and any add-ons, then tap \"Book Appointment\" and pick a date/time. A flat **₦500 booking fee** is charged to confirm the slot (this is a platform fee, separate from the service price itself). All your bookings appear under **/appointments**.",
-      pcm: "Go **/services**, pick provider wey you want, choose package (Basic/Standard/Premium) plus any add-on, click \"Book Appointment\", pick date/time. Dem go charge flat **₦500 booking fee** to confirm the slot (na platform fee, e no be the service price). All your bookings dey show for **/appointments**.",
+      en: "Go to **/services**, pick a provider, choose a package (Basic/Standard/Premium) and any add-ons, then tap \"Book Appointment\" and pick a date/time. No payment is taken to confirm the booking — you pay the provider directly for the service. All your bookings appear under **/appointments**.",
+      pcm: "Go **/services**, pick provider wey you want, choose package (Basic/Standard/Premium) plus any add-on, click \"Book Appointment\", pick date/time. Dem no go charge you anything to confirm the booking — you go pay the provider directly for the service. All your bookings dey show for **/appointments**.",
     },
     actions: {
       en: ['Browse services', 'Negotiate a service price', 'View my appointments'],
@@ -323,12 +323,12 @@ const FAQ: FaqEntry[] = [
     id: 'service-cancel',
     keywords: ['cancel booking', 'cancel appointment', 'cancel service', 'cancel my booking', 'cancel my appointment', 'cancel this booking', 'cancel this appointment'],
     answer: {
-      en: "You can cancel a booking from **/appointments**. Note there's a **₦5,000 cancellation fee** — this covers the vendor's reserved time slot. If the vendor cancels on you instead, no fee applies to you.",
-      pcm: "You fit cancel booking from **/appointments**. Note say **₦5,000 cancellation fee** dey apply — na so vendor go get something for the time slot wey dem don hold for you. If na vendor cancel, no fee go apply for you.",
+      en: "You can cancel a booking anytime from **/appointments** — it's free, no cancellation fee applies.",
+      pcm: "You fit cancel booking anytime from **/appointments** — e free, no cancellation fee go apply.",
     },
     actions: {
-      en: ['Go to my appointments', 'Why is there a cancellation fee?'],
-      pcm: ['Go my appointments', 'Why cancellation fee dey?'],
+      en: ['Go to my appointments'],
+      pcm: ['Go my appointments'],
     },
   },
   {

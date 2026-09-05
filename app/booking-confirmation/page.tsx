@@ -20,8 +20,8 @@ export default function BookingConfirmationPage() {
           <div>
             <h1 className="text-2xl font-bold mb-2">Booking confirmed</h1>
             <p className="text-muted-foreground">
-              Your deposit and booking fee have been paid. The provider has been notified and will
-              be in touch to arrange the rest — the remaining balance is settled directly with them.
+              No payment was taken — the provider has been notified and will be in touch to
+              arrange the rest. The full amount is settled directly with them.
             </p>
           </div>
           <Card>

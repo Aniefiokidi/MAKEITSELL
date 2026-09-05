@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { connectToDatabase } from "@/lib/mongodb"
 import { Booking as BookingModel } from "@/lib/models/Booking"
-import { User as UserModel } from "@/lib/models/User"
-import { WalletTransaction } from "@/lib/models/WalletTransaction"
-import { computeCancellationFee } from "@/lib/service-pricing"
 import { getServiceById } from "@/lib/mongodb-operations"
 import { getUserById } from "@/lib/mongodb-operations"
 import { sendBookingConfirmationSms } from "@/lib/sms"
@@ -113,56 +110,15 @@ export async function PATCH(
     }
 
     if (actionType === 'cancel') {
-      const bookingDate = new Date((existingBooking as any).bookingDate)
-      const startTime = String((existingBooking as any).startTime || '00:00')
-      const windowHours = Number((existingBooking as any).cancellationWindowHours || 24)
-
-      const feeResult = computeCancellationFee({ bookingDate, startTime, windowHours })
-
+      // Services are settled entirely off-platform (lib/booking-payment.ts) — a
+      // cancellation fee on top of a booking that itself costs nothing doesn't make
+      // sense, so cancelling is always free regardless of notice given.
       updatePayload.status = 'cancelled'
       updatePayload.cancelledAt = new Date()
       updatePayload.cancellationReason = typeof data.reason === 'string' ? data.reason.trim() : ''
-      updatePayload.cancellationFeeApplied = feeResult.shouldCharge
-      updatePayload.cancellationFeeAmount = feeResult.feeAmount
-      updatePayload.cancellationFeeStatus = feeResult.shouldCharge ? 'pending' : 'none'
-
-      const customerId = String((existingBooking as any).customerId || '')
-      const reference = `cancel_fee_${id}`
-      if (feeResult.shouldCharge && customerId) {
-        const chargeResult = await UserModel.updateOne(
-          { _id: customerId, walletBalance: { $gte: feeResult.feeAmount } },
-          {
-            $inc: { walletBalance: -feeResult.feeAmount },
-            $set: { updatedAt: new Date() },
-          }
-        )
-
-        if (chargeResult.modifiedCount > 0) {
-          await WalletTransaction.updateOne(
-            { reference },
-            {
-              $setOnInsert: {
-                userId: customerId,
-                type: 'booking_cancellation_fee',
-                amount: feeResult.feeAmount,
-                status: 'completed',
-                reference,
-                provider: 'internal_wallet',
-                note: `Cancellation fee for booking ${id}`,
-                metadata: {
-                  bookingId: id,
-                  feeType: 'flat',
-                  windowHours,
-                },
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              },
-            },
-            { upsert: true }
-          )
-          updatePayload.cancellationFeeStatus = 'charged'
-        }
-      }
+      updatePayload.cancellationFeeApplied = false
+      updatePayload.cancellationFeeAmount = 0
+      updatePayload.cancellationFeeStatus = 'none'
     }
 
     if (actionType === 'reschedule') {

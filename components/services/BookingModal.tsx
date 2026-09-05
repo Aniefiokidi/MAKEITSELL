@@ -9,7 +9,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "@/components/ui/calendar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Service, createBooking } from "@/lib/database-client"
-import { computeBookingDeposit } from "@/lib/booking-pricing"
 import { useAuth } from "@/contexts/AuthContext"
 import { useToast } from "@/hooks/use-toast"
 import { useNotification } from "@/contexts/NotificationContext"
@@ -118,9 +117,6 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
     : 1
   const hospitalityTotal = Math.max(0, Math.round((basePackagePrice + addOnTotal) * nightlyNights * safeRoomsCount))
   const computedTotal = isHospitalityService ? hospitalityTotal : estimatedTotal
-  // No deposit to show/charge for a requiresQuote service — the total itself isn't known
-  // yet (computedTotal here is only ever an "estimated" figure for that path).
-  const depositBreakdown = service.requiresQuote ? null : computeBookingDeposit(computedTotal)
 
   const blockedSlotSet = new Set(blockedSlots)
 
@@ -416,14 +412,16 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
       const result = await createBooking(bookingData)
 
       if (result.requiresPayment && result.authorization_url) {
-        // Fixed-price booking: not confirmed yet — the deposit + booking fee still need
-        // to be paid via Paystack. Hand off to it now; lib/booking-payment-confirmation.ts
-        // confirms the booking once that completes.
+        // Dead branch as of the services-aren't-monetized change (lib/booking-payment.ts) —
+        // initiateBookingPayment never sets requiresPayment: true anymore. Left in place
+        // rather than deleted, matching that file's own choice to keep the Paystack-charging
+        // code available in case monetization comes back later.
         window.location.href = result.authorization_url
         return
       }
 
-      // requiresQuote: true path only reaches here — no payment involved, same as before.
+      // No payment involved for either booking type now — services are settled directly
+      // with the provider, off-platform.
       notification.success(
         'Booking Request Sent!',
         "Your booking request has been sent to the provider. You'll receive email and SMS once they confirm.",
@@ -834,18 +832,9 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
                 <p className="font-semibold text-accent">
                   {service.requiresQuote ? "Estimated Total" : "Total"}: ₦{computedTotal.toLocaleString('en-NG')}
                 </p>
-                <p>Payment method: Card / bank transfer (Paystack)</p>
-                {depositBreakdown && (
-                  <>
-                    <p className="font-semibold">
-                      Pay now: ₦{depositBreakdown.amountDueNow.toLocaleString('en-NG')}
-                      <span className="font-normal text-muted-foreground"> (₦{depositBreakdown.depositAmount.toLocaleString('en-NG')} deposit + ₦{depositBreakdown.bookingFeeAmount.toLocaleString('en-NG')} booking fee)</span>
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Remaining balance of ₦{depositBreakdown.balanceOwed.toLocaleString('en-NG')} is paid directly to the provider.
-                    </p>
-                  </>
-                )}
+                <p className="text-xs text-muted-foreground">
+                  No payment is taken now — you pay the provider directly for this service.
+                </p>
                 {tripDistanceFee > 0 && (
                   <p className="text-xs text-muted-foreground">
                     Includes trip distance fee: ₦{Math.round(tripDistanceFee).toLocaleString('en-NG')}
@@ -854,9 +843,6 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
                 {service.requiresQuote && (
                   <p className="text-xs text-muted-foreground">Final amount will be confirmed by provider before acceptance.</p>
                 )}
-                <p className="text-xs text-muted-foreground pt-1">
-                  Cancellation policy: ₦5,000 fee applies if you cancel within 24 hours of your booking date.
-                </p>
               </div>
             </div>
           )}
