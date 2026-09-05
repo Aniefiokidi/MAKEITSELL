@@ -25,6 +25,7 @@ import {
 import { MapPin, Plus, Pencil, Trash2, Star, ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { NIGERIA_STATE_CITY_OPTIONS, NIGERIA_STATES } from "@/lib/nigeria-locations"
+import LocationPicker from "@/components/LocationPicker"
 
 const COUNTRY_CODES = [
   { code: "+234", label: "NG (+234)" },
@@ -291,7 +292,21 @@ export default function AddressesPage() {
 
             <div className="space-y-2">
               <Label htmlFor="addr-address">Address *</Label>
-              <Input id="addr-address" value={form.address} onChange={(e) => handleField("address", e.target.value)} />
+              <LocationPicker
+                value={form.address}
+                onChange={(value) => handleField("address", value)}
+                onLocationSelect={(location) => {
+                  handleField("address", location.address)
+                  if (location.state && NIGERIA_STATES.includes(location.state)) {
+                    handleField("state", location.state)
+                    const cityCandidates = NIGERIA_STATE_CITY_OPTIONS[location.state] || []
+                    if (location.city && cityCandidates.includes(location.city)) {
+                      handleField("city", location.city)
+                    }
+                  }
+                }}
+                placeholder="Search for an address..."
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">

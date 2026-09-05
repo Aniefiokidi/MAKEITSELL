@@ -1,4 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next'
+import { searchNominatim } from './nominatim'
 
 export interface DeliveryEstimate {
   distance: number // in miles
@@ -26,33 +27,45 @@ export class MapboxService {
   private deliveryRatePerMile = 1000 // ₦1,000 per mile
 
   async geocodeAddress(address: Address): Promise<Coordinates | null> {
-    if (!MAPBOX_ACCESS_TOKEN) {
+    const queryText = `${address.address}, ${address.city}, ${address.state}, ${address.country}`
+
+    if (MAPBOX_ACCESS_TOKEN) {
+      try {
+        const query = encodeURIComponent(queryText)
+        const response = await fetch(
+          `${this.baseUrl}/geocoding/v5/mapbox.places/${query}.json?access_token=${MAPBOX_ACCESS_TOKEN}&country=ng&limit=1`
+        )
+
+        if (!response.ok) {
+          throw new Error(`Geocoding failed: ${response.status}`)
+        }
+
+        const data = await response.json()
+
+        if (data.features && data.features.length > 0) {
+          const [longitude, latitude] = data.features[0].center
+          return { longitude, latitude }
+        }
+      } catch (error) {
+        console.error('Geocoding error:', error)
+      }
+    } else {
       console.warn('Mapbox access token not found')
-      return null
     }
 
+    // Free fallback — OpenStreetMap/Nominatim, no key required. Reached whenever Mapbox
+    // is unconfigured, errors, or genuinely has no match.
     try {
-      const query = encodeURIComponent(`${address.address}, ${address.city}, ${address.state}, ${address.country}`)
-      const response = await fetch(
-        `${this.baseUrl}/geocoding/v5/mapbox.places/${query}.json?access_token=${MAPBOX_ACCESS_TOKEN}&country=ng&limit=1`
-      )
-      
-      if (!response.ok) {
-        throw new Error(`Geocoding failed: ${response.status}`)
-      }
-
-      const data = await response.json()
-      
-      if (data.features && data.features.length > 0) {
-        const [longitude, latitude] = data.features[0].center
+      const [result] = await searchNominatim(queryText, 1)
+      if (result?.center) {
+        const [longitude, latitude] = result.center
         return { longitude, latitude }
       }
-      
-      return null
     } catch (error) {
-      console.error('Geocoding error:', error)
-      return null
+      console.error('[mapbox.geocodeAddress] Nominatim fallback failed:', error)
     }
+
+    return null
   }
 
   async calculateDistance(origin: Coordinates, destination: Coordinates): Promise<{ distance: number; duration: string } | null> {

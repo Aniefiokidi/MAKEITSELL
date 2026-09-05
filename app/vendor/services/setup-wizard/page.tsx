@@ -8,6 +8,7 @@ import { uploadToCloudinary } from "@/lib/cloudinary"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import LocationPicker from "@/components/LocationPicker"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -648,7 +649,12 @@ export default function ServiceSetupWizardPage() {
                 {formData.locationType === "store" && (
                   <div className="space-y-2">
                     <Label htmlFor="location">Store Address</Label>
-                    <Input id="location" value={formData.location} onChange={(e) => setFormData((prev) => ({ ...prev, location: e.target.value }))} placeholder="Full address" />
+                    <LocationPicker
+                      value={formData.location}
+                      onChange={(value) => setFormData((prev) => ({ ...prev, location: value }))}
+                      onLocationSelect={(location) => setFormData((prev) => ({ ...prev, location: location.address }))}
+                      placeholder="Search for your store address..."
+                    />
                   </div>
                 )}
 

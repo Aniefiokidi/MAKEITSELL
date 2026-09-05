@@ -31,15 +31,8 @@ export default function LocationPicker({
   const [loading, setLoading] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
 
-  const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_API_KEY
-
   const searchLocation = useCallback(async (query: string) => {
     if (!query || query.length < 2) {
-      setSuggestions([])
-      return
-    }
-
-    if (!MAPBOX_TOKEN) {
       setSuggestions([])
       return
     }
@@ -61,7 +54,7 @@ export default function LocationPicker({
     } finally {
       setLoading(false)
     }
-  }, [MAPBOX_TOKEN])
+  }, [])
 
   useEffect(() => {
     const debounce = setTimeout(() => {
@@ -161,12 +154,6 @@ export default function LocationPicker({
             Use typed address
           </Button>
         </div>
-      )}
-
-      {!MAPBOX_TOKEN && (
-        <p className="text-xs text-muted-foreground mt-1">
-          Map search unavailable. Please enter your address manually.
-        </p>
       )}
     </div>
   )

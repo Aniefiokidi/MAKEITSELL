@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { NIGERIA_STATE_CITY_OPTIONS, NIGERIA_STATES } from "@/lib/nigeria-locations"
+import LocationPicker from "@/components/LocationPicker"
 
 export default function AddressRecaptureDialog() {
   const { user, userProfile } = useAuth()
@@ -91,12 +92,20 @@ export default function AddressRecaptureDialog() {
         <div className="space-y-3">
           <div className="space-y-2">
             <Label htmlFor="recaptureAddress">Address</Label>
-            <Input
-              id="recaptureAddress"
+            <LocationPicker
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Enter your address"
-              disabled={saving}
+              onChange={setAddress}
+              onLocationSelect={(location) => {
+                setAddress(location.address)
+                if (location.state && NIGERIA_STATES.includes(location.state)) {
+                  setState(location.state)
+                  const cityCandidates = NIGERIA_STATE_CITY_OPTIONS[location.state] || []
+                  if (location.city && cityCandidates.includes(location.city)) {
+                    setCity(location.city)
+                  }
+                }
+              }}
+              placeholder="Search for your address..."
             />
           </div>
 

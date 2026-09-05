@@ -24,6 +24,7 @@ import Header from "@/components/Header"
 import ProtectedRoute from "@/components/auth/ProtectedRoute"
 import { trackFunnelEvent } from "@/lib/funnel-tracker"
 import { NIGERIA_STATE_CITY_OPTIONS, NIGERIA_STATES } from "@/lib/nigeria-locations"
+import LocationPicker from "@/components/LocationPicker"
 
 const COUNTRY_CODES = [
   { code: "+234", label: "NG (+234)" },
@@ -760,12 +761,20 @@ export default function CheckoutPage() {
 
                       <div className="space-y-2">
                         <Label htmlFor="address">{shippingInfo.isGiftOrder ? "Recipient's Address *" : "Address *"}</Label>
-                        <Input
-                          id="address"
+                        <LocationPicker
                           value={shippingInfo.address}
-                          onChange={(e) => handleInputChange("address", e.target.value)}
-                          required
-                          disabled={loading}
+                          onChange={(value) => handleInputChange("address", value)}
+                          onLocationSelect={(location) => {
+                            handleInputChange("address", location.address)
+                            if (location.state && NIGERIA_STATES.includes(location.state)) {
+                              handleInputChange("state", location.state)
+                              const cityCandidates = NIGERIA_STATE_CITY_OPTIONS[location.state] || []
+                              if (location.city && cityCandidates.includes(location.city)) {
+                                handleInputChange("city", location.city)
+                              }
+                            }
+                          }}
+                          placeholder="Search for your delivery address..."
                         />
                         <p className="text-xs text-muted-foreground">Type your full delivery address.</p>
                       </div>

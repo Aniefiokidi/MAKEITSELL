@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import LocationPicker from "@/components/LocationPicker"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "@/components/ui/calendar"
@@ -699,12 +700,11 @@ export default function BookingModal({ service, selectedPackage, selectedAddOns 
               <Label htmlFor="customerLocation">
                 {isHomeService ? "Your Full Service Address" : "Preferred Visit Area / Landmark"}
               </Label>
-              <Input
-                id="customerLocation"
-                type="text"
-                placeholder={isHomeService ? "Enter your full address" : "Enter area or nearest landmark"}
+              <LocationPicker
                 value={customerLocation}
-                onChange={(e) => setCustomerLocation(e.target.value)}
+                onChange={setCustomerLocation}
+                onLocationSelect={(location) => setCustomerLocation(location.address)}
+                placeholder={isHomeService ? "Search for your full address..." : "Enter area or nearest landmark"}
               />
             </div>
           )}

@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import LocationPicker from "@/components/LocationPicker"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -511,7 +512,12 @@ export default function VendorSetupWizardPage() {
               <>
                 <div className="space-y-2">
                   <Label htmlFor="address">Business Address</Label>
-                  <Input id="address" value={settings.address} onChange={(e) => setSettings((prev) => ({ ...prev, address: e.target.value }))} />
+                  <LocationPicker
+                    value={settings.address}
+                    onChange={(value) => setSettings((prev) => ({ ...prev, address: value }))}
+                    onLocationSelect={(location) => setSettings((prev) => ({ ...prev, address: location.address }))}
+                    placeholder="Search for your business address..."
+                  />
                 </div>
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="space-y-2">
