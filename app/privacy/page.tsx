@@ -30,8 +30,11 @@ export default function PrivacyPage() {
                 <div className="min-w-0">
                   <h2 className="text-sm sm:text-lg md:text-xl font-semibold mb-1 sm:mb-2 text-accent">Your Privacy Matters</h2>
                   <p className="text-muted-foreground text-[10px] xs:text-xs sm:text-sm leading-relaxed">
-                    At <span className="font-bold text-accent">Make It Sell Marketplace</span>, we are committed to protecting your privacy and ensuring the security of your personal information. 
-                    This policy explains how we collect, use, and safeguard your data when you use our platform.
+                    At <span className="font-bold text-accent">Make It Sell Marketplace</span>, we are committed to protecting your privacy and ensuring the security of your personal information.
+                    This policy explains how we collect, use, and safeguard your data when you use our platform, in line with the Nigeria Data Protection Act 2023 and the Nigeria Data Protection Regulation (NDPR).
+                  </p>
+                  <p className="text-muted-foreground text-[10px] xs:text-xs sm:text-sm leading-relaxed mt-2">
+                    Make It Sell is operated by <strong className="text-accent">Make It Sell Ltd</strong> (RC 9324731), a company incorporated in Nigeria under the Companies and Allied Matters Act 2020.
                   </p>
                 </div>
               </div>
@@ -172,10 +175,10 @@ export default function PrivacyPage() {
               <div>
                 <h4 className="font-semibold text-xs sm:text-base mb-1 sm:mb-2">Service Providers</h4>
                 <ul className="text-[9px] xs:text-[10px] sm:text-sm text-muted-foreground space-y-1 pl-3 sm:pl-4">
-                  <li>• Payment processors for transaction handling</li>
-                  <li>• Shipping companies for order fulfillment</li>
-                  <li>• Cloud services for data storage and processing</li>
-                  <li>• Analytics providers for platform improvement</li>
+                  <li>• Paystack, our payment processor, for transaction handling</li>
+                  <li>• Shipping and logistics partners for order fulfillment</li>
+                  <li>• Cloud services (MongoDB Atlas, Vercel) for data storage and hosting</li>
+                  <li>• Vercel Analytics, a privacy-focused, cookie-free analytics service, for anonymized platform usage statistics</li>
                 </ul>
               </div>
               <div>
@@ -264,7 +267,8 @@ export default function PrivacyPage() {
             </CardHeader>
             <CardContent className="p-3 sm:p-6">
               <p className="text-[9px] xs:text-[10px] sm:text-sm text-muted-foreground mb-3 sm:mb-4">
-                We use cookies and similar technologies to enhance your experience on our platform. 
+                We only use essential cookies to keep you signed in and your cart working, plus a cookie-free analytics
+                tool (Vercel Analytics) for anonymized usage statistics. We don't use advertising or tracking cookies.
                 You can control cookie settings through your browser preferences.
               </p>
               <Link href="/cookies" className="text-primary hover:underline text-[9px] xs:text-[10px] sm:text-xs">
@@ -297,8 +301,9 @@ export default function PrivacyPage() {
                 please contact us:
               </p>
               <div className="space-y-1.5 sm:space-y-2 text-[9px] xs:text-[10px] sm:text-xs md:text-sm">
+                <p><strong>Company:</strong> <span className="truncate">Make It Sell Ltd (RC 9324731)</span></p>
                 <p><strong>Email:</strong> <span className="truncate">support@makeitsell.ng</span></p>
-                <p><strong>Address:</strong> <span className="break-words">123 Allen Avenue, Privacy Department, Lagos, Nigeria</span></p>
+                <p><strong>Address:</strong> <span className="break-words">Lagos, Nigeria</span></p>
                 <p><strong>Phone:</strong> <span className="truncate">+234 812 9380 869</span></p>
               </div>
               <div className="mt-3 sm:mt-4">

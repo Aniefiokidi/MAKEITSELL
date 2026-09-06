@@ -513,7 +513,7 @@ export default function SignupForm() {
                   value={formData.role}
                   onValueChange={(value: "customer" | "vendor" | "admin") => handleInputChange("role", value)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="role">
                     <SelectValue placeholder="Select account type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -569,7 +569,7 @@ export default function SignupForm() {
               value={formData.vendorType || undefined}
               onValueChange={(value: "goods" | "services" | "both") => handleInputChange("vendorType", value)}
             >
-              <SelectTrigger>
+              <SelectTrigger id="vendorType">
                 <SelectValue placeholder="Select what you want to offer" />
               </SelectTrigger>
               <SelectContent>
@@ -624,7 +624,7 @@ export default function SignupForm() {
                 value={formData.storeCategory}
                 onValueChange={(value) => handleInputChange("storeCategory", value)}
               >
-                <SelectTrigger>
+                <SelectTrigger id="storeCategory">
                   <SelectValue placeholder="Select your store category" />
                 </SelectTrigger>
                 <SelectContent>

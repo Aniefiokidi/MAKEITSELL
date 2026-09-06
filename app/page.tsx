@@ -57,7 +57,7 @@ function TrendingProducts() {
 
   const getProductImage = (product: any) => {
     const source = Array.isArray(product?.images) ? product.images.find((item: unknown) => typeof item === "string" && item.trim()) : ""
-    return optimizedImageUrl(source, { width: 500 }) || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=900&h=900&fit=crop"
+    return optimizedImageUrl(source, { width: 500 }) || "/category/fallback.jpg"
   }
 
   const getServiceDisplayPrice = (service: any) => {
@@ -765,7 +765,7 @@ export default function HomePage() {
                     <span className="text-accent">From Real People</span>
                   </h1>
                   <p className="text-[clamp(1rem,4.2vw,1.25rem)] text-neutral-700 max-w-2xl mb-2">
-                    Nigeria's most trusted marketplace for unique products, unbeatable prices, and real customer support.
+                    A Nigerian marketplace for unique products, great prices, and real customer support.
                   </p>
                   {/* Search Form (existing) */}
                   <form
@@ -825,10 +825,10 @@ export default function HomePage() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8 max-w-6xl mx-auto">
                 {([
-                  { href: "/category/electronics", img: "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=600&h=400&fit=crop&auto=format", icon: Smartphone, title: "Electronics", desc: "Phones, laptops & gadgets" },
-                  { href: "/category/fashion", img: "https://images.unsplash.com/photo-1445205170230-053b83016050?w=600&h=400&fit=crop&auto=format", icon: ShoppingBag, title: "Fashion", desc: "Clothing, shoes & accessories" },
-                  { href: "/category/health-wellness", img: "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=600&h=400&fit=crop&auto=format", icon: Beauty, title: "Health & Beauty", desc: "Personal care & wellness" },
-                  { href: "/category/home-living", img: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=600&h=400&fit=crop&auto=format", icon: HomeIcon, title: "Home & Living", desc: "Furniture & décor" },
+                  { href: "/category/electronics", img: "/category/electronics.jpg", icon: Smartphone, title: "Electronics", desc: "Phones, laptops & gadgets" },
+                  { href: "/category/fashion", img: "/category/fashion.jpg", icon: ShoppingBag, title: "Fashion", desc: "Clothing, shoes & accessories" },
+                  { href: "/category/health-wellness", img: "/category/health-beauty.jpg", icon: Beauty, title: "Health & Beauty", desc: "Personal care & wellness" },
+                  { href: "/category/home-living", img: "/category/home-living.jpg", icon: HomeIcon, title: "Home & Living", desc: "Furniture & décor" },
                 ] as const).map(cat => {
                   const Icon = cat.icon
                   return (
@@ -851,10 +851,10 @@ export default function HomePage() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 max-w-6xl mx-auto">
                 {([
-                  { href: "/services?category=repairs", img: "https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?w=600&h=400&fit=crop&auto=format", icon: Settings, title: "Repairs", desc: "Expert repair & maintenance" },
-                  { href: "/services?category=automotive", img: "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=600&h=400&fit=crop&auto=format", icon: CarFront, title: "Automotive", desc: "Car services & maintenance" },
-                  { href: "/services?category=consulting", img: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=600&h=400&fit=crop&auto=format", icon: UserCheck, title: "Freelancers", desc: "Professional freelance services" },
-                  { href: "/food", img: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&h=400&fit=crop&auto=format", icon: Coffee, title: "Food & Drinks", desc: "Restaurants & catering" },
+                  { href: "/services?category=repairs", img: "/category/repairs.jpg", icon: Settings, title: "Repairs", desc: "Expert repair & maintenance" },
+                  { href: "/services?category=automotive", img: "/category/automotive.jpg", icon: CarFront, title: "Automotive", desc: "Car services & maintenance" },
+                  { href: "/services?category=consulting", img: "/category/freelancers.jpg", icon: UserCheck, title: "Freelancers", desc: "Professional freelance services" },
+                  { href: "/food", img: "/category/food-drinks.jpg", icon: Coffee, title: "Food & Drinks", desc: "Restaurants & catering" },
                 ] as const).map(cat => {
                   const Icon = cat.icon
                   return (
@@ -910,7 +910,7 @@ export default function HomePage() {
                     <BadgeCheck className="h-7 w-7 text-accent" />
                   </div>
                   <h3 className="font-semibold text-neutral-900 mb-1.5 text-sm sm:text-base">Buyer Protection</h3>
-                  <p className="text-neutral-500 text-xs sm:text-sm leading-relaxed">Full refund guarantee on undelivered orders</p>
+                  <p className="text-neutral-500 text-xs sm:text-sm leading-relaxed">Refund support if your order never arrives</p>
                 </div>
                 <div className="flex flex-col items-center text-center p-5 sm:p-6 rounded-xl bg-white shadow-sm border border-gray-200 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
                   <div className="h-14 w-14 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">

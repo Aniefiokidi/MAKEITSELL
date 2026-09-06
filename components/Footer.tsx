@@ -145,7 +145,7 @@ export default async function Footer() {
         {/* Bottom Section */}
         <div className="border-t mt-[clamp(1.5rem,6vw,2.5rem)] pt-[clamp(1rem,4vw,1.5rem)] flex flex-col md:flex-row justify-between items-center text-center md:text-left gap-3">
           <p className="text-accent text-[clamp(0.84rem,3.5vw,0.95rem)]">
-            © {new Date().getFullYear()} Make It Sell Marketplace. All rights reserved.
+            © {new Date().getFullYear()} Make It Sell Ltd (RC 9324731). All rights reserved.
           </p>
           <div className="flex flex-wrap justify-center md:justify-end gap-x-6 gap-y-2 text-[clamp(0.84rem,3.5vw,0.95rem)]">
             <Link href="/privacy" className="text-accent">

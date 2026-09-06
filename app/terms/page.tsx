@@ -30,6 +30,9 @@ export default function TermsPage() {
                     Last Updated: 10 February 2026
                   </span>
                 </div>
+                <p className="text-[8px] xs:text-[9px] sm:text-xs text-muted-foreground mt-2 animate-fade-in-up">
+                  Make It Sell is operated by <strong className="text-accent">Make It Sell Ltd</strong>, a company incorporated in Nigeria under the Companies and Allied Matters Act 2020 (RC 9324731).
+                </p>
               </div>
               <Link href="/">
                 <Button variant="outline" className="flex items-center gap-2 text-xs sm:text-sm hover:bg-accent/10 transition-all animate-fade-in-up">
@@ -254,7 +257,7 @@ export default function TermsPage() {
               <CardTitle className="text-base sm:text-lg md:text-xl">7. GOVERNING LAW</CardTitle>
             </CardHeader>
             <CardContent className="p-4 sm:p-6">
-              <p className="text-[10px] xs:text-xs sm:text-sm text-muted-foreground">These Terms are governed by the laws of the Federal Republic of Nigeria.</p>
+              <p className="text-[10px] xs:text-xs sm:text-sm text-muted-foreground">These Terms are governed by the laws of the Federal Republic of Nigeria, including the Nigeria Data Protection Act 2023 and the Nigeria Data Protection Regulation (NDPR) with respect to personal data — see our <Link href="/privacy" className="text-primary hover:underline">Privacy Policy</Link> for details.</p>
             </CardContent>
           </Card>
 
@@ -309,6 +312,7 @@ export default function TermsPage() {
             </CardHeader>
             <CardContent className="space-y-4 p-4 sm:p-6">
               <ul className="text-[10px] xs:text-xs sm:text-sm text-muted-foreground space-y-2 pl-4">
+                <li>• Payments are processed by Paystack, a licensed payment service provider regulated by the Central Bank of Nigeria. Make It Sell does not directly store or process your card details.</li>
                 <li>• Make It Sell processes payments on behalf of vendors. When a customer places an order, payment is collected and temporarily held by the platform.</li>
                 <li>• Funds are not immediately released to vendors. Payments are held to allow delivery confirmation and dispute resolution.</li>
                 <li>• Make It Sell may delay, hold, or reverse payments where fraud, disputes, or suspicious activity is detected.</li>
@@ -360,12 +364,12 @@ export default function TermsPage() {
             </CardHeader>
             <CardContent className="space-y-4 p-4 sm:p-6">
               <ul className="text-[10px] xs:text-xs sm:text-sm text-muted-foreground space-y-2 pl-4">
-                <li>• Refunds may be issued where:</li>
+                <li>• For items received damaged, defective, or different from what was ordered, see our dedicated <Link href="/returns" className="text-primary hover:underline">Returns &amp; Refunds Policy</Link>, including the claim window and process.</li>
+                <li>• Outside of that policy, refunds may also be issued where:</li>
                 <ul className="pl-6">
                   <li>- Item is not delivered</li>
-                  <li>- Item is significantly different from description</li>
-                  <li>- Vendor cancels order</li>
-                  <li>- Fraudulent transaction detected</li>
+                  <li>- Vendor cancels the order</li>
+                  <li>- A fraudulent transaction is detected</li>
                 </ul>
                 <li>• Refunds are processed back to the original payment method. Make It Sell reserves the right to approve or deny refund requests after reviewing evidence.</li>
               </ul>

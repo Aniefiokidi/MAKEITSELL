@@ -393,7 +393,7 @@ export function ProductQuickView({
 
                 {/* Title & store */}
                 <div className="space-y-1">
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400 font-medium">Product details</p>
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-slate-600 font-medium">Product details</p>
                   <h2 className="text-xl sm:text-2xl font-bold text-slate-900 leading-tight">{displayName}</h2>
                   <p className="text-sm text-slate-500">
                     Sold by{" "}
@@ -404,7 +404,7 @@ export function ProductQuickView({
                 {/* Price & stock */}
                 <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">Price</p>
+                    <p className="text-[10px] text-slate-600 uppercase tracking-wide mb-0.5">Price</p>
                     <p className="text-2xl font-bold text-accent">
                       ₦{product.price?.toLocaleString() ?? "—"}
                     </p>
@@ -439,7 +439,7 @@ export function ProductQuickView({
                               className={`px-2.5 py-1.5 rounded-full border text-xs font-medium inline-flex items-center gap-1.5 ${
                                 stock > 0
                                   ? "bg-white text-slate-700 border-slate-300"
-                                  : "bg-slate-50 text-slate-400 border-slate-200"
+                                  : "bg-slate-50 text-slate-500 border-slate-200"
                               }`}
                             >
                               {label === "Color" && (

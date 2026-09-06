@@ -222,8 +222,6 @@ export async function deleteUserAccount(userId: string): Promise<DeletionResult>
             postalCode: '',
             otp_code: '',
             otp_expiry: '',
-            otp_voice_pin_id: '',
-            otp_voice_pin_expiry: '',
             withdrawalPinHash: '',
             withdrawalPinSetAt: '',
             payoutProfile: '',

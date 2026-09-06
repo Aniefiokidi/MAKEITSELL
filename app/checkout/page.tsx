@@ -89,6 +89,7 @@ export default function CheckoutPage() {
   const { user, userProfile, refreshProfile } = useAuth()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [acceptTerms, setAcceptTerms] = useState(false)
   const [shippingLoading, setShippingLoading] = useState(false)
   const [error, setError] = useState("")
   const [shipbubbleRates, setShipbubbleRates] = useState<Record<string, {
@@ -343,6 +344,10 @@ export default function CheckoutPage() {
     console.log("Shipping info on submit:", shippingInfo)
 
     try {
+      if (!acceptTerms) {
+        throw new Error("Please accept the Terms of Service and Privacy Policy to place your order.")
+      }
+
       if (paymentMethod === 'wallet') {
         if (walletInsufficient) {
           setQuickTopupAmount(String(walletShortfall > 0 ? walletShortfall : checkoutPayableTotal))
@@ -1284,7 +1289,7 @@ export default function CheckoutPage() {
                       )}
 
                       <div className="pt-4 hidden md:block">
-                        <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-white" size="lg" disabled={loading}>
+                        <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-white" size="lg" disabled={loading || !acceptTerms}>
                           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                           {loading
                             ? "Processing..."
@@ -1303,6 +1308,19 @@ export default function CheckoutPage() {
                           <Link href="/trust" className="text-accent underline">how it works</Link>
                         </span>
                       </div>
+                      <div className="flex items-start gap-2 pt-3 mt-3 border-t">
+                        <Checkbox
+                          id="acceptCheckoutTerms"
+                          checked={acceptTerms}
+                          onCheckedChange={(checked) => setAcceptTerms(checked as boolean)}
+                        />
+                        <Label htmlFor="acceptCheckoutTerms" className="text-sm font-normal leading-snug cursor-pointer">
+                          I agree to the{" "}
+                          <Link href="/terms" target="_blank" className="text-accent underline">Terms of Service</Link>
+                          {" "}and{" "}
+                          <Link href="/privacy" target="_blank" className="text-accent underline">Privacy Policy</Link>
+                        </Label>
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
@@ -1317,7 +1335,7 @@ export default function CheckoutPage() {
                       {paymentMethod === 'wallet' ? 'Wallet checkout' : paymentMethod === 'bach' ? 'Bach checkout' : 'Card/bank checkout'}
                     </p>
                   </div>
-                  <Button type="submit" className="h-10 px-4 shrink-0 bg-accent hover:bg-accent/90 text-white" disabled={loading}>
+                  <Button type="submit" className="h-10 px-4 shrink-0 bg-accent hover:bg-accent/90 text-white" disabled={loading || !acceptTerms}>
                     {loading
                       ? "Processing..."
                       : paymentMethod === 'wallet'

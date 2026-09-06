@@ -185,16 +185,16 @@ export default function AboutPage() {
                 {/* Stats */}
                 <div className="grid grid-cols-3 gap-3 sm:gap-8 mt-6 sm:mt-12 pt-6 sm:pt-8 border-t border-border/50">
                   <div>
-                    <div className="text-lg xs:text-2xl sm:text-3xl font-black text-accent">10K+</div>
-                    <div className="text-[8px] xs:text-[9px] sm:text-sm text-muted-foreground font-medium">Active Sellers</div>
+                    <div className="text-lg xs:text-2xl sm:text-3xl font-black text-accent">Verified</div>
+                    <div className="text-[8px] xs:text-[9px] sm:text-sm text-muted-foreground font-medium">Sellers Only</div>
                   </div>
                   <div>
-                    <div className="text-lg xs:text-2xl sm:text-3xl font-black text-accent">100K+</div>
-                    <div className="text-[8px] xs:text-[9px] sm:text-sm text-muted-foreground font-medium">Happy Customers</div>
+                    <div className="text-lg xs:text-2xl sm:text-3xl font-black text-accent">Secure</div>
+                    <div className="text-[8px] xs:text-[9px] sm:text-sm text-muted-foreground font-medium">Escrow Payments</div>
                   </div>
                   <div>
-                    <div className="text-lg xs:text-2xl sm:text-3xl font-black text-accent">24/7</div>
-                    <div className="text-[8px] xs:text-[9px] sm:text-sm text-muted-foreground font-medium">Support</div>
+                    <div className="text-lg xs:text-2xl sm:text-3xl font-black text-accent">Nigeria</div>
+                    <div className="text-[8px] xs:text-[9px] sm:text-sm text-muted-foreground font-medium">Wide Delivery</div>
                   </div>
                 </div>
               </div>
