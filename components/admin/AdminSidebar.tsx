@@ -26,6 +26,7 @@ import {
   MessageCircleQuestion,
   Flag,
   Trophy,
+  UserCheck,
 } from "lucide-react"
 
 const adminNavItems = [
@@ -43,6 +44,11 @@ const adminNavItems = [
     title: "Vendors",
     href: "/admin/vendors",
     icon: Store,
+  },
+  {
+    title: "Vendor Applications",
+    href: "/admin/vendor-applications",
+    icon: UserCheck,
   },
   {
     title: "Vendors Bank Details",
