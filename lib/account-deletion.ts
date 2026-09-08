@@ -52,7 +52,7 @@ export interface DeletionResult {
 // stuck at paymentStatus pending/failed is an abandoned checkout attempt (extremely
 // common; every unpaid cart abandonment leaves one of these), not a real transaction
 // either party has an outstanding obligation on.
-const ORDER_CLOSED_STATUSES = ['completed', 'cancelled', 'received']
+const ORDER_CLOSED_STATUSES = ['completed', 'cancelled', 'received', 'refunded']
 const ORDER_UNPAID_PAYMENT_STATUSES = ['pending', 'failed']
 const BOOKING_CLOSED_STATUSES = ['completed', 'cancelled']
 
