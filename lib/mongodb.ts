@@ -48,7 +48,12 @@ function isSrvDnsError(error: unknown) {
   return (
     message.includes('querySrv ECONNREFUSED') ||
     message.includes('querySrv ENOTFOUND') ||
-    message.includes('querySrv ETIMEOUT')
+    message.includes('querySrv ETIMEOUT') ||
+    // A malformed/unexpected response from the resolver — seen in practice when the
+    // configured DNS servers (8.8.8.8/1.1.1.1) are reachable but flaky for this specific
+    // query. Same recovery as the other SRV failure modes: fall back to a direct-host
+    // connection instead of leaking this raw error to the caller.
+    message.includes('querySrv EBADRESP')
   );
 }
 
