@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { GoogleGenerativeAI } from "@google/generative-ai"
+import { getGeminiModel } from "@/lib/gemini-client"
 
 function buildFallbackDescription(input: {
   title: string
@@ -32,8 +32,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "title is required" }, { status: 400 })
     }
 
-    const apiKey = process.env.GEMINI_API_KEY
-    if (!apiKey || apiKey.length < 10) {
+    const model = getGeminiModel()
+    if (!model) {
       return NextResponse.json({
         success: true,
         data: {
@@ -42,9 +42,6 @@ export async function POST(request: NextRequest) {
         },
       })
     }
-
-    const ai = new GoogleGenerativeAI(apiKey)
-    const model = ai.getGenerativeModel({ model: "gemini-pro" })
 
     const prompt = `You write concise marketplace service descriptions.
 

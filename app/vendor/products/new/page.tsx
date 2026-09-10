@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Upload, X, Loader2 } from "lucide-react"
+import { Upload, X, Loader2, Sparkles } from "lucide-react"
 import { CATEGORIES, FASHION_SUBCATEGORIES, ELECTRONICS_SUBCATEGORIES } from "@/lib/vendor-product-taxonomy"
 import { ProductVariantsEditor } from "@/components/vendor/ProductVariantsEditor"
 import type { ProductVariant } from "@/lib/product-variants"
@@ -30,6 +30,8 @@ export default function NewProduct() {
   const { success, error: showError, warning } = useNotification()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [generatingDraft, setGeneratingDraft] = useState(false)
+  const [priceHint, setPriceHint] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -111,6 +113,36 @@ export default function NewProduct() {
 
   const removeDocument = (index: number) => {
     setProductDocuments((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const handleGenerateDraft = async () => {
+    if (previews.length === 0 || generatingDraft) return
+    setGeneratingDraft(true)
+    try {
+      // Send the already-in-memory base64 previews rather than uploading to Cloudinary
+      // first — images here aren't uploaded until submit, and the vendor may still
+      // discard this draft, so there's no reason to force an early upload just to draft.
+      const response = await fetch("/api/vendor/products/ai-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64: previews.slice(0, 3) }),
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!result?.success || !result?.data) return
+
+      const { name, description, category, subcategory, priceHint: hint } = result.data
+      if (category) {
+        handleCategoryChange(category)
+        if (subcategory) handleSubcategoryChange(subcategory)
+      }
+      if (name) handleInputChange("title", name)
+      if (description) handleInputChange("description", description)
+      setPriceHint(hint || null)
+    } catch {
+      // Silent — the form is still fully usable manually, same as a missing/rate-limited key.
+    } finally {
+      setGeneratingDraft(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -277,6 +309,9 @@ export default function NewProduct() {
                     required
                     disabled={loading}
                   />
+                  {priceHint && (
+                    <p className="text-xs text-muted-foreground">Similar listings sell for {priceHint}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -466,6 +501,25 @@ export default function NewProduct() {
                   </label>
                 )}
               </div>
+
+              {previews.length > 0 && (
+                <div className="flex items-center justify-between rounded-md border border-dashed p-3">
+                  <p className="text-xs text-muted-foreground pr-3">
+                    Let AI draft your title, description and category from these photos — you can edit anything after.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0"
+                    onClick={handleGenerateDraft}
+                    disabled={generatingDraft || loading}
+                  >
+                    <Sparkles className="h-4 w-4 mr-1" />
+                    {generatingDraft ? "Generating..." : "Generate with AI"}
+                  </Button>
+                </div>
+              )}
 
               {productDocuments.length > 0 && (
                 <div className="space-y-2 pt-2 border-t">
