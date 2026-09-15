@@ -1,3 +1,4 @@
+import { resolveStoreScope, resolveListingStore, belongsToStore } from "@/lib/store-scope";
 import { NextRequest, NextResponse } from "next/server"
 import { getBookingsByProvider, getAllBookings, getBookingsByCustomer, getUserById } from "@/lib/mongodb-operations"
 import { AppointmentEmailService } from "@/lib/appointment-emails"
@@ -48,6 +49,13 @@ export async function GET(request: NextRequest) {
       bookings = await getAllBookings()
     }
 
+    const storeId = searchParams.get('storeId');
+    if (storeId && providerId) {
+      let scope;
+      try { scope = await resolveStoreScope(storeId, providerId); }
+      catch { return NextResponse.json({ success: false, error: 'Invalid store ownership' }, { status: 403 }); }
+      bookings = bookings.filter((booking: any) => belongsToStore(booking, scope));
+    }
     return NextResponse.json({
       success: true,
       data: bookings
@@ -110,6 +118,8 @@ export async function POST(request: NextRequest) {
 
     const normalizedBookingData = {
       ...bookingData,
+      providerId: service ? String(service.providerId) : bookingData.providerId,
+      storeId: service ? await resolveListingStore(String(service.providerId), (service as any).storeId) : undefined,
       // Always the caller's own session — never trust customerId from the body. Payment
       // now goes through Paystack (lib/booking-payment.ts), which does confirm
       // independently, but this still matters: it's what the confirmation email/SMS and

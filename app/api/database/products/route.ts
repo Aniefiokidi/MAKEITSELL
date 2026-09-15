@@ -1,3 +1,4 @@
+import { resolveStoreScope, resolveListingStore } from "@/lib/store-scope";
 import { NextRequest, NextResponse } from "next/server"
 import { getProducts, createProduct, countProducts } from "@/lib/mongodb-operations"
 import { getProductSearchEnrichment } from '@/lib/search-enrichment'
@@ -14,6 +15,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
     const category = searchParams.get('category')
+    const storeId = searchParams.get('storeId')
     const vendorId = searchParams.get('vendorId')
     const featured = searchParams.get('featured')
     const search = searchParams.get('search') || undefined
@@ -66,6 +68,7 @@ export async function GET(request: NextRequest) {
     const filters: any = {}
     if (category) filters.category = category
     if (vendorId) filters.vendorId = vendorId
+    if (storeId) filters.storeScope = await resolveStoreScope(storeId, vendorId || undefined)
     if (featured) filters.featured = featured === 'true'
     if (search) filters.search = search
     if (sortBy) filters.sortBy = sortBy
@@ -86,6 +89,7 @@ export async function GET(request: NextRequest) {
     const listCacheKey = JSON.stringify({
       category: category || null,
       vendorId: vendorId || null,
+      storeId: storeId || null,
       featured: typeof featured === 'string' ? featured : null,
       search: search || null,
       sortBy: sortBy || null,
@@ -191,6 +195,9 @@ export async function POST(request: NextRequest) {
       productData.vendorId = user.id
     }
 
+    try { productData.storeId = await resolveListingStore(productData.vendorId, productData.storeId); }
+    catch { return NextResponse.json({ success: false, error: 'Invalid store ownership' }, { status: 403 }); }
+
     // Auto-populate storeId if vendorId is provided
     if (productData.vendorId && !productData.storeId) {
       try {
@@ -213,6 +220,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       id: productId,
+      data: { ...productData, id: productId, _id: productId },
       message: 'Product created successfully'
     })
   } catch (error: any) {

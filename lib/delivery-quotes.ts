@@ -34,6 +34,9 @@ export type DeliveryQuoteItem = {
 }
 
 export type VendorDeliveryQuote = {
+  groupId: string
+  storeId?: string
+  productIds?: string[]
   vendorId: string
   storeName: string
   couriers: CourierQuote[]
@@ -72,24 +75,37 @@ export async function getDeliveryQuotesForCart(params: {
   const productIds = Array.from(new Set(items.map((i) => String(i?.productId || '')).filter(Boolean)))
 
   const [stores, products] = await Promise.all([
-    Store.find({ vendorId: { $in: vendorIds } }).lean(),
-    Product.find({ _id: { $in: productIds } }).select('name title price category weightKg vendorId').lean(),
+    Store.find({ vendorId: { $in: vendorIds } }).sort({ _id: 1 }).lean(),
+    Product.find({ _id: { $in: productIds } }).select('name title price category weightKg vendorId storeId').lean(),
   ])
 
-  const storeByVendorId = new Map((stores as any[]).map((s) => [String(s.vendorId), s]))
+  const storeByVendorId = new Map<string, any>();
+  const storeById = new Map((stores as any[]).map(s => [String(s._id), s]));
+  for (const store of stores as any[]) if (!storeByVendorId.has(String(store.vendorId))) storeByVendorId.set(String(store.vendorId), store);
   const productById = new Map((products as any[]).map((p) => [String(p._id), p]))
 
+  const groups = new Map<string, { vendorId: string; storeId?: string; items: DeliveryQuoteItem[] }>();
+  for (const item of items) {
+    const product: any = productById.get(String(item.productId));
+    if (!product || String(product.vendorId) !== String(item.vendorId)) return { success: false, error: 'A cart item is unavailable. Refresh your cart.', status: 400 };
+    const vendorId = String(product.vendorId);
+    const storeId = product.storeId ? String(product.storeId) : String(storeByVendorId.get(vendorId)?._id || '') || undefined;
+    const key = storeId || vendorId;
+    if (!groups.has(key)) groups.set(key, { vendorId, storeId, items: [] });
+    groups.get(key)!.items.push(item);
+  }
   const pickupDate = nextPickupDate()
 
   const vendorResults: VendorDeliveryQuote[] = await Promise.all(
-    vendorIds.map(async (vendorId): Promise<VendorDeliveryQuote> => {
-      const store: any = storeByVendorId.get(vendorId)
+    Array.from(groups.entries()).map(async ([groupId, group]): Promise<VendorDeliveryQuote> => {
+      const { vendorId, storeId, items: vendorItems } = group;
+      const metadata = { groupId, storeId, productIds: vendorItems.map(item => item.productId) };
+      const store: any = storeId ? storeById.get(storeId) : storeByVendorId.get(vendorId)
 
-      if (!store) {
-        return { vendorId, storeName: 'Store', couriers: [], cheapestCourier: null, fastestCourier: null, error: 'Store not found' }
+      if (!store || String(store.vendorId) !== vendorId) {
+        return { ...metadata, vendorId, storeName: 'Store', couriers: [], cheapestCourier: null, fastestCourier: null, error: 'Store not found' }
       }
 
-      const vendorItems = items.filter((i) => String(i?.vendorId || '') === vendorId)
       const packageItems = vendorItems.map((item) => {
         const product: any = productById.get(String(item?.productId || ''))
         const quantity = Math.max(1, Number(item?.quantity || 1))
@@ -133,6 +149,7 @@ export async function getDeliveryQuotesForCart(params: {
 
       if (merged.couriers.length === 0) {
         return {
+          ...metadata,
           vendorId,
           storeName: store.storeName || 'Store',
           couriers: [],
@@ -143,6 +160,7 @@ export async function getDeliveryQuotesForCart(params: {
       }
 
       return {
+        ...metadata,
         vendorId,
         storeName: store.storeName || 'Store',
         couriers: merged.couriers,

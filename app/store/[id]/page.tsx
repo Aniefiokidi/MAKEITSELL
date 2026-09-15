@@ -231,7 +231,7 @@ export default function StorePage() {
         }
         
         // Fetch products for this store using the vendor ID from the store data
-        const productsResponse = await fetch(`/api/database/products?vendorId=${resolvedStore.vendorId}`)
+        const productsResponse = await fetch(`/api/database/products?vendorId=${resolvedStore.vendorId}&storeId=${String(resolvedStore.id || storeId).startsWith("virtual-") ? "" : resolvedStore.id || storeId}`)
         const productsResult = await productsResponse.json()
         
         if (productsResult.success && productsResult.data) {

@@ -1,3 +1,4 @@
+import { resolveStoreScope, storeListingQuery } from "@/lib/store-scope";
 // Helper to clean state options
 const cleanStateOptions = (rawOptions: any[]): string[] => {
   return [...new Set(
@@ -140,12 +141,15 @@ export async function GET(request: NextRequest) {
       const productSortedStores = await Store.aggregate([
         { $match: query },
         ...allowedLocationSortStages(),
+        { $lookup: { from: 'stores', let: { owner: '$vendorId' }, pipeline: [
+          { $match: { $expr: { $eq: ['$vendorId', '$$owner'] } } }, { $sort: { _id: 1 } }, { $limit: 1 }, { $project: { _id: 1 } }
+        ], as: 'originalStore' } },
         {
           $lookup: {
             from: 'products',
-            let: { vendorKey: '$vendorId' },
+            let: { vendorKey: '$vendorId', storeKey: { $toString: '$_id' }, isOriginal: { $eq: ['$_id', { $arrayElemAt: ['$originalStore._id', 0] }] } },
             pipeline: [
-              { $match: { $expr: { $eq: ['$vendorId', '$$vendorKey'] } } },
+              { $match: { $expr: { $and: [{ $eq: ['$vendorId', '$$vendorKey'] }, { $or: [{ $eq: ['$storeId', '$$storeKey'] }, { $and: ['$$isOriginal', { $in: [{ $ifNull: ['$storeId', ''] }, ['']] }] }] }] } } },
               { $sort: { createdAt: -1 } },
               {
                 $group: {
@@ -233,12 +237,15 @@ export async function GET(request: NextRequest) {
       const forYouStores = await Store.aggregate([
         { $match: query },
         ...allowedLocationSortStages(),
+        { $lookup: { from: 'stores', let: { owner: '$vendorId' }, pipeline: [
+          { $match: { $expr: { $eq: ['$vendorId', '$$owner'] } } }, { $sort: { _id: 1 } }, { $limit: 1 }, { $project: { _id: 1 } }
+        ], as: 'originalStore' } },
         {
           $lookup: {
             from: 'products',
-            let: { vendorKey: '$vendorId' },
+            let: { vendorKey: '$vendorId', storeKey: { $toString: '$_id' }, isOriginal: { $eq: ['$_id', { $arrayElemAt: ['$originalStore._id', 0] }] } },
             pipeline: [
-              { $match: { $expr: { $eq: ['$vendorId', '$$vendorKey'] } } },
+              { $match: { $expr: { $and: [{ $eq: ['$vendorId', '$$vendorKey'] }, { $or: [{ $eq: ['$storeId', '$$storeKey'] }, { $and: ['$$isOriginal', { $in: [{ $ifNull: ['$storeId', ''] }, ['']] }] }] }] } } },
               { $sort: { createdAt: -1 } },
               {
                 $group: {
@@ -473,8 +480,11 @@ export async function GET(request: NextRequest) {
 
     let mappedStores = await Promise.all(storesPage.map(async (store: any) => {
       const vendorKey = String(store.vendorId || '')
-      const firstProductImage = firstImageByVendor.get(vendorKey) || null
-      const productCount = productCountByVendor.get(vendorKey) || 0
+      const productQuery = storeListingQuery(await resolveStoreScope(String(store._id)), 'vendorId');
+      const [productCount, firstProduct] = await Promise.all([
+        Product.countDocuments(productQuery), Product.findOne(productQuery).sort({ createdAt: -1 }).select('images').lean()
+      ]);
+      const firstProductImage = (firstProduct as any)?.images?.[0] || null
 
       return {
         publicSlug: await ensureStoreSlug(store),

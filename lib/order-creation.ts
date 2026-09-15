@@ -99,20 +99,16 @@ export async function buildOrder(input: BuildOrderInput): Promise<BuildOrderResu
   // Group items by store first (fallback to vendor) so each store gets its own payout bucket.
   const vendorOrders = new Map()
 
+  const catalog = await Product.find({ _id: { $in: items.map((item: any) => item.productId).filter(isValidObjectIdString) } }).select('vendorId storeId').lean();
+  const catalogById = new Map(catalog.map((product: any) => [String(product._id), product]));
+  const primaryStores: any[] = await Store.find({ vendorId: { $in: catalog.map((product: any) => String(product.vendorId)) } }).sort({ _id: 1 }).lean();
+  const originalStoreByOwner = new Map<string, string>();
+  for (const store of primaryStores) if (!originalStoreByOwner.has(String(store.vendorId))) originalStoreByOwner.set(String(store.vendorId), String(store._id));
   for (const item of items) {
-    const vendorId = String(item?.vendorId || '').trim()
-    let storeId = String(item?.storeId || '').trim()
-    if (!storeId && item.productId) {
-      try {
-        const productRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/database/products/${item.productId}`)
-        if (productRes.ok) {
-          const productJson = await productRes.json()
-          if (productJson.success && productJson.data && productJson.data.storeId) {
-            storeId = String(productJson.data.storeId || '').trim()
-          }
-        }
-      } catch {}
-    }
+    const product: any = catalogById.get(String(item.productId));
+    if (!product) return { success: false, error: 'A product in your cart is unavailable.', status: 400 };
+    const vendorId = String(product.vendorId);
+    const storeId = String(product.storeId || originalStoreByOwner.get(vendorId) || '');
     const groupingKey = storeId ? `store:${storeId}` : `vendor:${vendorId}`
     if (!vendorOrders.has(groupingKey)) {
       vendorOrders.set(groupingKey, {
@@ -127,7 +123,7 @@ export async function buildOrder(input: BuildOrderInput): Promise<BuildOrderResu
     if (!vendor.storeId && storeId) {
       vendor.storeId = storeId
     }
-    vendor.items.push({ ...item, storeId })
+    vendor.items.push({ ...item, vendorId, storeId })
     vendor.total += Number(item?.price || 0) * Number(item?.quantity || 0)
   }
 
@@ -146,7 +142,7 @@ export async function buildOrder(input: BuildOrderInput): Promise<BuildOrderResu
 
   let stores: any[] = []
   if (storeQueryOr.length > 0) {
-    stores = await Store.find({ $or: storeQueryOr }).lean()
+    stores = await Store.find({ $or: storeQueryOr }).sort({ _id: 1 }).lean()
   }
 
   const storeById = new Map<string, any>()
@@ -170,13 +166,19 @@ export async function buildOrder(input: BuildOrderInput): Promise<BuildOrderResu
   let maxCourierEtaHours: number | null = null
 
   for (const vendor of Array.from(vendorOrders.values()) as any[]) {
-    const store = storeById.get(String(vendor?.storeId || '')) || storeByVendorId.get(String(vendor?.vendorId || ''))
+    const store = vendor.storeId ? storeById.get(String(vendor.storeId)) : storeByVendorId.get(String(vendor.vendorId));
+    if (!store) return { success: false, error: 'A store in your cart is unavailable.', status: 400 };
     const pickupAddress = String(store?.address || '')
+    if (store && String(store.vendorId) !== String(vendor.vendorId)) return { success: false, error: 'Invalid product store ownership.', status: 400 };
+    const quoteGroupId = vendor.storeId || vendor.vendorId;
     vendor.storeId = vendor.storeId || store?._id?.toString?.() || ''
+    vendor.items = vendor.items.map((item: any) => ({ ...item, storeId: vendor.storeId }));
+    vendor.vendorName = String(store.storeName || vendor.vendorName || 'Store');
     vendor.storeAddress = pickupAddress || ''
     vendor.storeState = String(store?.state || '')
 
-    const selection = courierSelections?.[vendor.vendorId]
+    const sameOwnerLegs = vendorEntries.filter((leg: any) => leg.vendorId === vendor.vendorId).length;
+    const selection = courierSelections?.[quoteGroupId] || (sameOwnerLegs === 1 ? courierSelections?.[vendor.vendorId] : undefined)
     const provider = String(selection?.provider || '').trim()
     const quoteRef = String(selection?.quoteRef || '').trim()
     const shippingFee = Number(selection?.total)
@@ -252,7 +254,7 @@ export async function buildOrder(input: BuildOrderInput): Promise<BuildOrderResu
   const orderData = {
     orderId,
     customerId,
-    items,
+    items: Array.from(vendorOrders.values()).flatMap((vendor: any) => vendor.items),
     shippingInfo,
     shippingAddress: {
       street: shippingInfo.address,

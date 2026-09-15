@@ -44,7 +44,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     // used by browsing/bot hot paths.
     if (service.providerId) {
       await connectToDatabase()
-      const store: any = await Store.findOne({ vendorId: service.providerId }).select('phone').lean()
+      const store: any = await Store.findOne((service as any).storeId ? { _id: (service as any).storeId, vendorId: service.providerId } : { vendorId: service.providerId }).sort({ _id: 1 }).select('phone').lean()
       service.providerPhone = store?.phone || ''
     }
 

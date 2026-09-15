@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document, models } from 'mongoose';
 
 export interface IBooking extends Document {
+  storeId?: string;
   serviceId: string;
   selectedPackageId?: string;
   selectedPackageName?: string;
@@ -123,6 +124,7 @@ export interface IBooking extends Document {
 }
 
 const BookingSchema = new Schema<IBooking>({
+  storeId: { type: String, index: true },
   serviceId: { type: String, required: true },
   selectedPackageId: { type: String },
   selectedPackageName: { type: String },

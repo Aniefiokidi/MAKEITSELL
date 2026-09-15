@@ -1,3 +1,4 @@
+import { resolveListingStore } from "@/lib/store-scope";
 import { NextRequest, NextResponse } from 'next/server'
 import { getServiceById, updateService } from '@/lib/mongodb-operations'
 import { cacheNamespaces, invalidateCacheNamespace } from '@/lib/cache-store'
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       return NextResponse.json({ error: 'Service not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ service })
+    return NextResponse.json({ success: true, service })
   } catch (error: any) {
     console.error('Error fetching vendor service:', error)
     statusCode = 500
@@ -74,6 +75,10 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
     const body = await request.json()
 
     const patch: any = {}
+    if ('storeId' in body) {
+      try { patch.storeId = await resolveListingStore(String((existingService as any).providerId), body.storeId); }
+      catch { return NextResponse.json({ success: false, error: 'Invalid store ownership' }, { status: 403 }); }
+    }
 
     if (typeof body.title === 'string') patch.title = body.title.trim()
     if (typeof body.description === 'string') patch.description = body.description.trim()
@@ -142,7 +147,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
     await invalidateCacheNamespace(cacheNamespaces.servicesList)
     await invalidateCacheNamespace(cacheNamespaces.servicesDetail)
 
-    return NextResponse.json({ service })
+    return NextResponse.json({ success: true, service })
   } catch (error: any) {
     console.error('Error updating vendor service:', error)
     statusCode = 500

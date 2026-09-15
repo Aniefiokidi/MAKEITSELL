@@ -1,3 +1,4 @@
+import { resolveStoreScope, belongsToStore } from "@/lib/store-scope";
 import { NextRequest } from "next/server";
 import { getOrdersByVendor, updateOrder } from "@/lib/mongodb-operations";
 import connectToDatabase from "@/lib/mongodb";
@@ -25,7 +26,13 @@ export async function GET(req: NextRequest) {
       return new Response(JSON.stringify({ success: false, error: "Forbidden" }), { status: 403 });
     }
 
-    const orders = await getOrdersByVendor(vendorId);
+    const storeId = searchParams.get('storeId');
+    let scope;
+    try { scope = storeId ? await resolveStoreScope(storeId, vendorId) : undefined; }
+    catch { return new Response(JSON.stringify({ success: false, error: 'Invalid store ownership' }), { status: 403 }); }
+    const orders = (await getOrdersByVendor(vendorId)).map((order: any) => ({ ...order,
+      vendors: (order.vendors || []).filter((leg: any) => leg.vendorId === vendorId && (!scope || belongsToStore(leg, scope)))
+    })).filter((order: any) => order.vendors.length);
 
     await connectToDatabase();
     const db = mongoose.connection.db;
@@ -49,7 +56,8 @@ export async function GET(req: NextRequest) {
       }
 
       for (const order of orders) {
-        const vendorData = order.vendors?.find((v: any) => v.vendorId === vendorId);
+        const legs = order.vendors || [];
+        const vendorData = legs.length === 1 ? legs[0] : { ...legs[0], items: legs.flatMap((leg: any) => leg.items || []), total: legs.reduce((sum: number, leg: any) => sum + Number(leg.total || 0), 0) };
         const items = vendorData?.items || order.items || [];
 
         const customer = customerById.get(String(order.customerId || ''));

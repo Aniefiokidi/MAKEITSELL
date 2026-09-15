@@ -1,3 +1,4 @@
+import { storeListingQuery } from "./store-scope";
 import { Order as OrderModel } from './models/Order';
 import ConversationModel, { IConversation } from './models/Conversation';
 import MessageModel, { IMessage } from './models/Message';
@@ -291,6 +292,7 @@ export const getAllUsers = async () => {
 
 // Service model definition (no separate file yet)
 const ServiceSchema = new mongoose.Schema({
+  storeId: { type: String, index: true },
   providerId: { type: String, required: true },
   providerName: { type: String, required: true },
   providerImage: { type: String },
@@ -916,6 +918,7 @@ export const getStores = async (filters: any) => {
   if (filters?.category) query.category = filters.category;
   if (filters?.isOpen !== undefined) query.isOpen = filters.isOpen;
   if (filters?.vendorId) query.vendorId = filters.vendorId;
+  if (filters?.storeScope) query.$and = [storeListingQuery(filters.storeScope, "vendorId")];
   if (filters?.isActive !== undefined) query.isActive = filters.isActive;
   let dbQuery = StoreModel.find(query);
   if (filters?.limitCount) {
@@ -1032,6 +1035,7 @@ export const getServices = async (filters: ServiceFilters): Promise<Service[]> =
   const query: any = {};
   if (filters?.category) query.category = filters.category;
   if (filters?.providerId) query.providerId = filters.providerId;
+  if (filters?.storeScope) query.$and = [storeListingQuery(filters.storeScope, "providerId")];
   if (filters?.featured !== undefined) query.featured = filters.featured;
   if (filters?.locationType) query.locationType = filters.locationType;
   // Previously unfiltered — every caller got inactive/paused services back too. Additive
@@ -1127,6 +1131,7 @@ const buildProductQuery = (filters?: any) => {
   const query: any = {};
   if (filters?.category) query.category = new RegExp(`^${filters.category}$`, 'i');
   if (filters?.vendorId) query.vendorId = filters.vendorId;
+  if (filters?.storeScope) query.$and = [storeListingQuery(filters.storeScope, "vendorId")];
   if (Array.isArray(filters?.vendorIds) && filters.vendorIds.length > 0) query.vendorId = { $in: filters.vendorIds };
   if (filters?.featured !== undefined) query.featured = filters.featured;
   if (filters?.status) query.status = filters.status;
@@ -1414,6 +1419,7 @@ export const getBookings = async (filters: any) => {
   const query: any = {};
   if (filters?.customerId) query.customerId = filters.customerId;
   if (filters?.providerId) query.providerId = filters.providerId;
+  if (filters?.storeScope) query.$and = [storeListingQuery(filters.storeScope, "providerId")];
   if (filters?.status) query.status = filters.status;
   
   const bookings = await BookingModel.find(query).sort({ bookingDate: -1 }).lean();

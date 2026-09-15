@@ -1,3 +1,4 @@
+import { resolveListingStore } from "@/lib/store-scope";
 import { NextRequest, NextResponse } from 'next/server'
 import { createService } from '@/lib/mongodb-operations'
 import { cacheNamespaces, invalidateCacheNamespace } from '@/lib/cache-store'
@@ -299,7 +300,8 @@ export async function POST(request: NextRequest) {
       serviceData.providerId = user.id
       serviceData.providerName = user.name || serviceData.providerName
     }
-    console.log('Creating service with data:', serviceData)
+    try { serviceData.storeId = await resolveListingStore(serviceData.providerId, serviceData.storeId); }
+    catch { return NextResponse.json({ success: false, error: 'Invalid store ownership' }, { status: 403 }); }
 
     const validation = validateServicePayload(serviceData)
     if (!validation.valid) {
@@ -316,7 +318,7 @@ export async function POST(request: NextRequest) {
     await invalidateCacheNamespace(cacheNamespaces.servicesList)
     await invalidateCacheNamespace(cacheNamespaces.servicesDetail)
 
-    return NextResponse.json({ service: newService }, { status: 201 })
+    return NextResponse.json({ success: true, service: newService }, { status: 201 })
   } catch (error: any) {
     console.error('Error creating service:', error)
     console.error('Error details:', error.message, error.stack)

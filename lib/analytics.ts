@@ -1,3 +1,4 @@
+import { belongsToStore, type StoreScope } from "./store-scope";
 import { getOrdersByVendor } from "./mongodb-operations";
 import { getVendorProducts } from "./mongodb-operations";
 import { buildCustomerSegments } from "./vendor-insights";
@@ -86,10 +87,7 @@ export async function getVendorSalesSummary(vendorId: string, period: 'today' | 
 
   function getVendorOrderTotal(order: any): number {
     if (Array.isArray(order.vendors)) {
-      const vendorObj = order.vendors.find((v: any) => v.vendorId === vendorId);
-      if (!vendorObj) return 0;
-      if (!isSettledVendorSale(order, vendorObj.status)) return 0;
-      return vendorObj.total || 0;
+      return order.vendors.filter((v: any) => v.vendorId === vendorId && isSettledVendorSale(order, v.status)).reduce((sum: number, v: any) => sum + Number(v.total || 0), 0);
     }
     if (order.vendorId === vendorId && typeof order.total === 'number') {
       if (!isSettledVendorSale(order, order.status)) return 0;
@@ -105,10 +103,12 @@ export async function getVendorSalesSummary(vendorId: string, period: 'today' | 
   return { period, revenue, orderCount: settledOrders.length };
 }
 
-export async function getVendorAnalytics(vendorId: string) {
+export async function getVendorAnalytics(vendorId: string, scope?: StoreScope) {
   // Fetch orders and products for this vendor
-  const orders = await getOrdersByVendor(vendorId);
-  const products = await getVendorProducts(vendorId);
+  const orders = (await getOrdersByVendor(vendorId)).map((order: any) => ({ ...order,
+    vendors: (order.vendors || []).filter((leg: any) => leg.vendorId === vendorId && (!scope || belongsToStore(leg, scope)))
+  })).filter((order: any) => order.vendors.length);
+  const products = (await getVendorProducts(vendorId)).filter((product: any) => !scope || belongsToStore(product, scope));
 
   // Dates for analytics — Lagos-calendar boundaries, not the server's own UTC clock.
   const now = new Date();
@@ -120,10 +120,7 @@ export async function getVendorAnalytics(vendorId: string) {
   // settled sale (see isSettledVendorSale above), not just a missing vendor line.
   function getVendorOrderTotal(order: any) {
     if (Array.isArray(order.vendors)) {
-      const vendorObj = order.vendors.find((v: any) => v.vendorId === vendorId);
-      if (!vendorObj) return 0;
-      if (!isSettledVendorSale(order, vendorObj.status)) return 0;
-      return vendorObj.total || 0;
+      return order.vendors.filter((v: any) => v.vendorId === vendorId && isSettledVendorSale(order, v.status)).reduce((sum: number, v: any) => sum + Number(v.total || 0), 0);
     }
     // Fallback for legacy single-vendor orders
     if (order.vendorId === vendorId && typeof order.total === 'number') {
@@ -174,7 +171,7 @@ export async function getVendorAnalytics(vendorId: string) {
   const unitsSoldByProduct = new Map<string, number>();
   for (const order of vendorOrders) {
     const items: any[] = Array.isArray((order as any).vendors)
-      ? ((order as any).vendors.find((v: any) => v.vendorId === vendorId)?.items || [])
+      ? (order as any).vendors.filter((v: any) => v.vendorId === vendorId && isSettledVendorSale(order, v.status)).flatMap((v: any) => v.items || [])
       : Array.isArray((order as any).items)
       ? (order as any).items.filter((it: any) => it.vendorId === vendorId)
       : [];

@@ -425,7 +425,7 @@ async function fetchAndPresentQuotes(
   const noticeLines: string[] = []
   if (failedVendors.length > 0) {
     const droppedNames = failedVendors.map((v) => v.storeName)
-    cart2 = cart.filter((item) => !failedVendors.some((v) => v.vendorId === item.vendorId))
+    cart2 = cart.filter((item) => !failedVendors.some((v) => v.productIds?.includes(item.productId) ?? v.vendorId === item.vendorId))
     noticeLines.push(
       `Heads up: ${droppedNames.join(', ')} can't deliver to you right now, so ${droppedNames.length > 1 ? 'those items were' : 'that item was'} removed from your cart. Continuing with the rest.`
     )
@@ -434,10 +434,10 @@ async function fetchAndPresentQuotes(
   const selectedCouriers: Record<string, any> = {}
   const deliveryQuotesByVendor: Record<string, any> = {}
   for (const v of okVendors) {
-    deliveryQuotesByVendor[v.vendorId] = v
+    deliveryQuotesByVendor[v.groupId || v.vendorId] = v
     const cheapest = v.cheapestCourier
     if (cheapest) {
-      selectedCouriers[v.vendorId] = {
+      selectedCouriers[v.groupId || v.vendorId] = {
         provider: cheapest.provider,
         quoteRef: cheapest.quoteRef,
         total: Number(cheapest.total || 0),
@@ -459,7 +459,7 @@ async function fetchAndPresentQuotes(
     lines.push(`\n${vIndex + 1}. ${v.storeName}:`)
     const topCouriers = [...v.couriers].sort((a, b) => Number(a.total || 0) - Number(b.total || 0)).slice(0, 4)
     topCouriers.forEach((c, cIndex) => {
-      const isDefault = selectedCouriers[v.vendorId]?.quoteRef === c.quoteRef
+      const isDefault = selectedCouriers[v.groupId || v.vendorId]?.quoteRef === c.quoteRef
       lines.push(`  ${cIndex + 1}. ${c.serviceLabel} — ${formatNaira(Number(c.total || 0))}${c.etaLabel ? ` (${c.etaLabel})` : ''}${isDefault ? ' [default]' : ''}`)
     })
   })

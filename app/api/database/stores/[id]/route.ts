@@ -185,6 +185,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       Object.entries(body).filter(([_, value]) => value !== undefined)
     );
     
+    // Store ownership and the linked payout account are server-controlled.
+    if (user?.role === 'vendor') {
+      delete updateData.vendorId;
+      delete updateData.linkedWalletUserId;
+    }
     // Map profileImage if present
     if (body.profileImage) {
       updateData.profileImage = body.profileImage;

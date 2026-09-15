@@ -1,3 +1,4 @@
+import { resolveListingStore } from "@/lib/store-scope";
 import { NextRequest, NextResponse } from "next/server"
 import { getProductById, updateProduct } from "@/lib/mongodb-operations"
 import { cacheNamespaces, getCachedPayload, invalidateCacheNamespace, setCachedPayload } from '@/lib/cache-store'
@@ -135,6 +136,10 @@ export async function PUT(
       delete (updateData as any).vendorId
     }
 
+    if ('storeId' in updateData) {
+      try { updateData.storeId = await resolveListingStore(String((existingProduct as any).vendorId), updateData.storeId); }
+      catch { return NextResponse.json({ success: false, error: 'Invalid store ownership' }, { status: 403 }); }
+    }
     const updatedProduct = await updateProduct(id, updateData)
 
     if (!updatedProduct) {

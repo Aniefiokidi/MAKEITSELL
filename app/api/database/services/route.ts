@@ -1,3 +1,4 @@
+import { resolveStoreScope } from "@/lib/store-scope";
 import { NextRequest, NextResponse } from 'next/server'
 import { getServices as mongoGetServices } from '@/lib/mongodb-operations'
 import { getServiceSearchEnrichment } from '@/lib/search-enrichment'
@@ -13,6 +14,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const category = searchParams.get('category') || undefined
     const providerId = searchParams.get('providerId') || undefined
+    const storeId = searchParams.get('storeId') || undefined
+    const storeScope = storeId ? await resolveStoreScope(storeId, providerId) : undefined
     const featured = searchParams.get('featured') === 'true' ? true : undefined
     const locationType = searchParams.get('locationType') || undefined
     const search = searchParams.get('search') || undefined
@@ -21,6 +24,7 @@ export async function GET(request: NextRequest) {
     const cacheKey = JSON.stringify({
       category: category || null,
       providerId: providerId || null,
+      storeId: storeId || null,
       featured: featured ?? null,
       locationType: locationType || null,
       search: search || null,
@@ -41,6 +45,7 @@ export async function GET(request: NextRequest) {
     const services = await mongoGetServices({
       category,
       providerId,
+      storeScope,
       featured,
       locationType,
       search,
@@ -49,7 +54,7 @@ export async function GET(request: NextRequest) {
 
     const payload: any = { success: true, data: services }
 
-    if (search && services.length === 0) {
+    if (search && !storeId && services.length === 0) {
       const enrichment = await getServiceSearchEnrichment(search, { category, providerId, featured, locationType }).catch(() => ({} as any))
       if (enrichment.suggestion) payload.suggestion = enrichment.suggestion
       if (enrichment.similar) payload.similar = enrichment.similar

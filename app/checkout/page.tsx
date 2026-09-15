@@ -182,6 +182,7 @@ export default function CheckoutPage() {
   // Each vendor ships separately from their own pickup address — one courier choice per
   // vendor, not one shared choice for the whole cart.
   const vendorGroups = useMemo(() => {
+    if (Object.keys(shipbubbleRates).length) return Object.entries(shipbubbleRates).map(([key, rate]) => ({ vendorId: key, vendorName: rate.storeName || 'Store' }));
     const map = new Map<string, { vendorId: string; vendorName: string }>()
     for (const item of items) {
       if (item.vendorId && !map.has(item.vendorId)) {
@@ -189,7 +190,7 @@ export default function CheckoutPage() {
       }
     }
     return Array.from(map.values())
-  }, [items])
+  }, [items, shipbubbleRates])
 
   // Calculate VAT at 7% of subtotal
   const calculateVAT = (amount: number) => {
@@ -310,11 +311,11 @@ export default function CheckoutPage() {
         const nextRates: typeof shipbubbleRates = {}
         const nextSelected: typeof selectedCouriers = {}
         for (const v of (result.vendors || [])) {
-          nextRates[v.vendorId] = v
+          nextRates[v.groupId || v.vendorId] = v
           // Default to Standard (cheapest) — same default behavior as before, just
           // relabeled; the buyer can still switch to Express below.
           if (v.cheapestCourier) {
-            nextSelected[v.vendorId] = {
+            nextSelected[v.groupId || v.vendorId] = {
               provider: v.cheapestCourier.provider,
               quoteRef: v.cheapestCourier.quoteRef,
               total: Number(v.cheapestCourier.total || 0),
