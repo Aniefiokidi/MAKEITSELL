@@ -136,3 +136,17 @@ test('a one-line address and a mid-checkout question are handled', async () => {
   const addr = texts(await say('12 Allen Avenue Ikeja Lagos'))
   assert.doesNotMatch(addr, /couldn't read that/i)
 })
+
+test('"more" continues the numbering and earlier cards stay referable', async () => {
+  const { store } = await seedVendor({ storeName: 'Many Shoes', phone: '+2348011110099' })
+  for (let i = 1; i <= 6; i++) await seedProduct(store, { name: `Runner ${i}`, price: 10000 + i * 100, sales: i * 10, stock: i === 2 ? 2 : 9 })
+  const first = texts(await say('runner'))
+  assert.match(first, /1\. Runner/)
+  assert.match(first, /\d+ sold/)
+  const more = texts(await say('more'))
+  assert.match(more, /5\. Runner/)
+  assert.match(more, /only 2 left/)
+  assert.doesNotMatch(more, /1\. Runner/)
+  assert.match(texts(await say('add 6')), /Added: Runner \d x1/)
+  assert.match(texts(await say('add 1')), /Added: Runner \d x1/)
+})

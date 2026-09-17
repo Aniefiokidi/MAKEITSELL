@@ -48,7 +48,15 @@ function buildProductCaption(product: any, storeName: string | undefined, index:
   const name = String(product?.name || 'Product')
   const price = formatNaira(Number(product?.price || 0))
   const sellerName = storeName || String(product?.vendorName || 'Make It Sell')
-  return `${index}. ${name}\n${price}\nSold by ${sellerName}\n\nReply "${index}" or "add ${index}" to add it to your cart.`
+  const sales = Number(product?.sales || 0)
+  const stock = Number(product?.stock)
+  // Trust/urgency signals a shop assistant would mention: how many have sold, and when
+  // only a few are left.
+  const signals = [
+    sales >= 5 ? `${sales.toLocaleString('en-NG')} sold` : '',
+    Number.isFinite(stock) && stock > 0 && stock <= 3 ? `only ${stock} left` : '',
+  ].filter(Boolean).join(' · ')
+  return `${index}. ${name}\n${price}\nSold by ${sellerName}${signals ? `\n${signals}` : ''}\n\nReply "${index}" or "add ${index}" to add it to your cart.`
 }
 
 // Sends one result (image+caption, or text if no photo) and records the message->product

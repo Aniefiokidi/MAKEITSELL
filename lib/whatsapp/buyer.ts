@@ -377,7 +377,8 @@ async function runSearchAndReply(waId: string, query: string, offset: number): P
   // $unset clears any in-progress image-search paging state — this is a text search,
   // so "more" from here on should continue paging THIS query, not a stale photo match.
   await Promise.all([
-    sendProductResults(waId, pageItems),
+    // "more" keeps numbering going (5, 6, ...) and keeps the earlier cards referable.
+    sendProductResults(waId, pageItems, { append: offset > 0 }),
     WhatsAppBrowseState.findOneAndUpdate(
       { waId },
       {
