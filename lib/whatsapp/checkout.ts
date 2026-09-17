@@ -127,13 +127,11 @@ export async function trackProductMessage(waId: string, messageId: string, produ
 }
 
 // Primary add-to-cart path: buyer replies (quotes) one of our product-result messages.
-// Works regardless of what the reply TEXT says — replying to a specific product is a
-// stronger signal of intent than parsing the words, matching how a real customer would
-// tap "add to cart" on a specific listing. A bare positive integer in the reply is read
-// as quantity; anything else defaults to 1.
+// Requires an explicit add instruction or quantity. Buyers often reply to a listing
+// with a question, which must not silently change their cart.
 export async function tryHandleProductReply(waId: string, contextMessageId: string, text: string): Promise<boolean> {
   await connectToDatabase()
-  const mapping: any = await WhatsAppProductMessageMap.findOne({ messageId: contextMessageId }).lean()
+  const mapping: any = await WhatsAppProductMessageMap.findOne({ messageId: contextMessageId, waId }).lean()
   if (!mapping?.productId) return false
 
   const product: any = await Product.findOne({ _id: mapping.productId, status: 'active' }).lean()
@@ -143,7 +141,17 @@ export async function tryHandleProductReply(waId: string, contextMessageId: stri
   }
 
   const trimmedReply = String(text || '').trim()
-  const quantity = /^\d+$/.test(trimmedReply) && Number(trimmedReply) > 0 ? Number(trimmedReply) : 1
+  const addMatch = trimmedReply.match(/^(?:(?:add|buy|i(?:'d| would)? like|i want|yes|please|one|this)(?:\s+(?:this|one|it|to cart))?)(?:\s+(\d+))?\s*[!.]?$/i)
+  const quantityText = /^\d+$/.test(trimmedReply) ? trimmedReply : addMatch?.[1]
+  if (trimmedReply && !quantityText && !addMatch) {
+    await trySendText(waId, `*${product.name || 'This product'}* costs ${formatNaira(Number(product.price || 0))}. To add it to your cart, reply "add" or send a quantity (e.g. "2").`)
+    return true
+  }
+  const quantity = quantityText ? Number(quantityText) : 1
+  if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 99) {
+    await trySendText(waId, 'Please choose a quantity from 1 to 99.')
+    return true
+  }
 
   const productWithId = { ...product, id: String(product._id) }
   const { cart, addedTitle } = await addProductToCart(waId, productWithId, quantity)

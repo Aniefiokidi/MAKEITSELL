@@ -57,7 +57,7 @@ export async function tryHandleServiceOfferReply(waId: string, contextMessageId:
   if (!match) return false
 
   await connectToDatabase()
-  const mapping: any = await WhatsAppServiceMessageMap.findOne({ messageId: contextMessageId }).lean()
+  const mapping: any = await WhatsAppServiceMessageMap.findOne({ messageId: contextMessageId, waId }).lean()
   if (!mapping?.serviceId) return false // not a reply to a service card — let handleServiceReply's own lookup try it
 
   const service: any = await getServiceById(mapping.serviceId)

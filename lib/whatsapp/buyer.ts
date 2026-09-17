@@ -15,6 +15,7 @@ import { sendTextMessage, sendInteractiveListMessage, type WhatsAppListRow } fro
 import { PRODUCT_CATEGORIES } from '@/lib/product-categories'
 import { SERVICE_CATEGORIES } from '@/lib/service-categories'
 import { sendProductResults } from '@/lib/whatsapp/product-results'
+import { searchCatalogProducts } from '@/lib/whatsapp/catalog-search'
 import { sendServiceResults } from '@/lib/whatsapp/service-results'
 import {
   BLOCKING_CHECKOUT_STAGES,
@@ -77,11 +78,9 @@ const GREETING_KEYWORDS = new Set([
 const THANKS_PATTERN = /^(thanks?( you| u)?|thank\s*you|tanx|tnx|God bless( you)?|much appreciated)[\s!.]*$/i
 const THANKS_REPLY = "You're welcome! Search anytime you need something else."
 const CATEGORY_KEYWORDS = new Set(['menu', 'categories', 'category'])
-// Now doubles as a checkout trigger (see handleBuyerMessage) rather than a coming-soon
-// placeholder — ordering is live. Still conservative: only short messages, so a longer
-// legitimate product search containing one of these words isn't misrouted.
-const BUY_INTENT_PATTERN = /\b(buy|purchase|checkout|order)\b/i
-const BUY_INTENT_MAX_LENGTH = 40
+// Only standalone checkout requests start checkout. "I want to buy shoes" contains a
+// product search and must not open an empty cart.
+const CHECKOUT_INTENT_PATTERN = /^(?:buy|purchase|checkout|order|place (?:my|an?) order|i(?:'m| am) ready to (?:buy|checkout|order))\s*[!.]?$/i
 const REMOVE_PATTERN = /^remove\s+(\d+)$/
 // Broadened from an exact "cart" match after real buyers asked "what is in my cart",
 // "show my cart", and Pidgin phrasing like "wetin dey inside my cart" — none of which
@@ -141,7 +140,16 @@ const SERVICE_GREETING_MESSAGE =
 const CONVERSATIONAL_PHRASING_PATTERN =
   /\b(i want|i'd like|i would like|i need|i wan|abeg|can i|could i|do you have|is there|i am looking|i'm looking|looking for|please (help|show|find))\b/i
 const CONVERSATIONAL_CLARIFY_MESSAGE =
-  'Got it! For the fastest match, reply with just the product name (e.g. "sneakers"), or type "categories" to browse, or "services" to book a service.'
+  'Tell me the product or service you need (e.g. "sneakers" or "hair braiding"). You can also type "categories" to browse.'
+
+// Keep the object of a shopping request instead of asking the buyer to repeat it.
+// Restrict extraction to common opening phrases; more complex questions get a prompt.
+function requestedItem(text: string): string | null {
+  const match = text.trim().match(/^(?:(?:hi|hello|hey|please|abeg)[,!\s]+)*(?:i(?:'m| am)?\s*(?:want|wan|need|looking for)|i(?:'d| would) like|can i (?:buy|find|get)|do you have|show me|find me|looking for|please (?:show|find))\s+(.+)$/i)
+  if (!match) return null
+  const item = match[1].replace(/^(?:to\s+)?(?:buy|purchase|find|get|see|order)\s+/i, '').replace(/^(?:a|an|some|the)\s+/i, '').replace(/[?.!\s]+$/g, '').trim()
+  return item.length >= 2 && item.length <= 80 ? item : null
+}
 
 // Extracts a candidate store/vendor name from "... from X" / "... at X" / "... by X"
 // phrasing, falling back to the whole trimmed message (covers a buyer just typing a bare
@@ -202,7 +210,7 @@ async function tryHandleStoreMention(waId: string, trimmed: string, wantsBooking
       sendServiceResults(waId, services),
       WhatsAppBrowseState.findOneAndUpdate(
         { waId },
-        { $set: { browseMode: 'services', lastQuery: candidate, offset: services.length, updatedAt: new Date() } },
+        { $set: { browseMode: 'services', updatedAt: new Date() }, $unset: { lastQuery: '', lastCategorySlug: '', matchMode: '' } },
         { upsert: true }
       ),
     ])
@@ -218,7 +226,7 @@ async function tryHandleStoreMention(waId: string, trimmed: string, wantsBooking
     sendProductResults(waId, products),
     WhatsAppBrowseState.findOneAndUpdate(
       { waId },
-      { $set: { lastQuery: candidate, offset: products.length, updatedAt: new Date() } },
+      { $set: { browseMode: 'goods', updatedAt: new Date() }, $unset: { lastQuery: '', lastCategorySlug: '', matchMode: '' } },
       { upsert: true }
     ),
   ])
@@ -247,6 +255,7 @@ async function trySendList(waId: string, bodyText: string, buttonText: string, r
     await sendInteractiveListMessage(waId, bodyText, buttonText, rows)
   } catch (error) {
     console.error(`[whatsapp-buyer] List send failed for ${waId}:`, error)
+    await trySendText(waId, `${bodyText}\n\n${rows.map((row) => `- ${row.title}`).join('\n')}\n\nType a category name to search.`)
   }
 }
 
@@ -256,12 +265,12 @@ async function trySendList(waId: string, bodyText: string, buttonText: string, r
 async function runSearchAndReply(waId: string, query: string, offset: number): Promise<void> {
   await connectToDatabase()
 
-  const products = await getProducts({
-    search: query,
-    status: 'active',
-    limitCount: FETCH_PER_PAGE,
-    skipCount: offset,
-  })
+  if (query.trim().length > 80) {
+    await trySendText(waId, 'Please use a shorter product name, such as "red sneakers", so I can find a useful match.')
+    return
+  }
+
+  const products = await searchCatalogProducts(query, offset, FETCH_PER_PAGE)
 
   if (products.length === 0) {
     console.log(`[whatsapp-buyer] search: no results for "${query}" (offset ${offset}) — ${waId}`)
@@ -293,8 +302,8 @@ async function runSearchAndReply(waId: string, query: string, offset: number): P
     WhatsAppBrowseState.findOneAndUpdate(
       { waId },
       {
-        $set: { lastQuery: query, offset: offset + pageItems.length, updatedAt: new Date() },
-        $unset: { matchMode: '', lastImageHash: '', lastImageEmbedding: '', lastVisualCategory: '' },
+        $set: { browseMode: 'goods', lastQuery: query, offset: offset + pageItems.length, updatedAt: new Date() },
+        $unset: { lastCategorySlug: '', matchMode: '', lastImageHash: '', lastImageEmbedding: '', lastVisualCategory: '' },
       },
       { upsert: true }
     ),
@@ -715,7 +724,7 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
   if (GOODS_EXIT_KEYWORDS.has(lower)) {
     await WhatsAppBrowseState.findOneAndUpdate(
       { waId },
-      { $set: { browseMode: 'goods', updatedAt: new Date() } },
+      { $set: { browseMode: 'goods', updatedAt: new Date() }, $unset: { lastQuery: '', lastCategorySlug: '', matchMode: '' } },
       { upsert: true }
     )
     await trySendText(waId, GREETING_MESSAGE)
@@ -747,12 +756,12 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
     return
   }
 
-  if (lower === 'checkout' || (trimmed.length <= BUY_INTENT_MAX_LENGTH && BUY_INTENT_PATTERN.test(trimmed))) {
+  if (CHECKOUT_INTENT_PATTERN.test(trimmed)) {
     await handleCheckoutStart(waId)
     return
   }
 
-  if (mode === 'services' && SERVICE_BOOK_INTENT_PATTERN.test(trimmed)) {
+  if (mode === 'services' && /^(?:book|reserve|schedule|appointment)(?:\s+(?:this|one|it))?\s*[!.]?$/i.test(trimmed)) {
     await trySendText(waId, SERVICE_BOOKING_SOON_MESSAGE)
     return
   }
@@ -783,13 +792,23 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
   if (await tryHandleStoreMention(waId, trimmed, wantsBooking)) return
 
   if (CONVERSATIONAL_PHRASING_PATTERN.test(trimmed)) {
+    const item = requestedItem(trimmed)
     if (wantsBooking) {
+      const serviceQuery = item?.replace(/^(?:book|a booking for|a service(?: for)?|service(?: for)?)\s+/i, '').trim()
+      if (serviceQuery && !/^(?:a|an|the)?\s*service$/i.test(serviceQuery)) {
+        await runServiceSearchAndReply(waId, 0, { query: serviceQuery })
+        return
+      }
       await WhatsAppBrowseState.findOneAndUpdate(
         { waId },
         { $set: { browseMode: 'services', updatedAt: new Date() } },
         { upsert: true }
       )
       await trySendText(waId, SERVICE_GREETING_MESSAGE)
+      return
+    }
+    if (item) {
+      await runSearchAndReply(waId, item, 0)
       return
     }
     await trySendText(waId, CONVERSATIONAL_CLARIFY_MESSAGE)

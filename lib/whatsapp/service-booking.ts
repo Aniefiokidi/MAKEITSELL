@@ -69,12 +69,20 @@ function addOnAmount(addOn: any, basePackagePrice: number): number {
 
 export async function handleServiceReply(waId: string, contextMessageId: string, text: string): Promise<boolean> {
   await connectToDatabase()
-  const mapping: any = await WhatsAppServiceMessageMap.findOne({ messageId: contextMessageId }).lean()
+  const mapping: any = await WhatsAppServiceMessageMap.findOne({ messageId: contextMessageId, waId }).lean()
   if (!mapping?.serviceId) return false
 
   const service: any = await getServiceById(mapping.serviceId)
   if (!service || service.status !== 'active') {
     await trySendText(waId, "Sorry, that service isn't available anymore. Search again to see what's on offer.")
+    return true
+  }
+
+  const reply = String(text || '').trim()
+  if (reply && !/^(?:book|book (?:this|it)|i want to book|reserve|schedule|request(?:\s+(?:a\s+)?quote)?|quote|yes|please|this|1)\s*[!.]?$/i.test(reply)) {
+    const price = Number(service.price) > 0 ? `Listed from ${formatNaira(service.price)}. ` : ''
+    const action = service.requiresQuote ? 'Reply "quote" to describe your job and request a final price.' : 'Reply "book" to choose a package and time, or "offer <amount>" to negotiate.'
+    await trySendText(waId, `${service.title}: ${price}${action}`)
     return true
   }
 

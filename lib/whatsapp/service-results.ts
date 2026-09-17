@@ -7,11 +7,12 @@ import { Store } from '@/lib/models/Store'
 import { WhatsAppServiceMessageMap } from '@/lib/models/WhatsAppServiceMessageMap'
 import { sendTextMessage, sendImageMessage } from '@/lib/whatsapp/client'
 
-async function trySendText(waId: string, body: string): Promise<void> {
+async function trySendText(waId: string, body: string): Promise<any | null> {
   try {
-    await sendTextMessage(waId, body)
+    return await sendTextMessage(waId, body)
   } catch (error) {
     console.error(`[whatsapp-service-results] Text send failed for ${waId}:`, error)
+    return null
   }
 }
 
@@ -86,9 +87,9 @@ function buildServiceCaption(service: any, storeName?: string): string {
   }
 
   if (requiresQuote) {
-    lines.push('', 'Final price is confirmed by the provider after booking.')
+    lines.push('', 'Reply "quote" to request a quote. The provider confirms the final price.')
   } else {
-    lines.push('', 'Reply "offer <amount>" to negotiate the price, or reply to book.')
+    lines.push('', 'Reply "book" to choose a time, or "offer <amount>" to negotiate.')
   }
 
   return lines.join('\n')
@@ -99,12 +100,9 @@ async function sendResultItem(waId: string, service: any, storeName?: string): P
   const rawImage = Array.isArray(service?.images) ? service.images[0] : undefined
   const serviceId = String(service?.id || service?._id || '')
 
-  if (!rawImage) {
-    await trySendText(waId, caption)
-    return
-  }
-
-  const result = await trySendImage(waId, buildWhatsAppImageUrl(rawImage), caption)
+  const result = rawImage
+    ? (await trySendImage(waId, buildWhatsAppImageUrl(rawImage), caption)) || await trySendText(waId, caption)
+    : await trySendText(waId, caption)
   const messageId = String(result?.messages?.[0]?.id || '').trim()
   if (messageId && serviceId) {
     await trackServiceMessage(waId, messageId, serviceId)

@@ -6,11 +6,12 @@ import { Store } from '@/lib/models/Store'
 import { sendTextMessage, sendImageMessage } from '@/lib/whatsapp/client'
 import { trackProductMessage } from '@/lib/whatsapp/checkout'
 
-async function trySendText(waId: string, body: string): Promise<void> {
+async function trySendText(waId: string, body: string): Promise<any | null> {
   try {
-    await sendTextMessage(waId, body)
+    return await sendTextMessage(waId, body)
   } catch (error) {
     console.error(`[whatsapp-product-results] Text send failed for ${waId}:`, error)
+    return null
   }
 }
 
@@ -44,7 +45,7 @@ function buildProductCaption(product: any, storeName?: string): string {
   const name = String(product?.name || 'Product')
   const price = formatNaira(Number(product?.price || 0))
   const sellerName = storeName || String(product?.vendorName || 'Make It Sell')
-  return `${name}\n${price}\nSold by ${sellerName}`
+  return `${name}\n${price}\nSold by ${sellerName}\n\nReply "add" or a quantity to add to cart.`
 }
 
 // Sends one result (image+caption, or text if no photo) and records the message->product
@@ -55,15 +56,9 @@ async function sendResultItem(waId: string, product: any, storeName?: string): P
   const rawImage = Array.isArray(product?.images) ? product.images[0] : undefined
   const productId = String(product?.id || product?._id || '')
 
-  if (!rawImage) {
-    // No product photo on file — fall back to text so the listing still shows up
-    // rather than silently disappearing from the results. Not tracked for reply-to-
-    // select: a reply to a text result is rarer, and skipping it keeps this simple.
-    await trySendText(waId, caption)
-    return
-  }
-
-  const result = await trySendImage(waId, buildWhatsAppImageUrl(rawImage), caption)
+  const result = rawImage
+    ? (await trySendImage(waId, buildWhatsAppImageUrl(rawImage), caption)) || await trySendText(waId, caption)
+    : await trySendText(waId, caption)
   const messageId = String(result?.messages?.[0]?.id || '').trim()
   if (messageId && productId) {
     await trackProductMessage(waId, messageId, productId)
