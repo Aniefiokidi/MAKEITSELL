@@ -59,6 +59,7 @@ const WhatsAppBrowseStateSchema = new Schema({
       // their existing dashboard). Accepting/declining a delivered quote is deliberately
       // NOT a blocking stage — see QUOTE_DECISION_PATTERN in that file for why.
       'collecting_quote_description', 'collecting_quote_location', 'choosing_quote_slot', 'collecting_quote_photos',
+      'awaiting_service_location',
     ],
     default: 'browsing',
   },
@@ -90,6 +91,13 @@ const WhatsAppBrowseStateSchema = new Schema({
   // from under a buyer already selecting), selectedPackageId, selectedPackageName,
   // selectedPackagePrice, selectedPackageDuration, addOnOptions (snapshot),
   // selectedAddOns, bookingDate, startTime, endTime, totalPrice }.
+  // Services are contact-only on WhatsApp (lib/whatsapp/service-contacts.ts): where the
+  // buyer is (city centre or a shared pin) so providers can be ranked by distance, plus the
+  // service they asked for while we wait for that location.
+  buyerLocation: { type: Schema.Types.Mixed },
+  pendingServiceQuery: { type: String },
+  pendingServiceCategorySlug: { type: String },
+
   bookingDraft: { type: Schema.Types.Mixed, default: {} },
   // Set once a booking is created and a Paystack link has been sent — same role as
   // pendingOrderId above, for lib/whatsapp/service-booking.ts's booking flow.

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
-import { handleInboundMessage, handleButtonReply, handleInboundImageMessage, handleUnsupportedMessage } from '@/lib/whatsapp/commands'
+import { handleInboundMessage, handleButtonReply, handleInboundImageMessage, handleInboundLocation, handleUnsupportedMessage } from '@/lib/whatsapp/commands'
 import { handleCategorySelection, handleServiceCategorySelection } from '@/lib/whatsapp/buyer'
 import { handleSavedAddressListReply } from '@/lib/whatsapp/checkout'
 import connectToDatabase from '@/lib/mongodb'
@@ -102,6 +102,13 @@ export async function POST(request: NextRequest) {
             } else {
               await handleCategorySelection(waId, rowId)
             }
+          } else if (message?.type === 'location' && Number.isFinite(Number(message?.location?.latitude)) && Number.isFinite(Number(message?.location?.longitude))) {
+            // A shared location pin — used to rank service providers by distance (see
+            // lib/whatsapp/service-contacts.ts). Meta's payload: location: {latitude,
+            // longitude, name?, address?}.
+            const { latitude, longitude, name, address } = message.location
+            console.log(`[whatsapp-webhook] Location from ${waId}: ${latitude},${longitude}${name ? ` (${name})` : ''}`)
+            await handleInboundLocation(waId, Number(latitude), Number(longitude), String(name || address || '').trim() || undefined)
           } else if (message?.type === 'image' && message?.image?.id) {
             // A buyer's photo — matched against the catalog via perceptual hashing (see
             // lib/whatsapp/image-search.ts), no AI/vision API involved.

@@ -13,7 +13,7 @@ import { User } from '@/lib/models/User'
 import { WhatsAppMessageMap } from '@/lib/models/WhatsAppMessageMap'
 import { applyOrderVendorStatus, resolveOrderVendorTarget } from '@/lib/order-vendor-status'
 import { sendTextMessage } from '@/lib/whatsapp/client'
-import { handleBuyerMessage } from '@/lib/whatsapp/buyer'
+import { handleBuyerMessage, handleBuyerLocationPin } from '@/lib/whatsapp/buyer'
 import { WhatsAppBrowseState } from '@/lib/models/WhatsAppBrowseState'
 import {
   QUOTE_BLOCKING_STAGES,
@@ -171,6 +171,20 @@ export async function handleInboundImageMessage(waId: string, mediaId: string): 
     return
   }
   await trySend(waId, "I can't do anything with a photo right now. Try: dispatched [order ref] or balance.")
+}
+
+// A shared WhatsApp location pin. For a buyer (or a vendor in shopping mode) it feeds the
+// services flow — exact coordinates for "closest provider" ranking. Vendors in command
+// mode have no use for it, so they get the usual unsupported-type nudge.
+export async function handleInboundLocation(waId: string, lat: number, lng: number, name?: string): Promise<void> {
+  const vendorId = await resolveLinkedVendor(waId)
+  const buyerMode = !vendorId || await isVendorShopping(vendorId)
+  if (!buyerMode) {
+    await handleUnsupportedMessage(waId, 'location')
+    return
+  }
+  if (vendorId) await ensureBuyerIdentityForVendor(waId, vendorId)
+  await handleBuyerLocationPin(waId, lat, lng, name)
 }
 
 export async function handleUnsupportedMessage(waId: string, type: string): Promise<void> {

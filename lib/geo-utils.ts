@@ -97,3 +97,58 @@ export function distanceToItem(
   if (!coords) return null
   return haversineKm(userLat, userLng, coords.lat, coords.lng)
 }
+
+export interface LocatedPlace {
+  // The city/area name as matched (title-cased for display), its state, and the centre
+  // coordinates the distance maths runs on.
+  name: string
+  state: string
+  lat: number
+  lng: number
+}
+
+function titleCase(value: string): string {
+  return value.replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+// Finds a Nigerian city/area or state mentioned anywhere in free text ("I'm in Ikeja",
+// "hair braiding around wuse 2", "Lagos"). Longest names win so "port harcourt" beats
+// "ph", and two-letter aliases ("ph", "vi") only count when they are the whole message —
+// otherwise "i need a photographer" would land in Port Harcourt. Used by the WhatsApp
+// services flow to place a buyer without a location pin.
+export function findPlaceInText(text: string): LocatedPlace | null {
+  const lower = String(text || '').toLowerCase().replace(/[^\w\s-]/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!lower) return null
+
+  const candidates: Array<{ token: string; entry: (typeof NIGERIA_CITIES)[number]; isState: boolean }> = []
+  for (const entry of NIGERIA_CITIES) {
+    for (const name of entry.names) candidates.push({ token: name, entry, isState: false })
+    candidates.push({ token: entry.state, entry, isState: true })
+  }
+  // The place mentioned first wins ("Ikeja, Lagos" -> Ikeja, the more specific one), then
+  // the longer name ("port harcourt" over "ph"), then a city over a state.
+  let best: { index: number; token: string; entry: (typeof NIGERIA_CITIES)[number]; isState: boolean } | null = null
+  for (const { token, entry, isState } of candidates) {
+    let index = -1
+    if (token.length <= 2) {
+      if (lower === token) index = 0
+    } else {
+      const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const match = new RegExp(`(?:^|[\\s,-])(${escaped})(?:$|[\\s,-])`).exec(lower)
+      if (match) index = match.index + match[0].indexOf(match[1])
+    }
+    if (index < 0) continue
+    if (
+      !best ||
+      index < best.index ||
+      (index === best.index && (token.length > best.token.length || (token.length === best.token.length && !isState && best.isState)))
+    ) {
+      best = { index, token, entry, isState }
+    }
+  }
+  if (!best) return null
+  const { token, entry, isState } = best
+  const stateLabel = entry.state === 'fct' ? 'Abuja' : titleCase(entry.state)
+  const cityLabel = titleCase(token.length <= 2 ? entry.names[0] : token)
+  return { name: isState ? stateLabel : cityLabel, state: stateLabel, lat: entry.lat, lng: entry.lng }
+}

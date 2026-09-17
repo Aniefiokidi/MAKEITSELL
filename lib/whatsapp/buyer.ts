@@ -17,7 +17,20 @@ import { sendProductResults } from '@/lib/whatsapp/product-results'
 import { searchCatalogProducts } from '@/lib/whatsapp/catalog-search'
 import { parseCatalogQuery } from '@/lib/whatsapp/catalog-query'
 import { requestedItem, splitShoppingList } from '@/lib/whatsapp/buyer-intent'
-import { sendServiceResults } from '@/lib/whatsapp/service-results'
+import { answerBuyerFaq } from '@/lib/whatsapp/buyer-faq'
+import {
+  PROVIDERS_PER_PAGE,
+  UNKNOWN_LOCATION,
+  findNearbyProviders,
+  searchServiceCandidates,
+  serviceLabel,
+  locationPrompt,
+  parseBuyerLocation,
+  sendProviderCards,
+  splitServiceQueryAndLocation,
+  tryHandleProviderCardReply,
+  type BuyerLocation,
+} from '@/lib/whatsapp/service-contacts'
 import {
   BLOCKING_CHECKOUT_STAGES,
   tryHandleProductReply,
@@ -27,24 +40,6 @@ import {
   handleCancelCommand,
   handleCheckoutStageMessage,
 } from '@/lib/whatsapp/checkout'
-import {
-  SERVICE_BOOKING_BLOCKING_STAGES,
-  handleServiceReply,
-  handleServiceBookingCancelCommand,
-  handleServiceBookingStageMessage,
-} from '@/lib/whatsapp/service-booking'
-import {
-  QUOTE_BLOCKING_STAGES,
-  handleQuoteStageMessage,
-  handleQuoteCancelCommand,
-  tryHandleQuoteDecision,
-  tryHandleQuoteCounter,
-} from '@/lib/whatsapp/service-quote'
-import {
-  tryHandleServiceOfferReply,
-  tryHandleNegotiationReply,
-  tryHandleBookAgreedCommand,
-} from '@/lib/whatsapp/service-negotiation'
 import { tryHandleCustomerTopupCommand } from '@/lib/whatsapp/wallet-topup'
 import { tryHandleCustomerWithdrawalFlow } from '@/lib/whatsapp/customer-withdrawal'
 import { tryHandleClaimAccountCommand } from '@/lib/whatsapp/claim-account'
@@ -114,18 +109,18 @@ const SERVICE_ENTRY_KEYWORDS = new Set([
 // never say either stay in 'goods' mode forever, so this is unreachable dead code for the
 // vast majority of the existing user base, by design.
 const GOODS_EXIT_KEYWORDS = new Set(['shop', 'products', 'goods', 'buy products'])
-// Fires on generic booking-intent phrasing with no specific service context (only
-// checked once already in services mode — see handleBuyerMessage — so it can't fire for a
-// goods buyer who happens to type "schedule" or "appointment" while shopping for
-// products). Booking a SPECIFIC service (Phase S2, requiresQuote: false only) actually
-// happens by replying to that service's result message — see handleServiceReply in
-// lib/whatsapp/service-booking.ts — not from this generic keyword, which has no service
-// to book yet.
-const SERVICE_BOOK_INTENT_PATTERN = /\b(book|reserve|schedule|appointment)\b/i
+// Generic booking-intent phrasing ("I want to book a photographer") is treated as a
+// service request. Services are contact-only on WhatsApp (see
+// lib/whatsapp/service-contacts.ts): the bot sends the closest providers' contact details
+// and an estimated rate, and the buyer arranges everything with the provider directly.
+const SERVICE_BOOK_INTENT_PATTERN = /\b(book|reserve|schedule|appointment|hire)\b/i
 const SERVICE_BOOKING_SOON_MESSAGE =
-  'To book, reply "book" to the service card you want. For a custom quote, reply "quote" to that card. Search first if you haven\'t seen it yet, or type "categories" to browse.'
+  'Bookings happen directly with the provider — message them on the number shown on their card. If you haven\'t seen one yet, tell me what service you need and where you are, or type "categories" to browse.'
 const SERVICE_GREETING_MESSAGE =
-  'Looking for a service? Reply "categories" to browse, or type what you need (e.g. "hair braiding", "photographer").\n\nType "shop" anytime to go back to browsing products.'
+  'Looking for a service? Tell me what you need and where you are (e.g. "hair braiding in Ikeja", "photographer, Abuja"), or reply "categories" to browse. I\'ll send you the closest providers\' contact details and their rates.\n\nType "shop" anytime to go back to browsing products.'
+// Bare "awaiting_service_location" stage: the buyer asked for a service before telling us
+// where they are, so the next message is read as a location (or a location pin) first.
+const AWAITING_SERVICE_LOCATION_STAGE = 'awaiting_service_location'
 
 // A message using first-person/conversational phrasing ("I want...", "can I...", "do you
 // have...") is virtually never a literal product name — real product searches are short
@@ -193,12 +188,21 @@ async function tryHandleStoreMention(waId: string, trimmed: string, wantsBooking
     if (services.length === 0) {
       await trySendText(
         waId,
-        `${store.storeName} doesn't have any bookable services right now. Reply "categories" to browse other services, or type "shop" to see what ${store.storeName} sells instead.`
+        `${store.storeName} doesn't have any services listed right now. Reply "categories" to browse other services, or type "shop" to see what ${store.storeName} sells instead.`
       )
       return true
     }
+    // A named store is a direct request — send that store's contact cards without
+    // needing the buyer's location (distance is only shown when we already know it).
+    const state: any = await WhatsAppBrowseState.findOne({ waId }).select('buyerLocation').lean()
+    const matches = (await findNearbyProviders({ query: String((services[0] as any)?.title || services[0]?.name || '') }, state?.buyerLocation || null))
+      .filter((m) => String(m.service?.providerId || '') === vendorId)
+    if (matches.length === 0) {
+      await trySendText(waId, `${store.storeName} hasn't added a contact number for their services yet. Reply "categories" to browse other providers.`)
+      return true
+    }
     await Promise.all([
-      sendServiceResults(waId, services),
+      sendProviderCards(waId, matches.slice(0, PROVIDERS_PER_PAGE)),
       WhatsAppBrowseState.findOneAndUpdate(
         { waId },
         { $set: { browseMode: 'services', updatedAt: new Date() }, $unset: { lastQuery: '', lastCategorySlug: '', matchMode: '' } },
@@ -229,7 +233,7 @@ async function tryHandleStoreMention(waId: string, trimmed: string, wantsBooking
 // don't speak Pidgin. Doubles as onboarding: a first-time buyer has no idea what to type,
 // so this plainly spells out the three things they can actually do.
 const GREETING_MESSAGE =
-  'Hi! Tell me what you need, for example "sneakers under ₦20,000". You can ask about price, stock, color, or size by replying to a product card.\n\nReply "add" to a card to choose it, "categories" to browse, "services" to book, or "more" for more matches.'
+  'Hi! Tell me what you need, for example "sneakers under ₦20,000". You can ask about price, stock, color, or size by replying to a product card.\n\nReply "add" to a card to choose it, "categories" to browse, "services" to find a provider near you, or "more" for more matches.'
 
 // Every reply goes through one of these so a delivery failure never throws back up into
 // the webhook handler — matches the trySend discipline in lib/whatsapp/commands.ts.
@@ -269,6 +273,16 @@ async function runSearchAndReply(waId: string, query: string, offset: number): P
 
   if (products.length === 0) {
     console.log(`[whatsapp-buyer] search: no results for "${query}" (offset ${offset}) — ${waId}`)
+    // "hair braider" or "plumber" isn't a product — before giving up, see whether it's a
+    // service and hand over to the provider-contact flow if so.
+    if (offset === 0) {
+      const { query: serviceQuery, location } = splitServiceQueryAndLocation(query)
+      const serviceHits = await searchServiceCandidates(serviceQuery, 1)
+      if (serviceHits.length > 0) {
+        await runServiceSearchAndReply(waId, 0, { query: serviceQuery }, location)
+        return
+      }
+    }
     if (offset === 0) {
       await WhatsAppBrowseState.findOneAndUpdate(
         { waId },
@@ -276,11 +290,14 @@ async function runSearchAndReply(waId: string, query: string, offset: number): P
         { upsert: true }
       )
     }
+    const wordCount = parseCatalogQuery(query).term.split(/\s+/).filter(Boolean).length
     await trySendText(
       waId,
       offset > 0
         ? `No more results for "${query}".`
-        : `I couldn't find a close match for "${query}". Try fewer words${parseCatalogQuery(query).maxPrice ? ' or a higher budget' : ''}, or type "categories" to browse.`
+        : wordCount >= 4
+          ? `I couldn't match "${query}" to anything yet. Tell me the specific item or service you have in mind (e.g. "wristwatch", "perfume", "plumber in Yaba"), or type "categories" to browse.`
+          : `I couldn't find a close match for "${query}" among products or services. Try fewer words${parseCatalogQuery(query).maxPrice ? ' or a higher budget' : ''}, another name for it, or type "categories" to browse.`
     )
     return
   }
@@ -350,73 +367,191 @@ async function searchShoppingList(waId: string, text: string): Promise<boolean> 
   return true
 }
 
-// Services counterpart to runSearchAndReply — same paging/reply-batching shape, but
-// against getServices()/sendServiceResults() instead of getProducts()/sendProductResults().
-// Always writes browseMode: 'services' alongside the paging state, so a buyer who entered
-// services mode via a category tap (not a typed keyword) stays in it for subsequent "more".
-//
-// Takes EITHER a free-text query OR a category slug, not both — see
-// WhatsAppBrowseState.lastCategorySlug for why services category browsing is an exact
-// filter rather than a free-text search the way goods' category browsing is.
+// Services counterpart to runSearchAndReply. Contact-only: resolves where the buyer is
+// (from the message, a saved location, or by asking), then sends the closest providers'
+// contact cards with an estimated rate. Paging state mirrors the goods flow so "more"
+// works, with browseMode: 'services' always written alongside it.
+type ServiceTarget = { query: string; categorySlug?: undefined } | { query?: undefined; categorySlug: string; categoryLabel: string }
+
 async function runServiceSearchAndReply(
   waId: string,
   offset: number,
-  target: { query: string; categorySlug?: undefined } | { query?: undefined; categorySlug: string; categoryLabel: string }
+  target: ServiceTarget,
+  locationFromMessage: BuyerLocation | null = null
 ): Promise<void> {
   await connectToDatabase()
+  const state: any = await WhatsAppBrowseState.findOne({ waId }).lean()
+  const label = target.categorySlug ? target.categoryLabel : serviceLabel(String(target.query))
 
-  const services = await getServices({
-    ...(target.categorySlug ? { category: target.categorySlug } : { search: target.query }),
-    status: 'active',
-    limitCount: FETCH_PER_PAGE,
-    skipCount: offset,
-  })
+  let location: BuyerLocation | null = locationFromMessage || (state?.buyerLocation as BuyerLocation | undefined) || null
+  if (!location) {
+    // Ask once, remembering what they asked for so the location reply completes the search.
+    await WhatsAppBrowseState.findOneAndUpdate(
+      { waId },
+      {
+        $set: {
+          browseMode: 'services',
+          stage: AWAITING_SERVICE_LOCATION_STAGE,
+          pendingServiceQuery: target.query || '',
+          pendingServiceCategorySlug: target.categorySlug || '',
+          updatedAt: new Date(),
+        },
+        $unset: { lastQuery: '', lastCategorySlug: '', matchMode: '' },
+      },
+      { upsert: true }
+    )
+    await trySendText(waId, `Looking for "${label}". ${locationPrompt()}`)
+    return
+  }
 
-  const label = target.categorySlug ? target.categoryLabel : target.query
+  const matches = await findNearbyProviders(target.categorySlug ? { category: target.categorySlug } : { query: String(target.query) }, location)
+  const baseUpdate = {
+    browseMode: 'services',
+    stage: 'browsing',
+    ...(locationFromMessage && !locationFromMessage.unknown ? { buyerLocation: locationFromMessage } : {}),
+    updatedAt: new Date(),
+  }
 
-  if (services.length === 0) {
-    console.log(`[whatsapp-buyer] service search: no results for "${label}" (offset ${offset}) — ${waId}`)
-    if (offset === 0) {
-      await WhatsAppBrowseState.findOneAndUpdate(
-        { waId },
-        { $set: { browseMode: 'services', updatedAt: new Date() }, $unset: { lastQuery: '', lastCategorySlug: '' } },
-        { upsert: true }
-      )
+  if (matches.length === 0) {
+    console.log(`[whatsapp-buyer] service search: no providers for "${label}" near ${location.label} (offset ${offset}) — ${waId}`)
+    // Fall through to products: "sneakers" typed while in services mode is still a
+    // product search, not a dead end.
+    if (offset === 0 && target.query && (await searchCatalogProducts(target.query, 0, 1)).length > 0) {
+      await runSearchAndReply(waId, target.query, 0)
+      return
     }
+    await WhatsAppBrowseState.findOneAndUpdate(
+      { waId },
+      { $set: baseUpdate, $unset: { lastQuery: '', lastCategorySlug: '', pendingServiceQuery: '', pendingServiceCategorySlug: '' } },
+      { upsert: true }
+    )
     await trySendText(
       waId,
       offset > 0
-        ? `No more results for "${label}".`
-        : `No services found for "${label}". Try a different search, or type "categories" to browse.`
+        ? `No more providers for "${label}".`
+        : `I couldn't find a "${label}" provider with a contact number yet. Try another name for the service, or type "categories" to browse.`
     )
     return
   }
 
-  const hasMore = services.length > RESULTS_PER_PAGE
-  const pageItems = services.slice(0, RESULTS_PER_PAGE)
+  const pageItems = matches.slice(offset, offset + PROVIDERS_PER_PAGE)
+  const hasMore = matches.length > offset + PROVIDERS_PER_PAGE
+  if (pageItems.length === 0) {
+    await trySendText(waId, `No more providers for "${label}".`)
+    return
+  }
 
-  console.log(`[whatsapp-buyer] service search: sending ${pageItems.length} result(s) for "${label}" (offset ${offset}, hasMore ${hasMore}) — ${waId}`)
+  console.log(`[whatsapp-buyer] service search: sending ${pageItems.length} provider(s) for "${label}" near ${location.label} (offset ${offset}, hasMore ${hasMore}) — ${waId}`)
+
+  if (offset === 0) {
+    const nearest = pageItems[0]
+    const intro = location.unknown
+      ? `${label} providers (send your area any time and I'll sort them by distance):`
+      : nearest.distanceKm != null
+        ? `Closest ${label} providers to ${location.label}:`
+        : `${label} providers (I couldn't work out distances from ${location.label}):`
+    await trySendText(waId, intro)
+  }
 
   await Promise.all([
-    sendServiceResults(waId, pageItems),
+    sendProviderCards(waId, pageItems),
     WhatsAppBrowseState.findOneAndUpdate(
       { waId },
       target.categorySlug
         ? {
-            $set: { browseMode: 'services', lastCategorySlug: target.categorySlug, offset: offset + pageItems.length, updatedAt: new Date() },
-            $unset: { lastQuery: '' },
+            $set: { ...baseUpdate, lastCategorySlug: target.categorySlug, offset: offset + pageItems.length },
+            $unset: { lastQuery: '', pendingServiceQuery: '', pendingServiceCategorySlug: '' },
           }
         : {
-            $set: { browseMode: 'services', lastQuery: target.query, offset: offset + pageItems.length, updatedAt: new Date() },
-            $unset: { lastCategorySlug: '' },
+            $set: { ...baseUpdate, lastQuery: target.query, offset: offset + pageItems.length },
+            $unset: { lastCategorySlug: '', pendingServiceQuery: '', pendingServiceCategorySlug: '' },
           },
       { upsert: true }
     ),
   ])
 
-  if (hasMore) {
-    await trySendText(waId, `Reply "more" to see more results for "${label}".`)
+  await trySendText(
+    waId,
+    hasMore
+      ? `Reply "more" for other providers, or send a different area to search elsewhere.`
+      : location.unknown
+        ? 'Those are all the providers I found. Send your area to find the closest ones.'
+        : `Those are all the providers I found near ${location.label}. Send a different area to search elsewhere.`
+  )
+}
+
+// The buyer's answer to "where are you?" after a service request. A recognised place
+// completes the pending search; anything else gets one more nudge, and a fresh service
+// request (e.g. they changed their mind: "actually a plumber") is honoured as such.
+async function handleServiceLocationReply(waId: string, text: string, state: any): Promise<void> {
+  const parsed = parseBuyerLocation(text)
+  const pendingQuery = String(state?.pendingServiceQuery || '')
+  const pendingSlug = String(state?.pendingServiceCategorySlug || '')
+  const category = pendingSlug ? SERVICE_CATEGORIES.find((c) => c.slug === pendingSlug) : undefined
+  const target: ServiceTarget | null = category
+    ? { categorySlug: category.slug, categoryLabel: category.name }
+    : pendingQuery ? { query: pendingQuery } : null
+
+  if (!parsed) {
+    const { query, location } = splitServiceQueryAndLocation(text)
+    if (location && query) {
+      await runServiceSearchAndReply(waId, 0, { query }, location)
+      return
+    }
+    if (!target || /\b(skip|anywhere|any|all)\b/i.test(text)) {
+      // No location we can use — clear the wait rather than trap them.
+      await WhatsAppBrowseState.findOneAndUpdate(
+        { waId },
+        { $set: { stage: 'browsing', updatedAt: new Date() }, $unset: { pendingServiceQuery: '', pendingServiceCategorySlug: '' } },
+        { upsert: true }
+      )
+      if (target) {
+        // Show providers unsorted rather than nothing.
+        await runServiceSearchAndReply(waId, 0, target, UNKNOWN_LOCATION)
+        return
+      }
+      await trySendText(waId, SERVICE_GREETING_MESSAGE)
+      return
+    }
+    await trySendText(waId, `I couldn't place "${text}" on the map. Send your city or area (e.g. "Yaba, Lagos" or "Wuse, Abuja"), share your location pin, or reply "skip" to see providers anywhere.`)
+    return
   }
+
+  if (!target) {
+    await WhatsAppBrowseState.findOneAndUpdate(
+      { waId },
+      { $set: { buyerLocation: parsed, stage: 'browsing', browseMode: 'services', updatedAt: new Date() } },
+      { upsert: true }
+    )
+    await trySendText(waId, `Got it — ${parsed.label}. What service do you need?`)
+    return
+  }
+  await runServiceSearchAndReply(waId, 0, target, parsed)
+}
+
+// Called when the buyer shares a WhatsApp location pin (see handleInboundLocation in
+// lib/whatsapp/commands.ts). Exact coordinates beat a city-centre guess.
+export async function handleBuyerLocationPin(waId: string, lat: number, lng: number, name?: string): Promise<void> {
+  await connectToDatabase()
+  const state: any = await WhatsAppBrowseState.findOne({ waId }).lean()
+  const location: BuyerLocation = { label: String(name || '').trim() || 'your location', lat, lng }
+  const pendingQuery = String(state?.pendingServiceQuery || '')
+  const pendingSlug = String(state?.pendingServiceCategorySlug || '')
+  const category = pendingSlug ? SERVICE_CATEGORIES.find((c) => c.slug === pendingSlug) : undefined
+  if (category) {
+    await runServiceSearchAndReply(waId, 0, { categorySlug: category.slug, categoryLabel: category.name }, location)
+    return
+  }
+  if (pendingQuery) {
+    await runServiceSearchAndReply(waId, 0, { query: pendingQuery }, location)
+    return
+  }
+  await WhatsAppBrowseState.findOneAndUpdate(
+    { waId },
+    { $set: { buyerLocation: location, stage: state?.stage === AWAITING_SERVICE_LOCATION_STAGE ? 'browsing' : state?.stage || 'browsing', updatedAt: new Date() } },
+    { upsert: true }
+  )
+  await trySendText(waId, 'Thanks, I\'ve saved your location. Tell me what service you need and I\'ll find the closest providers.')
 }
 
 async function handleMoreCommand(waId: string): Promise<void> {
@@ -690,22 +825,17 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
   const mode = String(state?.browseMode || 'goods')
 
   if (lower === 'cancel') {
-    const handledQuote = await handleQuoteCancelCommand(waId, stage)
-    if (handledQuote) return
-    const handledBooking = await handleServiceBookingCancelCommand(waId, stage)
-    if (handledBooking) return
+    if (stage === AWAITING_SERVICE_LOCATION_STAGE) {
+      await WhatsAppBrowseState.findOneAndUpdate(
+        { waId },
+        { $set: { stage: 'browsing', updatedAt: new Date() }, $unset: { pendingServiceQuery: '', pendingServiceCategorySlug: '' } },
+        { upsert: true }
+      )
+      await trySendText(waId, "No problem. Tell me what you need whenever you're ready.")
+      return
+    }
     const handled = await handleCancelCommand(waId, stage)
     if (handled) return
-  }
-
-  if (QUOTE_BLOCKING_STAGES.has(stage)) {
-    await handleQuoteStageMessage(waId, trimmed, stage)
-    return
-  }
-
-  if (SERVICE_BOOKING_BLOCKING_STAGES.has(stage)) {
-    await handleServiceBookingStageMessage(waId, trimmed, stage)
-    return
   }
 
   if (BLOCKING_CHECKOUT_STAGES.has(stage)) {
@@ -713,35 +843,22 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
     return
   }
 
+  if (stage === AWAITING_SERVICE_LOCATION_STAGE) {
+    // Commands that should still work mid-question, so the wait never traps anyone.
+    if (!(lower === 'more' || CATEGORY_KEYWORDS.has(lower) || SERVICE_ENTRY_KEYWORDS.has(lower) || GOODS_EXIT_KEYWORDS.has(lower) || GREETING_KEYWORDS.has(lower))) {
+      await handleServiceLocationReply(waId, trimmed, state)
+      return
+    }
+  }
+
   if (contextMessageId) {
     const handledProduct = await tryHandleProductReply(waId, contextMessageId, trimmed)
     if (handledProduct) return
-    // Phase S4 Part B — "offer AMOUNT" as a reply to a service card, before the normal
-    // booking-reply handler so it doesn't get misread as a booking-start reply.
-    const handledOffer = await tryHandleServiceOfferReply(waId, contextMessageId, trimmed)
-    if (handledOffer) return
-    const handledService = await handleServiceReply(waId, contextMessageId, trimmed)
+    // A reply to a provider card just re-sends that provider's contact details — there is
+    // no in-chat booking, offer or quote flow for services.
+    const handledService = await tryHandleProviderCardReply(waId, contextMessageId, (state?.buyerLocation as BuyerLocation | undefined) || null)
     if (handledService) return
   }
-
-  // Mode/stage-agnostic — "accept REF"/"decline REF" for a delivered quote can arrive at
-  // any time, regardless of what the buyer is currently doing (see
-  // lib/whatsapp/service-quote.ts's comment on why this isn't a blocking stage).
-  const handledQuoteDecision = await tryHandleQuoteDecision(waId, trimmed)
-  if (handledQuoteDecision) return
-
-  // Phase S4 Part A — "counter REF AMOUNT", same mode/stage-agnostic reasoning as above.
-  const handledQuoteCounter = await tryHandleQuoteCounter(waId, trimmed)
-  if (handledQuoteCounter) return
-
-  // Phase S4 Part B — same ref vocabulary against PriceNegotiation instead of Booking;
-  // only reached once both Part A checks above have found the ref doesn't belong to one of
-  // the buyer's quoted bookings (they return false rather than erroring in that case).
-  const handledNegotiationReply = await tryHandleNegotiationReply(waId, trimmed)
-  if (handledNegotiationReply) return
-
-  const handledBookAgreed = await tryHandleBookAgreedCommand(waId, trimmed)
-  if (handledBookAgreed) return
 
   if (lower === 'more') {
     await handleMoreCommand(waId)
@@ -822,6 +939,30 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
     return
   }
 
+  // Delivery/payment/returns/support questions, acknowledgements, and "add"/"how much"
+  // sent without replying to a card — none of these are product names.
+  const faq = answerBuyerFaq(trimmed)
+  if (faq) {
+    if (faq.kind === 'categories') {
+      if (mode === 'services') await sendServiceCategoryMenu(waId)
+      else await sendCategoryMenu(waId)
+    } else {
+      await trySendText(waId, faq.body)
+    }
+    return
+  }
+
+  // A bare place name with nothing pending ("Lagos" after a failed search): remember it
+  // for service ranking and ask what they need, instead of searching for "Lagos".
+  if (mode !== 'services') {
+    const bareLocation = parseBuyerLocation(trimmed)
+    if (bareLocation && splitServiceQueryAndLocation(trimmed).query.toLowerCase() === trimmed.toLowerCase()) {
+      await WhatsAppBrowseState.findOneAndUpdate({ waId }, { $set: { buyerLocation: bareLocation, updatedAt: new Date() } }, { upsert: true })
+      await trySendText(waId, `Got it — ${bareLocation.label}. What do you need? A product (e.g. "sneakers") or a service (e.g. "plumber")?`)
+      return
+    }
+  }
+
   // Booking/service intent expressed as a full sentence (not one of the exact
   // SERVICE_ENTRY_KEYWORDS phrases caught earlier) — e.g. "I want to book a service from
   // DTO ventures" — and bare/explicit store-name mentions in general. Checked here,
@@ -835,9 +976,10 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
   if (CONVERSATIONAL_PHRASING_PATTERN.test(trimmed)) {
     const item = requestedItem(trimmed)
     if (wantsBooking) {
-      const serviceQuery = item?.replace(/^(?:book|a booking for|a service(?: for)?|service(?: for)?)\s+/i, '').trim()
+      const serviceQuery = item?.replace(/^(?:book|hire|a booking for|a service(?: for)?|service(?: for)?)\s+/i, '').trim()
       if (serviceQuery && !/^(?:a|an|the)?\s*service$/i.test(serviceQuery)) {
-        await runServiceSearchAndReply(waId, 0, { query: serviceQuery })
+        const { query, location } = splitServiceQueryAndLocation(serviceQuery)
+        await runServiceSearchAndReply(waId, 0, { query }, location)
         return
       }
       await WhatsAppBrowseState.findOneAndUpdate(
@@ -857,7 +999,24 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
   }
 
   if (mode === 'services') {
-    await runServiceSearchAndReply(waId, 0, { query: trimmed })
+    // A bare place name while in services mode ("Ikeja") re-targets the last search.
+    const bareLocation = parseBuyerLocation(trimmed)
+    const { query, location } = splitServiceQueryAndLocation(trimmed)
+    if (bareLocation && !location) {
+      const lastCategory = state?.lastCategorySlug ? SERVICE_CATEGORIES.find((c) => c.slug === state.lastCategorySlug) : undefined
+      if (lastCategory) {
+        await runServiceSearchAndReply(waId, 0, { categorySlug: lastCategory.slug, categoryLabel: lastCategory.name }, bareLocation)
+        return
+      }
+      if (state?.lastQuery) {
+        await runServiceSearchAndReply(waId, 0, { query: String(state.lastQuery) }, bareLocation)
+        return
+      }
+      await WhatsAppBrowseState.findOneAndUpdate({ waId }, { $set: { buyerLocation: bareLocation, updatedAt: new Date() } }, { upsert: true })
+      await trySendText(waId, `Got it — ${bareLocation.label}. What service do you need?`)
+      return
+    }
+    await runServiceSearchAndReply(waId, 0, { query }, location)
     return
   }
   await runSearchAndReply(waId, trimmed, 0)
