@@ -10,6 +10,8 @@ import { findPlaceInText, formatDistance, getCityCoords, haversineKm, type Locat
 import { applyLocationPricing } from '@/lib/service-pricing'
 import { editDistance } from '@/lib/whatsapp/catalog-search'
 import { sendTextMessage, sendImageMessage } from '@/lib/whatsapp/client'
+import { WhatsAppBrowseState } from '@/lib/models/WhatsAppBrowseState'
+import type { RecentResult } from '@/lib/whatsapp/recent-results'
 
 export interface BuyerLocation {
   label: string
@@ -31,6 +33,10 @@ export interface ProviderMatch {
   displayPhone: string // +234 801 234 5678
   areaLabel: string    // "Ikeja, Lagos"
   distanceKm: number | null
+  // Provider's listed city is the buyer's own area ("Yaba" for a buyer in Yaba) — beats
+  // a same-distance provider elsewhere in the same metro (city-centre coordinates can't
+  // tell Yaba from Lekki).
+  sameArea: boolean
   estimate: { amount: number; unit: string; from: boolean; adjusted: boolean }
 }
 
@@ -285,6 +291,8 @@ export async function findNearbyProviders(
     const distanceKm = location && !location.unknown && coords ? haversineKm(location.lat, location.lng, coords.lat, coords.lng) : null
     const areaLabel = [city, state].filter(Boolean).join(', ') || String(service.location || '').trim() || 'Location not listed'
 
+    const buyerCity = String(location?.city || '').toLowerCase()
+    const sameArea = Boolean(buyerCity && city && (city.toLowerCase() === buyerCity || areaLabel.toLowerCase().includes(buyerCity)))
     matches.push({
       service,
       storeName: String(store?.storeName || service.providerName || 'Provider'),
@@ -292,11 +300,13 @@ export async function findNearbyProviders(
       displayPhone: formatDisplayPhone(phone),
       areaLabel,
       distanceKm,
+      sameArea,
       estimate: await estimateRate(service, location, distanceKm),
     })
   }
 
   matches.sort((a, b) => {
+    if (a.sameArea !== b.sameArea) return a.sameArea ? -1 : 1
     if (a.distanceKm == null && b.distanceKm == null) return 0
     if (a.distanceKm == null) return 1
     if (b.distanceKm == null) return -1
@@ -305,8 +315,8 @@ export async function findNearbyProviders(
   return matches
 }
 
-export function buildProviderCard(match: ProviderMatch): string {
-  const title = String(match.service?.title || 'Service')
+export function buildProviderCard(match: ProviderMatch, index?: number): string {
+  const title = `${index ? `${index}. ` : ''}${String(match.service?.title || 'Service')}`
   // Provider positions are city-centre estimates (lib/geo-utils.ts NIGERIA_CITIES), so a
   // small number is "same area", not a precise "0 m away".
   const where = match.distanceKm == null
@@ -320,7 +330,7 @@ export function buildProviderCard(match: ProviderMatch): string {
     `Estimated rate: ${formatEstimate(match.estimate)}${match.estimate.adjusted ? ' for your area' : ''}`,
     '',
     `Contact: ${match.displayPhone}`,
-    `WhatsApp: https://wa.me/${match.phone}?text=${encodeURIComponent(`Hi, I found your "${title}" service on Make It Sell. Are you available?`)}`,
+    `WhatsApp: https://wa.me/${match.phone}?text=${encodeURIComponent(`Hi, I found your "${String(match.service?.title || 'Service')}" service on Make It Sell. Are you available?`)}`,
     '',
     'Message them directly to agree on details, timing and the final price.',
   ]
@@ -334,10 +344,13 @@ function buildWhatsAppImageUrl(url: string): string {
 
 // Sends one card per provider, tracked in WhatsAppServiceMessageMap so a reply to the
 // card ("book", "contact", anything) can re-send that provider's details.
-export async function sendProviderCards(waId: string, matches: ProviderMatch[]): Promise<void> {
+export async function sendProviderCards(waId: string, matches: ProviderMatch[], options: { startIndex?: number } = {}): Promise<void> {
   await connectToDatabase()
-  for (const match of matches) {
-    const caption = buildProviderCard(match)
+  const sent: RecentResult[] = []
+  for (let i = 0; i < matches.length; i++) {
+    const match = matches[i]
+    const index = (options.startIndex || 0) + i + 1
+    const caption = buildProviderCard(match, index)
     const image = Array.isArray(match.service?.images) ? match.service.images[0] : undefined
     let result: any = null
     try {
@@ -353,7 +366,18 @@ export async function sendProviderCards(waId: string, matches: ProviderMatch[]):
         console.error(`[whatsapp-service-contacts] failed to track card for ${waId}:`, error)
       )
     }
+    if (serviceId) sent.push({ id: serviceId, kind: 'service', messageId, name: `${String(match.service?.title || 'Service')} — ${match.storeName}` })
   }
+  // Same memory the product cards use, so "1" / "the first one" / "send me their
+  // number" resolve to a provider (lib/whatsapp/recent-results.ts).
+  const previous: RecentResult[] = options.startIndex
+    ? (((await WhatsAppBrowseState.findOne({ waId }).select('lastResults').lean()) as any)?.lastResults || []).filter((r: RecentResult) => r.kind === 'service')
+    : []
+  await WhatsAppBrowseState.findOneAndUpdate(
+    { waId },
+    { $set: { lastResults: [...previous, ...sent].slice(-12), lastResultsAt: new Date(), updatedAt: new Date() } },
+    { upsert: true }
+  ).catch((error: unknown) => console.error(`[whatsapp-service-contacts] failed to remember cards for ${waId}:`, error))
 }
 
 // A reply to a provider card: resend that provider's contact details rather than start any
@@ -362,19 +386,24 @@ export async function tryHandleProviderCardReply(waId: string, contextMessageId:
   await connectToDatabase()
   const mapping: any = await WhatsAppServiceMessageMap.findOne({ messageId: contextMessageId, waId }).lean()
   if (!mapping?.serviceId) return false
+  await resendProviderDetails(waId, String(mapping.serviceId), location)
+  return true
+}
 
+export async function resendProviderDetails(waId: string, serviceId: string, location: BuyerLocation | null): Promise<void> {
+  await connectToDatabase()
   const { getServiceById } = await import('@/lib/mongodb-operations')
-  const service: any = await getServiceById(String(mapping.serviceId))
+  const service: any = await getServiceById(serviceId)
   if (!service) {
     await sendTextMessage(waId, "That service isn't listed any more. Tell me what you need and I'll find another provider near you.")
-    return true
+    return
   }
   const store: any = await Store.findOne(service.storeId ? { _id: service.storeId } : { vendorId: String(service.providerId || '') })
     .select('storeName vendorId phone city state').lean()
   const phone = normalizePhoneDigits(store?.phone)
   if (!phone) {
     await sendTextMessage(waId, `${String(store?.storeName || service.providerName || 'This provider')} hasn't added a contact number yet. Tell me what you need and I'll find another provider near you.`)
-    return true
+    return
   }
   const city = String(service.city || store?.city || '').trim()
   const state = String(service.state || store?.state || '').trim()
@@ -387,8 +416,8 @@ export async function tryHandleProviderCardReply(waId: string, contextMessageId:
     displayPhone: formatDisplayPhone(phone),
     areaLabel: [city, state].filter(Boolean).join(', ') || 'Location not listed',
     distanceKm,
+    sameArea: false,
     estimate: await estimateRate(service, location, distanceKm),
   }
   await sendTextMessage(waId, `Here are the details again — reach out to them directly on WhatsApp:\n\n${buildProviderCard(match)}`)
-  return true
 }

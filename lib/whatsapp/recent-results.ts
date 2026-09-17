@@ -4,7 +4,8 @@
 // The cards are numbered when sent (product-results.ts) so "2" is unambiguous.
 
 export interface RecentResult {
-  productId: string
+  id: string
+  kind: 'product' | 'service'
   messageId: string
   name: string
 }
@@ -25,6 +26,8 @@ const ORDINALS: Record<string, number> = {
 const INDEX_REF = /(?:^|\s)(?:the\s+)?(?:number|no\.?|option|item|#|card)?\s*(\d{1,2}|first|second|third|fourth|fifth|last|1st|2nd|3rd|4th|5th)(?:\s+one)?(?=$|[\s?.!,])/i
 const WORD_REF = /(?:^|\s)(?:the\s+)?([a-z][a-z-]{2,})\s+one(?=$|[\s?.!,])/i
 // Things a buyer says ABOUT a card rather than as a new search.
+// Service-card follow-ups: "send me their number", "contact", "book", "call them".
+export const SERVICE_FOLLOW_UP = /^(?:(?:send|give) me (?:the |their |his |her )?(?:number|contact|details|whatsapp)|(?:their |his |her )?(?:number|contact|contacts|details)|contact (?:them|him|her|the provider)|book(?: (?:them|him|her|it|now))?|call (?:them|him|her)|i want to book|how do i (?:book|contact|reach) (?:them|him|her))[\s?.!]*$/i
 const IMPLICIT_ACTION = /^(?:yes|yeah|yup|yh|add|buy|take it|i(?:'ll| will) take it|i want(?: it)?|i(?:'d| would) like(?: it)?|this|that|this one|that one|one)(?:\s+\d{1,2})?[\s!.]*$/i
 const IMPLICIT_QUESTION = /^(?:how much|price|what(?:'s| is) the price|is it|does it|do you have it|are they|is there|available|in stock|what colou?rs?|what sizes?|which sizes?|which colou?rs?|colou?rs?\?*|sizes?\?*|describe|details|tell me (?:more|about it)|delivery|shipping|is this|can i get it|do you deliver it)\b/i
 const NUMBER_WORDS: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 }
@@ -90,6 +93,10 @@ export function parseResultReference(text: string, results: RecentResult[]): Res
     }
   }
 
+  if (results.every((r) => r.kind === 'service') && SERVICE_FOLLOW_UP.test(trimmed)) {
+    if (count === 1) return { kind: 'item', index: 0, remainder: trimmed }
+    return { kind: 'ambiguous', remainder: trimmed }
+  }
   if (IMPLICIT_ACTION.test(trimmed) || IMPLICIT_QUESTION.test(trimmed)) {
     if (count === 1) return { kind: 'item', index: 0, remainder: trimmed }
     return { kind: 'ambiguous', remainder: trimmed }

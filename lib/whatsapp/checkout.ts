@@ -238,6 +238,54 @@ export async function sendCartSummary(waId: string): Promise<void> {
   )
 }
 
+// "remove it", "remove the sneakers", "remove the last one" — resolve to a cart index.
+// Returns null when nothing in the cart matches.
+export async function resolveCartIndex(waId: string, reference: string): Promise<{ index: number; cart: any[] } | null> {
+  const state = await loadState(waId)
+  const cart: any[] = Array.isArray(state?.cart) ? state.cart : []
+  if (cart.length === 0) return null
+  const ref = reference.trim().toLowerCase()
+  if (!ref || /^(?:it|that|this|the last one|last one|the last|the item)$/.test(ref)) return { index: cart.length, cart }
+  if (/^(?:the first one|first one|the first)$/.test(ref)) return { index: 1, cart }
+  const numeric = ref.match(/^(?:item |#|number |no\.? )?(\d{1,2})$/)
+  if (numeric) return { index: Number(numeric[1]), cart }
+  const words = ref.replace(/^(?:the|my)\s+/, '').split(/\s+/).filter((w) => w.length > 2)
+  const hits = cart.map((item, i) => ({ i: i + 1, title: String(item?.title || '').toLowerCase() })).filter((c) => words.some((w) => c.title.includes(w)))
+  if (hits.length === 1) return { index: hits[0].i, cart }
+  if (cart.length === 1) return { index: 1, cart }
+  return null
+}
+
+export async function clearCart(waId: string): Promise<void> {
+  await saveState(waId, { cart: [], stage: 'browsing' })
+  await trySendText(waId, 'Done — your cart is empty. Tell me what you\'d like to look for next.')
+}
+
+// "make it 3", "change quantity to 3", "I want 3 instead"
+export async function setCartQuantity(waId: string, index: number, quantity: number): Promise<void> {
+  const state = await loadState(waId)
+  const cart: any[] = Array.isArray(state?.cart) ? [...state.cart] : []
+  if (!Number.isInteger(index) || index < 1 || index > cart.length) {
+    await trySendText(waId, 'Which item? Type "cart" to see the list, then e.g. "change item 2 to 3".')
+    return
+  }
+  if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 99) {
+    await trySendText(waId, 'Please choose a quantity from 1 to 99.')
+    return
+  }
+  const item = cart[index - 1]
+  await connectToDatabase()
+  const product: any = await Product.findOne({ _id: item.productId }).select('name stock').lean()
+  const stock = Number(product?.stock)
+  if (product && stock !== 9999 && Number.isFinite(stock) && stock < quantity) {
+    await trySendText(waId, `Only ${stock} unit${stock === 1 ? '' : 's'} of ${item.title} are listed. Reply with a smaller quantity.`)
+    return
+  }
+  cart[index - 1] = { ...item, quantity }
+  await saveState(waId, { cart })
+  await trySendText(waId, `Updated: ${item.title} x${quantity}.\n\nCart: ${cart.length} item(s), ${formatNaira(cartSubtotal(cart))}. Type "checkout" when ready.`)
+}
+
 export async function handleRemoveCommand(waId: string, index: number): Promise<void> {
   const state = await loadState(waId)
   const cart: any[] = Array.isArray(state?.cart) ? [...state.cart] : []

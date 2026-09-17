@@ -29,6 +29,7 @@ import {
   sendProviderCards,
   splitServiceQueryAndLocation,
   tryHandleProviderCardReply,
+  resendProviderDetails,
   type BuyerLocation,
 } from '@/lib/whatsapp/service-contacts'
 import { parseResultReference, listRecentResults, type RecentResult } from '@/lib/whatsapp/recent-results'
@@ -38,6 +39,9 @@ import {
   BLOCKING_CHECKOUT_STAGES,
   handleProductAction,
   tryHandleProductReply,
+  resolveCartIndex,
+  clearCart,
+  setCartQuantity,
   sendCartSummary,
   handleRemoveCommand,
   handleCheckoutStart,
@@ -85,8 +89,15 @@ const THANKS_REPLY = "You're welcome! Search anytime you need something else."
 const CATEGORY_KEYWORDS = new Set(['menu', 'categories', 'category'])
 // Only standalone checkout requests start checkout. "I want to buy shoes" contains a
 // product search and must not open an empty cart.
-const CHECKOUT_INTENT_PATTERN = /^(?:buy|purchase|checkout|order|place (?:my|an?) order|i(?:'m| am) ready to (?:buy|checkout|order))\s*[!.]?$/i
-const REMOVE_PATTERN = /^remove\s+(\d+)$/
+const CHECKOUT_INTENT_PATTERN = /^(?:buy|purchase|check ?out|order|place (?:my|an?|the) order|i(?:'m| am) ready(?: to (?:buy|checkout|order|pay))?|proceed(?: to (?:checkout|pay(?:ment)?))?|pay(?: now)?|buy now|order now|continue(?: to checkout)?|i(?:'m| am) done|that(?:'s| is) all|let(?:'s| us) (?:checkout|pay|order)|make payment|i want to pay|complete (?:my )?order|next step)\s*[!.]?$/i
+const REMOVE_PATTERN = /^(?:(?:actually|please|pls|abeg|just|can you|could you|kindly)[,\s]+)*(?:remove|delete|take out|take off)\s+(.+?)(?:\s+from (?:my |the )?cart)?[\s!.]*$/i
+const CLEAR_CART_PATTERN = /^(?:clear|empty|reset)\s+(?:my |the )?cart|remove (?:everything|all)|start (?:over|again|afresh)[\s!.]*$/i
+const QUANTITY_CHANGE_PATTERN = /^(?:change (?:the |it |item (\d+) )?(?:quantity |qty )?(?:to )?|make (?:it |that |item (\d+) )|update (?:it |item (\d+) )?(?:to )?|i want |i need |give me |let(?:'s| us) do |actually )?(\d{1,2})(?:\s*(?:pcs|pieces|units|pairs?))?(?:\s+instead| of (?:it|that|them|those))?[\s!.]*$/i
+const CART_TOTAL_PATTERN = /\b(?:my|the|cart|order)\s+total\b|\btotal\s+(?:of|for)\s+(?:my|the)\s+(?:cart|order)\b|^total\??$/i
+// "cancel my order", "I haven't received my order", "my package is late"
+const ORDER_PROBLEM_PATTERN = /\b(cancel|cancelled|haven't received|havent received|not received|didn't receive|didnt receive|never (?:came|arrived)|missing|late|delayed?|problem|issue|wrong item|complain)\b[\s\S]*\b(order|package|parcel|delivery|item i bought|purchase)\b|\b(order|package|parcel|delivery)\b[\s\S]*\b(cancel|not received|haven't received|missing|late|delayed?|problem|issue|wrong)\b/i
+const FAREWELL_PATTERN = /^(?:(?:ok(?:ay)?|alright|thanks?|thank you|cheers)[,\s]*)?(?:bye|goodbye|bye bye|good ?night|see you|later|talk later|ttyl|take care|have a (?:good|nice) (?:day|one))[\s!.👋]*$/i
+const OPEN_HOURS_PATTERN = /\b(are you (?:open|available|there|online)|(?:opening|working|business) hours|what time do you (?:open|close)|(?:still|now) open|24\/7|available now)\b/i
 // Broadened from an exact "cart" match after real buyers asked "what is in my cart",
 // "show my cart", and Pidgin phrasing like "wetin dey inside my cart" — none of which
 // matched the old exact-keyword check and fell through to a failed product search
@@ -311,7 +322,7 @@ async function runSearchAndReply(waId: string, query: string, offset: number): P
       await trySendText(waId, `Nothing for "${parseCatalogQuery(query).term}" in that price range. The cheapest I have is ${cheapest.name} at NGN ${Number(cheapest.price || 0).toLocaleString('en-NG')} — reply "add" to take it, "details" to hear more, or try a different budget.`)
       await WhatsAppBrowseState.findOneAndUpdate(
         { waId },
-        { $set: { lastResults: [{ productId: String(cheapest.id || cheapest._id), messageId: '', name: String(cheapest.name || 'Product') }], lastResultsAt: new Date(), updatedAt: new Date() } },
+        { $set: { lastResults: [{ id: String(cheapest.id || cheapest._id), kind: 'product', messageId: '', name: String(cheapest.name || 'Product') }], lastResultsAt: new Date(), updatedAt: new Date() } },
         { upsert: true }
       )
       return
@@ -402,7 +413,8 @@ async function runServiceSearchAndReply(
   waId: string,
   offset: number,
   target: ServiceTarget,
-  locationFromMessage: BuyerLocation | null = null
+  locationFromMessage: BuyerLocation | null = null,
+  options: { cheapest?: boolean } = {}
 ): Promise<void> {
   await connectToDatabase()
   const state: any = await WhatsAppBrowseState.findOne({ waId }).lean()
@@ -430,6 +442,7 @@ async function runServiceSearchAndReply(
   }
 
   const matches = await findNearbyProviders(target.categorySlug ? { category: target.categorySlug } : { query: String(target.query) }, location)
+  if (options.cheapest) matches.sort((a, b) => a.estimate.amount - b.estimate.amount)
   const baseUpdate = {
     browseMode: 'services',
     stage: 'browsing',
@@ -470,16 +483,18 @@ async function runServiceSearchAndReply(
 
   if (offset === 0) {
     const nearest = pageItems[0]
-    const intro = location.unknown
-      ? `${label} providers (send your area any time and I'll sort them by distance):`
-      : nearest.distanceKm != null
-        ? `Closest ${label} providers to ${location.label}:`
-        : `${label} providers (I couldn't work out distances from ${location.label}):`
+    const intro = options.cheapest
+      ? `Lowest-rate ${label} providers${location.unknown ? '' : ` near ${location.label}`}:`
+      : location.unknown
+        ? `${label} providers (send your area any time and I'll sort them by distance):`
+        : nearest.distanceKm != null
+          ? `Closest ${label} providers to ${location.label}:`
+          : `${label} providers (I couldn't work out distances from ${location.label}):`
     await trySendText(waId, intro)
   }
 
   await Promise.all([
-    sendProviderCards(waId, pageItems),
+    sendProviderCards(waId, pageItems, { startIndex: offset }),
     WhatsAppBrowseState.findOneAndUpdate(
       { waId },
       target.categorySlug
@@ -581,6 +596,17 @@ export async function handleBuyerLocationPin(waId: string, lat: number, lng: num
 
 const RECENT_RESULTS_TTL_MS = 48 * 60 * 60 * 1000 // matches WhatsAppProductMessageMap's TTL
 
+function appUrl(path: string): string {
+  return `${String(process.env.NEXT_PUBLIC_APP_URL || 'https://makeitsell.ng').replace(/\/+$/, '')}${path}`
+}
+
+// True when the message reads as a reference to the cards on screen ("2", "add 2") —
+// used to keep a bare number from being misread as a cart quantity change.
+function hasRecentResultsFor(state: any, text: string): boolean {
+  const results: RecentResult[] = Array.isArray(state?.lastResults) ? state.lastResults : []
+  return results.length > 0 && parseResultReference(text, results) !== null
+}
+
 async function tryHandleRecentResultReference(waId: string, text: string, state: any): Promise<boolean> {
   const results: RecentResult[] = Array.isArray(state?.lastResults) ? state.lastResults : []
   const sentAt = state?.lastResultsAt ? new Date(state.lastResultsAt).getTime() : 0
@@ -610,10 +636,16 @@ async function tryHandleRecentResultReference(waId: string, text: string, state:
   if (ref.kind === 'item') {
     const target = results[ref.index]
     console.log(`[whatsapp-buyer] recent-result reference "${text}" -> #${ref.index + 1} ${target.name} — ${waId}`)
+    if (target.kind === 'service') {
+      // Whatever they said about a provider card — "1", "book the first one", "send me
+      // their number" — the answer is that provider's contact details.
+      await resendProviderDetails(waId, target.id, (state?.buyerLocation as BuyerLocation | undefined) || null)
+      return true
+    }
     if (!ref.remainder) {
       // A bare "the first one" / "the red one" — confirm what that is before doing anything.
       await connectToDatabase()
-      const product: any = await Product.findOne({ _id: target.productId }).select('name price description').lean()
+      const product: any = await Product.findOne({ _id: target.id }).select('name price description').lean()
       const description = String(product?.description || '').trim()
       await trySendText(
         waId,
@@ -621,17 +653,21 @@ async function tryHandleRecentResultReference(waId: string, text: string, state:
       )
       return true
     }
-    await handleProductAction(waId, target.productId, ref.remainder)
+    await handleProductAction(waId, target.id, ref.remainder)
     return true
   }
 
   // Ambiguous: several cards, no number. A price question can be answered for all of
   // them; anything else needs a pick.
+  if (results.every((r) => r.kind === 'service')) {
+    await trySendText(waId, `Which provider?\n${listRecentResults(results)}\n\nReply with the number (e.g. "1") and I'll send their contact details again.`)
+    return true
+  }
   if (/\b(how much|price|cost)\b/i.test(ref.remainder)) {
     await connectToDatabase()
-    const products: any[] = await Product.find({ _id: { $in: results.map((r) => r.productId) } }).select('name price').lean()
+    const products: any[] = await Product.find({ _id: { $in: results.map((r) => r.id) } }).select('name price').lean()
     const priceById = new Map(products.map((p) => [String(p._id), Number(p.price || 0)]))
-    const lines = results.map((r, i) => `${i + 1}. ${r.name} — NGN ${(priceById.get(r.productId) ?? 0).toLocaleString('en-NG')}`)
+    const lines = results.map((r, i) => `${i + 1}. ${r.name} — NGN ${(priceById.get(r.id) ?? 0).toLocaleString('en-NG')}`)
     await trySendText(waId, `${lines.join('\n')}\n\nReply with a number (e.g. "2") to add one to your cart.`)
     return true
   }
@@ -970,8 +1006,24 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
     return
   }
 
+  if (ORDER_PROBLEM_PATTERN.test(trimmed) && !/\bcart\b/i.test(trimmed)) {
+    await sendOrderStatus(waId)
+    await trySendText(waId, `To cancel an order that hasn't shipped, or to report one that's late, missing or wrong, open it here: ${appUrl('/orders')} — the "Cancel" and "Report a problem" buttons are on the order. Your payment stays in escrow until you confirm delivery, so you're covered. Need a person? Email support@makeitsell.ng with the order reference.`)
+    return
+  }
+
   if (ORDER_STATUS_PATTERN.test(trimmed) || /^(?:track(?:ing)?(?:\s+\S+)?|my orders?|orders?(?:\s+status)?)[\s?.!]*$/i.test(trimmed)) {
     await sendOrderStatus(waId)
+    return
+  }
+
+  if (FAREWELL_PATTERN.test(trimmed)) {
+    await trySendText(waId, 'Bye for now — message me any time you need something. 👋')
+    return
+  }
+
+  if (OPEN_HOURS_PATTERN.test(trimmed)) {
+    await trySendText(waId, 'I\'m here 24/7. Sellers dispatch during working hours (usually Mon–Sat), so an order placed at night goes out the next working day. What can I find for you?')
     return
   }
 
@@ -984,14 +1036,42 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
 
   if (await tryHandleClaimAccountCommand(waId, trimmed)) return
 
+  if (CLEAR_CART_PATTERN.test(trimmed)) {
+    await clearCart(waId)
+    return
+  }
+
   if (CART_VIEW_PATTERN.test(trimmed)) {
     await sendCartSummary(waId)
     return
   }
 
-  const removeMatch = lower.match(REMOVE_PATTERN)
+  if (CART_TOTAL_PATTERN.test(trimmed)) {
+    await sendCartSummary(waId)
+    return
+  }
+
+  const removeMatch = trimmed.match(REMOVE_PATTERN)
   if (removeMatch) {
-    await handleRemoveCommand(waId, Number(removeMatch[1]))
+    const resolved = await resolveCartIndex(waId, removeMatch[1])
+    if (!resolved) {
+      await trySendText(waId, 'I couldn\'t tell which cart item you mean. Type "cart" to see the list, then "remove 2" for example.')
+      return
+    }
+    await handleRemoveCommand(waId, resolved.index)
+    return
+  }
+
+  const quantityChange = Array.isArray(state?.cart) && state.cart.length > 0 && !hasRecentResultsFor(state, trimmed) ? trimmed.match(QUANTITY_CHANGE_PATTERN) : null
+  if (quantityChange && /\b(?:change|make|update|instead|actually|of (?:it|that|them|those))\b/i.test(trimmed)) {
+    const explicitIndex = Number(quantityChange[1] || quantityChange[2] || quantityChange[3] || 0)
+    const cart: any[] = state.cart
+    const index = explicitIndex || (cart.length === 1 ? 1 : 0)
+    if (!index) {
+      await trySendText(waId, `Which item?\n${cart.map((item: any, i: number) => `${i + 1}. ${item.title} x${item.quantity}`).join('\n')}\n\nReply e.g. "change item 2 to ${quantityChange[4]}".`)
+      return
+    }
+    await setCartQuantity(waId, index, Number(quantityChange[4]))
     return
   }
 
@@ -1003,12 +1083,6 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
   if (mode === 'services' && /^(?:book|reserve|schedule|appointment)(?:\s+(?:this|one|it))?\s*[!.]?$/i.test(trimmed)) {
     await trySendText(waId, SERVICE_BOOKING_SOON_MESSAGE)
     return
-  }
-
-  // A comma-separated list of items — but not a sentence that happens to have a comma.
-  if (mode === 'goods' && trimmed.includes(',') && !/[?]/.test(trimmed) && splitShoppingList(trimmed).every((part) => part.split(/\s+/).length <= 5)) {
-    const handled = await searchShoppingList(waId, trimmed)
-    if (handled) return
   }
 
   if (!trimmed || GREETING_KEYWORDS.has(lower) || GREETING_PATTERN.test(trimmed) || NO_WORDS_PATTERN.test(trimmed)) {
@@ -1029,6 +1103,13 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
     await trySendText(waId, THANKS_REPLY)
     return
   }
+
+  // A comma-separated list of items — but not a sentence that happens to have a comma.
+  if (mode === 'goods' && trimmed.includes(',') && !/[?]/.test(trimmed) && splitShoppingList(trimmed).every((part) => part.split(/\s+/).length <= 5)) {
+    const handled = await searchShoppingList(waId, trimmed)
+    if (handled) return
+  }
+
 
   // Delivery/payment/returns/support questions, acknowledgements, and "add"/"how much"
   // sent without replying to a card — none of these are product names.
@@ -1095,6 +1176,12 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
   }
 
   if (mode === 'services') {
+    // "any cheaper?", "cheapest", "lower rate" — re-run the last search by rate.
+    if (/\b(cheap(?:er|est)?|lower|less expensive|affordable|budget)\b/i.test(trimmed) && (state?.lastQuery || state?.lastCategorySlug)) {
+      const lastCategory = state?.lastCategorySlug ? SERVICE_CATEGORIES.find((c) => c.slug === state.lastCategorySlug) : undefined
+      await runServiceSearchAndReply(waId, 0, lastCategory ? { categorySlug: lastCategory.slug, categoryLabel: lastCategory.name } : { query: String(state.lastQuery) }, null, { cheapest: true })
+      return
+    }
     // A bare place name while in services mode ("Ikeja") re-targets the last search.
     const bareLocation = parseBuyerLocation(trimmed)
     const { query, location } = splitServiceQueryAndLocation(trimmed)

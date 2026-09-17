@@ -622,8 +622,7 @@ export const getServiceById = async (id: string) => {
 
     const { _id, ...rest } = serviceWithSlug as any;
     const result = normalizeServicePricing({ ...rest, id: _id.toString() });
-    console.log(`[getServiceById] Found service:`, result);
-    return result;
+        return result;
   } catch (error: any) {
     console.error(`[getServiceById] Error fetching service ${id}:`, error.message);
     return null;
