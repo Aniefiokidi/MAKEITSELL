@@ -1,8 +1,7 @@
 // Buyer-facing WhatsApp flow — product search/browsing, cart, and checkout for an
 // UNLINKED sender (i.e. not a linked vendor, see resolveLinkedVendor in
-// lib/whatsapp/commands.ts). Every product read goes through the existing getProducts()
-// (lib/mongodb-operations.ts) with status: 'active' explicitly passed, so this never
-// surfaces inactive/out-of-stock inventory. Cart/checkout logic itself lives in
+// lib/whatsapp/commands.ts). Product searches use catalog-search.ts and store browsing
+// uses getProducts() with status: 'active'. Cart/checkout logic itself lives in
 // lib/whatsapp/checkout.ts — this file is the router that decides whether a message is
 // browsing/search or a checkout action.
 import connectToDatabase from '@/lib/mongodb'
@@ -16,11 +15,12 @@ import { PRODUCT_CATEGORIES } from '@/lib/product-categories'
 import { SERVICE_CATEGORIES } from '@/lib/service-categories'
 import { sendProductResults } from '@/lib/whatsapp/product-results'
 import { searchCatalogProducts } from '@/lib/whatsapp/catalog-search'
+import { parseCatalogQuery } from '@/lib/whatsapp/catalog-query'
+import { requestedItem, splitShoppingList } from '@/lib/whatsapp/buyer-intent'
 import { sendServiceResults } from '@/lib/whatsapp/service-results'
 import {
   BLOCKING_CHECKOUT_STAGES,
   tryHandleProductReply,
-  tryHandleCommaSeparatedAdd,
   sendCartSummary,
   handleRemoveCommand,
   handleCheckoutStart,
@@ -123,7 +123,7 @@ const GOODS_EXIT_KEYWORDS = new Set(['shop', 'products', 'goods', 'buy products'
 // to book yet.
 const SERVICE_BOOK_INTENT_PATTERN = /\b(book|reserve|schedule|appointment)\b/i
 const SERVICE_BOOKING_SOON_MESSAGE =
-  'To book, reply directly to the service you\'re interested in from the results above — that starts booking it. Search first if you haven\'t seen it yet, or reply "categories" to browse.'
+  'To book, reply "book" to the service card you want. For a custom quote, reply "quote" to that card. Search first if you haven\'t seen it yet, or type "categories" to browse.'
 const SERVICE_GREETING_MESSAGE =
   'Looking for a service? Reply "categories" to browse, or type what you need (e.g. "hair braiding", "photographer").\n\nType "shop" anytime to go back to browsing products.'
 
@@ -138,18 +138,9 @@ const SERVICE_GREETING_MESSAGE =
 // intent (a named store, or services) or a clarifying nudge instead of a confidently
 // wrong result.
 const CONVERSATIONAL_PHRASING_PATTERN =
-  /\b(i want|i'd like|i would like|i need|i wan|abeg|can i|could i|do you have|is there|i am looking|i'm looking|looking for|please (help|show|find))\b/i
+  /\b(i want|i'd like|i would like|i need|i wan|abeg|can i|could i|do you have|is there|i am looking|i'm looking|looking for|please (help|show|find)|how much (?:is|are|for)|price (?:of|for))\b/i
 const CONVERSATIONAL_CLARIFY_MESSAGE =
   'Tell me the product or service you need (e.g. "sneakers" or "hair braiding"). You can also type "categories" to browse.'
-
-// Keep the object of a shopping request instead of asking the buyer to repeat it.
-// Restrict extraction to common opening phrases; more complex questions get a prompt.
-function requestedItem(text: string): string | null {
-  const match = text.trim().match(/^(?:(?:hi|hello|hey|please|abeg)[,!\s]+)*(?:i(?:'m| am)?\s*(?:want|wan|need|looking for)|i(?:'d| would) like|can i (?:buy|find|get)|do you have|show me|find me|looking for|please (?:show|find))\s+(.+)$/i)
-  if (!match) return null
-  const item = match[1].replace(/^(?:to\s+)?(?:buy|purchase|find|get|see|order)\s+/i, '').replace(/^(?:a|an|some|the)\s+/i, '').replace(/[?.!\s]+$/g, '').trim()
-  return item.length >= 2 && item.length <= 80 ? item : null
-}
 
 // Extracts a candidate store/vendor name from "... from X" / "... at X" / "... by X"
 // phrasing, falling back to the whole trimmed message (covers a buyer just typing a bare
@@ -238,7 +229,7 @@ async function tryHandleStoreMention(waId: string, trimmed: string, wantsBooking
 // don't speak Pidgin. Doubles as onboarding: a first-time buyer has no idea what to type,
 // so this plainly spells out the three things they can actually do.
 const GREETING_MESSAGE =
-  'Hey, how far! I\'m the Make It Sell shopping bot.\n\nHere\'s how to use me:\n- Type a product name to search (e.g. "sneakers")\n- Reply "categories" to browse by category\n- Reply "more" to see more results\n\nWhat are you looking for today?'
+  'Hi! Tell me what you need, for example "sneakers under ₦20,000". You can ask about price, stock, color, or size by replying to a product card.\n\nReply "add" to a card to choose it, "categories" to browse, "services" to book, or "more" for more matches.'
 
 // Every reply goes through one of these so a delivery failure never throws back up into
 // the webhook handler — matches the trySend discipline in lib/whatsapp/commands.ts.
@@ -269,16 +260,27 @@ async function runSearchAndReply(waId: string, query: string, offset: number): P
     await trySendText(waId, 'Please use a shorter product name, such as "red sneakers", so I can find a useful match.')
     return
   }
+  if (!parseCatalogQuery(query).term) {
+    await trySendText(waId, 'What item are you looking for? For example, "sneakers under ₦20,000".')
+    return
+  }
 
   const products = await searchCatalogProducts(query, offset, FETCH_PER_PAGE)
 
   if (products.length === 0) {
     console.log(`[whatsapp-buyer] search: no results for "${query}" (offset ${offset}) — ${waId}`)
+    if (offset === 0) {
+      await WhatsAppBrowseState.findOneAndUpdate(
+        { waId },
+        { $set: { browseMode: 'goods', updatedAt: new Date() }, $unset: { lastQuery: '', lastCategorySlug: '', matchMode: '' } },
+        { upsert: true }
+      )
+    }
     await trySendText(
       waId,
       offset > 0
         ? `No more results for "${query}".`
-        : `No products found for "${query}". Try a different search, or type "categories" to browse.`
+        : `I couldn't find a close match for "${query}". Try fewer words${parseCatalogQuery(query).maxPrice ? ' or a higher budget' : ''}, or type "categories" to browse.`
     )
     return
   }
@@ -314,6 +316,40 @@ async function runSearchAndReply(waId: string, query: string, offset: number): P
   }
 }
 
+// A comma-separated message is a shopping list, not permission to add a fuzzy match
+// to the cart. Show candidates for each item and let the buyer select a card.
+async function searchShoppingList(waId: string, text: string): Promise<boolean> {
+  const items = splitShoppingList(text)
+  if (items.length < 2) return false
+  if (items.length > 3) {
+    await trySendText(waId, 'Please send up to 3 items at a time so I can show useful matches for each.')
+    return true
+  }
+
+  const queries = items.map((item) => requestedItem(item) || item)
+  const results = await Promise.all(queries.map((query) => searchCatalogProducts(query, 0, 3)))
+  for (let index = 0; index < items.length; index++) {
+    const matches = results[index]
+    if (matches.length === 0) {
+      await trySendText(waId, `No close match for "${items[index]}". Try a shorter name.`)
+      continue
+    }
+    await trySendText(waId, `Matches for "${items[index]}":`)
+    await sendProductResults(waId, matches.slice(0, 2))
+  }
+  const lastItem = queries[queries.length - 1]
+  const lastMatches = results[results.length - 1]
+  await WhatsAppBrowseState.findOneAndUpdate(
+    { waId },
+    lastMatches.length > 0
+      ? { $set: { browseMode: 'goods', lastQuery: lastItem, offset: Math.min(lastMatches.length, 2), updatedAt: new Date() }, $unset: { lastCategorySlug: '', matchMode: '' } }
+      : { $set: { browseMode: 'goods', updatedAt: new Date() }, $unset: { lastQuery: '', lastCategorySlug: '', matchMode: '' } },
+    { upsert: true }
+  )
+  await trySendText(waId, `Reply "add" to a specific product card to add it.${lastMatches.length > 2 ? ' Reply "more" for more matches for the last item.' : ''}`)
+  return true
+}
+
 // Services counterpart to runSearchAndReply — same paging/reply-batching shape, but
 // against getServices()/sendServiceResults() instead of getProducts()/sendProductResults().
 // Always writes browseMode: 'services' alongside the paging state, so a buyer who entered
@@ -340,6 +376,13 @@ async function runServiceSearchAndReply(
 
   if (services.length === 0) {
     console.log(`[whatsapp-buyer] service search: no results for "${label}" (offset ${offset}) — ${waId}`)
+    if (offset === 0) {
+      await WhatsAppBrowseState.findOneAndUpdate(
+        { waId },
+        { $set: { browseMode: 'services', updatedAt: new Date() }, $unset: { lastQuery: '', lastCategorySlug: '' } },
+        { upsert: true }
+      )
+    }
     await trySendText(
       waId,
       offset > 0
@@ -605,8 +648,8 @@ async function sendMyBookings(waId: string): Promise<void> {
 //    than parsing the reply's text, so it's checked before any keyword. Tries goods first,
 //    then services (lib/whatsapp/service-booking.ts's handleServiceReply) — a given
 //    message id only ever resolves in one of the two message-map collections, so trying
-//    both in sequence is safe, not ambiguous. A reply to a requiresQuote: true service
-//    sends the S3-placeholder message here rather than starting a booking.
+//    both in sequence is safe, not ambiguous. A "quote" reply to a requiresQuote
+//    service starts its quote request.
 // 5. "more" — mode-aware (handleMoreCommand branches on browseMode internally).
 // 6. Category keywords — mode-aware: shows the services category menu instead of goods'
 //    while browseMode is 'services'.
@@ -614,11 +657,10 @@ async function sendMyBookings(waId: string): Promise<void> {
 //    show the services category menu. Goods exit phrases ("shop", "products") switch back.
 //    Both checked here, before any goods-specific keyword below, so they work regardless
 //    of current mode.
-// 8. Order-status query ("where is my order") — checked before buy-intent below, since
-//    "order" alone would otherwise misroute this into starting a NEW checkout. Mode-
+// 8. Order-status query ("where is my order") — checked before checkout intent. Mode-
 //    agnostic: order history is goods-only today, but answering it doesn't depend on
 //    what the buyer is currently browsing.
-// 9. "cart" / "remove N" / "checkout" (or buy-intent phrasing) — cart management,
+// 9. "cart" / "remove N" / "checkout" — cart management,
 //    goods-only, mode-agnostic for the same reason as order-status above.
 // 10. Service booking-intent ("book", "reserve", "schedule", "appointment") with no
 //     specific service context — only checked while browseMode is 'services'. Points the
@@ -626,9 +668,8 @@ async function sendMyBookings(waId: string): Promise<void> {
 //     actual way to book one; this is just the generic-keyword fallback when there's no
 //     service to book yet. Placed after goods' buy-intent/checkout so a services-mode
 //     buyer typing "buy" still reaches that existing goods path unmodified.
-// 11. Comma-separated fuzzy add ("sneakers, iphone case") — goods cart-add, gated to
-//     browseMode 'goods' so a services-mode buyer typing "braiding, makeup" doesn't
-//     silently attempt (and fail) a goods cart lookup before falling through to search.
+// 11. Comma-separated shopping list ("sneakers, iphone case") — sends choices for each
+//     item without adding a guessed match to the cart.
 // 12. Greeting list / thanks sign-off — mode-aware greeting text.
 // 13. Fallback: mode-aware search — this keeps "hair" or "how much for iPhone" reaching
 //    goods search while "hey"/"howfar" still greet, exactly as before; in services mode,
@@ -767,7 +808,7 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
   }
 
   if (mode === 'goods' && trimmed.includes(',')) {
-    const handled = await tryHandleCommaSeparatedAdd(waId, trimmed)
+    const handled = await searchShoppingList(waId, trimmed)
     if (handled) return
   }
 

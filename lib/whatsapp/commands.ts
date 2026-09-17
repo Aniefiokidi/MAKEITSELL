@@ -138,7 +138,9 @@ export async function handleInboundMessage(waId: string, text: string, contextMe
 // does something for an unresolved (buyer) sender.
 export async function handleInboundImageMessage(waId: string, mediaId: string): Promise<void> {
   const vendorId = await resolveLinkedVendor(waId)
-  if (!vendorId) {
+  const shoppingVendor = vendorId ? await isVendorShopping(vendorId) : false
+  if (!vendorId || shoppingVendor) {
+    if (vendorId) await ensureBuyerIdentityForVendor(waId, vendorId)
     // A photo sent while mid-quote-request (lib/whatsapp/service-quote.ts) is a job
     // attachment, not a "find me this product" query — checked before falling through to
     // goods' photo search below, so it isn't misrouted while collecting request photos.
@@ -169,6 +171,15 @@ export async function handleInboundImageMessage(waId: string, mediaId: string): 
     return
   }
   await trySend(waId, "I can't do anything with a photo right now. Try: dispatched [order ref] or balance.")
+}
+
+export async function handleUnsupportedMessage(waId: string, type: string): Promise<void> {
+  const label = type === 'audio' ? 'voice notes' : type === 'video' ? 'videos' : 'that message type'
+  const vendorId = await resolveLinkedVendor(waId)
+  const buyerMode = !vendorId || await isVendorShopping(vendorId)
+  await trySend(waId, buyerMode
+    ? `I can't read ${label} yet. Please type what you need, such as "sneakers under ₦20,000" or "services".`
+    : `I can't read ${label} yet. Please type a command such as "balance", "sales", or "help".`)
 }
 
 async function tryHandleLinkCode(waId: string, code: string): Promise<boolean> {

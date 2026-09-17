@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
-import { handleInboundMessage, handleButtonReply, handleInboundImageMessage } from '@/lib/whatsapp/commands'
+import { handleInboundMessage, handleButtonReply, handleInboundImageMessage, handleUnsupportedMessage } from '@/lib/whatsapp/commands'
 import { handleCategorySelection, handleServiceCategorySelection } from '@/lib/whatsapp/buyer'
 import { handleSavedAddressListReply } from '@/lib/whatsapp/checkout'
 import connectToDatabase from '@/lib/mongodb'
@@ -109,6 +109,7 @@ export async function POST(request: NextRequest) {
             await handleInboundImageMessage(waId, String(message.image.id))
           } else {
             console.log(`[whatsapp-webhook] Message from ${waId} (type: ${message?.type || 'unknown'}, no text body)`)
+            await handleUnsupportedMessage(waId, String(message?.type || 'unknown'))
           }
         }
 

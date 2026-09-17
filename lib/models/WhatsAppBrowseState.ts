@@ -62,7 +62,8 @@ const WhatsAppBrowseStateSchema = new Schema({
     ],
     default: 'browsing',
   },
-  // Cart line items: { productId, vendorId, vendorName, storeId, title, price, quantity, image }.
+  // Cart line items: { productId, vendorId, vendorName, storeId, title, price,
+  // quantity, selectedVariants }. Variant selections are carried into buildOrder.
   // Mixed, matching the established convention for Order.vendors — this data is
   // read/written as whole objects, never queried by sub-field.
   cart: { type: [Schema.Types.Mixed], default: [] },

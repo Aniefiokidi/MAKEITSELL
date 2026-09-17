@@ -17,7 +17,6 @@ import { after } from 'next/server'
 import connectToDatabase from '@/lib/mongodb'
 import { Product } from '@/lib/models/Product'
 import { User } from '@/lib/models/User'
-import { getProducts } from '@/lib/mongodb-operations'
 import { WhatsAppBrowseState } from '@/lib/models/WhatsAppBrowseState'
 import { WhatsAppProductMessageMap } from '@/lib/models/WhatsAppProductMessageMap'
 import { WhatsAppBuyer } from '@/lib/models/WhatsAppBuyer'
@@ -26,6 +25,8 @@ import { sendTextMessage, sendTemplateMessage, sendInteractiveListMessage, type 
 import { findOrCreateBuyerForWaId, setBuyerName, placeholderEmailForWaId, PLACEHOLDER_BUYER_NAME } from '@/lib/whatsapp/buyer-identity'
 import { initiateWaBuyerPaystackCheckout } from '@/lib/whatsapp/buyer-orders'
 import { getDeliveryQuotesForCart } from '@/lib/delivery-quotes'
+import { answerProductQuestion, selectProductVariants } from '@/lib/whatsapp/product-answers'
+import { canonicalSelectedVariantsKey, normalizeProductVariants } from '@/lib/product-variants'
 
 // Stages that own the buyer's very next message entirely — the normal browsing/search
 // dispatch in lib/whatsapp/buyer.ts is bypassed while in one of these. 'cart' is
@@ -79,12 +80,20 @@ async function saveState(waId: string, patch: Record<string, any>): Promise<void
 // Cart
 // ---------------------------------------------------------------------------
 
-async function addProductToCart(waId: string, product: any, quantity: number): Promise<{ cart: any[]; addedTitle: string }> {
-  const state = await loadState(waId)
+async function addProductToCart(
+  waId: string,
+  product: any,
+  quantity: number,
+  selectedVariants: Array<{ label: string; value: string }>,
+  state: any
+): Promise<{ cart: any[]; addedTitle: string }> {
   const cart: any[] = Array.isArray(state?.cart) ? [...state.cart] : []
 
   const productId = String(product?.id || product?._id || '')
-  const existingIndex = cart.findIndex((item) => String(item.productId) === productId)
+  const selectedKey = canonicalSelectedVariantsKey(selectedVariants)
+  const existingIndex = cart.findIndex((item) =>
+    String(item.productId) === productId && canonicalSelectedVariantsKey(item.selectedVariants) === selectedKey
+  )
 
   if (existingIndex >= 0) {
     cart[existingIndex] = { ...cart[existingIndex], quantity: Number(cart[existingIndex].quantity || 1) + quantity }
@@ -97,6 +106,7 @@ async function addProductToCart(waId: string, product: any, quantity: number): P
       title: String(product?.name || 'Product'),
       price: Number(product?.price || 0),
       quantity,
+      selectedVariants,
     })
   }
 
@@ -141,10 +151,13 @@ export async function tryHandleProductReply(waId: string, contextMessageId: stri
   }
 
   const trimmedReply = String(text || '').trim()
-  const addMatch = trimmedReply.match(/^(?:(?:add|buy|i(?:'d| would)? like|i want|yes|please|one|this)(?:\s+(?:this|one|it|to cart))?)(?:\s+(\d+))?\s*[!.]?$/i)
+  const addMatch = trimmedReply.match(/^(?:add|buy|i(?:'d| would)? like|i want|yes|one|this)(?:\s+(\d+))?(?:\s+(.*))?$/i)
   const quantityText = /^\d+$/.test(trimmedReply) ? trimmedReply : addMatch?.[1]
-  if (trimmedReply && !quantityText && !addMatch) {
-    await trySendText(waId, `*${product.name || 'This product'}* costs ${formatNaira(Number(product.price || 0))}. To add it to your cart, reply "add" or send a quantity (e.g. "2").`)
+  const optionReply = addMatch?.[2]?.replace(/[!.]+$/, '').trim() || ''
+  const hasVariants = normalizeProductVariants(product).length > 0
+  const hasUnexpectedWords = optionReply && !/^(?:this|one|it|to cart)$/i.test(optionReply) && !hasVariants
+  if (trimmedReply && (!quantityText && !addMatch || hasUnexpectedWords)) {
+    await trySendText(waId, answerProductQuestion(product, trimmedReply))
     return true
   }
   const quantity = quantityText ? Number(quantityText) : 1
@@ -152,44 +165,50 @@ export async function tryHandleProductReply(waId: string, contextMessageId: stri
     await trySendText(waId, 'Please choose a quantity from 1 to 99.')
     return true
   }
+  const currentStock = Number(product.stock)
+  if (currentStock !== 9999 && (!Number.isFinite(currentStock) || currentStock < quantity)) {
+    await trySendText(waId, currentStock > 0
+      ? `Only ${currentStock} unit${currentStock === 1 ? '' : 's'} of ${product.name} are currently listed. Reply with a smaller quantity.`
+      : `${product.name} is currently unavailable. Search for another item instead.`)
+    return true
+  }
 
-  const productWithId = { ...product, id: String(product._id) }
-  const { cart, addedTitle } = await addProductToCart(waId, productWithId, quantity)
-
-  await trySendText(
-    waId,
-    `Added: ${addedTitle} x${quantity}\n\nCart: ${cart.length} item(s), ${formatNaira(cartSubtotal(cart))}. Type "cart" to view, "checkout" when ready, or keep searching.`
-  )
-  return true
-}
-
-// Fuzzy backup: "sneakers, iphone case" — each comma-separated segment is matched
-// against active products individually. An unambiguous single match adds directly; zero
-// or multiple matches ask the buyer to search that term and reply-select instead, rather
-// than guessing.
-export async function tryHandleCommaSeparatedAdd(waId: string, text: string): Promise<boolean> {
-  const segments = String(text || '').split(',').map((s) => s.trim()).filter(Boolean)
-  if (segments.length === 0) return false
-
-  const results: string[] = []
-  for (const segment of segments) {
-    const matches = await getProducts({ search: segment, status: 'active', limitCount: 5 })
-    if (matches.length === 0) {
-      results.push(`"${segment}": no match found.`)
-    } else if (matches.length === 1) {
-      await addProductToCart(waId, matches[0], 1)
-      results.push(`Added: ${matches[0].name}`)
-    } else {
-      results.push(`"${segment}": matched multiple products — search for it to see options and reply to add one.`)
-    }
+  const variants = normalizeProductVariants(product)
+  const variantSelection = selectProductVariants(product.name, variants, optionReply, quantity)
+  if (variantSelection.prompt) {
+    await trySendText(waId, variantSelection.prompt)
+    return true
   }
 
   const state = await loadState(waId)
   const cart: any[] = Array.isArray(state?.cart) ? state.cart : []
+  const productId = String(product._id)
+  const existingProductQuantity = cart
+    .filter((item) => String(item.productId) === productId)
+    .reduce((sum, item) => sum + Number(item.quantity || 0), 0)
+  if (currentStock !== 9999 && existingProductQuantity + quantity > currentStock) {
+    await trySendText(waId, `Your cart already has ${existingProductQuantity} of ${product.name}. Only ${currentStock} units are currently listed.`)
+    return true
+  }
+  const selectedKey = canonicalSelectedVariantsKey(variantSelection.selected)
+  const existingVariantQuantity = cart
+    .filter((item) => String(item.productId) === productId && canonicalSelectedVariantsKey(item.selectedVariants) === selectedKey)
+    .reduce((sum, item) => sum + Number(item.quantity || 0), 0)
+  const unavailable = variantSelection.selected.find((selected) => {
+    const variant = variants.find((entry) => entry.label === selected.label && entry.value === selected.value)
+    return !variant || existingVariantQuantity + quantity > variant.stock
+  })
+  if (unavailable) {
+    await trySendText(waId, `Your cart already has ${existingVariantQuantity} of ${product.name} (${unavailable.label}: ${unavailable.value}). Choose a smaller quantity or another option.`)
+    return true
+  }
+
+  const productWithId = { ...product, id: String(product._id) }
+  const { cart: updatedCart, addedTitle } = await addProductToCart(waId, productWithId, quantity, variantSelection.selected, state)
 
   await trySendText(
     waId,
-    `${results.join('\n')}\n\nCart: ${cart.length} item(s), ${formatNaira(cartSubtotal(cart))}. Type "cart" to view, "checkout" when ready, or keep searching.`
+    `Added: ${addedTitle}${variantSelection.selected.length ? ` (${variantSelection.selected.map((variant) => `${variant.label}: ${variant.value}`).join(', ')})` : ''} x${quantity}\n\nCart: ${updatedCart.length} item(s), ${formatNaira(cartSubtotal(updatedCart))}. Type "cart" to view, "checkout" when ready, or keep searching.`
   )
   return true
 }
@@ -203,7 +222,7 @@ export async function sendCartSummary(waId: string): Promise<void> {
     return
   }
 
-  const lines = cart.map((item, i) => `${i + 1}. ${item.title} x${item.quantity} — ${formatNaira(Number(item.price || 0) * Number(item.quantity || 1))}`)
+  const lines = cart.map((item, i) => `${i + 1}. ${item.title}${Array.isArray(item.selectedVariants) && item.selectedVariants.length ? ` (${item.selectedVariants.map((variant: any) => `${variant.label}: ${variant.value}`).join(', ')})` : ''} x${item.quantity} — ${formatNaira(Number(item.price || 0) * Number(item.quantity || 1))}`)
 
   await trySendText(
     waId,
@@ -492,7 +511,7 @@ async function presentTotalAndConfirm(waId: string): Promise<void> {
 
   const lines = [
     'Order summary:',
-    ...cart.map((item) => `- ${item.title} x${item.quantity} — ${formatNaira(Number(item.price || 0) * Number(item.quantity || 1))}`),
+    ...cart.map((item) => `- ${item.title}${Array.isArray(item.selectedVariants) && item.selectedVariants.length ? ` (${item.selectedVariants.map((variant: any) => `${variant.label}: ${variant.value}`).join(', ')})` : ''} x${item.quantity} — ${formatNaira(Number(item.price || 0) * Number(item.quantity || 1))}`),
     '',
     `Subtotal: ${formatNaira(subtotal)}`,
     `VAT (7%): ${formatNaira(vat)}`,
@@ -631,6 +650,7 @@ async function handleConfirmReply(waId: string, text: string): Promise<void> {
     price: item.price,
     vendorId: item.vendorId,
     vendorName: item.vendorName,
+    selectedVariants: item.selectedVariants || [],
   }))
 
   const shippingInfo = {

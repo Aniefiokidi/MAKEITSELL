@@ -25,12 +25,8 @@ async function trySendImage(waId: string, imageUrl: string, caption: string): Pr
   }
 }
 
-// Same reply-to-select mechanism as trackProductMessage (lib/whatsapp/checkout.ts) — lets
-// a buyer reply (quote) a specific service-result image to start booking it
-// (lib/whatsapp/service-booking.ts). Same simplification goods makes: a text-only result
-// (no photo) isn't tracked, so it isn't reply-selectable — rare in practice, since
-// normalizeServicePricing() (lib/mongodb-operations.ts) already falls back through
-// service images -> package images -> providerImage before ever landing on "none".
+// Same reply-to-select mechanism as trackProductMessage (lib/whatsapp/checkout.ts).
+// Text-only results are tracked too, including image-send fallbacks.
 async function trackServiceMessage(waId: string, messageId: string, serviceId: string): Promise<void> {
   if (!messageId || !serviceId) return
   try {
