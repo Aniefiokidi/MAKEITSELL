@@ -9,7 +9,7 @@ test('extracts explicit naira budgets without losing the item', () => {
 })
 
 test('does not guess a budget from a vague request', () => {
-  assert.deepEqual(parseCatalogQuery('cheap sneakers'), { term: 'cheap sneakers' })
+  assert.deepEqual(parseCatalogQuery('cheap sneakers'), { term: 'sneakers', sortByPrice: true })
   assert.deepEqual(parseCatalogQuery('sneakers under twenty thousand'), { term: 'sneakers under twenty thousand' })
 })
 

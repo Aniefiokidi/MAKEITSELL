@@ -7,6 +7,36 @@ import { parseCatalogQuery } from '@/lib/whatsapp/catalog-query'
 
 const SEARCH_FIELDS = ['name', 'category', 'subcategory'] as const
 
+// What buyers type vs what sellers name things. Tried only after the literal tiers miss,
+// so "shoe" reaches sneakers/boots/sandals without ever displacing a real "shoe" match.
+const SYNONYMS: Record<string, string[]> = {
+  shoe: ['sneaker', 'boot', 'sandal', 'slipper', 'heel', 'loafer', 'footwear', 'trainer'],
+  shoes: ['sneaker', 'boot', 'sandal', 'slipper', 'heel', 'loafer', 'footwear', 'trainer'],
+  footwear: ['sneaker', 'boot', 'sandal', 'slipper', 'heel', 'shoe'],
+  sneaker: ['trainer', 'shoe'], sneakers: ['trainer', 'shoe'], trainers: ['sneaker', 'shoe'],
+  phone: ['iphone', 'samsung', 'tecno', 'infinix', 'smartphone', 'android', 'redmi', 'xiaomi'],
+  phones: ['iphone', 'samsung', 'tecno', 'infinix', 'smartphone', 'android'],
+  smartphone: ['iphone', 'samsung', 'tecno', 'infinix', 'phone'],
+  laptop: ['macbook', 'notebook', 'hp', 'dell', 'lenovo', 'chromebook'], laptops: ['macbook', 'notebook', 'hp', 'dell', 'lenovo'],
+  cloth: ['shirt', 'dress', 'gown', 'trouser', 'jean', 'top', 'jacket', 'hoodie', 'wear'], clothes: ['shirt', 'dress', 'gown', 'trouser', 'jean', 'top', 'jacket', 'hoodie', 'wear'],
+  wear: ['shirt', 'dress', 'gown', 'trouser', 'jean', 'jacket'], outfit: ['dress', 'gown', 'shirt', 'set'],
+  bag: ['handbag', 'backpack', 'purse', 'tote'], bags: ['handbag', 'backpack', 'purse', 'tote'],
+  watch: ['wristwatch', 'smartwatch'], watches: ['wristwatch', 'smartwatch'],
+  perfume: ['fragrance', 'cologne', 'scent', 'oud'], perfumes: ['fragrance', 'cologne', 'scent'],
+  hair: ['wig', 'weave', 'braid', 'extension', 'closure', 'frontal'],
+  tv: ['television', 'smart tv'], fridge: ['refrigerator'], gen: ['generator'],
+  earpiece: ['earphone', 'earbud', 'headphone', 'airpod', 'headset'],
+  headphones: ['headphone', 'headset', 'earphone', 'earbud'], earphones: ['earphone', 'earbud', 'earpiece'],
+  jewelry: ['ring', 'necklace', 'bracelet', 'chain', 'earring', 'jewellery'], jewellery: ['ring', 'necklace', 'bracelet', 'chain', 'earring', 'jewelry'],
+  chain: ['necklace'], necklace: ['chain'],
+  charger: ['adapter', 'power bank', 'cable'], powerbank: ['power bank'],
+  cream: ['lotion', 'moisturizer', 'moisturiser', 'body butter'], lotion: ['cream', 'moisturizer'],
+  drink: ['juice', 'wine', 'water', 'beverage'], food: ['snack', 'rice', 'spice', 'seasoning'],
+  ankara: ['african print', 'fabric'], fabric: ['ankara', 'lace', 'material'], material: ['fabric', 'lace', 'ankara'],
+  kid: ['children', 'baby', 'kids'], kids: ['children', 'baby'], children: ['kids', 'baby'], baby: ['infant', 'kids'],
+  slide: ['slipper', 'sandal'], slides: ['slipper', 'sandal'], palm: ['slipper', 'sandal'],
+}
+
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
@@ -40,12 +70,28 @@ export async function searchCatalogProducts(query: string, offset: number, limit
     })),
   })
 
+  // Synonym tier: swap each word that has synonyms for an OR of them (keeps the other
+  // words as-is), so "black shoe" -> black + (sneaker|boot|sandal...).
+  const expanded = words.map((word) => {
+    const alternatives = SYNONYMS[word.toLowerCase()]
+    return alternatives && alternatives.length > 0 ? [word, ...alternatives] : [word]
+  })
+  if (expanded.some((group) => group.length > 1)) {
+    candidates.push({
+      ...baseFilter,
+      $and: expanded.map((group) => ({
+        $or: group.flatMap((alt) => SEARCH_FIELDS.map((field) => ({ [field]: new RegExp(escapeRegex(alt), 'i') }))),
+      })),
+    })
+  }
+
+  const sort: Record<string, 1 | -1> = parsed.sortByPrice || parsed.maxPrice ? { price: 1, _id: -1 } : { featured: -1, createdAt: -1, _id: -1 }
   for (const filter of candidates) {
     // First page needs only one query. Later pages check existence before skip so
     // reaching the end of a strong match tier never switches into weaker results.
     if (offset > 0 && !(await Product.exists(filter))) continue
     const matches: any[] = await Product.find(filter)
-      .sort(parsed.maxPrice ? { price: 1, _id: -1 } : { featured: -1, createdAt: -1, _id: -1 })
+      .sort(sort)
       .skip(offset)
       .limit(limit)
       .lean()
@@ -56,7 +102,7 @@ export async function searchCatalogProducts(query: string, offset: number, limit
 
 // Damerau-Levenshtein (adjacent transpositions count as one edit) — "sneekers" vs
 // "sneakers" is 1, "iphoen" vs "iphone" is 1.
-function editDistance(a: string, b: string): number {
+export function editDistance(a: string, b: string): number {
   const rows = a.length + 1
   const cols = b.length + 1
   const d: number[][] = Array.from({ length: rows }, () => new Array(cols).fill(0))

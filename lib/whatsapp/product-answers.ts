@@ -45,6 +45,10 @@ export function answerProductQuestion(product: any, message: string): string {
   if (/\b(how much|price|cost)\b/.test(text)) {
     return `${name} is listed at ${naira(product?.price)}. Delivery is calculated at checkout from your address. Reply "add" to add it to your cart.`
   }
+  if (/\b(original|authentic|genuine|real|fake|legit|quality|durable|last long)\b/.test(text)) {
+    const description = String(product?.description || '').trim()
+    return `I can only go by what the seller listed for ${name}${description ? `: "${description.slice(0, 300)}${description.length > 300 ? '…' : ''}"` : ''}. Your payment is held in escrow until you confirm delivery, so if it arrives not as described you can report it within 5 days for a refund. Reply "add" to continue.`
+  }
   if (/\b(available|availability|in stock|stock|do you have it)\b/.test(text)) {
     const stock = Number(product?.stock)
     if (product?.status !== 'active' || (Number.isFinite(stock) && stock <= 0)) {
@@ -59,6 +63,25 @@ export function answerProductQuestion(product: any, message: string): string {
       return count > 0
         ? `${name} (${mentioned.label}: ${mentioned.value}) shows ${count} unit${count === 1 ? '' : 's'} in stock. Reply "add ${mentioned.label} ${mentioned.value}" to continue.`
         : `${name} (${mentioned.label}: ${mentioned.value}) is currently out of stock. Ask about another option.`
+    }
+    // "do you have it in black?" / "is there a size 42?" — check the specific option asked
+    // for before falling back to the general stock answer.
+    const optionAsk = text.match(/\b(?:in|size|colou?r)\s+(?!stock\b|store\b|cart\b|the\b|my\b|this\b|it\b)([a-z0-9]+(?:\.5)?)\b/) || text.match(/\b(black|white|red|blue|green|yellow|pink|purple|brown|grey|gray|gold|silver|orange|beige|cream|navy|wine|maroon)\b/)
+    if (optionAsk) {
+      const wanted = optionAsk[1].toLowerCase()
+      const variants: any[] = Array.isArray(product?.variants) ? product.variants : []
+      const listed = [
+        ...variants.filter((v) => Number(v?.stock) > 0).map((v) => String(v?.value || '')),
+        ...(Array.isArray(product?.colors) ? product.colors : []),
+        ...(Array.isArray(product?.sizes) ? product.sizes : []),
+      ].map((v) => String(v).toLowerCase()).filter(Boolean)
+      if (listed.length > 0) {
+        const hit = listed.find((v) => v === wanted || v.startsWith(wanted))
+        return hit
+          ? `Yes — ${name} is listed in ${optionAsk[1]}. Reply "add ${optionAsk[1]}" to add that option to your cart.`
+          : `${name} isn't listed in ${optionAsk[1]}. Options currently listed: ${Array.from(new Set(listed)).slice(0, 8).join(', ')}. Reply "add" with one of those to continue.`
+      }
+      return `The seller hasn't listed separate colour or size options for ${name} — it's sold as shown in the listing. Reply "add" to continue, or search for "${wanted} ${name.split(' ').slice(-1)[0].toLowerCase()}" to see other options.`
     }
     if (!Number.isFinite(stock)) {
       return `${name} is listed as available, but I can't confirm a unit count. Availability is checked at checkout.`

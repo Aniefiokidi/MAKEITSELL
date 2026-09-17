@@ -8,6 +8,7 @@ import { Store } from '@/lib/models/Store'
 import { WhatsAppServiceMessageMap } from '@/lib/models/WhatsAppServiceMessageMap'
 import { findPlaceInText, formatDistance, getCityCoords, haversineKm, type LocatedPlace } from '@/lib/geo-utils'
 import { applyLocationPricing } from '@/lib/service-pricing'
+import { editDistance } from '@/lib/whatsapp/catalog-search'
 import { sendTextMessage, sendImageMessage } from '@/lib/whatsapp/client'
 
 export interface BuyerLocation {
@@ -212,6 +213,39 @@ export async function searchServiceCandidates(query: string, limit: number): Pro
       return { service, score }
     }).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score)
     for (const entry of scored) add({ ...entry.service, id: String(entry.service._id) })
+  }
+
+  // Typo tier ("plumbr", "fotographer"): compare each root against the words of every
+  // active service's title/category/tags, allowing one edit (two for long words).
+  if (roots.length > 0 && seen.size === 0) {
+    const pool: any[] = await ServiceModel.find({ status: 'active' }).select('title category subcategory tags').limit(2000).lean()
+    const scored: Array<{ service: any; score: number }> = []
+    for (const service of pool) {
+      const tokens = [service.title, service.category, service.subcategory, ...(Array.isArray(service.tags) ? service.tags : [])]
+        .join(' ').toLowerCase().split(/[^a-z0-9]+/).filter((t: string) => t.length >= 3)
+      let score = 0
+      for (const root of roots) {
+        const max = root.length >= 8 ? 2 : root.length >= 4 ? 1 : 0
+        if (max === 0) continue
+        const near = tokens.some((token: string) => {
+          const tokenRoot = serviceWordRoots(token)[0] || token
+          return (Math.abs(tokenRoot.length - root.length) <= max && editDistance(root, tokenRoot) <= max)
+            || (Math.abs(token.length - root.length) <= max && editDistance(root, token) <= max)
+        })
+        if (near) score++
+      }
+      if (score > 0) scored.push({ service, score })
+    }
+    scored.sort((a, b) => b.score - a.score)
+    const ids = scored.slice(0, limit).map((entry) => entry.service._id)
+    if (ids.length > 0) {
+      const full: any[] = await ServiceModel.find({ _id: { $in: ids } }).lean()
+      const byId = new Map(full.map((doc) => [String(doc._id), doc]))
+      for (const id of ids) {
+        const doc = byId.get(String(id))
+        if (doc) add({ ...doc, id: String(doc._id) })
+      }
+    }
   }
   return Array.from(seen.values()).slice(0, limit)
 }

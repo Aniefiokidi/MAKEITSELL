@@ -2,8 +2,11 @@
 // and reply-to-select tracking. Used by both text search (lib/whatsapp/buyer.ts) and
 // photo-based search (lib/whatsapp/image-search.ts); split into its own module so
 // neither of those two needs to import the other.
+import connectToDatabase from '@/lib/mongodb'
 import { Store } from '@/lib/models/Store'
 import { sendTextMessage, sendImageMessage } from '@/lib/whatsapp/client'
+import { WhatsAppBrowseState } from '@/lib/models/WhatsAppBrowseState'
+import type { RecentResult } from '@/lib/whatsapp/recent-results'
 import { trackProductMessage } from '@/lib/whatsapp/checkout'
 
 async function trySendText(waId: string, body: string): Promise<any | null> {
@@ -41,18 +44,18 @@ function buildWhatsAppImageUrl(url: string): string {
 // from a batched Store lookup — falls back to Product.vendorName (the vendor's personal
 // account name, denormalized on the product at creation time) only if that lookup
 // couldn't resolve one, so a caption is never blank.
-function buildProductCaption(product: any, storeName?: string): string {
+function buildProductCaption(product: any, storeName: string | undefined, index: number): string {
   const name = String(product?.name || 'Product')
   const price = formatNaira(Number(product?.price || 0))
   const sellerName = storeName || String(product?.vendorName || 'Make It Sell')
-  return `${name}\n${price}\nSold by ${sellerName}\n\nReply "add" or a quantity to add to cart.`
+  return `${index}. ${name}\n${price}\nSold by ${sellerName}\n\nReply "${index}" or "add ${index}" to add it to your cart.`
 }
 
 // Sends one result (image+caption, or text if no photo) and records the message->product
 // mapping so a later reply to it can be resolved back to this product (checkout.ts's
 // tryHandleProductReply — the primary add-to-cart path).
-async function sendResultItem(waId: string, product: any, storeName?: string): Promise<void> {
-  const caption = buildProductCaption(product, storeName)
+async function sendResultItem(waId: string, product: any, storeName: string | undefined, index: number): Promise<RecentResult | null> {
+  const caption = buildProductCaption(product, storeName, index)
   const rawImage = Array.isArray(product?.images) ? product.images[0] : undefined
   const productId = String(product?.id || product?._id || '')
 
@@ -63,16 +66,35 @@ async function sendResultItem(waId: string, product: any, storeName?: string): P
   if (messageId && productId) {
     await trackProductMessage(waId, messageId, productId)
   }
+  return productId ? { productId, messageId, name: String(product?.name || 'Product') } : null
 }
 
 // Batch-resolves store names for a page of products, then sends them all concurrently.
 // Each send catches its own errors, so one failure can't fail the whole batch.
-export async function sendProductResults(waId: string, products: any[]): Promise<void> {
+// Cards are numbered so the buyer can say "2" or "the second one" instead of replying to
+// the message. `append` keeps numbering (and memory) going across a shopping-list send.
+export async function sendProductResults(waId: string, products: any[], options: { append?: boolean } = {}): Promise<void> {
   const storeIds = Array.from(new Set(products.map((p) => String((p as any)?.storeId || '')).filter(Boolean)))
   const stores = storeIds.length > 0 ? await Store.find({ _id: { $in: storeIds } }).select('storeName').lean() : []
   const storeNameById = new Map((stores as any[]).map((s) => [String(s._id), String(s.storeName || '')]))
 
-  await Promise.all(
-    products.map((product) => sendResultItem(waId, product, storeNameById.get(String((product as any)?.storeId || ''))))
-  )
+  await connectToDatabase()
+  const previous: RecentResult[] = options.append
+    ? (((await WhatsAppBrowseState.findOne({ waId }).select('lastResults').lean()) as any)?.lastResults || [])
+    : []
+  const offset = previous.length
+
+  // Sequential, not Promise.all: WhatsApp delivers in send order only when we send in
+  // order, and the numbering has to match what the buyer sees.
+  const sent: RecentResult[] = []
+  for (let i = 0; i < products.length; i++) {
+    const product = products[i]
+    const item = await sendResultItem(waId, product, storeNameById.get(String((product as any)?.storeId || '')), offset + i + 1)
+    if (item) sent.push(item)
+  }
+  await WhatsAppBrowseState.findOneAndUpdate(
+    { waId },
+    { $set: { lastResults: [...previous, ...sent].slice(-12), lastResultsAt: new Date(), updatedAt: new Date() } },
+    { upsert: true }
+  ).catch((error: unknown) => console.error(`[whatsapp-product-results] failed to remember results for ${waId}:`, error))
 }

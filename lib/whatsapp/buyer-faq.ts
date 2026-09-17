@@ -19,21 +19,36 @@ const PAYMENT_PATTERN = /\b(how|where|can|do)\b.*\b(pay|payment|transfer|card|po
 const RETURNS_PATTERN = /\b(return|refund|exchange|replace(?:ment)?|warranty|guarantee|policy|fake|wrong item|damaged|not working|faulty)\b/i
 const HUMAN_PATTERN = /\b(?:talk|speak|chat)\s+(?:to|with)\s+(?:an?\s+)?(?:human|agent|person|someone|somebody|representative|rep|customer (?:care|service|support))\b|\b(?:customer (?:care|service|support)|human agent|real person|live agent|live chat)\b|\b(?:i want to|how (?:do|can) i|where (?:do|can) i)\s+(?:complain|make a complaint|report (?:a|an|the|this)\b)|\bcomplaints?\b|\byour (?:phone|contact) number\b/i
 const CATALOG_PATTERN = /^(?:what (?:do|can) (?:you|i|una) (?:sell|have|get|buy|find)|what(?:'s| is) available|wetin (?:una|you|dey) (?:get|sell|have|dey sell)|wetin dey|show me (?:everything|all|what you have)|what (?:else )?do you (?:have|sell))[\s?!.]*$/i
+const DISCOUNT_PATTERN = /\b(discount|last price|best price|reduce|reduction|negotiat(?:e|able)|bargain|cheaper price|lower price|price too high|too expensive|promo|coupon|voucher)\b/i
+const HOW_TO_ORDER_PATTERN = /\b(how (?:do|can) i (?:order|buy|purchase|shop|place an order)|how (?:does|do) (?:this|it|ordering|buying) work|how to (?:order|buy|use this)|what (?:do|should) i do)\b/i
+const ABOUT_PATTERN = /\b(what is (?:this|makeitsell|make it sell)|who are you|are you a bot|is this a bot|what can you do|what do you do)\b/i
 const CONTEXTLESS_ACTION_PATTERN = /^(?:add|buy|yes|this|this one|that one|i want this|i want that|take it|add to cart|\d{1,2})[\s!.]*$/i
 const CONTEXTLESS_PRICE_PATTERN = /^(?:how much(?: be| is| for)?(?: this| that| it| this one| dis)?|price|what(?:'s| is) the price|how much be dis)[\s?!.]*$/i
 
-export function answerBuyerFaq(text: string): FaqAnswer | null {
+// `hasRecentResults`: product cards are on screen, so "add", "2", "yes", "ok" and "how
+// much?" are about those cards (lib/whatsapp/recent-results.ts) — not context-less.
+export function answerBuyerFaq(text: string, options: { hasRecentResults?: boolean } = {}): FaqAnswer | null {
   const trimmed = String(text || '').trim()
   if (!trimmed) return null
+  const contextless = !options.hasRecentResults
 
-  if (ACK_PATTERN.test(trimmed)) {
+  if (ABOUT_PATTERN.test(trimmed)) {
+    return { kind: 'text', body: 'I\'m the Make It Sell shopping assistant. Tell me what you want to buy and I\'ll find it from our sellers, add it to your cart and check you out with delivery to your door — or tell me a service you need and where you are, and I\'ll send you the closest providers\' contacts and rates.' }
+  }
+  if (HOW_TO_ORDER_PATTERN.test(trimmed)) {
+    return { kind: 'text', body: 'Easy: 1) tell me what you want (e.g. "sneakers under ₦20,000"); 2) reply with the number of the card you like to add it to your cart; 3) type "checkout" — I\'ll take your name and address, show delivery options, and send a secure payment link. Your money stays in escrow until you confirm delivery.' }
+  }
+  if (DISCOUNT_PATTERN.test(trimmed)) {
+    return { kind: 'text', body: 'Prices are set by each seller and I can\'t negotiate them here — but I can find you something cheaper. Tell me your budget, e.g. "sneakers under ₦10,000", or ask for the "cheapest" of what you want.' }
+  }
+  if (contextless && ACK_PATTERN.test(trimmed)) {
     return { kind: 'text', body: 'Whenever you\'re ready, tell me what you need — a product (e.g. "sneakers under ₦20,000") or a service (e.g. "plumber in Yaba").' }
   }
   if (CATALOG_PATTERN.test(trimmed)) return { kind: 'categories' }
-  if (CONTEXTLESS_ACTION_PATTERN.test(trimmed)) {
+  if (contextless && CONTEXTLESS_ACTION_PATTERN.test(trimmed)) {
     return { kind: 'text', body: 'Which item? Reply directly to the product card you want (long-press it, tap Reply) and say "add" or a quantity. If you haven\'t searched yet, tell me what you\'re looking for.' }
   }
-  if (CONTEXTLESS_PRICE_PATTERN.test(trimmed)) {
+  if (contextless && CONTEXTLESS_PRICE_PATTERN.test(trimmed)) {
     return { kind: 'text', body: 'Which item? Reply directly to its product card and ask, or tell me the product name and I\'ll send the price.' }
   }
   if (DELIVERY_PATTERN.test(trimmed)) {

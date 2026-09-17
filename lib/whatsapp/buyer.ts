@@ -31,8 +31,12 @@ import {
   tryHandleProviderCardReply,
   type BuyerLocation,
 } from '@/lib/whatsapp/service-contacts'
+import { parseResultReference, listRecentResults, type RecentResult } from '@/lib/whatsapp/recent-results'
+import { answerProductQuestion } from '@/lib/whatsapp/product-answers'
+import { Product } from '@/lib/models/Product'
 import {
   BLOCKING_CHECKOUT_STAGES,
+  handleProductAction,
   tryHandleProductReply,
   sendCartSummary,
   handleRemoveCommand,
@@ -554,6 +558,53 @@ export async function handleBuyerLocationPin(waId: string, lat: number, lng: num
   await trySendText(waId, 'Thanks, I\'ve saved your location. Tell me what service you need and I\'ll find the closest providers.')
 }
 
+const RECENT_RESULTS_TTL_MS = 48 * 60 * 60 * 1000 // matches WhatsAppProductMessageMap's TTL
+
+async function tryHandleRecentResultReference(waId: string, text: string, state: any): Promise<boolean> {
+  const results: RecentResult[] = Array.isArray(state?.lastResults) ? state.lastResults : []
+  const sentAt = state?.lastResultsAt ? new Date(state.lastResultsAt).getTime() : 0
+  if (results.length === 0 || Date.now() - sentAt > RECENT_RESULTS_TTL_MS) return false
+
+  const ref = parseResultReference(text, results)
+  if (!ref) return false
+
+  if (ref.kind === 'out_of_range') {
+    await trySendText(waId, `I only sent ${results.length} item${results.length === 1 ? '' : 's'}:\n${listRecentResults(results)}\n\nReply with one of those numbers, or search again.`)
+    return true
+  }
+
+  if (ref.kind === 'item') {
+    const target = results[ref.index]
+    console.log(`[whatsapp-buyer] recent-result reference "${text}" -> #${ref.index + 1} ${target.name} — ${waId}`)
+    if (!ref.remainder) {
+      // A bare "the first one" / "the red one" — confirm what that is before doing anything.
+      await connectToDatabase()
+      const product: any = await Product.findOne({ _id: target.productId }).select('name price description').lean()
+      const description = String(product?.description || '').trim()
+      await trySendText(
+        waId,
+        `${ref.index + 1}. ${target.name} — NGN ${Number(product?.price || 0).toLocaleString('en-NG')}${description ? `\n${description.slice(0, 200)}${description.length > 200 ? '…' : ''}` : ''}\n\nReply "add ${ref.index + 1}" to add it to your cart, or ask me anything about it.`
+      )
+      return true
+    }
+    await handleProductAction(waId, target.productId, ref.remainder)
+    return true
+  }
+
+  // Ambiguous: several cards, no number. A price question can be answered for all of
+  // them; anything else needs a pick.
+  if (/\b(how much|price|cost)\b/i.test(ref.remainder)) {
+    await connectToDatabase()
+    const products: any[] = await Product.find({ _id: { $in: results.map((r) => r.productId) } }).select('name price').lean()
+    const priceById = new Map(products.map((p) => [String(p._id), Number(p.price || 0)]))
+    const lines = results.map((r, i) => `${i + 1}. ${r.name} — NGN ${(priceById.get(r.productId) ?? 0).toLocaleString('en-NG')}`)
+    await trySendText(waId, `${lines.join('\n')}\n\nReply with a number (e.g. "2") to add one to your cart.`)
+    return true
+  }
+  await trySendText(waId, `Which one?\n${listRecentResults(results)}\n\nReply with the number (e.g. "1"), or say it — "the ${results[0].name.split(' ')[0].toLowerCase()} one".`)
+  return true
+}
+
 async function handleMoreCommand(waId: string): Promise<void> {
   await connectToDatabase()
   const state: any = await WhatsAppBrowseState.findOne({ waId }).lean()
@@ -856,7 +907,7 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
     if (handledService) return
   }
 
-  if (lower === 'more') {
+  if (lower === 'more' || lower === 'next' || lower === 'show more' || lower === 'more results') {
     await handleMoreCommand(waId)
     return
   }
@@ -885,7 +936,7 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
     return
   }
 
-  if (ORDER_STATUS_PATTERN.test(trimmed)) {
+  if (ORDER_STATUS_PATTERN.test(trimmed) || /^(?:track(?:ing)?(?:\s+\S+)?|my orders?|orders?(?:\s+status)?)[\s?.!]*$/i.test(trimmed)) {
     await sendOrderStatus(waId)
     return
   }
@@ -937,7 +988,8 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
 
   // Delivery/payment/returns/support questions, acknowledgements, and "add"/"how much"
   // sent without replying to a card — none of these are product names.
-  const faq = answerBuyerFaq(trimmed)
+  const hasRecentResults = Array.isArray(state?.lastResults) && state.lastResults.length > 0
+  const faq = answerBuyerFaq(trimmed, { hasRecentResults })
   if (faq) {
     if (faq.kind === 'categories') {
       if (mode === 'services') await sendServiceCategoryMenu(waId)
@@ -947,6 +999,10 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
     }
     return
   }
+
+  // "2", "the first one", "add the red one", or just "yes"/"how much?" after cards were
+  // sent — resolve against the cards the buyer is looking at (recent-results.ts).
+  if (!contextMessageId && await tryHandleRecentResultReference(waId, trimmed, state)) return
 
   // A bare place name with nothing pending ("Lagos" after a failed search): remember it
   // for service ranking and ask what they need, instead of searching for "Lagos".

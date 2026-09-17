@@ -72,6 +72,10 @@ const WhatsAppBrowseStateSchema = new Schema({
   // buyer is (city centre or a shared pin) so providers can be ranked by distance, plus the
   // service they asked for while we wait for that location.
   buyerLocation: { type: Schema.Types.Mixed },
+  // The product cards most recently sent ({ productId, messageId, name }[], numbered in
+  // order) so "2" / "the red one" / "yes" can be resolved — lib/whatsapp/recent-results.ts.
+  lastResults: { type: [Schema.Types.Mixed], default: [] },
+  lastResultsAt: { type: Date },
   pendingServiceQuery: { type: String },
   pendingServiceCategorySlug: { type: String },
 

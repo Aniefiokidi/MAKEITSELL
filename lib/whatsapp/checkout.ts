@@ -143,11 +143,18 @@ export async function tryHandleProductReply(waId: string, contextMessageId: stri
   await connectToDatabase()
   const mapping: any = await WhatsAppProductMessageMap.findOne({ messageId: contextMessageId, waId }).lean()
   if (!mapping?.productId) return false
+  await handleProductAction(waId, String(mapping.productId), text)
+  return true
+}
 
-  const product: any = await Product.findOne({ _id: mapping.productId, status: 'active' }).lean()
+// The same add/question handling for a product the buyer referred to by number or name
+// ("2", "the red one" — lib/whatsapp/recent-results.ts) rather than by replying to it.
+export async function handleProductAction(waId: string, productId: string, text: string): Promise<void> {
+  await connectToDatabase()
+  const product: any = await Product.findOne({ _id: productId, status: 'active' }).lean()
   if (!product) {
     await trySendText(waId, "Sorry, that item isn't available anymore. Search again to see what's in stock.")
-    return true
+    return
   }
 
   const trimmedReply = String(text || '').trim()
@@ -158,37 +165,37 @@ export async function tryHandleProductReply(waId: string, contextMessageId: stri
   const hasUnexpectedWords = optionReply && !/^(?:this|one|it|to cart)$/i.test(optionReply) && !hasVariants
   if (trimmedReply && (!quantityText && !addMatch || hasUnexpectedWords)) {
     await trySendText(waId, answerProductQuestion(product, trimmedReply))
-    return true
+    return
   }
   const quantity = quantityText ? Number(quantityText) : 1
   if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 99) {
     await trySendText(waId, 'Please choose a quantity from 1 to 99.')
-    return true
+    return
   }
   const currentStock = Number(product.stock)
   if (currentStock !== 9999 && (!Number.isFinite(currentStock) || currentStock < quantity)) {
     await trySendText(waId, currentStock > 0
       ? `Only ${currentStock} unit${currentStock === 1 ? '' : 's'} of ${product.name} are currently listed. Reply with a smaller quantity.`
       : `${product.name} is currently unavailable. Search for another item instead.`)
-    return true
+    return
   }
 
   const variants = normalizeProductVariants(product)
   const variantSelection = selectProductVariants(product.name, variants, optionReply, quantity)
   if (variantSelection.prompt) {
     await trySendText(waId, variantSelection.prompt)
-    return true
+    return
   }
 
   const state = await loadState(waId)
   const cart: any[] = Array.isArray(state?.cart) ? state.cart : []
-  const productId = String(product._id)
+  // (productId is the function argument; product._id resolves to the same value)
   const existingProductQuantity = cart
     .filter((item) => String(item.productId) === productId)
     .reduce((sum, item) => sum + Number(item.quantity || 0), 0)
   if (currentStock !== 9999 && existingProductQuantity + quantity > currentStock) {
     await trySendText(waId, `Your cart already has ${existingProductQuantity} of ${product.name}. Only ${currentStock} units are currently listed.`)
-    return true
+    return
   }
   const selectedKey = canonicalSelectedVariantsKey(variantSelection.selected)
   const existingVariantQuantity = cart
@@ -200,7 +207,7 @@ export async function tryHandleProductReply(waId: string, contextMessageId: stri
   })
   if (unavailable) {
     await trySendText(waId, `Your cart already has ${existingVariantQuantity} of ${product.name} (${unavailable.label}: ${unavailable.value}). Choose a smaller quantity or another option.`)
-    return true
+    return
   }
 
   const productWithId = { ...product, id: String(product._id) }
@@ -210,7 +217,6 @@ export async function tryHandleProductReply(waId: string, contextMessageId: stri
     waId,
     `Added: ${addedTitle}${variantSelection.selected.length ? ` (${variantSelection.selected.map((variant) => `${variant.label}: ${variant.value}`).join(', ')})` : ''} x${quantity}\n\nCart: ${updatedCart.length} item(s), ${formatNaira(cartSubtotal(updatedCart))}. Type "cart" to view, "checkout" when ready, or keep searching.`
   )
-  return true
 }
 
 export async function sendCartSummary(waId: string): Promise<void> {
