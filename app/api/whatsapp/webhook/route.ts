@@ -1,8 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import crypto from 'crypto'
-import { handleInboundMessage, handleButtonReply, handleInboundImageMessage, handleInboundLocation, handleUnsupportedMessage } from '@/lib/whatsapp/commands'
-import { handleCategorySelection, handleServiceCategorySelection } from '@/lib/whatsapp/buyer'
-import { handleSavedAddressListReply } from '@/lib/whatsapp/checkout'
+import { processInboundMessage } from '@/lib/whatsapp/inbound'
 import connectToDatabase from '@/lib/mongodb'
 import { WhatsAppDeliveryEvent } from '@/lib/models/WhatsAppDeliveryEvent'
 
@@ -66,58 +64,17 @@ export async function POST(request: NextRequest) {
       for (const change of changes) {
         const value = change?.value || {}
 
-        // Incoming user messages
+        // Incoming user messages — acknowledged to Meta right away and handled after the
+        // response is sent (next/server's after()), so a slow handler can't trip Meta's
+        // delivery timeout and cause a retry. Sequential within a batch so a buyer's
+        // messages are answered in the order they were sent.
         const messages = Array.isArray(value?.messages) ? value.messages : []
-        for (const message of messages) {
-          const waId = String(message?.from || 'unknown')
-          const text = message?.text?.body
-          if (text) {
-            // A text message that's a reply/quote of a previous one (e.g. a buyer
-            // replying to a product-result image to add it to cart) carries the same
-            // context.id shape Meta uses for button/list replies — confirmed against
-            // Meta's official webhook docs (context: {from, id}).
-            const contextMessageId = message?.context?.id ? String(message.context.id) : undefined
-            console.log(`[whatsapp-webhook] Message from ${waId}: ${text}${contextMessageId ? ` (reply to ${contextMessageId})` : ''}`)
-            await handleInboundMessage(waId, text, contextMessageId)
-          } else if (message?.type === 'button' && message?.context?.id) {
-            // Quick-reply button tap on a template we sent (e.g. "Mark as dispatched" on
-            // order_received) — distinct from type "interactive", which is only for
-            // buttons we send ourselves via the Interactive API, not template-embedded
-            // ones. context.id is the WhatsApp message ID of that original template send.
-            console.log(`[whatsapp-webhook] Button reply from ${waId}: "${message.button?.text}" (context: ${message.context.id})`)
-            await handleButtonReply(waId, String(message.context.id))
-          } else if (message?.type === 'interactive' && message?.interactive?.type === 'list_reply') {
-            // Tap on a list message we sent ourselves via the Interactive API — distinct
-            // from the template-embedded "button" type above. Three possible sources
-            // today, distinguished by the row id prefix: "category:electronics" (buyer
-            // goods category menu, lib/whatsapp/buyer.ts), "service-category:beauty"
-            // (buyer services category menu, same file), or "address:<id|new>"
-            // (saved-address picker, lib/whatsapp/checkout.ts).
-            const rowId = String(message.interactive.list_reply?.id || '')
-            console.log(`[whatsapp-webhook] List reply from ${waId}: "${message.interactive.list_reply?.title}" (id: ${rowId})`)
-            if (rowId.startsWith('address:')) {
-              await handleSavedAddressListReply(waId, rowId)
-            } else if (rowId.startsWith('service-category:')) {
-              await handleServiceCategorySelection(waId, rowId)
-            } else {
-              await handleCategorySelection(waId, rowId)
+        if (messages.length > 0) {
+          after(async () => {
+            for (const message of messages) {
+              await processInboundMessage(message)
             }
-          } else if (message?.type === 'location' && Number.isFinite(Number(message?.location?.latitude)) && Number.isFinite(Number(message?.location?.longitude))) {
-            // A shared location pin — used to rank service providers by distance (see
-            // lib/whatsapp/service-contacts.ts). Meta's payload: location: {latitude,
-            // longitude, name?, address?}.
-            const { latitude, longitude, name, address } = message.location
-            console.log(`[whatsapp-webhook] Location from ${waId}: ${latitude},${longitude}${name ? ` (${name})` : ''}`)
-            await handleInboundLocation(waId, Number(latitude), Number(longitude), String(name || address || '').trim() || undefined)
-          } else if (message?.type === 'image' && message?.image?.id) {
-            // A buyer's photo — matched against the catalog via perceptual hashing (see
-            // lib/whatsapp/image-search.ts), no AI/vision API involved.
-            console.log(`[whatsapp-webhook] Image message from ${waId} (media id: ${message.image.id})`)
-            await handleInboundImageMessage(waId, String(message.image.id))
-          } else {
-            console.log(`[whatsapp-webhook] Message from ${waId} (type: ${message?.type || 'unknown'}, no text body)`)
-            await handleUnsupportedMessage(waId, String(message?.type || 'unknown'))
-          }
+          })
         }
 
         // Delivery/read status updates for messages we sent — no message content here,
