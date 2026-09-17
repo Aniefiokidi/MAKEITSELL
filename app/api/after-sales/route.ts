@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSessionUserFromRequest } from '@/lib/server-route-auth'
 import { Order } from '@/lib/models/Order'
 import connectToDatabase from '@/lib/mongodb'
-import { changeCase, openCase, mutateOrder, sendProtectionNotices } from '@/lib/after-sales'
-import { initialLines, evidenceUrls, afterHours } from '@/lib/after-sales-policy'
+import { changeCase, openCase, mutateOrder, sendProtectionNotices, submitPendingProviderRefund } from '@/lib/after-sales'
+import { readableLines, evidenceUrls, afterHours } from '@/lib/after-sales-policy'
 import { enforceRateLimit } from '@/lib/rate-limit'
 
 export async function GET(request: NextRequest) {
@@ -21,14 +21,15 @@ export async function GET(request: NextRequest) {
     const offset = Math.max(0, Math.min(100000, Number(request.nextUrl.searchParams.get('offset')) || 0))
     const orders: any[] = await Order.find(query).sort({ createdAt: -1 }).skip(offset).limit(50).lean()
     const visible = (line: any) => (mode !== 'vendor' || line.vendorId === actor.id) && (!storeId || line.storeId === storeId)
-    return NextResponse.json({ success: true, nextOffset: orders.length === 50 ? offset + 50 : null, orders: orders.map(o => ({
+    return NextResponse.json({ success: true, nextOffset: orders.length === 50 ? offset + 50 : null, orders: orders.map(o => { const derived = readableLines(o); return {
       orderId: o.orderId, legacyDispute: !!o.disputeRaisedAt || o.disputeStatus === 'active', paymentStatus: o.paymentStatus, createdAt: o.createdAt,
-      lines: (o.protectionLines?.length ? o.protectionLines : initialLines(o)).filter(visible),
+      needsReconciliation: derived.needsReconciliation,
+      lines: derived.lines.filter(visible),
       cases: (o.afterSalesCases || []).filter(visible).map((c: any) => ({ ...c,
         nextActor: ({ awaiting_resolution: 'Customer approval of refund alternative', requested: 'Vendor response', admin_review: 'Admin review', awaiting_logistics: 'Agreed payer and admin: courier booking verification', awaiting_arrangements: 'Customer approval', awaiting_return: 'Customer handover', return_in_transit: 'Courier delivery and admin verification', inspection: 'Vendor inspection', replacement_in_transit: 'Courier delivery and admin verification', replacement_clearance: 'Clearance period', refunded: 'Complete', resolved: 'Complete', rejected: 'Complete; appeal available' } as Record<string, string>)[c.status] || 'Admin review',
         history: (c.history || []).map((h: any) => ({ ...h, actorLabel: h.actor === 'system' ? 'System' : h.actor === String(o.customerId) ? 'Customer' : h.actor === c.vendorId ? 'Vendor' : 'Admin' }))
       })),
-    })) })
+    } }) })
   } catch (error) { console.error('[after-sales] list failed', error); return NextResponse.json({ error: 'Could not load requests' }, { status: 500 }) }
 }
 export async function POST(request: NextRequest) {
@@ -58,7 +59,15 @@ export async function POST(request: NextRequest) {
       })
       return NextResponse.json({ success: true })
     }
-    const result = input.action === 'create' ? await openCase(actor, input) : await changeCase(actor, input)
+    let result = input.action === 'create' ? await openCase(actor, input) : await changeCase(actor, input)
+    // An automatic provider refund is two steps: changeCase committed the intent above;
+    // the Paystack request is made here, after that commit, so it can never be replayed
+    // by a transaction retry. The response carries the updated case either way.
+    if (input.action === 'refund' && result?.status === 'refund_pending' && !result?.providerRefundId) {
+      await submitPendingProviderRefund(String(input.orderId || ''), String(result.id))
+      const order: any = await Order.findOne({ orderId: String(input.orderId || '') }).select('afterSalesCases').lean()
+      result = order?.afterSalesCases?.find((c: any) => c.id === result.id) || result
+    }
     await sendProtectionNotices(String(input.orderId || ''))
     return NextResponse.json({ success: true, case: result })
   } catch (error: any) {

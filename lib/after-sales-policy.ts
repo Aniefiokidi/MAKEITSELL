@@ -24,9 +24,16 @@ export function evidenceUrls(value: unknown): string[] {
 }
 export function initialLines(order: any) {
   const lines = (order.vendors || []).flatMap((leg: any, vi: number) => {
-    const subtotal = (leg.items || []).reduce((n: number, i: any) => n + cents(Number(i.price) * Number(i.quantity)), 0)
-    const paid = cents(leg.total ?? subtotal / 100)
-    if (paid > subtotal) throw new Error('Historical item totals need reconciliation')
+    const items = leg.items || []
+    const subtotal = items.reduce((n: number, i: any) => n + cents(Number(i.price) * Number(i.quantity)), 0)
+    // leg.total is accumulated as a float at order creation, while subtotal rounds each
+    // line to kobo first — with fractional prices the two can legitimately disagree by
+    // up to one kobo per item. Tolerate exactly that and clamp, so a rounding artefact
+    // can never allocate more than the item subtotal; anything larger is a genuine
+    // historical discrepancy and still fails closed for review.
+    const rawPaid = cents(leg.total ?? subtotal / 100)
+    if (rawPaid > subtotal + items.length) throw new Error('Historical item totals need reconciliation')
+    const paid = Math.min(rawPaid, subtotal)
     let cumulative = 0
     return (leg.items || []).map((item: any, ii: number) => {
       const quantity = Number(item.quantity)
@@ -47,4 +54,14 @@ export function initialLines(order: any) {
   if (subtotal + tax > cents(order.totalAmount)) throw new Error('Historical payment totals need reconciliation')
   let cumulative = 0
   return lines.map((line: any) => { const before = subtotal ? Math.round(tax * cumulative / subtotal) : 0; cumulative += line.amountCents; return { ...line, taxCents: (subtotal ? Math.round(tax * cumulative / subtotal) : 0) - before } })
+}
+
+// Read-side companion to initialLines. That function fails closed on an order whose
+// historical totals don't reconcile — right for anything that moves money, but a
+// listing must not collapse because one old order in the set needs a human look.
+// Callers get the lines when they can be derived and a flag when they can't.
+export function readableLines(order: any): { lines: any[]; needsReconciliation: boolean } {
+  if (order.protectionLines?.length) return { lines: order.protectionLines, needsReconciliation: false }
+  try { return { lines: initialLines(order), needsReconciliation: false } }
+  catch { return { lines: [], needsReconciliation: true } }
 }

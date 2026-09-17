@@ -8,7 +8,7 @@ const { Store } = require('./build/models/Store');
 const { WalletTransaction } = require('./build/models/WalletTransaction');
 const { Product } = require('./build/models/Product');
 
-const { openCase, changeCase, settleOrder, recordProtectedDelivery, processAfterSalesDeadlines } = require('./build/after-sales');
+const { openCase, changeCase, settleOrder, recordProtectedDelivery, processAfterSalesDeadlines, submitPendingProviderRefund, applyProviderRefundOutcome, reconcilePendingProviderRefunds } = require('./build/after-sales');
 const policy = require('./build/after-sales-policy');
 let db, buyer, vendor, admin, product, store;
 before(async()=>{ db=await MongoMemoryReplSet.create({replSet:{count:1},binary:{version:'7.0.14'}});await mongoose.connect(db.getUri());await Promise.all([Order.init(),Store.init(),User.init(),WalletTransaction.init(),Product.init()]); });
@@ -55,7 +55,8 @@ test('complaint racing payout is either held or explicitly classified as a funde
 });
 test('original-payment refund records proof without crediting the wallet',async()=>{
  await order();const c=await openCase(actor(),request({refundMethod:'original'}));await changeCase(admin,{orderId:'o',caseId:c.id,action:'waive_return',note:'Verified missing item',evidence:['https://example.com/proof.jpg']});
- await assert.rejects(changeCase(admin,{orderId:'o',caseId:c.id,action:'refund',note:'Refund'}),/provider reference/);
+ // The manual path (a refund done outside the app) still requires proof to match the reference.
+ await assert.rejects(changeCase(admin,{orderId:'o',caseId:c.id,action:'refund',note:'Refund',providerRefundReference:'refund-123'}),/settlement proof/);
  await changeCase(admin,{orderId:'o',caseId:c.id,action:'refund',note:'Provider confirmed settlement',providerRefundReference:'refund-123',evidence:['https://example.com/receipt.jpg']});
  assert.equal((await User.findById(buyer._id)).walletBalance,0);assert.equal(await WalletTransaction.countDocuments({reference:'provider-refund:refund-123'}),1);
  assert.ok((await Order.findOne({orderId:'o'})).afterSalesCases[0].evidence.includes('https://example.com/receipt.jpg'), 'Provider settlement proof must be retained');
@@ -143,4 +144,142 @@ test('API customer-to-admin return journey persists evidence and credits the wal
  const listed=await route.GET(req(actor(),{},'?orderId=o'));
  assert.equal(listed.body.orders[0].cases[0].status,'refunded');assert.equal(listed.body.orders[0].cases[0].evidence.length,4);
  assert.equal((await User.findById(buyer._id)).walletBalance,107);
+});
+test('API listing survives an unreconcilable historical order instead of failing the whole page',async()=>{
+ const route=afterSalesRoute();await order('good');
+ // A leg whose recorded total is far above its item subtotal cannot be allocated safely.
+ // Mutations must still fail closed on it; a listing must simply flag it and move on.
+ await Order.create({orderId:'bad',customerId:String(buyer._id),totalAmount:9999,paymentStatus:'escrow',status:'delivered',vendors:[{vendorId:String(vendor._id),storeId:String(store._id),total:9999,items:[{title:'Old item',price:100,quantity:1}]}]});
+ const listed=await route.GET(req(actor()));
+ assert.equal(listed.status,200);
+ const byId=Object.fromEntries(listed.body.orders.map(o=>[o.orderId,o]));
+ assert.equal(byId.bad.needsReconciliation,true);assert.equal(byId.bad.lines.length,0);
+ assert.equal(byId.good.needsReconciliation,false);assert.equal(byId.good.lines.length,1);
+ await assert.rejects(openCase(actor(),request({orderId:'bad'})),/reconciliation/);
+});
+test('kobo rounding drift between leg total and item subtotal is tolerated and clamped; a real gap still fails closed',()=>{
+ // 1.005 rounds to 100 kobo per item, but the float sum 2.01 rounds to 201 — one kobo over.
+ const drift={totalAmount:2.01,vat:0,paymentStatus:'escrow',vendors:[{vendorId:'v',storeId:'s',total:2.01,items:[{title:'A',price:1.005,quantity:1},{title:'B',price:1.005,quantity:1}]}]};
+ const lines=policy.initialLines(drift);
+ assert.equal(lines.reduce((n,l)=>n+l.amountCents,0),200);
+ const gap={...drift,vendors:[{...drift.vendors[0],total:2.10}]};
+ assert.throws(()=>policy.initialLines(gap),/reconciliation/);
+});
+
+// ---- Automatic provider (Paystack) refunds --------------------------------------
+// The real paystack-refund client is compiled; only the network is stubbed, so request
+// building and response parsing are exercised. `paystack.calls` records every request.
+process.env.PAYSTACK_SECRET_KEY='sk_test_isolated';
+const paystack={calls:[],initiate:null,fetch:null};
+const realFetch=globalThis.fetch;
+globalThis.fetch=async(url,init={})=>{
+ const u=String(url);
+ if(u.endsWith('/refund')&&init.method==='POST'){paystack.calls.push({kind:'initiate',body:JSON.parse(init.body)});return {json:async()=>paystack.initiate(JSON.parse(init.body))}}
+ const m=u.match(/\/refund\/(\d+)$/);if(m){paystack.calls.push({kind:'fetch',id:Number(m[1])});return {json:async()=>paystack.fetch(Number(m[1]))}}
+ return realFetch(url,init);
+};
+const okInitiate=(body)=>({status:true,data:{id:9001,status:'pending',amount:body.amount}});
+beforeEach(()=>{paystack.calls.length=0;paystack.initiate=okInitiate;paystack.fetch=()=>({status:true,data:{id:9001,status:'pending',amount:10700}})});
+// Drive a case to the point where an admin may finalize a refund (accepted inspection).
+async function readyToRefund(extra={}){await order();await Order.updateOne({orderId:'o'},{$set:{paymentReference:'PSK_o'}});const c=await openCase(actor(),request({refundMethod:'original',...extra}));await changeCase(admin,{orderId:'o',caseId:c.id,action:'waive_return',note:'Verified defect',evidence:['https://example.com/proof.jpg']});return c;}
+const decide=(c)=>changeCase(admin,{orderId:'o',caseId:c.id,action:'refund',note:'Refund approved'});
+const caseNow=async(id)=>(await Order.findOne({orderId:'o'})).afterSalesCases.find(v=>v.id===id);
+
+test('provider refund records intent, then requests exactly the item + tax from Paystack outside the transaction',async()=>{
+ const c=await readyToRefund();
+ const decided=await decide(c);
+ assert.equal(decided.status,'refund_pending');assert.equal(paystack.calls.length,0,'no network call inside changeCase');
+ const sent=await submitPendingProviderRefund('o',c.id);
+ assert.equal(sent.refundId,9001);assert.equal(paystack.calls.length,1);
+ assert.deepEqual({transaction:paystack.calls[0].body.transaction,amount:paystack.calls[0].body.amount},{transaction:'PSK_o',amount:10700});
+ const after=await caseNow(c.id);const o=await Order.findOne({orderId:'o'});
+ assert.equal(after.providerRefundId,9001);assert.equal(after.status,'refund_pending');
+ assert.equal((await User.findById(buyer._id)).walletBalance,0,'customer not credited before provider confirms');
+ assert.equal(o.protectionLines[0].refundedQuantity,0,'line not marked refunded before provider confirms');
+ assert.equal((await settleOrder('o')).success,false,'vendor payout stays blocked while refund is pending');
+ assert.equal(await submitPendingProviderRefund('o',c.id).then(r=>r.reason),'not_pending','second submit is a no-op');
+ assert.equal(paystack.calls.length,1,'Paystack asked exactly once');
+});
+test('refund.processed finalizes the ledger once; duplicate deliveries and racing polls are no-ops',async()=>{
+ const c=await readyToRefund();await decide(c);await submitPendingProviderRefund('o',c.id);
+ const first=await applyProviderRefundOutcome(9001,'processed',{amountKobo:10700});
+ assert.equal(first.reason,'refunded');
+ const again=await applyProviderRefundOutcome(9001,'processed',{amountKobo:10700});
+ assert.equal(again.reason,'already_refunded');
+ const after=await caseNow(c.id);const o=await Order.findOne({orderId:'o'});
+ assert.equal(after.status,'refunded');assert.equal(after.refundedCents,10700);assert.equal(after.pendingRefund,undefined);
+ assert.equal(o.protectionLines[0].refundedQuantity,1);
+ assert.equal(await WalletTransaction.countDocuments({reference:'provider-refund:9001'}),1);
+ assert.equal((await User.findById(buyer._id)).walletBalance,0,'original-payment refund never touches the wallet');
+});
+test('refund.failed returns the case to review and reverses the vendor recovery debit',async()=>{
+ await order();await Order.updateOne({orderId:'o'},{$set:{paymentReference:'PSK_o'}});
+ await recordProtectedDelivery('o',String(vendor._id),String(store._id));await expired();await settleOrder('o');
+ assert.equal((await User.findById(vendor._id)).walletBalance,200,'vendor was paid out');
+ const c=await openCase(actor(),request({refundMethod:'original'}));
+ await changeCase(admin,{orderId:'o',caseId:c.id,action:'waive_return',note:'Late defect',evidence:['https://example.com/proof.jpg']});
+ await decide(c);
+ assert.equal((await User.findById(vendor._id)).walletBalance,100,'recovery debited before asking Paystack');
+ await submitPendingProviderRefund('o',c.id);
+ const outcome=await applyProviderRefundOutcome(9001,'failed',{reason:'Insufficient balance'});
+ assert.equal(outcome.reason,'failed');
+ const after=await caseNow(c.id);
+ assert.equal(after.status,'admin_review');assert.equal(after.pendingRefund,undefined);assert.equal(after.refundedAt,undefined);
+ assert.equal((await User.findById(vendor._id)).walletBalance,200,'recovery reversed');
+ assert.equal(await WalletTransaction.countDocuments({reference:`case-recovery:${c.id}:reversal`}),1);
+});
+test('a refund Paystack refuses at initiation reverts to review with vendor debits restored',async()=>{
+ paystack.initiate=()=>({status:false,message:'Transaction cannot be refunded'});
+ const c=await readyToRefund();await decide(c);
+ const sent=await submitPendingProviderRefund('o',c.id);
+ assert.equal(sent.success,false);
+ const after=await caseNow(c.id);
+ assert.equal(after.status,'admin_review');assert.equal(after.providerRefundId,undefined);assert.equal(after.pendingRefund,undefined);
+ assert.match(after.history.at(-1).message,/did not accept/);
+});
+test('reconciler polls pending refunds, and escalates an unconfirmed intent without ever re-requesting it',async()=>{
+ const c=await readyToRefund();await decide(c);await submitPendingProviderRefund('o',c.id);
+ paystack.fetch=()=>({status:true,data:{id:9001,status:'processed',amount:10700}});
+ let summary=await reconcilePendingProviderRefunds();
+ assert.deepEqual({polled:summary.polled,settled:summary.settled},{polled:1,settled:1});
+ assert.equal((await caseNow(c.id)).status,'refunded');
+ // A second case whose intent was recorded but whose Paystack request never landed.
+ await Order.create({orderId:'o2',customerId:String(buyer._id),totalAmount:107,vat:7,paymentStatus:'escrow',status:'delivered',paymentReference:'PSK_o2',vendors:[{vendorId:String(vendor._id),storeId:String(store._id),total:100,items:[{title:'Hat',price:100,quantity:1}]}]});
+ const c2=await openCase(actor(),request({orderId:'o2',refundMethod:'original'}));
+ await changeCase(admin,{orderId:'o2',caseId:c2.id,action:'waive_return',note:'Defect',evidence:['https://example.com/p.jpg']});
+ await changeCase(admin,{orderId:'o2',caseId:c2.id,action:'refund',note:'Refund'});
+ await Order.updateOne({orderId:'o2'},{$set:{'afterSalesCases.0.providerRefundIntentAt':new Date(Date.now()-60*60000)}});
+ const before=paystack.calls.length;
+ summary=await reconcilePendingProviderRefunds();
+ assert.equal(summary.escalated,1);assert.equal(paystack.calls.length,before,'no initiate call for an unconfirmed intent');
+ const stale=(await Order.findOne({orderId:'o2'})).afterSalesCases[0];
+ assert.equal(stale.status,'admin_review');assert.match(stale.history.at(-1).message,/never confirmed/);
+});
+test('a case cannot be closed while a provider refund is in flight',async()=>{
+ const c=await readyToRefund();await decide(c);
+ await assert.rejects(changeCase(admin,{orderId:'o',caseId:c.id,action:'reject',note:'Closing'}),/in flight/);
+ await assert.rejects(decide(c),/already in progress/);
+});
+function paystackWebhookRoute(){
+ const fs=require('fs'),path=require('path'),ts=require('typescript');
+ const compiled=ts.transpileModule(fs.readFileSync(path.resolve(__dirname,'../../app/api/webhooks/paystack/route.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
+ const deps={'next/server':{NextResponse:{json:(body,o={})=>({status:o.status||200,body})}},crypto:require('crypto'),'@/lib/after-sales':require('./build/after-sales')};
+ const module={exports:{}};new Function('require','module','exports',compiled)(n=>{if(!(n in deps))throw new Error(`Unexpected dependency ${n}`);return deps[n]},module,module.exports);return module.exports;
+}
+const signed=(payload,secret=process.env.PAYSTACK_SECRET_KEY)=>{const raw=JSON.stringify(payload);return {text:async()=>raw,headers:{get:h=>h==='x-paystack-signature'?require('crypto').createHmac('sha512',secret).update(raw).digest('hex'):null}}};
+test('Paystack webhook verifies the signature and applies refund.processed exactly once',async()=>{
+ const route=paystackWebhookRoute();const c=await readyToRefund();await decide(c);await submitPendingProviderRefund('o',c.id);
+ const bad=signed({event:'refund.processed',data:{id:9001,amount:10700}},'sk_wrong');
+ assert.equal((await route.POST(bad)).status,401);
+ assert.equal((await route.POST(signed({event:'charge.success',data:{}}))).body.ignored,'charge.success');
+ const ok=await route.POST(signed({event:'refund.processed',data:{id:9001,amount:10700}}));
+ assert.equal(ok.status,200);assert.equal(ok.body.reason,'refunded');
+ assert.equal((await route.POST(signed({event:'refund.processed',data:{id:9001,amount:10700}}))).body.reason,'already_refunded');
+ assert.equal((await caseNow(c.id)).status,'refunded');
+});
+test('a settled amount that differs from what was requested is refused, leaving the case for review',async()=>{
+ const route=paystackWebhookRoute();const c=await readyToRefund();await decide(c);await submitPendingProviderRefund('o',c.id);
+ const res=await route.POST(signed({event:'refund.processed',data:{id:9001,amount:5000}}));
+ assert.equal(res.status,500);assert.match(res.body.error,/review before closing/);
+ assert.equal((await caseNow(c.id)).status,'refund_pending','untouched so the reconciler or an admin can look');
 });

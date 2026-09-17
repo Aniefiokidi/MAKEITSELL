@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
-import { getOrderById, releaseEscrowForOrder, updateOrder } from '@/lib/mongodb-operations'
+import { getOrderById, updateOrder } from '@/lib/mongodb-operations'
 import { getCanonicalAppBaseUrl } from '@/lib/app-url'
 
 const getEscrowLinkSecret = () => {

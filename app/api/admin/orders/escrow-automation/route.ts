@@ -1,4 +1,4 @@
-import { processAfterSalesDeadlines, sendProtectionNotices } from '@/lib/after-sales'
+import { processAfterSalesDeadlines, reconcilePendingProviderRefunds, sendProtectionNotices } from '@/lib/after-sales'
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import connectToDatabase from '@/lib/mongodb'
@@ -190,9 +190,10 @@ export async function POST(request: NextRequest) {
     await connectToDatabase()
     await sendProtectionNotices()
     await processAfterSalesDeadlines()
+    const providerRefunds = await reconcilePendingProviderRefunds()
     const releaseSummary = await processDeliveredOrderAutoRelease()
     const summary = await processEscrowOrders()
-    return NextResponse.json({ success: true, summary: { ...summary, autoReleased: releaseSummary.released } })
+    return NextResponse.json({ success: true, summary: { ...summary, autoReleased: releaseSummary.released, providerRefunds } })
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error?.message || 'Escrow automation failed' },

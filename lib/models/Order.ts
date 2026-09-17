@@ -99,5 +99,7 @@ const OrderSchema = new Schema<IOrder>({
 
 OrderSchema.index({ paymentStatus: 1, 'protectionLines.availableAt': 1 });
 OrderSchema.index({ 'afterSalesCases.deadline': 1 });
+// Paystack refund webhooks and the polling reconciler look cases up by provider id.
+OrderSchema.index({ 'afterSalesCases.providerRefundId': 1 }, { sparse: true });
 
 export const Order = models.Order || mongoose.model<IOrder>('Order', OrderSchema);

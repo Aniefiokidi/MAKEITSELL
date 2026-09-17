@@ -7,6 +7,16 @@ import { User } from './models/User'
 import { WalletTransaction } from './models/WalletTransaction'
 import connectToDatabase from './mongodb'
 import { activeCase, afterHours, canClear, cents, CLEARANCE_HOURS, evidenceUrls, initialLines, REASONS, refundCents } from './after-sales-policy'
+import { fetchRefund, initiateRefund, REFUND_FAILED_STATUSES, REFUND_SETTLED_STATUSES } from './paystack-refund'
+
+// A provider refund that has been requested but not yet confirmed by Paystack. If it
+// sits unconfirmed this long the case escalates for a human — Paystack refunds normally
+// settle in minutes, and a day-long silence is worth a look, not a retry.
+const PROVIDER_REFUND_HOURS = 72
+// If the process died between recording intent and hearing back from Paystack, we
+// cannot know whether the request went out. After this grace period, escalate rather
+// than risk a second request against the same charge.
+const PROVIDER_INTENT_GRACE_MINUTES = 15
 
 type Actor = { id: string; role: string; email?: string }
 const text = (v: unknown, max = 2000) => String(v || '').trim().slice(0, max)
@@ -259,8 +269,13 @@ export async function changeCase(actor: Actor, input: any) {
       requireValue(admin, 'Only an admin may finalize a refund')
       requireValue(note, 'Record the refund decision')
       requireValue(c.inspection === 'accepted' || c.returnWaivedAt, 'An accepted inspection or documented no-return exception is required')
-      requireValue(!c.refundedAt, 'This request was already refunded');
-      if (c.refundMethod !== 'wallet') requireValue(text(input.providerRefundReference, 200) && evidenceUrls(input.evidence || []).length, 'Original-payment refunds require a confirmed provider reference and settlement proof');
+      requireValue(!c.refundedAt, 'This request was already refunded')
+      requireValue(c.status !== 'refund_pending' && !c.providerRefundId, 'A provider refund is already in progress for this request')
+      const manualReference = text(input.providerRefundReference, 200)
+      // Original-payment refunds go to Paystack automatically. A manually entered
+      // reference is the escape hatch for a refund done outside the app (Paystack
+      // dashboard, a failed API request retried by hand) and needs proof to match.
+      if (c.refundMethod !== 'wallet' && manualReference) requireValue(evidenceUrls(input.evidence || []).length, 'A manually recorded provider refund needs settlement proof')
       requireValue(order.paymentStatus !== 'refunded' && !line.cancelled, 'Payment already refunded or cancelled')
       const amountCents = refundCents(line, c.quantity)
       const taxCents = Math.round((line.taxCents || 0) * ((line.refundedQuantity || 0) + c.quantity) / line.quantity) - (line.refundedTaxCents || 0)
@@ -271,34 +286,33 @@ export async function changeCase(actor: Actor, input: any) {
       const alreadyRefundedShipping = order.afterSalesCases.filter((v: any) => v.storeId === line.storeId && v.vendorId === line.vendorId).reduce((n: number, v: any) => n + (v.shippingRefundCents || 0), 0)
       requireValue(shippingCents <= Math.max(0, cents(leg?.shippingFee || 0) - alreadyRefundedShipping), 'Original delivery refund exceeds the unrefunded delivery charge')
       requireValue(returnCostCents <= (c.logisticsCents || 0), 'Return cost reimbursement exceeds the approved quote')
-      const refundTotal = (amountCents + taxCents + shippingCents + returnCostCents) / 100
-      if (returnCostCents) {
-        const payer = await walletUser(line, session)
-        const account: any = await User.findById(payer).session(session).lean()
-        let remaining = returnCostCents / 100
-        const deductions: any = { walletBalance: -remaining }
-        for (const bucket of ['earnedBalance', 'depositedBalance', 'prizeBalance']) { const part = Math.min(Math.max(0, Number(account?.[bucket] || 0)), remaining); deductions[bucket] = -part; remaining -= part }
-        const debit = await User.updateOne({ _id: payer, walletBalance: { $gte: returnCostCents / 100 } }, { $inc: deductions }, { session })
-        requireValue(debit.modifiedCount, 'Return-cost reimbursement requires vendor funding before settlement')
-        await WalletTransaction.create([{ userId: payer, type: 'purchase_debit', amount: returnCostCents / 100, status: 'completed', reference: `return-cost:${c.id}`, orderId: order.orderId, note: 'Approved return logistics reimbursement' }], { session })
-      }
+      const breakdown = { amountCents, taxCents, shippingCents, returnCostCents, totalKobo: amountCents + taxCents + shippingCents + returnCostCents }
+
+      // Vendor-side funding is settled first, for every destination. If the vendor
+      // can't cover a return-cost reimbursement or a late-claim recovery, we find out
+      // here — before a single kobo has left for the customer — and fail closed.
+      const vendorDebits = await debitVendorForRefund(order, c, line, breakdown, session)
       c.shippingRefundCents = shippingCents; c.returnCostRefundCents = returnCostCents
-      if (line.settledAt) {
-        const userId = await walletUser(line, session), amount = amountCents / 100
-        const recovery = await User.updateOne({ _id: userId, walletBalance: { $gte: amount }, earnedBalance: { $gte: amount } }, { $inc: { walletBalance: -amount, earnedBalance: -amount } }, { session })
-        requireValue(recovery.modifiedCount, 'Vendor recovery is not funded; keep case open for admin funding review')
-        await WalletTransaction.create([{ userId, type: 'purchase_debit', amount, status: 'completed', reference: `case-recovery:${c.id}`, orderId: order.orderId, note: 'Refund recovery', metadata: { caseId: c.id } }], { session })
-      }
+
       if (c.refundMethod === 'wallet') {
-      const credit = await User.updateOne({ _id: order.customerId }, { $inc: { walletBalance: refundTotal } }, { session })
-      requireValue(credit.matchedCount, 'Customer wallet not found')
+        const credit = await User.updateOne({ _id: order.customerId }, { $inc: { walletBalance: breakdown.totalKobo / 100 } }, { session })
+        requireValue(credit.matchedCount, 'Customer wallet not found')
+        await finalizeRefundLedger(order, c, line, breakdown, session, { reference: `case-refund:${c.id}`, provider: 'wallet', actorId: actor.id })
+        event(c, actor.id, note); return c
       }
-      await WalletTransaction.create([{ userId: order.customerId, type: 'escrow_refund', amount: refundTotal, status: 'completed', reference: c.refundMethod === 'wallet' ? `case-refund:${c.id}` : `provider-refund:${text(input.providerRefundReference, 200)}`, orderId: order.orderId, note: `Item refund: ${line.title}`, provider: c.refundMethod === 'wallet' ? 'wallet' : 'original_payment', metadata: { caseId: c.id, lineId: line.id, actorId: actor.id, providerRefundReference: text(input.providerRefundReference, 200) } }], { session })
-      line.refundedTaxCents = (line.refundedTaxCents || 0) + taxCents
-      line.refundedCents = (line.refundedCents || 0) + amountCents; line.refundedQuantity = (line.refundedQuantity || 0) + c.quantity
-      if (c.stockReservedAt && !c.replacementTracking && !c.stockReleasedAt) await releaseStock(c, line, session)
-      c.status = 'refunded'; c.refundedAt = new Date(); c.refundedCents = Math.round(refundTotal * 100)
-      event(c, actor.id, note); return c
+      if (manualReference) {
+        await finalizeRefundLedger(order, c, line, breakdown, session, { reference: `provider-refund:${manualReference}`, provider: 'original_payment', actorId: actor.id, providerRefundReference: manualReference })
+        event(c, actor.id, note); return c
+      }
+      // Automatic provider refund. Only the *intent* is recorded inside this
+      // transaction — the Paystack request itself is made afterwards by
+      // submitPendingProviderRefund, outside any transaction, so that a transient
+      // retry of this callback can never send the same refund twice.
+      c.pendingRefund = { ...breakdown, vendorDebits, requestedBy: actor.id, decisionNote: note }
+      c.providerRefundIntentAt = new Date()
+      c.status = 'refund_pending'; c.deadline = afterHours(PROVIDER_REFUND_HOURS)
+      event(c, actor.id, `${note} Refund of ₦${(breakdown.totalKobo / 100).toLocaleString('en-NG')} requested to the original payment method; awaiting provider confirmation.`)
+      return c
     }
     if (action === 'replacement_shipped') {
       requireValue(admin && c.kind === 'replacement' && (c.inspection === 'accepted' || c.returnWaivedAt), 'Admin approval and accepted return required')
@@ -315,12 +329,162 @@ export async function changeCase(actor: Actor, input: any) {
     }
     if (action === 'resolve' || action === 'reject') {
       requireValue(admin && note, 'Admin decision and explanation required')
+      requireValue(!c.pendingRefund, 'A provider refund is in flight; wait for Paystack to confirm or fail it before closing this case')
       requireValue(action !== 'resolve' || c.kind !== 'replacement' || (c.status === 'replacement_clearance' && new Date(c.deadline).getTime() <= Date.now()), 'Replacement must complete its delivery clearance')
       if (c.stockReservedAt && !c.replacementTracking && !c.stockReleasedAt) await releaseStock(c, line, session)
       c.status = action === 'resolve' ? 'resolved' : 'rejected'; c.closedAt = new Date(); event(c, actor.id, note); return c
     }
     throw new Error('Unknown case action')
   })
+}
+
+// Everything the vendor owes on this refund — a return-courier reimbursement, or
+// recovery of an already-paid-out item on a late claim — debited under $gte guards so
+// an unfunded vendor fails closed. Returns exactly what was taken, so a provider
+// refund that later fails can put it back to the kobo.
+async function debitVendorForRefund(order: any, c: any, line: any, breakdown: any, session: mongoose.ClientSession) {
+  const debits: Array<{ userId: string; inc: Record<string, number>; reference: string; note: string }> = []
+  if (breakdown.returnCostCents) {
+    const payer = await walletUser(line, session)
+    const account: any = await User.findById(payer).session(session).lean()
+    let remaining = breakdown.returnCostCents / 100
+    const deductions: any = { walletBalance: -remaining }
+    for (const bucket of ['earnedBalance', 'depositedBalance', 'prizeBalance']) { const part = Math.min(Math.max(0, Number(account?.[bucket] || 0)), remaining); deductions[bucket] = -part; remaining -= part }
+    const debit = await User.updateOne({ _id: payer, walletBalance: { $gte: breakdown.returnCostCents / 100 } }, { $inc: deductions }, { session })
+    requireValue(debit.modifiedCount, 'Return-cost reimbursement requires vendor funding before settlement')
+    const entry = { userId: payer, inc: deductions, reference: `return-cost:${c.id}`, note: 'Approved return logistics reimbursement' }
+    await WalletTransaction.create([{ userId: payer, type: 'purchase_debit', amount: breakdown.returnCostCents / 100, status: 'completed', reference: entry.reference, orderId: order.orderId, note: entry.note }], { session })
+    debits.push(entry)
+  }
+  if (line.settledAt) {
+    const userId = await walletUser(line, session), amount = breakdown.amountCents / 100
+    const inc = { walletBalance: -amount, earnedBalance: -amount }
+    const recovery = await User.updateOne({ _id: userId, walletBalance: { $gte: amount }, earnedBalance: { $gte: amount } }, { $inc: inc }, { session })
+    requireValue(recovery.modifiedCount, 'Vendor recovery is not funded; keep case open for admin funding review')
+    const entry = { userId, inc, reference: `case-recovery:${c.id}`, note: 'Refund recovery' }
+    await WalletTransaction.create([{ userId, type: 'purchase_debit', amount, status: 'completed', reference: entry.reference, orderId: order.orderId, note: entry.note, metadata: { caseId: c.id } }], { session })
+    debits.push(entry)
+  }
+  return debits
+}
+
+// The customer's money has moved (wallet credited, or Paystack confirmed). Record it
+// against the line and close the case. Split out so the wallet path, the manual
+// provider path and the automatic provider path all write the ledger identically.
+async function finalizeRefundLedger(order: any, c: any, line: any, breakdown: any, session: mongoose.ClientSession, opts: { reference: string; provider: string; actorId: string; providerRefundReference?: string; providerRefundId?: number }) {
+  const refundTotal = breakdown.totalKobo / 100
+  await WalletTransaction.create([{ userId: order.customerId, type: 'escrow_refund', amount: refundTotal, status: 'completed', reference: opts.reference, orderId: order.orderId, note: `Item refund: ${line.title}`, provider: opts.provider, metadata: { caseId: c.id, lineId: line.id, actorId: opts.actorId, providerRefundReference: opts.providerRefundReference, providerRefundId: opts.providerRefundId } }], { session })
+  line.refundedTaxCents = (line.refundedTaxCents || 0) + breakdown.taxCents
+  line.refundedCents = (line.refundedCents || 0) + breakdown.amountCents; line.refundedQuantity = (line.refundedQuantity || 0) + c.quantity
+  if (c.stockReservedAt && !c.replacementTracking && !c.stockReleasedAt) await releaseStock(c, line, session)
+  c.status = 'refunded'; c.refundedAt = new Date(); c.refundedCents = breakdown.totalKobo
+  // delete, not = undefined: a Mixed field set to undefined persists as null, which
+  // still matches the reconciler's { $exists: true } and would be re-polled forever.
+  delete c.pendingRefund; delete c.resumeStatus
+}
+
+async function revertVendorDebits(order: any, c: any, session: mongoose.ClientSession, reason: string) {
+  for (const debit of c.pendingRefund?.vendorDebits || []) {
+    const inc = Object.fromEntries(Object.entries(debit.inc).map(([k, v]) => [k, -Number(v)]))
+    await User.updateOne({ _id: debit.userId }, { $inc: inc }, { session })
+    await WalletTransaction.create([{ userId: debit.userId, type: 'vendor_credit', amount: -Number(debit.inc.walletBalance), status: 'completed', reference: `${debit.reference}:reversal`, orderId: order.orderId, note: `${debit.note} reversed: ${reason}`, metadata: { caseId: c.id } }], { session })
+  }
+}
+
+// Phase two of an automatic provider refund. Runs *after* changeCase has committed the
+// intent, and makes the Paystack request outside any transaction. Then a second
+// transaction records the refund id, or reverts the vendor debits if Paystack refused.
+export async function submitPendingProviderRefund(orderId: string, caseId: string) {
+  await connectToDatabase()
+  const order: any = await Order.findOne({ orderId }).lean()
+  const c = order?.afterSalesCases?.find((v: any) => v.id === caseId)
+  if (!c || c.status !== 'refund_pending' || c.providerRefundId || !c.pendingRefund) return { success: false, reason: 'not_pending' }
+  const result = await initiateRefund({
+    transactionReference: String(order.paymentReference || ''),
+    amountKobo: c.pendingRefund.totalKobo,
+    merchantNote: `Make It Sell case ${c.id}: ${c.title}`,
+    customerNote: `Refund for ${c.title}`,
+  })
+  return mutateOrder(orderId, async (fresh, session) => {
+    const current = fresh.afterSalesCases.find((v: any) => v.id === caseId)
+    requireValue(current, 'Case not found')
+    if (current.providerRefundId || current.refundedAt) return { success: true, reason: 'already_recorded' }
+    if (result.success && result.refundId) {
+      current.providerRefundId = result.refundId
+      current.providerRefundStatus = result.status
+      event(current, 'system', `Paystack accepted refund request #${result.refundId} (${result.status}). Funds reach the customer once the provider confirms.`)
+      return { success: true, refundId: result.refundId }
+    }
+    const line = fresh.protectionLines.find((l: any) => l.id === current.lineId)
+    await revertVendorDebits(fresh, current, session, result.message || 'provider declined')
+    delete current.pendingRefund; delete current.providerRefundIntentAt
+    current.status = 'admin_review'; current.deadline = afterHours(48)
+    event(current, 'system', `Paystack did not accept the refund: ${result.message || 'unknown error'}. Vendor debits reversed; review and retry, or record a manual refund reference.`)
+    return { success: false, reason: result.message, lineId: line?.id }
+  })
+}
+
+// Shared by the Paystack webhook and the polling reconciler. Idempotent: a duplicate
+// delivery of refund.processed, or a poll racing the webhook, applies the ledger once.
+export async function applyProviderRefundOutcome(refundId: number, status: string, detail?: { amountKobo?: number; reason?: string }) {
+  await connectToDatabase()
+  const order: any = await Order.findOne({ 'afterSalesCases.providerRefundId': refundId }).select('orderId').lean()
+  if (!order) return { success: false, reason: 'unknown_refund' }
+  const settled = (REFUND_SETTLED_STATUSES as readonly string[]).includes(status)
+  const failed = (REFUND_FAILED_STATUSES as readonly string[]).includes(status)
+  if (!settled && !failed) return { success: true, reason: 'still_pending' }
+  return mutateOrder(order.orderId, async (fresh, session) => {
+    const c = fresh.afterSalesCases.find((v: any) => v.providerRefundId === refundId)
+    requireValue(c, 'Case not found')
+    if (c.refundedAt) return { success: true, reason: 'already_refunded' }
+    c.providerRefundStatus = status
+    const line = fresh.protectionLines.find((l: any) => l.id === c.lineId)
+    if (settled) {
+      requireValue(c.pendingRefund, 'Refund breakdown missing; record manually')
+      if (detail?.amountKobo != null) requireValue(detail.amountKobo === c.pendingRefund.totalKobo, `Provider settled ₦${detail.amountKobo / 100} but ₦${c.pendingRefund.totalKobo / 100} was requested; review before closing`)
+      await finalizeRefundLedger(fresh, c, line, c.pendingRefund, session, { reference: `provider-refund:${refundId}`, provider: 'original_payment', actorId: 'system', providerRefundId: refundId })
+      event(c, 'system', `Paystack confirmed refund #${refundId} to the original payment method.`)
+      return { success: true, reason: 'refunded' }
+    }
+    await revertVendorDebits(fresh, c, session, detail?.reason || 'provider reported failure')
+    delete c.pendingRefund; delete c.providerRefundIntentAt
+    c.status = 'admin_review'; c.resumeStatus = undefined; c.deadline = afterHours(48)
+    event(c, 'system', `Paystack reported refund #${refundId} failed${detail?.reason ? `: ${detail.reason}` : ''}. Vendor debits reversed; review and retry, or record a manual refund reference.`)
+    return { success: true, reason: 'failed' }
+  })
+}
+
+// Cron safety net. Polls every unconfirmed provider refund, and escalates any intent
+// that never received a Paystack id — the request may or may not have gone out, and
+// the one thing we must not do is send it again.
+export async function reconcilePendingProviderRefunds() {
+  await connectToDatabase()
+  const orders: any[] = await Order.find({ afterSalesCases: { $elemMatch: { pendingRefund: { $exists: true }, refundedAt: { $exists: false } } } }).select('orderId afterSalesCases').limit(200).lean()
+  const summary = { polled: 0, settled: 0, failed: 0, escalated: 0 }
+  for (const o of orders) for (const c of o.afterSalesCases || []) {
+    if (!c.pendingRefund || c.refundedAt) continue
+    if (c.providerRefundId) {
+      const fetched = await fetchRefund(c.providerRefundId)
+      if (!fetched.success || !fetched.status) continue
+      summary.polled += 1
+      const outcome = await applyProviderRefundOutcome(c.providerRefundId, fetched.status, { amountKobo: fetched.amountKobo })
+      if (outcome.reason === 'refunded') summary.settled += 1
+      if (outcome.reason === 'failed') summary.failed += 1
+      continue
+    }
+    const intentAge = Date.now() - new Date(c.providerRefundIntentAt || 0).getTime()
+    if (intentAge < PROVIDER_INTENT_GRACE_MINUTES * 60000) continue
+    await mutateOrder(o.orderId, async (fresh, session) => {
+      const current = fresh.afterSalesCases.find((v: any) => v.id === c.id)
+      if (!current || current.providerRefundId || current.refundedAt || current.status !== 'refund_pending') return
+      await revertVendorDebits(fresh, current, session, 'refund request unconfirmed')
+      delete current.pendingRefund; delete current.providerRefundIntentAt
+      current.status = 'admin_review'; current.deadline = afterHours(48)
+      event(current, 'system', 'A provider refund was requested but never confirmed. Check Paystack for this charge before retrying, then retry or record the reference manually.')
+      summary.escalated += 1
+    })
+  }
+  return summary
 }
 
 async function releaseStock(c: any, line: any, session: mongoose.ClientSession) {
