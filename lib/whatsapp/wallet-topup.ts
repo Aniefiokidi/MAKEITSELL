@@ -19,9 +19,9 @@ async function trySend(waId: string, body: string): Promise<void> {
   }
 }
 
-// Buyer top-up auto-creates the passwordless buyer identity on first use, same as
-// negotiation's "offer <amount>" (lib/whatsapp/service-negotiation.ts) — unlike
-// withdrawal, there's no prerequisite (existing balance, a PIN already set) a fresh
+// Buyer top-up auto-creates the passwordless buyer identity on first use, same as a
+// reply-to-card cart add (lib/whatsapp/checkout.ts) — unlike withdrawal, there's no
+// prerequisite (existing balance, a PIN already set) a fresh
 // identity could fail on, so there's nothing to gain from bailing instead.
 export async function tryHandleCustomerTopupCommand(waId: string, text: string): Promise<boolean> {
   const match = String(text || '').trim().match(TOPUP_PATTERN)

@@ -14,14 +14,6 @@ import { WhatsAppMessageMap } from '@/lib/models/WhatsAppMessageMap'
 import { applyOrderVendorStatus, resolveOrderVendorTarget } from '@/lib/order-vendor-status'
 import { sendTextMessage } from '@/lib/whatsapp/client'
 import { handleBuyerMessage, handleBuyerLocationPin } from '@/lib/whatsapp/buyer'
-import { WhatsAppBrowseState } from '@/lib/models/WhatsAppBrowseState'
-import {
-  QUOTE_BLOCKING_STAGES,
-  handleQuoteRequestPhoto,
-  tryHandleProviderQuoteCommand,
-  tryHandleProviderNegotiationCommand,
-} from '@/lib/whatsapp/service-quote'
-import { tryHandleProviderOfferCommand } from '@/lib/whatsapp/service-negotiation'
 import { getVendorSalesSummary } from '@/lib/analytics'
 import { tryHandleWithdrawalFlow } from '@/lib/whatsapp/vendor-withdrawal'
 import { tryHandleVendorTopupCommand } from '@/lib/whatsapp/wallet-topup'
@@ -71,7 +63,7 @@ export async function handleInboundMessage(waId: string, text: string, contextMe
   }
 
   // Withdrawal and top-up — checked before every other vendor command, same "blocking
-  // stage owns the whole next message" precedent as QUOTE_BLOCKING_STAGES for buyers. Both
+  // stage owns the whole next message" precedent as BLOCKING_CHECKOUT_STAGES for buyers. Both
   // must run BEFORE the shopping-mode check below regardless of whether shopping mode is
   // on — a shopping vendor's "withdraw"/"topup" still needs to resolve through vendor-role
   // wallet logic (their real role is 'vendor'; routing it into the buyer flow would hit
@@ -110,26 +102,6 @@ export async function handleInboundMessage(waId: string, text: string, contextMe
     return
   }
 
-  // Phase S3, Part B: a provider quoting a service-quote request from their own
-  // WhatsApp. vendorId is already resolved above via resolveLinkedVendor — passed
-  // through as the sole source of provider identity, never re-derived from the ref.
-  if (await tryHandleProviderQuoteCommand(waId, vendorId, trimmed)) {
-    return
-  }
-
-  // Phase S4 Part A: every round after the initial quote — "counter REF AMOUNT",
-  // "accept REF", "decline REF" from the provider's own WhatsApp.
-  if (await tryHandleProviderNegotiationCommand(waId, vendorId, trimmed)) {
-    return
-  }
-
-  // Phase S4 Part B: same ref vocabulary against a pre-booking PriceNegotiation instead of
-  // a quote-request Booking — only reached once the check above finds the ref isn't one of
-  // this provider's quoted bookings.
-  if (await tryHandleProviderOfferCommand(waId, vendorId, trimmed)) {
-    return
-  }
-
   await sendHelpMenu(waId)
 }
 
@@ -141,16 +113,6 @@ export async function handleInboundImageMessage(waId: string, mediaId: string): 
   const shoppingVendor = vendorId ? await isVendorShopping(vendorId) : false
   if (!vendorId || shoppingVendor) {
     if (vendorId) await ensureBuyerIdentityForVendor(waId, vendorId)
-    // A photo sent while mid-quote-request (lib/whatsapp/service-quote.ts) is a job
-    // attachment, not a "find me this product" query — checked before falling through to
-    // goods' photo search below, so it isn't misrouted while collecting request photos.
-    await connectToDatabase()
-    const state: any = await WhatsAppBrowseState.findOne({ waId }).lean()
-    if (QUOTE_BLOCKING_STAGES.has(String(state?.stage || ''))) {
-      await handleQuoteRequestPhoto(waId, mediaId, state?.bookingDraft || {})
-      return
-    }
-
     // Dynamic import — image-search.ts pulls in TensorFlow.js, which must not be a
     // load-time dependency of this whole file (commands.ts is imported directly by the
     // webhook route, so a top-level import here would mean EVERY inbound message of any
@@ -395,7 +357,7 @@ async function sendHelpMenu(waId: string): Promise<void> {
   if (vendorId) {
     await trySend(
       waId,
-      "Hi! I didn't recognize that message.\n\nAvailable commands:\n- dispatched [order ref] — mark an order as shipped\n- balance — check your wallet balance\n- sales / sales week — check your sales\n- withdraw [amount] — withdraw to your saved bank account\n- topup [amount] — top up your wallet\n- shop — browse and buy like a buyer (reply \"vendor mode\" to switch back)\n- quote [request ref] [amount] — send a price for a quote request\n- counter [ref] [amount] — counter a buyer's offer\n- accept [ref] / decline [ref] — accept or decline a buyer's counter-offer"
+      "Hi! I didn't recognize that message.\n\nAvailable commands:\n- dispatched [order ref] — mark an order as shipped\n- balance — check your wallet balance\n- sales / sales week — check your sales\n- withdraw [amount] — withdraw to your saved bank account\n- topup [amount] — top up your wallet\n- shop — browse and buy like a buyer (reply \"vendor mode\" to switch back)"
     )
     return
   }

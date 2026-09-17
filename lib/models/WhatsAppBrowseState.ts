@@ -44,21 +44,6 @@ const WhatsAppBrowseStateSchema = new Schema({
     type: String,
     enum: [
       'browsing', 'cart', 'awaiting_name', 'awaiting_address', 'quoting_delivery', 'choosing_couriers', 'confirming_total', 'awaiting_payment',
-      // Services booking conversation (Phase S2, lib/whatsapp/service-booking.ts):
-      // choosing_service_package -> choosing_service_addons (skipped if the service has
-      // none) -> choosing_booking_slot -> confirming_booking -> awaiting_booking_payment
-      // -> (back to browsing once handleBookingPaid confirms payment). Kept as separate
-      // stage names from the goods ones above (not reused) even though the same
-      // "blocking, owns the whole next message" mechanism applies to both — see
-      // SERVICE_BOOKING_BLOCKING_STAGES in lib/whatsapp/buyer.ts.
-      'choosing_service_package', 'choosing_service_addons', 'choosing_booking_slot', 'confirming_booking', 'awaiting_booking_payment',
-      // Quote-request conversation (Phase S3 part A, lib/whatsapp/service-quote.ts), for
-      // requiresQuote: true services: collecting_quote_description ->
-      // collecting_quote_location -> choosing_quote_slot -> collecting_quote_photos ->
-      // (back to browsing once submitted, fee-free, awaiting the provider's quote from
-      // their existing dashboard). Accepting/declining a delivered quote is deliberately
-      // NOT a blocking stage — see QUOTE_DECISION_PATTERN in that file for why.
-      'collecting_quote_description', 'collecting_quote_location', 'choosing_quote_slot', 'collecting_quote_photos',
       'awaiting_service_location',
     ],
     default: 'browsing',
@@ -83,25 +68,12 @@ const WhatsAppBrowseStateSchema = new Schema({
   // browse-state can be traced back to the order it's waiting on.
   pendingOrderId: { type: String },
 
-  // In-progress booking selection, built up across choosing_service_package ->
-  // choosing_service_addons -> choosing_booking_slot -> confirming_booking. Mixed, same
-  // convention as cart/pendingShippingInfo above — read/written as a whole object.
-  // Shape: { serviceId, providerId, providerName, serviceTitle, locationType, location,
-  // packageOptions (snapshot, so a mid-conversation vendor edit can't shift prices out
-  // from under a buyer already selecting), selectedPackageId, selectedPackageName,
-  // selectedPackagePrice, selectedPackageDuration, addOnOptions (snapshot),
-  // selectedAddOns, bookingDate, startTime, endTime, totalPrice }.
   // Services are contact-only on WhatsApp (lib/whatsapp/service-contacts.ts): where the
   // buyer is (city centre or a shared pin) so providers can be ranked by distance, plus the
   // service they asked for while we wait for that location.
   buyerLocation: { type: Schema.Types.Mixed },
   pendingServiceQuery: { type: String },
   pendingServiceCategorySlug: { type: String },
-
-  bookingDraft: { type: Schema.Types.Mixed, default: {} },
-  // Set once a booking is created and a Paystack link has been sent — same role as
-  // pendingOrderId above, for lib/whatsapp/service-booking.ts's booking flow.
-  pendingBookingId: { type: String },
 
   // Re-fire guard for app/api/admin/whatsapp-cart-recovery-job — mirrors Cart.recoveryEmailSentAt's
   // "skip if we already nudged for this exact cart state" semantics (compared against

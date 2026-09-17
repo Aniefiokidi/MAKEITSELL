@@ -13,7 +13,6 @@ import { AppointmentEmailService } from '@/lib/appointment-emails'
 import { sendBookingConfirmationSms } from '@/lib/sms'
 import { findBookingSlotConflict } from '@/lib/booking-availability'
 import { EXPIRY_CANCELLATION_REASON } from '@/lib/booking-expiry'
-import { notifyWaBuyerBookingPaid } from '@/lib/whatsapp/service-booking'
 
 export async function handleBookingPaid(
   bookingId: string,
@@ -125,9 +124,6 @@ async function sendBookingConfirmedNotifications(claimedBooking: any, bookingId:
     console.error('[booking-payment] Booking confirmation notifications failed:', error)
   }
 
-  // No-ops for a web-originated booking (WhatsAppBuyer lookup by customerId simply won't
-  // match) — always safe to call unconditionally, same as notifyWaBuyerOrderPaid.
-  notifyWaBuyerBookingPaid(String(claimedBooking.customerId || ''), bookingId, claimedBooking)
 }
 
 // A Paystack payment confirmed for a booking the expiry job already cancelled — the buyer

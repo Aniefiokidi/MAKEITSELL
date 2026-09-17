@@ -11,7 +11,7 @@
 // State lives on WhatsAppLink (lib/models/WhatsAppLink.ts) — see that model's comment for
 // why. A non-'idle' withdrawalStage is checked BEFORE every other vendor command in
 // lib/whatsapp/commands.ts, the same "blocking stage owns the whole next message"
-// precedent QUOTE_BLOCKING_STAGES uses for buyers.
+// precedent BLOCKING_CHECKOUT_STAGES uses for buyers.
 import connectToDatabase from '@/lib/mongodb'
 import { User } from '@/lib/models/User'
 import { WhatsAppLink } from '@/lib/models/WhatsAppLink'

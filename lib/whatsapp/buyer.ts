@@ -768,23 +768,19 @@ async function sendMyBookings(waId: string): Promise<void> {
 // reply-to-select cart adds.
 //
 // Dispatch order, top to bottom:
-// 1. "cancel" — works at any non-browsing stage, checked first. Tries the services-
-//    booking cancel (Phase S2) before goods' — the two stage sets are disjoint (see
-//    lib/models/WhatsAppBrowseState.ts's stage enum), so exactly one of them, or neither,
-//    ever actually handles a given cancel.
-// 2. Services-booking blocking stages (choosing_service_package through
-//    awaiting_booking_payment, lib/whatsapp/service-booking.ts) own the whole message —
-//    checked before goods' blocking stages since the two sets are disjoint and a buyer is
-//    only ever in one stage at a time regardless of which set it's from.
-// 3. Blocking checkout stages (awaiting_name/address/couriers/confirm/payment) own the
+// 1. "cancel" — works at any non-browsing stage, checked first: clears a pending
+//    "where are you?" service question, otherwise hands off to checkout's cancel.
+// 2. Blocking checkout stages (awaiting_name/address/couriers/confirm/payment) own the
 //    whole message — everything below is skipped entirely while mid-checkout. Goods-only
 //    concept, unaffected by browseMode.
-// 4. Reply-to-a-product-or-service-result — a reply is a stronger, more specific signal
+// 3. awaiting_service_location — the buyer asked for a service before saying where they
+//    are, so the next message is read as a location first (a few navigation keywords
+//    still pass through so nobody gets trapped).
+// 4. Reply-to-a-product-or-provider-card — a reply is a stronger, more specific signal
 //    than parsing the reply's text, so it's checked before any keyword. Tries goods first,
-//    then services (lib/whatsapp/service-booking.ts's handleServiceReply) — a given
-//    message id only ever resolves in one of the two message-map collections, so trying
-//    both in sequence is safe, not ambiguous. A "quote" reply to a requiresQuote
-//    service starts its quote request.
+//    then services (lib/whatsapp/service-contacts.ts, which just re-sends the provider's
+//    contact details) — a given message id only ever resolves in one of the two
+//    message-map collections, so trying both in sequence is safe, not ambiguous.
 // 5. "more" — mode-aware (handleMoreCommand branches on browseMode internally).
 // 6. Category keywords — mode-aware: shows the services category menu instead of goods'
 //    while browseMode is 'services'.
@@ -816,7 +812,7 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
   // Withdrawal — a completely separate state track from the goods/services stage machine
   // below (lives on WhatsAppBuyer, not WhatsAppBrowseState), checked first and unconditionally
   // so an active withdrawal conversation always owns the whole message, same "blocking
-  // stage" precedent as QUOTE_BLOCKING_STAGES further down.
+  // stage" precedent as BLOCKING_CHECKOUT_STAGES further down.
   if (await tryHandleCustomerWithdrawalFlow(waId, trimmed)) return
 
   await connectToDatabase()

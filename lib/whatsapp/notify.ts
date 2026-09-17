@@ -3,10 +3,9 @@
 // non-bot-conversation part of the codebase (a cron job, a review route) needs to ping a
 // user's linked WhatsApp number alongside its existing push/email sends. Mirrors the
 // resolve+template-first/free-text-fallback shape already proven in
-// lib/negotiation-service.ts's notifyPartyWa/resolveRecipientWaId (Phase S4) — extracted
-// here now that it's about to be reused by several more call sites. Existing call sites
-// (lib/whatsapp/service-quote.ts, lib/negotiation-service.ts) are deliberately left as-is,
-// not retrofitted onto this — only new code uses it.
+// lib/negotiation-service.ts's notifyPartyWa/resolveRecipientWaId — extracted here now
+// that it's reused by several call sites. lib/negotiation-service.ts is deliberately left
+// as-is, not retrofitted onto this — only newer code uses it.
 import connectToDatabase from '@/lib/mongodb'
 import { WhatsAppBuyer } from '@/lib/models/WhatsAppBuyer'
 import { WhatsAppLink } from '@/lib/models/WhatsAppLink'
