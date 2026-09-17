@@ -1,4 +1,5 @@
 "use client"
+import StoreReturnPolicy from '@/components/StoreReturnPolicy'
 
 import React, { useState, useEffect } from "react"
 import { notFound, useParams, useSearchParams } from "next/navigation"
@@ -323,6 +324,7 @@ export default function ProductPage() {
                 </div>
               ))}
 
+              <StoreReturnPolicy storeId={String(product.storeId || product.vendorId || "")} />
               {/* Description */}
               <div className="mb-4 bg-muted/50 rounded-lg p-3">
                 <h3 className="font-semibold text-sm mb-2">Description</h3>

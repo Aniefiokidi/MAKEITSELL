@@ -224,29 +224,7 @@ export async function applyOrderVendorStatus(params: {
     }
   }
 
-  // allActiveVendorsAgree guards this — without it, a partial per-vendor update (only
-  // some legs reached 'received') would still read the order's top-level paymentStatus
-  // as 'escrow' (that field is untouched by a partial update) and release the *whole*
-  // order's escrow after just one vendor's leg was confirmed.
-  if (requestedStatus === 'received' && allActiveVendorsAgree) {
-    const paymentStatus = String((updatedOrder as any)?.paymentStatus || '').toLowerCase()
-    const isDisputed = Boolean((updatedOrder as any)?.disputeRaisedAt)
-      || String((updatedOrder as any)?.disputeStatus || '').toLowerCase() === 'active'
-
-    if (paymentStatus === 'escrow' && !isDisputed) {
-      await releaseEscrowForOrder(orderId, {
-        paymentReference: String((updatedOrder as any)?.paymentReference || ''),
-        provider: String((updatedOrder as any)?.paymentMethod || ''),
-        source: 'logistics_received_confirmation',
-      })
-
-      updatedOrder = await updateOrder(orderId, {
-        paymentStatus: 'released',
-        status: 'completed',
-        confirmedAt: new Date(),
-      })
-    }
-  }
+  // Customer receipt confirmation never waives the verified delivery clearance window.
 
   return updatedOrder
 }

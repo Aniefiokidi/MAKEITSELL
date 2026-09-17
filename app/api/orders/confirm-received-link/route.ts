@@ -76,21 +76,12 @@ export async function GET(request: NextRequest) {
 
     if (String(order.paymentStatus || '').toLowerCase() === 'escrow') {
       await updateOrder(orderId, { status: 'received', receivedAt: new Date() })
-      await releaseEscrowForOrder(orderId, {
-        paymentReference: String(order.paymentReference || ''),
-        provider: String(order.paymentMethod || ''),
-        source: 'customer_receipt_link',
-      })
-      await updateOrder(orderId, {
-        paymentStatus: 'released',
-        status: 'completed',
-        confirmedAt: new Date(),
-      })
+
     }
 
     const redirectUrl = new URL('/order-confirmation', getCanonicalAppBaseUrl(new URL(request.url).origin))
     redirectUrl.searchParams.set('orderId', orderId)
-    redirectUrl.searchParams.set('escrow', 'released')
+    redirectUrl.searchParams.set('escrow', 'pending_clearance')
     return NextResponse.redirect(redirectUrl.toString())
   } catch (error: any) {
     return NextResponse.json(

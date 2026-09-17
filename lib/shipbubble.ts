@@ -196,7 +196,7 @@ export async function fetchShipbubbleRates(params: {
 
 // Buyer dispute window after delivery is confirmed (by Shipbubble webhook, or as the
 // initial courier-ETA-based estimate) before escrow auto-releases to the vendor.
-export const ESCROW_DISPUTE_GRACE_HOURS = 24
+export const ESCROW_DISPUTE_GRACE_HOURS = 48
 
 // Shipbubble's `delivery_eta` is free text, not a structured field (confirmed via their
 // docs and live responses — examples: "Within 23 hrs", "Within 1 - 4 working days",

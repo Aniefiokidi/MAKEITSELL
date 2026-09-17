@@ -1,4 +1,5 @@
 'use client'
+import ProtectedEarnings from '@/components/ProtectedEarnings'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -403,6 +404,7 @@ export function VendorWalletModal({
               <DialogTitle>Vendor Wallet</DialogTitle>
               <DialogDescription>Manage your earnings and withdrawals</DialogDescription>
             </DialogHeader>
+        {open && <ProtectedEarnings onAvailable={onBalanceUpdated} />}
 
             <div className='space-y-4'>
               <div className='rounded-lg border p-3 bg-linear-to-br from-accent/10 to-transparent'>

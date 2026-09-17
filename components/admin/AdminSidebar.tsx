@@ -30,6 +30,7 @@ import {
 } from "lucide-react"
 
 const adminNavItems = [
+  { title: "Returns & Replacements", href: "/admin/returns", icon: ArrowLeftRight },
   {
     title: "Overview",
     href: "/admin/dashboard",

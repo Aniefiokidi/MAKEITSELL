@@ -1,0 +1,9 @@
+# Isolated purchase-protection tests
+
+Run `npm install --ignore-scripts` then `npm test` from this directory.
+
+The test harness compiles the actual financial implementation and order/product/store/wallet-transaction schemas. Financial tests substitute the database connector, referral side effects and a minimal wallet user schema, and uses a disposable MongoDB replica set. No production credentials or database are loaded. The first run downloads a MongoDB binary and needs network access and a local port.
+
+Deployment must preserve MongoDB transaction support and unique wallet transaction references. Existing signed Shipbubble/Fez callbacks start the 48-hour holds. Admin verifies unsupported/historical delivery evidence. Return labels, courier receipts and original-payment refund references are entered after staff perform and verify those operations with the relevant provider. Those external operations are not automatically executed by the case forms.
+
+The 23 tests also exercise the actual after-sales GET/POST handlers, including permission checks and a complete return-to-wallet-refund journey. Route tests substitute authentication resolution, rate limiting, email delivery and the Next response wrapper. Real HTTP authentication, provider operations and native device journeys remain separate release checks.

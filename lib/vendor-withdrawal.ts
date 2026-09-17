@@ -1,3 +1,4 @@
+import { clearVendorEarnings } from '@/lib/after-sales'
 // Shared vendor-withdrawal logic — extracted from app/api/vendor/wallet/withdraw/route.ts
 // (and calcWithdrawalBreakdown from its sibling preview/route.ts) so both the web route
 // and the new WhatsApp withdrawal flow (lib/whatsapp/vendor-withdrawal.ts) execute the
@@ -161,6 +162,8 @@ export async function processVendorWithdrawal(params: ProcessVendorWithdrawalPar
   }
 
   await connectToDatabase()
+
+  await clearVendorEarnings(userId)
 
   const paystackBalance = await fetchPaystackNgnBalance()
   if (paystackBalance.success && Number(paystackBalance.availableNgn || 0) < normalizedAmount) {

@@ -1,0 +1,3 @@
+import { Schema, model, models } from 'mongoose'
+const schema = new Schema({ bookingId: { type: String, required: true, unique: true }, customerId: { type: String, required: true, index: true }, providerId: { type: String, required: true, index: true }, storeId: String, title: String, requestedResolution: { type: String, enum: ['reperformance', 'refund', 'other'] }, description: String, evidence: [String], paidOnline: Number, status: { type: String, default: 'admin_review' }, history: { type: [Schema.Types.Mixed], default: [] } }, { timestamps: true })
+export const ServiceClaim = models.ServiceClaim || model('ServiceClaim', schema)

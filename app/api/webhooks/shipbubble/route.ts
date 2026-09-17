@@ -1,13 +1,12 @@
+import { recordProtectedDelivery, sendProtectionNotices } from '@/lib/after-sales'
 import { NextRequest, NextResponse } from 'next/server'
 import connectToDatabase from '@/lib/mongodb'
 import { Order } from '@/lib/models/Order'
 import { Store } from '@/lib/models/Store'
-import { verifyShipbubbleWebhookSignature, ESCROW_DISPUTE_GRACE_HOURS } from '@/lib/shipbubble'
+import { verifyShipbubbleWebhookSignature } from '@/lib/shipbubble'
 import { applyOrderVendorStatus } from '@/lib/order-vendor-status'
 
-// Shipbubble → MakeItSell vendor-leg status. "completed" maps to 'delivered', not
-// 'received' — receipt confirmation (and the escrow release it triggers) stays a
-// deliberate customer action, exactly like the rider system it replaces.
+// Courier delivery starts the protected clearance period; customer receipt does not waive it.
 const STATUS_MAP: Record<string, string> = {
   confirmed: 'confirmed',
   picked_up: 'shipped',
@@ -70,6 +69,10 @@ export async function POST(request: NextRequest) {
     const vendorId = String(vendorEntry?.vendorId || '').trim()
     const storeId = String(vendorEntry?.storeId || '').trim()
 
+    if (mappedStatus === 'delivered') { await recordProtectedDelivery(order.orderId, vendorId, storeId); await sendProtectionNotices(order.orderId) }
+    const stages = ['pending', 'confirmed', 'shipped', 'out_for_delivery', 'delivered', 'received', 'completed']
+    if (stages.indexOf(String(vendorEntry?.status || 'pending')) > stages.indexOf(mappedStatus) && mappedStatus !== 'cancelled') return NextResponse.json({ success: true })
+    if (mappedStatus === 'cancelled' && order.protectionLines?.some((l: any) => l.vendorId === vendorId && (!storeId || l.storeId === storeId) && l.availableAt)) return NextResponse.json({ success: true })
     let targetStore: any = null
     if (storeId) targetStore = await Store.findById(storeId).lean()
     if (!targetStore && vendorId) targetStore = await Store.findOne({ vendorId }).lean()
@@ -87,31 +90,13 @@ export async function POST(request: NextRequest) {
     await Order.updateOne(
       { orderId: order.orderId, 'vendors.vendorId': vendorId },
       { $set: { 'vendors.$[entry].shipbubbleStatus': extracted.status } },
-      { arrayFilters: [{ 'entry.vendorId': vendorId }] }
+      { arrayFilters: [{ 'entry.vendorId': vendorId, ...(storeId ? { 'entry.storeId': storeId } : {}) }] }
     )
-
-    // Every active vendor leg just rolled up to 'delivered' (applyOrderVendorStatus only
-    // sets the order's top-level status once all of them agree) — real, courier-confirmed
-    // delivery beats the pessimistic ETA-based estimate set at checkout, so pull the
-    // release date in to start-of-delivery + the buyer's dispute grace period, but never
-    // push it out later than what was already promised.
-    if (mappedStatus === 'delivered' && updatedOrder?.status === 'delivered') {
-      const tightenedReleaseAt = new Date(Date.now() + ESCROW_DISPUTE_GRACE_HOURS * 60 * 60 * 1000)
-      const currentReleaseAt = updatedOrder?.escrowReleaseAt ? new Date(updatedOrder.escrowReleaseAt) : null
-      if (!currentReleaseAt || tightenedReleaseAt < currentReleaseAt) {
-        await Order.updateOne(
-          { orderId: order.orderId },
-          { $set: { escrowReleaseAt: tightenedReleaseAt } }
-        )
-      }
-    }
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('[shipbubble-webhook] Failed to process webhook:', error)
-    // Still 200 — Shipbubble will retry on non-200, but a processing error here is
-    // unlikely to be transient, and their retry schedule (5x over 25 min) isn't a
-    // substitute for our own error handling.
-    return NextResponse.json({ success: false, error: 'Processing failed' }, { status: 200 })
+    // Return an error so a transient database failure can be retried.
+    return NextResponse.json({ success: false, error: 'Processing failed' }, { status: 500 })
   }
 }

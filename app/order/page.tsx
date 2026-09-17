@@ -260,7 +260,7 @@ export default function CustomerOrdersPage() {
 
   return (
     <div className="min-h-screen bg-linear-to-b from-background via-accent/5 to-background flex flex-col">
-      <Header />
+      <Header /><div className="container mx-auto p-4"><Link href="/returns" className="underline">Returns, replacements &amp; refunds</Link><p>Seller funds remain locked for 48 hours after confirmed delivery. Report an issue to pause the affected payout. Your statutory rights remain unaffected.</p></div>
       <main className="flex-1 w-full max-w-6xl mx-auto mt-10 mb-16 px-4 md:px-6">
           <div className="text-center mb-8">
             <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">My Orders</h1>

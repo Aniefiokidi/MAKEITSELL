@@ -99,7 +99,7 @@ export async function buildOrder(input: BuildOrderInput): Promise<BuildOrderResu
   // Group items by store first (fallback to vendor) so each store gets its own payout bucket.
   const vendorOrders = new Map()
 
-  const catalog = await Product.find({ _id: { $in: items.map((item: any) => item.productId).filter(isValidObjectIdString) } }).select('vendorId storeId').lean();
+  const catalog = await Product.find({ _id: { $in: items.map((item: any) => item.productId).filter(isValidObjectIdString) } }).select('vendorId storeId name price description images').lean();
   const catalogById = new Map(catalog.map((product: any) => [String(product._id), product]));
   const primaryStores: any[] = await Store.find({ vendorId: { $in: catalog.map((product: any) => String(product.vendorId)) } }).sort({ _id: 1 }).lean();
   const originalStoreByOwner = new Map<string, string>();
@@ -107,6 +107,10 @@ export async function buildOrder(input: BuildOrderInput): Promise<BuildOrderResu
   for (const item of items) {
     const product: any = catalogById.get(String(item.productId));
     if (!product) return { success: false, error: 'A product in your cart is unavailable.', status: 400 };
+    if (!Number.isInteger(Number(item.quantity)) || Number(item.quantity) < 1 || !Number.isFinite(Number(product.price)) || Number(product.price) < 0) return { success: false, error: 'Invalid item quantity or price.', status: 400 };
+    if (Math.round(Number(item.price) * 100) !== Math.round(Number(product.price) * 100)) return { success: false, error: 'An item price changed. Refresh your cart before paying.', status: 409 };
+    item.price = Number(product.price); item.title = product.name;
+    item.snapshot = { title: product.name, description: product.description, images: product.images, selectedVariants: item.selectedVariants || [] };
     const vendorId = String(product.vendorId);
     const storeId = String(product.storeId || originalStoreByOwner.get(vendorId) || '');
     const groupingKey = storeId ? `store:${storeId}` : `vendor:${vendorId}`
@@ -174,6 +178,7 @@ export async function buildOrder(input: BuildOrderInput): Promise<BuildOrderResu
     vendor.storeId = vendor.storeId || store?._id?.toString?.() || ''
     vendor.items = vendor.items.map((item: any) => ({ ...item, storeId: vendor.storeId }));
     vendor.vendorName = String(store.storeName || vendor.vendorName || 'Store');
+    vendor.returnPolicySnapshot = { acceptReturns: store.acceptReturns !== false, acceptExchanges: store.acceptExchanges !== false, text: store.returnPolicy || '' };
     vendor.storeAddress = pickupAddress || ''
     vendor.storeState = String(store?.state || '')
 

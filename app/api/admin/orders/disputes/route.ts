@@ -53,6 +53,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 })
     }
 
+    if ((existing as any).protectionLines?.length) return NextResponse.json({ error: 'Use Returns & Disputes to resolve this item-managed order' }, { status: 409 })
+
     const paymentStatus = String((existing as any)?.paymentStatus || '').toLowerCase()
     const isEscrow = paymentStatus === 'escrow' || paymentStatus === 'disputed'
     const isDisputed = String((existing as any)?.disputeStatus || '').toLowerCase() === 'active'
@@ -87,6 +89,8 @@ export async function POST(request: NextRequest) {
         let alreadyRefunded = false
 
         await session.withTransaction(async () => {
+          const protectedOrder: any = await Order.findOne({ orderId }).session(session);
+          if (protectedOrder?.protectionLines?.length) throw new Error('Resolve this protected order through Returns & Disputes.');
           const orderInTxn: any = await Order.findOne({ orderId }).session(session)
           if (!orderInTxn) {
             throw new Error('Order not found')

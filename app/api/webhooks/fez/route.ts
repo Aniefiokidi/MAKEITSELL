@@ -1,10 +1,10 @@
+import { recordProtectedDelivery, sendProtectionNotices } from '@/lib/after-sales'
 import { NextRequest, NextResponse } from 'next/server'
 import connectToDatabase from '@/lib/mongodb'
 import { Order } from '@/lib/models/Order'
 import { Store } from '@/lib/models/Store'
 import { verifyFezWebhookSignature } from '@/lib/fez'
 import { applyOrderVendorStatus } from '@/lib/order-vendor-status'
-import { ESCROW_DISPUTE_GRACE_HOURS } from '@/lib/shipbubble'
 
 // Fez → MakeItSell vendor-leg status. Docs don't enumerate a full status vocabulary
 // (only "Dispatched" and "Delivered" are shown as real examples, plus a handful of
@@ -66,6 +66,10 @@ export async function POST(request: NextRequest) {
     const vendorId = String(vendorEntry?.vendorId || '').trim()
     const storeId = String(vendorEntry?.storeId || '').trim()
 
+    if (mappedStatus === 'delivered') { await recordProtectedDelivery(order.orderId, vendorId, storeId); await sendProtectionNotices(order.orderId) }
+    const stages = ['pending', 'confirmed', 'shipped', 'out_for_delivery', 'delivered', 'received', 'completed']
+    if (stages.indexOf(String(vendorEntry?.status || 'pending')) > stages.indexOf(mappedStatus) && mappedStatus !== 'cancelled') return NextResponse.json({ success: true })
+    if (mappedStatus === 'cancelled' && order.protectionLines?.some((l: any) => l.vendorId === vendorId && (!storeId || l.storeId === storeId) && l.availableAt)) return NextResponse.json({ success: true })
     let targetStore: any = null
     if (storeId) targetStore = await Store.findById(storeId).lean()
     if (!targetStore && vendorId) targetStore = await Store.findOne({ vendorId }).lean()
@@ -82,25 +86,12 @@ export async function POST(request: NextRequest) {
     await Order.updateOne(
       { orderId: order.orderId, 'vendors.vendorId': vendorId },
       { $set: { 'vendors.$[entry].deliveryStatus': rawStatus } },
-      { arrayFilters: [{ 'entry.vendorId': vendorId }] }
+      { arrayFilters: [{ 'entry.vendorId': vendorId, ...(storeId ? { 'entry.storeId': storeId } : {}) }] }
     )
-
-    // Same tightening logic as the Shipbubble webhook: real courier-confirmed delivery
-    // beats the pessimistic ETA-based estimate set at checkout.
-    if (mappedStatus === 'delivered' && updatedOrder?.status === 'delivered') {
-      const tightenedReleaseAt = new Date(Date.now() + ESCROW_DISPUTE_GRACE_HOURS * 60 * 60 * 1000)
-      const currentReleaseAt = updatedOrder?.escrowReleaseAt ? new Date(updatedOrder.escrowReleaseAt) : null
-      if (!currentReleaseAt || tightenedReleaseAt < currentReleaseAt) {
-        await Order.updateOne(
-          { orderId: order.orderId },
-          { $set: { escrowReleaseAt: tightenedReleaseAt } }
-        )
-      }
-    }
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('[fez-webhook] Failed to process webhook:', error)
-    return NextResponse.json({ success: false, error: 'Processing failed' }, { status: 200 })
+    return NextResponse.json({ success: false, error: 'Processing failed' }, { status: 500 })
   }
 }

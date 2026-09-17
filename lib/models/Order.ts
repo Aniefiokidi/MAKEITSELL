@@ -1,11 +1,17 @@
 import mongoose, { Schema, Document, models } from 'mongoose';
 
 export interface IOrder extends Document {
+  protectionNotices?: any[];
+  protectionLines?: any[];
+  afterSalesCases?: any[];
   orderId: string;
   customerId: string;
   items: any[];
   shippingInfo: any;
   shippingAddress: any;
+  subtotal?: number;
+  vat?: number;
+  shipping?: number;
   paymentMethod: string;
   totalAmount: number;
   status: string;
@@ -44,6 +50,12 @@ export interface IOrder extends Document {
 }
 
 const OrderSchema = new Schema<IOrder>({
+  protectionNotices: { type: [Schema.Types.Mixed], default: [] },
+  protectionLines: { type: [Schema.Types.Mixed], default: [] },
+  afterSalesCases: { type: [Schema.Types.Mixed], default: [] },
+  subtotal: { type: Number },
+  vat: { type: Number },
+  shipping: { type: Number },
   orderId: { type: String, required: true },
   customerId: { type: String, required: true },
   items: { type: [Schema.Types.Mixed] as any, default: [] },
@@ -84,5 +96,8 @@ const OrderSchema = new Schema<IOrder>({
   receivedAt: { type: Date },
   cancelledAt: { type: Date },
 });
+
+OrderSchema.index({ paymentStatus: 1, 'protectionLines.availableAt': 1 });
+OrderSchema.index({ 'afterSalesCases.deadline': 1 });
 
 export const Order = models.Order || mongoose.model<IOrder>('Order', OrderSchema);

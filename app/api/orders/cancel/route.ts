@@ -114,6 +114,8 @@ export async function POST(request: NextRequest) {
       const session = await mongoose.startSession()
       try {
         await session.withTransaction(async () => {
+          const protectedOrder: any = await Order.findOne({ orderId }).session(session);
+          if (protectedOrder?.protectionLines?.length) throw new Error('Resolve this protected order through Returns & Disputes.');
           if (shouldRefund) {
             // Deterministic reference (unlike a random suffix) so a retried or
             // double-clicked request can't refund the same vendor leg twice.
@@ -209,6 +211,8 @@ export async function POST(request: NextRequest) {
       const session = await mongoose.startSession()
       try {
         await session.withTransaction(async () => {
+          const protectedOrder: any = await Order.findOne({ orderId }).session(session);
+          if (protectedOrder?.protectionLines?.length) throw new Error('Resolve this protected order through Returns & Disputes.');
           // Deterministic reference — same reasoning as the per-vendor path above.
           const refundReference = `CANCEL-${orderId}`
 

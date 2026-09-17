@@ -330,7 +330,7 @@ export default function TermsPage() {
                 <li>• Vendors receive payouts after:</li>
                 <ul className="pl-6">
                   <li>- Order is marked delivered</li>
-                  <li>- No dispute is raised within the review window</li>
+                  <li>- The 48-hour period after verified delivery has passed with no active complaint for the affected item</li>
                   <li>- Transaction passes fraud checks</li>
                 </ul>
                 <li>• Payouts are sent to the vendor’s verified bank account. Make It Sell may delay payouts for risk review, disputes, or compliance checks.</li>
@@ -371,7 +371,7 @@ export default function TermsPage() {
                   <li>- Vendor cancels the order</li>
                   <li>- A fraudulent transaction is detected</li>
                 </ul>
-                <li>• Refunds are processed back to the original payment method. Make It Sell reserves the right to approve or deny refund requests after reviewing evidence.</li>
+                <li>• Approved refunds may be credited to your wallet with your consent, or processed through the original payment provider where applicable. Make It Sell reserves the right to approve or deny refund requests after reviewing evidence.</li>
               </ul>
             </CardContent>
           </Card>

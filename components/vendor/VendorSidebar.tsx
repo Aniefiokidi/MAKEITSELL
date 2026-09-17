@@ -25,6 +25,7 @@ import {
 } from "lucide-react"
 
 const sidebarItems = [
+  { title: "Returns & Disputes", href: "/vendor/returns", icon: LifeBuoy, showFor: ["goods", "services", "both"] as const },
   {
     title: "Overview",
     href: "/vendor/dashboard",

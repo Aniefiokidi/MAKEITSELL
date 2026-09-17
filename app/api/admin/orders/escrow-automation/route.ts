@@ -1,3 +1,4 @@
+import { processAfterSalesDeadlines, sendProtectionNotices } from '@/lib/after-sales'
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import connectToDatabase from '@/lib/mongodb'
@@ -10,10 +11,8 @@ import { getCanonicalAppBaseUrl } from '@/lib/app-url'
 import { releaseEscrowForOrder } from '@/lib/mongodb-operations'
 
 const FIVE_HOURS_MS = 5 * 60 * 60 * 1000
-const NINETY_SIX_HOURS_MS = 96 * 60 * 60 * 1000
 
 // Statuses that mean the order was fulfilled — no refund needed
-const FULFILLED_STATUSES = new Set(['delivered', 'received', 'completed'])
 // Statuses that are already terminal — skip entirely
 const TERMINAL_STATUSES = new Set(['cancelled', 'refunded', 'delivered', 'received', 'completed'])
 
@@ -78,28 +77,20 @@ const trySendReceiptReminder = async (order: any) => {
         <p>Your payment of <strong>${formatNaira(Number(order?.totalAmount || 0))}</strong> is secured in escrow.</p>
         <p>If you have received your order, tap the button below to confirm receipt.</p>
         <p><a href="${receiptLink}" style="display:inline-block;background:#0ea5e9;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none;">Confirm Receipt</a></p>
-        <p>If we do not hear from you, your payment will be automatically refunded to your wallet after <strong>96 hours</strong>.</p>
+        <p>If we do not hear from you, your funds remain protected until verified delivery and the 48-hour clearance period.</p>
         <p>If there is an issue with your order, please raise a dispute before then.</p>
       </div>
     `,
-    text: `Have you received order #${orderId.slice(0, 8).toUpperCase()}? Confirm receipt: ${receiptLink}. If you do not respond within 96 hours, we will refund your payment to your wallet.`,
+    text: `Have you received order #${orderId.slice(0, 8).toUpperCase()}? Confirm receipt: ${receiptLink}. Seller payout requires verified delivery and a 48-hour clearance period. Report any issue from your order.`,
   })
 }
 
-// Auto-release escrow to the vendor(s) once every active leg is confirmed delivered
-// (by the Shipbubble webhook, or a manual vendor/logistics update) and the buyer's
-// dispute grace period has passed with no dispute raised. This is a new, separate path
-// from the customer manually clicking "confirm received" — it exists because Shipbubble
-// gives no proof of delivery (just a self-reported courier status, confirmed via
-// research), so we don't release the instant they say "completed"; we wait out the same
-// grace window applied when escrowReleaseAt was first set or tightened (see
-// app/api/payments/initialize and app/api/webhooks/shipbubble).
+// Clear independently verified items after their full hold, subject to active cases.
 const processDeliveredOrderAutoRelease = async () => {
   const now = new Date()
   const orders = await Order.find({
     paymentStatus: 'escrow',
-    status: 'delivered',
-    escrowReleaseAt: { $lte: now },
+    'protectionLines.availableAt': { $lte: now },
   }).limit(500).lean()
 
   let released = 0
@@ -174,122 +165,12 @@ const processEscrowOrders = async () => {
       }
     }
 
-    // 96-hour auto-refund: order not fulfilled → refund to customer wallet
-    if (!Number.isFinite(paidAtMs) || now - paidAtMs < NINETY_SIX_HOURS_MS) continue
-    if (FULFILLED_STATUSES.has(orderStatus)) continue
-
-    const customerId = String(order.customerId || '')
-
-    // A multi-vendor order can have already had one vendor's leg individually
-    // cancelled and refunded (see app/api/orders/cancel/route.ts) while another
-    // vendor's leg is still active — refunding the full original totalAmount here
-    // would refund that already-cancelled portion a second time. Only the active
-    // (non-cancelled) vendors' totals are still genuinely at stake.
-    const vendorEntries: any[] = Array.isArray(order.vendors) ? order.vendors : []
-    const hasCancelledLeg = vendorEntries.some((v) => String(v?.status || '').toLowerCase() === 'cancelled')
-    const refundAmount = hasCancelledLeg
-      ? vendorEntries
-          .filter((v) => String(v?.status || '').toLowerCase() !== 'cancelled')
-          .reduce((sum, v) => sum + Number(v?.total || 0), 0)
-      : Number(order.totalAmount || 0)
-    if (!customerId || refundAmount <= 0) continue
-
-    // Idempotent reference — safe to run multiple times
-    const refundReference = `ESCROW-REFUND-${order.orderId}`
-
-    try {
-      const tx = await WalletTransaction.updateOne(
-        { reference: refundReference },
-        {
-          $setOnInsert: {
-            userId: customerId,
-            type: 'escrow_refund',
-            amount: refundAmount,
-            status: 'completed',
-            reference: refundReference,
-            paymentReference: String(order.paymentReference || refundReference),
-            provider: 'escrow_auto_refund',
-            note: `Escrow refund — order #${order.orderId} not completed within 96 hours`,
-            metadata: { source: 'escrow_auto_refund', orderId: order.orderId },
-            orderId: order.orderId,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-        },
-        { upsert: true }
-      )
-
-      // upsertedCount === 0 means this refund already ran
-      if ((tx as any).upsertedCount === 0) continue
-
-      // Credit customer wallet
-      await User.updateOne(
-        { _id: customerId },
-        { $inc: { walletBalance: refundAmount }, $set: { updatedAt: new Date() } }
-      )
-
-      // Mark order as refunded
-      await Order.updateOne(
-        { _id: order._id },
-        {
-          $set: {
-            status: 'refunded',
-            paymentStatus: 'refunded',
-            refundedAt: new Date(),
-            updatedAt: new Date(),
-          },
-        }
-      )
-
-      // Send refund email to customer
-      const customerEmail = String(order?.shippingInfo?.email || '').trim()
-      const customerName =
-        `${String(order?.shippingInfo?.firstName || '').trim()} ${String(order?.shippingInfo?.lastName || '').trim()}`.trim() ||
-        'Customer'
-
-      if (customerEmail) {
-        try {
-          await emailService.sendEscrowRefundEmail({
-            to: customerEmail,
-            customerName,
-            orderId: order.orderId,
-            refundAmount,
-          })
-        } catch (emailErr) {
-          console.error('[escrow-automation] Refund email failed for order:', order.orderId, emailErr)
-        }
-      }
-
-      autoRefunded += 1
-    } catch (err) {
-      console.error('[escrow-automation] Refund failed for order:', order.orderId, err)
-    }
+    // Missing delivery data requires tracking review, never a refund based on silence.
   }
 
-  // Auto-cancel orders stuck in pending/pending_payment for > 24h
-  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000)
-  const staleOrders = await Order.find({
-    status: { $in: ['pending', 'pending_payment'] },
-    createdAt: { $lte: cutoff },
-    cancelledAt: { $exists: false },
-  })
-    .limit(200)
-    .lean()
-
-  for (const order of staleOrders as any[]) {
-    await Order.updateOne(
-      { _id: order._id },
-      {
-        $set: {
-          status: 'cancelled',
-          cancelledAt: new Date(),
-          cancel_reason: 'Auto-cancelled after 24h without payment',
-          updatedAt: new Date(),
-        },
-      }
-    )
-    autoCancelled += 1
-  }
+  // Expire abandoned unpaid checkouts only. The payment predicate is rechecked atomically.
+  const staleResult = await Order.updateMany({ paymentStatus: 'pending', status: { $in: ['pending', 'pending_payment'] }, createdAt: { $lte: new Date(Date.now() - 24 * 60 * 60 * 1000) }, cancelledAt: { $exists: false } }, { $set: { status: 'cancelled', cancelledAt: new Date() } })
+  autoCancelled = staleResult.modifiedCount
 
   return {
     totalScanned: orders.length,
@@ -297,7 +178,7 @@ const processEscrowOrders = async () => {
     autoRefunded,
     disputedSkipped,
     autoCancelled,
-    staleOrdersChecked: staleOrders.length,
+    staleOrdersChecked: 0,
   }
 }
 
@@ -307,6 +188,8 @@ export async function POST(request: NextRequest) {
 
   try {
     await connectToDatabase()
+    await sendProtectionNotices()
+    await processAfterSalesDeadlines()
     const releaseSummary = await processDeliveredOrderAutoRelease()
     const summary = await processEscrowOrders()
     return NextResponse.json({ success: true, summary: { ...summary, autoReleased: releaseSummary.released } })

@@ -553,7 +553,7 @@ export default function CheckoutPage() {
     return (
       <ProtectedRoute>
         <div className="min-h-screen flex flex-col">
-          <Header />
+          <Header /><p className="container mx-auto p-4">Seller funds remain locked for 48 hours after confirmed delivery. For eligible change-of-mind returns, you pay return delivery. Wrong or faulty items are handled at the responsible seller’s expense. <a href="/returns" className="underline">Returns and replacements</a></p>
           <main className="flex-1 container mx-auto px-4 py-16">
             <div className="max-w-2xl mx-auto text-center">
               <h1 className="text-3xl font-bold mb-4">Your cart is empty</h1>
@@ -571,7 +571,7 @@ export default function CheckoutPage() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen flex flex-col">
-        <Header />
+        <Header /><p className="container mx-auto p-4">Seller funds remain locked for 48 hours after confirmed delivery. For eligible change-of-mind returns, you pay return delivery. Wrong or faulty items are handled at the responsible seller’s expense. <a href="/returns" className="underline">Returns and replacements</a></p>
         <main className="flex-1 container mx-auto px-4 py-8 pb-28 md:pb-8">
           <div className="max-w-6xl mx-auto">
             <div className="flex items-center gap-4 mb-8 animate-fade-in">

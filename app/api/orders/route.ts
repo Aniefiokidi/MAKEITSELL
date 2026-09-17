@@ -131,25 +131,6 @@ export async function PATCH(request: NextRequest) {
       console.error('[order-status-notification] Failed:', notifyErr)
     }
 
-    if (status === 'received') {
-      const freshOrder: any = await getOrderById(orderId)
-      const paymentStatus = String(freshOrder?.paymentStatus || '').toLowerCase()
-      const isDisputed = Boolean(freshOrder?.disputeRaisedAt) || String(freshOrder?.disputeStatus || '').toLowerCase() === 'active'
-
-      if (paymentStatus === 'escrow' && !isDisputed) {
-        await releaseEscrowForOrder(orderId, {
-          paymentReference: String(freshOrder?.paymentReference || ''),
-          provider: String(freshOrder?.paymentMethod || ''),
-          source: 'buyer_received_confirmation',
-        })
-
-        await updateOrder(orderId, {
-          paymentStatus: 'released',
-          status: 'completed',
-          confirmedAt: new Date(),
-        })
-      }
-    }
 
     return NextResponse.json({ success: true, order: updated })
   } catch (error) {

@@ -121,8 +121,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'A dispute has already been raised for this order' }, { status: 400 })
     }
 
-    await Order.updateOne(
-      { orderId },
+    const raised = await Order.updateOne(
+      { orderId, paymentStatus: 'escrow', disputeRaisedAt: null, 'protectionLines.settledAt': null },
       {
         $set: {
           disputeStatus: 'active',
@@ -136,6 +136,7 @@ export async function POST(request: NextRequest) {
       }
     )
 
+    if (!raised.modifiedCount) return NextResponse.json({ error: 'Payment state changed. Open an item request in Returns & Replacements.' }, { status: 409 })
     void notifySupportOfDispute({
       orderId,
       customerEmail: String(order.shippingInfo?.email || sessionUser.email || ''),
