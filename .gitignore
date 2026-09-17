@@ -29,3 +29,6 @@ next-env.d.ts
 
 # tesseract.js caches its downloaded OCR language data to the process cwd by default
 *.traineddata
+
+# macOS
+.DS_Store
