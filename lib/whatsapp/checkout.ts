@@ -13,6 +13,8 @@
 //   route uses. The order/VAT/shipping totals shown to the buyer before confirming are
 //   recomputed here for DISPLAY only, using the identical formula; buildOrder is always
 //   the authoritative source of what's actually charged.
+import mongoose from 'mongoose'
+import { Order } from '@/lib/models/Order'
 import { answerBuyerFaq } from '@/lib/whatsapp/buyer-faq'
 import { findPlaceInText } from '@/lib/geo-utils'
 import { after } from 'next/server'
@@ -433,19 +435,22 @@ function parseAddressReply(text: string): { address: string; city: string; state
   let parts = trimmed.split('\n').map((p) => p.trim()).filter(Boolean)
   if (parts.length < 2) parts = trimmed.split(/,|;/).map((p) => p.trim()).filter(Boolean)
 
+  // Order creation (lib/order-creation.ts) requires a non-empty delivery note, so a
+  // buyer who didn't give one gets a sensible default rather than a failed order.
+  const DEFAULT_NOTE = 'Call on arrival'
   if (parts.length >= 4) {
     const [address, city, state, ...rest] = parts
-    return { address, city, state, deliveryInstructions: rest.join(', ') }
+    return { address, city, state, deliveryInstructions: rest.join(', ') || DEFAULT_NOTE }
   }
   if (parts.length === 3) {
     const [address, city, state] = parts
-    return { address, city, state, deliveryInstructions: '' }
+    return { address, city, state, deliveryInstructions: DEFAULT_NOTE }
   }
   if (parts.length === 2) {
     const [address, where] = parts
     const place = findPlaceInText(where)
     if (!place) return null
-    return { address, city: place.name === place.state ? place.state : place.name, state: place.state, deliveryInstructions: '' }
+    return { address, city: place.name === place.state ? place.state : place.name, state: place.state, deliveryInstructions: DEFAULT_NOTE }
   }
   // Single line: find the first known place and split around it.
   const place = findPlaceInText(trimmed)
@@ -455,7 +460,49 @@ function parseAddressReply(text: string): { address: string; city: string; state
   const address = at > 0 ? trimmed.slice(0, at).replace(/[\s,]+$/, '').trim() : ''
   if (!address || !/\d/.test(address) && address.split(/\s+/).length < 2) return null
   const after = trimmed.slice(at + place.name.length).replace(new RegExp(`^[\\s,]*${place.state}(?:\\s+state)?`, 'i'), '').replace(/^[\s,.-]+/, '').trim()
-  return { address, city: place.name === place.state ? place.state : place.name, state: place.state, deliveryInstructions: after }
+  return { address, city: place.name === place.state ? place.state : place.name, state: place.state, deliveryInstructions: after || DEFAULT_NOTE }
+}
+
+// "reorder" / "same as last time": puts the buyer's most recent order's items back in
+// the cart (skipping anything no longer listed or out of stock) and shows the cart.
+export async function reorderLastOrder(waId: string): Promise<void> {
+  await connectToDatabase()
+  const mapping: any = await WhatsAppBuyer.findOne({ waId }).lean()
+  const order: any = mapping?.customerId ? await Order.findOne({ customerId: String(mapping.customerId) }).sort({ createdAt: -1 }).lean() : null
+  if (!order) {
+    await trySendText(waId, "You haven't ordered with me before, so there's nothing to repeat yet. Tell me what you'd like and I'll find it.")
+    return
+  }
+  const vendors: any[] = Array.isArray(order.vendors) ? order.vendors : []
+  const lines: any[] = (Array.isArray(order.items) && order.items.length ? order.items : vendors.flatMap((v) => v?.items || []))
+    .filter((item: any) => mongoose.isValidObjectId(String(item?.productId || '')))
+  if (lines.length === 0) {
+    await trySendText(waId, "I couldn't read the items on your last order. Tell me what you'd like and I'll find it.")
+    return
+  }
+  const products: any[] = await Product.find({ _id: { $in: lines.map((l: any) => l.productId) } }).lean()
+  const byId = new Map(products.map((p) => [String(p._id), p]))
+  const added: string[] = []
+  const skipped: string[] = []
+  let state = await loadState(waId)
+  for (const line of lines) {
+    const product = byId.get(String(line.productId))
+    const quantity = Math.max(1, Number(line.quantity || 1))
+    const stock = Number(product?.stock)
+    if (!product || product.status !== 'active' || (stock !== 9999 && Number.isFinite(stock) && stock < quantity)) {
+      skipped.push(String(line.title || product?.name || 'an item'))
+      continue
+    }
+    const selected = Array.isArray(line.selectedVariants) ? line.selectedVariants : []
+    const result = await addProductToCart(waId, { ...product, id: String(product._id) }, quantity, selected, state)
+    state = { ...state, cart: result.cart }
+    added.push(`${result.addedTitle} x${quantity}`)
+  }
+  if (added.length === 0) {
+    await trySendText(waId, `None of the items from your last order are available right now (${skipped.join(', ')}). Tell me what you'd like instead.`)
+    return
+  }
+  await trySendText(waId, `Added from your last order: ${added.join(', ')}${skipped.length ? `. Not available now: ${skipped.join(', ')}` : ''}.\n\nType "checkout" when you're ready, or "cart" to review.`)
 }
 
 async function handleAddressReply(waId: string, text: string): Promise<void> {

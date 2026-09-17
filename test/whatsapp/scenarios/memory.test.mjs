@@ -38,7 +38,7 @@ test('"the first one" describes the card; "add the first one" adds it', async ()
 
 test('colour references resolve when they are unique', async () => {
   await say('sneakers')
-  assert.match(texts(await say('add the gold one')), /couldn't|Which one|no match/i) // no gold sneakers on screen
+  assert.match(texts(await say('add the gold one')), /didn't send a gold one/i) // no gold sneakers on screen
   assert.match(texts(await say('add the black one')), /Added: Black Sneakers/)
   assert.match(texts(await say('how much is the white one?')), /White Sneakers is listed at NGN 30,000/)
 })

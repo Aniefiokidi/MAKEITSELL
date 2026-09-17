@@ -366,7 +366,7 @@ export async function sendProviderCards(waId: string, matches: ProviderMatch[], 
         console.error(`[whatsapp-service-contacts] failed to track card for ${waId}:`, error)
       )
     }
-    if (serviceId) sent.push({ id: serviceId, kind: 'service', messageId, name: `${String(match.service?.title || 'Service')} — ${match.storeName}` })
+    if (serviceId) sent.push({ id: serviceId, kind: 'service', messageId, name: `${String(match.service?.title || 'Service')} — ${match.storeName}`, price: match.estimate.amount })
   }
   // Same memory the product cards use, so "1" / "the first one" / "send me their
   // number" resolve to a provider (lib/whatsapp/recent-results.ts).

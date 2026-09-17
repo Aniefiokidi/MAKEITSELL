@@ -66,7 +66,7 @@ async function sendResultItem(waId: string, product: any, storeName: string | un
   if (messageId && productId) {
     await trackProductMessage(waId, messageId, productId)
   }
-  return productId ? { id: productId, kind: 'product', messageId, name: String(product?.name || 'Product') } : null
+  return productId ? { id: productId, kind: 'product', messageId, name: String(product?.name || 'Product'), price: Number(product?.price || 0) } : null
 }
 
 // Batch-resolves store names for a page of products, then sends them all concurrently.

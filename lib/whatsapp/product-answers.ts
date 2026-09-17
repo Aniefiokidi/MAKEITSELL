@@ -45,6 +45,12 @@ export function answerProductQuestion(product: any, message: string): string {
   if (/\b(how much|price|cost)\b/.test(text)) {
     return `${name} is listed at ${naira(product?.price)}. Delivery is calculated at checkout from your address. Reply "add" to add it to your cart.`
   }
+  if (/\b(picture|photo|image|pic|pics|photos)\b/.test(text)) {
+    const images: string[] = Array.isArray(product?.images) ? product.images.filter(Boolean) : []
+    return images.length > 0
+      ? `The photo of ${name} is on the card I sent above${images.length > 1 ? ` (the seller listed ${images.length} photos — the rest are on the listing page)` : ''}. Reply "add" to take it.`
+      : `The seller hasn't added a photo for ${name} yet. It's listed at ${naira(product?.price)}${product?.description ? `: ${String(product.description).slice(0, 200)}` : ''}. Reply "add" to continue.`
+  }
   if (/\b(original|authentic|genuine|real|fake|legit|quality|durable|last long)\b/.test(text)) {
     const description = String(product?.description || '').trim()
     return `I can only go by what the seller listed for ${name}${description ? `: "${description.slice(0, 300)}${description.length > 300 ? '…' : ''}"` : ''}. Your payment is held in escrow until you confirm delivery, so if it arrives not as described you can report it within 5 days for a refund. Reply "add" to continue.`

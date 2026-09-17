@@ -1,7 +1,7 @@
 // Extracts the item phrase from common buyer questions without interpreting product
 // facts or making a purchase decision. Unknown phrasing stays with the caller.
 export function requestedItem(text: string): string | null {
-  const match = text.trim().match(/^(?:(?:hi|hello|hey|please|abeg|pls|biko|good (?:morning|afternoon|evening))[,!\s]+)*(?:i(?:'m| am)?\s*(?:want|wan|need|looking for|dey find|dey look for|wish to|would love)|i(?:'d| would) like|can (?:i|you) (?:buy|find|get|send|show)|could you (?:find|show|send)|do you (?:have|sell|get)|una (?:get|dey sell|sell)|you (?:get|dey sell)|show me|find me|send me|give me|looking for|please (?:show|find|send)|how much (?:is|are|for|be)|(?:what(?:'s| is) (?:the )?)?(?:price|cost) (?:of|for)|(?:the )?price (?:of|for))\s+(.+)$/i)
+  const match = text.trim().match(/^(?:(?:hi|hello|hey|please|abeg|pls|biko|good (?:morning|afternoon|evening))[,!\s]+)*(?:i(?:'m| am)?\s*(?:want|wan|need|looking for|dey find|dey look for|wish to|would love)|i(?:'d| would) like|can (?:i|you) (?:buy|find|get|send|show)|could you (?:find|show|send)|do you (?:have|sell|get)|una (?:get|dey sell|sell)|you (?:get|dey sell)|show me|find me|send me|give me|looking for|please (?:show|find|send)|how much (?:is|are|for|be)|wetin be (?:the )?(?:price|cost) (?:of|for)|wetin (?:be|is) (?:the )?(?:price|cost) of|(?:what(?:'s| is) (?:the )?)?(?:price|cost) (?:of|for)|(?:the )?price (?:of|for))\s+(.+)$/i)
   if (!match) return null
   const item = match[1]
     .replace(/^(?:to\s+)?(?:buy|purchase|find|get|see|order|check|know)\s+/i, '')

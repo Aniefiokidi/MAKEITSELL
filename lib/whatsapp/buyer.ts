@@ -39,6 +39,7 @@ import {
   BLOCKING_CHECKOUT_STAGES,
   handleProductAction,
   tryHandleProductReply,
+  reorderLastOrder,
   resolveCartIndex,
   clearCart,
   setCartQuantity,
@@ -79,7 +80,7 @@ const GREETING_KEYWORDS = new Set([
 // further question — previously fell through to a failed product search for the literal
 // word "thanks", a visibly wrong reply for what's really just a sign-off.
 // Greeting phrasings with a trailing address ("hi there", "good day sir", "hello please").
-const GREETING_PATTERN = /^(?:hi|hello|hey|hiya|good\s*(?:morning|afternoon|evening|day)|morning|afternoon|evening|greetings|howdy|yo|sup|wassup)(?:\s+(?:there|sir|ma|madam|dear|bro|boss|guys|team|everyone|o|oo|please|pls|abeg|makeitsell|make it sell))*[\s!.,]*$/i
+const GREETING_PATTERN = /^(?:hi|hello|hey|hiya|good\s*(?:morning|afternoon|evening|day)|morning|afternoon|evening|greetings|howdy|yo|sup|wassup|bawo|bawo ni|e kaaro|e kaasan|e kaale|kedu|ndewo|sannu|ina kwana|ina wuni|salut|salaam|salam|as-?salam(?:u)? ?alaikum)(?:\s+(?:there|sir|ma|madam|dear|bro|boss|guys|team|everyone|o|oo|please|pls|abeg|makeitsell|make it sell|ni|nu))*[\s!.,?]*$/i
 // Emoji/punctuation-only messages ("🔥", "👋", "...") — nothing to search for.
 const NO_WORDS_PATTERN = /^[^\p{L}\p{N}]*$/u
 // "I have 20k, what can I buy?" / "my budget is 15k" — a budget with no item.
@@ -104,7 +105,8 @@ const OPEN_HOURS_PATTERN = /\b(are you (?:open|available|there|online)|(?:openin
 // instead. "cart" as a whole word is a strong, low-risk signal for this catalog (no
 // product category here is likely to be literally named "cart"), so a plain substring/
 // word-boundary match is a reasonable trade-off without adding an NLU layer.
-const CART_VIEW_PATTERN = /\bcart\b/i
+const CART_VIEW_PATTERN = /\bcart\b|\bbasket\b|^what (?:did|have) i (?:add|added|pick|picked|select|selected)\??$|^my items\??$|^what(?:'s| is) in (?:my|the) (?:cart|basket)\??$/i
+const REORDER_PATTERN = /^(?:re-?order|order again|buy again|same (?:as|thing as) last time|same order(?: as (?:before|last time))?|repeat (?:my )?(?:last )?order|the usual)[\s!.]*$/i
 // A buyer asking about an EXISTING order — must be checked before BUY_INTENT_PATTERN, or
 // the bare word "order" in "where is my order" would misroute into STARTING a new
 // checkout instead of answering the question (a real, confirmed gap: nothing handled
@@ -154,7 +156,7 @@ const AWAITING_SERVICE_LOCATION_STAGE = 'awaiting_service_location'
 // intent (a named store, or services) or a clarifying nudge instead of a confidently
 // wrong result.
 const CONVERSATIONAL_PHRASING_PATTERN =
-  /\b(i want|i'd like|i would like|i need|i wan|abeg|can i|could i|do you have|is there|i am looking|i'm looking|looking for|please (help|show|find)|how much (?:is|are|for)|price (?:of|for))\b/i
+  /\b(i want|i'd like|i would like|i need|i wan|abeg|can i|could i|do you (?:have|sell|get|stock|carry)|una (?:get|dey sell|sell)|you (?:get|dey sell)|is there|i am looking|i'm looking|looking for|i dey find|please (help|show|find)|how much (?:is|are|for|be)|wetin be|price (?:of|for)|send me|show me|find me)\b/i
 const CONVERSATIONAL_CLARIFY_MESSAGE =
   'Tell me the product or service you need (e.g. "sneakers" or "hair braiding"). You can also type "categories" to browse.'
 
@@ -317,6 +319,28 @@ async function runSearchAndReply(waId: string, query: string, offset: number): P
       )
     }
     const wordCount = parseCatalogQuery(query).term.split(/\s+/).filter(Boolean).length
+    // "nike sneakers" when there's no Nike: a person says "no Nike, but here are the
+    // sneakers I have". Drop one word at a time (the noun is usually last), then try
+    // the last word alone.
+    if (offset === 0 && wordCount >= 2 && wordCount <= 4) {
+      const parsed = parseCatalogQuery(query)
+      const words = parsed.term.split(/\s+/).filter(Boolean)
+      const budgetSuffix = parsed.maxPrice ? ` under ${parsed.maxPrice}` : ''
+      // Drop the first word first (qualifiers come before the noun in English), so
+      // "gold sneakers" tries "sneakers" before "gold".
+      const attempts = [
+        ...words.map((_, i) => words.filter((__, j) => j !== i).join(' ')),
+        words[words.length - 1],
+      ].filter((attempt, i, all) => attempt.length >= 3 && all.indexOf(attempt) === i)
+      for (const attempt of attempts) {
+        const partial = await searchCatalogProducts(`${attempt}${budgetSuffix}`, 0, FETCH_PER_PAGE)
+        if (partial.length > 0) {
+          await trySendText(waId, `I don't have "${parsed.term}" exactly, but here's what I have for "${attempt}":`)
+          await runSearchAndReply(waId, `${attempt}${budgetSuffix}`, 0)
+          return
+        }
+      }
+    }
     const cheapest = offset === 0 ? await cheapestIgnoringBudget(query) : null
     if (cheapest) {
       await trySendText(waId, `Nothing for "${parseCatalogQuery(query).term}" in that price range. The cheapest I have is ${cheapest.name} at NGN ${Number(cheapest.price || 0).toLocaleString('en-NG')} — reply "add" to take it, "details" to hear more, or try a different budget.`)
@@ -615,6 +639,35 @@ async function tryHandleRecentResultReference(waId: string, text: string, state:
   const ref = parseResultReference(text, results)
   if (!ref) return false
 
+  if (ref.kind === 'all') {
+    if (results.some((r) => r.kind === 'service')) {
+      await trySendText(waId, `Here are all of them again:\n${listRecentResults(results)}\n\nReply with a number for any provider's details.`)
+      return true
+    }
+    for (const target of results.slice(0, 4)) await handleProductAction(waId, target.id, 'add')
+    return true
+  }
+
+  if (ref.kind === 'compare') {
+    await connectToDatabase()
+    if (results.every((r) => r.kind === 'service')) {
+      const lines = results.map((r, i) => `${i + 1}. ${r.name} — est. NGN ${Number(r.price || 0).toLocaleString('en-NG')}`)
+      await trySendText(waId, `Side by side:\n${lines.join('\n')}\n\nThe first is the closest to you; the rates are the providers' estimates. Reply with a number for contact details.`)
+      return true
+    }
+    const products: any[] = await Product.find({ _id: { $in: results.map((r) => r.id) } }).select('name price stock description colors sizes variants').lean()
+    const byId = new Map(products.map((p) => [String(p._id), p]))
+    const lines = results.map((r, i) => {
+      const p = byId.get(r.id)
+      const desc = String(p?.description || '').replace(/\s+/g, ' ').trim()
+      const options = [...(p?.colors || []), ...(p?.sizes || [])].filter(Boolean).slice(0, 6)
+      return `${i + 1}. ${r.name} — NGN ${Number(p?.price || 0).toLocaleString('en-NG')}${options.length ? ` · ${options.join('/')}` : ''}${desc ? `\n   ${desc.slice(0, 120)}${desc.length > 120 ? '…' : ''}` : ''}`
+    })
+    const cheapest = results.filter((r) => Number.isFinite(Number(r.price))).sort((a, b) => Number(a.price) - Number(b.price))[0]
+    await trySendText(waId, `Side by side:\n${lines.join('\n')}\n\n${cheapest ? `${cheapest.name} is the cheapest. ` : ''}I can only compare what the sellers listed — reply with a number to add one, or ask me about any of them.`)
+    return true
+  }
+
   if (ref.kind === 'unknown_word') {
     // Nothing on screen matches ("the black one" when only red was shown) — a person
     // would go and look for a black one.
@@ -661,6 +714,11 @@ async function tryHandleRecentResultReference(waId: string, text: string, state:
   // them; anything else needs a pick.
   if (results.every((r) => r.kind === 'service')) {
     await trySendText(waId, `Which provider?\n${listRecentResults(results)}\n\nReply with the number (e.g. "1") and I'll send their contact details again.`)
+    return true
+  }
+  const wantedQuantity = ref.remainder.match(/^add (\d+)$/)
+  if (wantedQuantity && Number(wantedQuantity[1]) > 1) {
+    await trySendText(waId, `${wantedQuantity[1]} of which one?\n${listRecentResults(results)}\n\nReply e.g. "${wantedQuantity[1]} of number 1".`)
     return true
   }
   if (/\b(how much|price|cost)\b/i.test(ref.remainder)) {
@@ -1038,6 +1096,11 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
 
   if (CLEAR_CART_PATTERN.test(trimmed)) {
     await clearCart(waId)
+    return
+  }
+
+  if (REORDER_PATTERN.test(trimmed)) {
+    await reorderLastOrder(waId)
     return
   }
 

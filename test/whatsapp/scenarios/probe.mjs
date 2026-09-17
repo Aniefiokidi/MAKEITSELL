@@ -11,32 +11,33 @@ await seedService(fixit.store, { title: 'Generator Repair', price: 10000, catego
 await seedService(fixit.store, { title: 'Plumbing', price: 6000, category: 'repairs', description: 'Pipe leaks, taps, toilets' })
 
 const probes = process.argv.slice(2).length ? [process.argv.slice(2)] : [
-  ['plumber in yaba', 'the first one'],
-  ['plumber in yaba', '1'],
-  ['plumber in yaba', 'send me their number'],
-  ['plumber in yaba', 'any cheaper?'],
-  ['plumber in yaba', 'book the first one'],
-  ['I need sneakers and a plumber'],
-  ['cancel my order'],
-  ['I haven\'t received my order'],
-  ['I want to return the shoes I bought'],
-  ['are you open now?'],
-  ['thank you, bye'],
-  ['bye'],
-  ['sneakers', 'add 1', 'actually remove it'],
-  ['sneakers', 'add 1', 'change quantity to 3'],
-  ['sneakers', 'add 1', 'I want 3 instead'],
-  ['sneakers', 'add 1', 'clear cart'],
-  ['sneakers', 'add 1', 'proceed'],
-  ['sneakers', 'add 1', 'pay now'],
-  ['sneakers', 'add 1', 'buy now'],
-  ['sneakers', 'add 1', 'how much is my total?'],
+  ['nike sneakers'],
+  ['black leather sneakers'],
+  ['sneakers', 'the cheaper one'],
+  ['sneakers', 'the expensive one'],
+  ['sneakers', "I'll take both"],
+  ['sneakers', 'add all'],
+  ['sneakers', 'I want five'],
+  ['bawo'],
+  ['kedu'],
+  ['sannu'],
+  ['hello?'],
+  ['wetin be the price of sneakers'],
+  ['sneakers', 'send me the picture'],
+  ['reorder'],
+  ['sneakers', 'which one is better?'],
+  ['sneakers', 'compare them'],
+  ['sneakers', 'what is the difference?'],
+  ['sneakers', 'add 1', 'what did I add?'],
+  ['sneakers', 'add 1', 'how many items in my cart?'],
+  ['do you sell phones?'],
 ]
 for (const convo of probes) {
   await wipeDb(); // fresh state per conversation but keep catalog? wipe removes catalog — reseed quickly
   await (async () => {
     const { store } = await seedVendor()
     await seedProduct(store, { name: 'Red Sneakers', price: 15000, stock: 5 })
+    await seedProduct(store, { name: 'Black Sneakers', price: 9000, stock: 5 })
     await seedProduct(store, { name: 'iPhone 13 Case', price: 4500, stock: 9, category: 'electronics' })
     await seedProduct(store, { name: 'Gold Bracelet', price: 22000, stock: 3, category: 'jewelry' })
     const lekki = await seedVendor({ storeName: 'Lekki Lens', phone: '+2348011110005', city: 'Lekki', state: 'Lagos' })
