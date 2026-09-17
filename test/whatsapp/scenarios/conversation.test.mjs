@@ -46,7 +46,7 @@ test('"what do you sell?" and Pidgin "wetin una get?" open the category menu', a
 
 test('a vague request is met with a clarifying question, not a shrug', async () => {
   const body = texts(await say("I'm looking for a gift for my wife"))
-  assert.match(body, /specific item|tell me/i)
+  assert.match(body, /specific item|tell me|who is it for/i)
   assert.doesNotMatch(body, /close match/i)
 })
 

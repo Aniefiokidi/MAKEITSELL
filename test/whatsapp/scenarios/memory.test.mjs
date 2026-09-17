@@ -87,3 +87,52 @@ test('a misspelt service word still finds the provider', async () => {
   assert.match(body, /FixIt Yaba/)
   assert.match(body, /2348011110006/)
 })
+
+test('quantity plus a reference adds that many of that card', async () => {
+  await say('sneakers')
+  assert.match(texts(await say('3 of number 1')), /Added: \w+ Sneakers x3/)
+  assert.match(texts(await say('two of the black one')), /Added: Black Sneakers x2/)
+  assert.match(texts(await say('I want 2 of the first one')), /Added: \w+ Sneakers x2/)
+})
+
+test('a colour that is not on screen triggers a fresh search for it', async () => {
+  await say('bracelet')
+  const body = texts(await say('the silver one'))
+  assert.match(body, /didn't send a silver one/i)
+  assert.match(body, /silver bracelet/i)
+})
+
+test('budget ranges, "around", purpose phrases and budget-only messages are understood', async () => {
+  const between = texts(await say('sneakers between 10k and 20k'))
+  assert.match(between, /Red Sneakers/)
+  assert.doesNotMatch(between, /White Sneakers|Black Sneakers/)
+  const around = texts(await say('sneakers around 9k'))
+  assert.match(around, /Black Sneakers/)
+  assert.doesNotMatch(around, /Red Sneakers/)
+  assert.match(texts(await say('I need to buy sneakers for my son')), /Sneakers/)
+  assert.match(texts(await say('I have 20k, what can I buy?')), /What kind of item/)
+})
+
+test('nothing in budget offers the cheapest option instead', async () => {
+  const body = texts(await say('sneakers under 5k'))
+  assert.match(body, /cheapest I have is Black Sneakers at NGN 9,000/)
+  assert.match(texts(await say('add')), /Added: Black Sneakers x1/)
+})
+
+test('greeting variants and emoji-only messages get the welcome, not a search', async () => {
+  for (const msg of ['good day', 'hi there', 'hello please', 'Good morning sir', '🔥', '👋']) {
+    assert.match(texts(await say(msg)), /Tell me what you need/, msg)
+  }
+})
+
+test('a one-line address and a mid-checkout question are handled', async () => {
+  await say('sneakers')
+  await say('1')
+  await say('checkout')
+  await say('David Okafor')
+  const faq = texts(await say('how much is delivery?'))
+  assert.match(faq, /deliver nationwide/i)
+  assert.match(faq, /send your delivery address/i)
+  const addr = texts(await say('12 Allen Avenue Ikeja Lagos'))
+  assert.doesNotMatch(addr, /couldn't read that/i)
+})

@@ -53,7 +53,10 @@ export async function searchCatalogProducts(query: string, offset: number, limit
 
   const words = normalized.split(' ').filter((word) => word.length > 1 && !['for', 'with', 'the', 'and', 'from', 'please'].includes(word.toLowerCase()))
   if (words.length === 0) return []
-  const baseFilter = { status: 'active', stock: { $gt: 0 }, ...(parsed.maxPrice ? { price: { $lte: parsed.maxPrice } } : {}) }
+  const priceFilter = parsed.maxPrice || parsed.minPrice
+    ? { price: { ...(parsed.minPrice ? { $gte: parsed.minPrice } : {}), ...(parsed.maxPrice ? { $lte: parsed.maxPrice } : {}) } }
+    : {}
+  const baseFilter = { status: 'active', stock: { $gt: 0 }, ...priceFilter }
   const candidates: any[] = [
     { ...baseFilter, ...fieldMatches(new RegExp(escapeRegex(normalized), 'i')) },
   ]
@@ -98,6 +101,15 @@ export async function searchCatalogProducts(query: string, offset: number, limit
     if (matches.length > 0 || offset > 0) return matches.map((product) => ({ ...product, id: String(product._id) }))
   }
   return fuzzyCatalogMatches(words, baseFilter, offset, limit)
+}
+
+// When a budget search finds nothing, the human answer is "the cheapest I have is X at
+// ₦Y" — same search with the price limit lifted, lowest price first.
+export async function cheapestIgnoringBudget(query: string): Promise<any | null> {
+  const parsed = parseCatalogQuery(query)
+  if (!parsed.maxPrice && !parsed.minPrice) return null
+  const matches = await searchCatalogProducts(`cheapest ${parsed.term}`, 0, 1)
+  return matches[0] || null
 }
 
 // Damerau-Levenshtein (adjacent transpositions count as one edit) — "sneekers" vs

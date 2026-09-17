@@ -16,3 +16,12 @@ test('does not guess a budget from a vague request', () => {
 test('recognizes a budget-only request so the bot can ask for an item', () => {
   assert.deepEqual(parseCatalogQuery('under 20k'), { term: '', maxPrice: 20000 })
 })
+
+test('price ranges and "around" set both bounds; purpose phrases are dropped', () => {
+  assert.deepEqual(parseCatalogQuery('sneakers between 10k and 20k'), { term: 'sneakers', maxPrice: 20000, minPrice: 10000 })
+  assert.deepEqual(parseCatalogQuery('sneakers 10k to 20k'), { term: 'sneakers', maxPrice: 20000, minPrice: 10000 })
+  assert.deepEqual(parseCatalogQuery('sneakers around 10k'), { term: 'sneakers', maxPrice: 13000, minPrice: 7000 })
+  assert.deepEqual(parseCatalogQuery('bags above 5k'), { term: 'bags', minPrice: 5000 })
+  assert.deepEqual(parseCatalogQuery('sneakers for my son'), { term: 'sneakers' })
+  assert.deepEqual(parseCatalogQuery('case for iphone 13'), { term: 'case for iphone 13' })
+})

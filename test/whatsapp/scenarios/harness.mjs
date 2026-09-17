@@ -74,8 +74,9 @@ export async function seedVendor({ storeName = 'Ada Stores', phone = '+234809999
 
 export async function seedProduct(store, overrides = {}) {
   const { Product } = await loadBot()
+  const name = overrides.name || 'Red Sneakers'
   return Product.create({
-    name: 'Red Sneakers', description: 'Comfortable red sneakers', price: 15000, stock: 5, category: 'fashion',
+    name, description: `Quality ${name.toLowerCase()} from ${store.storeName}`, price: 15000, stock: 5, category: 'fashion',
     images: ['https://res.cloudinary.com/demo/image/upload/sneakers.jpg'],
     vendorId: String(store.vendorId), storeId: String(store._id), status: 'active',
     ...overrides,

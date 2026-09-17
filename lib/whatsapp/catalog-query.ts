@@ -1,6 +1,8 @@
 export interface CatalogQuery {
   term: string
   maxPrice?: number
+  // "between 10k and 20k", "10k to 20k", "around 15k" (±30%), "above 5k"
+  minPrice?: number
   // A size the buyer mentioned ("size 42", "UK 8", "XL") — pulled out of the search term
   // so it doesn't sink the match; shown back to them when choosing a variant.
   size?: string
@@ -24,14 +26,44 @@ function parseAmount(value: string): number | undefined {
 // the bot never invents a buyer's budget.
 export function parseCatalogQuery(input: string): CatalogQuery {
   let term = input.trim().replace(/\s+/g, ' ')
-  const budget = term.match(/\b(?:under|below|less than|up to|maximum|max)\s*(?:₦|ngn\s*)?(\d[\d,]*(?:\.\d+)?\s*[km]?)\b/i)
-  const maxPrice = budget ? parseAmount(budget[1]) : undefined
-  if (budget && maxPrice) {
-    const start = budget.index ?? 0
-    term = `${term.slice(0, start)} ${term.slice(start + budget[0].length)}`
-      .replace(/\b(?:for|at|priced?)\s*$/i, '')
-      .trim()
+  const AMOUNT = '(?:₦|ngn\\s*|n)?(\\d[\\d,]*(?:\\.\\d+)?\\s*[km]?)'
+  let maxPrice: number | undefined
+  let minPrice: number | undefined
+  const cut = (match: RegExpMatchArray) => {
+    const start = match.index ?? 0
+    term = `${term.slice(0, start)} ${term.slice(start + match[0].length)}`.replace(/\b(?:for|at|priced?|that is|that are|thats|costing)\s*$/i, '').replace(/\s+/g, ' ').trim()
   }
+  const range = term.match(new RegExp(`\\b(?:between\\s+)?${AMOUNT}\\s*(?:to|-|–|and)\\s*${AMOUNT}\\b`, 'i'))
+  const around = !range && term.match(new RegExp(`\\b(?:around|about|approximately|roughly|like|within)\\s*${AMOUNT}\\b`, 'i'))
+  const budget = !range && !around && term.match(new RegExp(`\\b(?:under|below|less than|not more than|up to|maximum|max|at most|within)\\s*${AMOUNT}\\b`, 'i'))
+  const floor = !range && term.match(new RegExp(`\\b(?:above|over|more than|from|at least|minimum|min)\\s*${AMOUNT}\\b`, 'i'))
+  if (range) {
+    const low = parseAmount(range[1])
+    const high = parseAmount(range[2])
+    if (low && high) {
+      minPrice = Math.min(low, high)
+      maxPrice = Math.max(low, high)
+      cut(range)
+    }
+  } else if (around) {
+    const centre = parseAmount(around[1])
+    if (centre) {
+      minPrice = Math.round(centre * 0.7)
+      maxPrice = Math.round(centre * 1.3)
+      cut(around)
+    }
+  } else {
+    if (budget) {
+      const amount = parseAmount(budget[1])
+      if (amount) { maxPrice = amount; cut(budget) }
+    }
+    if (floor) {
+      const amount = parseAmount(floor[1])
+      if (amount) { minPrice = amount; cut(floor) }
+    }
+  }
+  // "sneakers for my son" / "a gift for my wife" — who it's for isn't part of the name.
+  term = term.replace(/\b(?:for|to give|as a gift for)\s+(?:my|his|her|our|their|a|an|the)?\s*(?:son|daughter|wife|husband|mum|mom|mother|dad|father|brother|sister|friend|baby|kid|kids|children|boyfriend|girlfriend|fiancee?|self|myself|boss|colleague|partner|niece|nephew|aunt|uncle|grandma|grandpa|birthday|wedding|party|office|school|church|work|gym|travel|holiday)\b(?:'s)?(?:\s+\w+)?$/i, '').trim()
   const sortByPrice = /\b(?:cheap(?:est)?|affordable|budget|lowest price|low price)\b/i.test(term)
   term = term.replace(FILLER_WORDS, ' ').replace(/\s+/g, ' ').trim()
   let size: string | undefined
@@ -41,5 +73,5 @@ export function parseCatalogQuery(input: string): CatalogQuery {
     size = sizeMatch[1].replace(/\s+/g, ' ').trim().toUpperCase()
     term = `${term.slice(0, sizeMatch.index)} ${term.slice((sizeMatch.index ?? 0) + sizeMatch[0].length)}`.replace(/\b(?:in|for|of)\s*$/i, '').trim()
   }
-  return { term: term.replace(/\s+/g, ' '), ...(maxPrice ? { maxPrice } : {}), ...(size ? { size } : {}), ...(sortByPrice ? { sortByPrice: true } : {}) }
+  return { term: term.replace(/\s+/g, ' '), ...(maxPrice ? { maxPrice } : {}), ...(minPrice ? { minPrice } : {}), ...(size ? { size } : {}), ...(sortByPrice ? { sortByPrice: true } : {}) }
 }

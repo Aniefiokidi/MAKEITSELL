@@ -14,7 +14,7 @@ import { sendTextMessage, sendInteractiveListMessage, type WhatsAppListRow } fro
 import { PRODUCT_CATEGORIES } from '@/lib/product-categories'
 import { SERVICE_CATEGORIES } from '@/lib/service-categories'
 import { sendProductResults } from '@/lib/whatsapp/product-results'
-import { searchCatalogProducts } from '@/lib/whatsapp/catalog-search'
+import { searchCatalogProducts, cheapestIgnoringBudget } from '@/lib/whatsapp/catalog-search'
 import { parseCatalogQuery } from '@/lib/whatsapp/catalog-query'
 import { requestedItem, splitShoppingList } from '@/lib/whatsapp/buyer-intent'
 import { answerBuyerFaq } from '@/lib/whatsapp/buyer-faq'
@@ -74,6 +74,12 @@ const GREETING_KEYWORDS = new Set([
 // A buyer wrapping up a conversation ("thanks", "thank you", Pidgin "God bless") with no
 // further question — previously fell through to a failed product search for the literal
 // word "thanks", a visibly wrong reply for what's really just a sign-off.
+// Greeting phrasings with a trailing address ("hi there", "good day sir", "hello please").
+const GREETING_PATTERN = /^(?:hi|hello|hey|hiya|good\s*(?:morning|afternoon|evening|day)|morning|afternoon|evening|greetings|howdy|yo|sup|wassup)(?:\s+(?:there|sir|ma|madam|dear|bro|boss|guys|team|everyone|o|oo|please|pls|abeg|makeitsell|make it sell))*[\s!.,]*$/i
+// Emoji/punctuation-only messages ("🔥", "👋", "...") — nothing to search for.
+const NO_WORDS_PATTERN = /^[^\p{L}\p{N}]*$/u
+// "I have 20k, what can I buy?" / "my budget is 15k" — a budget with no item.
+const BUDGET_ONLY_PATTERN = /^(?:i (?:have|get|got|dey with)|my budget is|budget(?: of| is)?|with|for)\s*(?:₦|ngn\s*|n)?(\d[\d,]*\s*[km]?)\b.*$/i
 const THANKS_PATTERN = /^(thanks?( you| u)?|thank\s*you|tanx|tnx|God bless( you)?|much appreciated)[\s!.]*$/i
 const THANKS_REPLY = "You're welcome! Search anytime you need something else."
 const CATEGORY_KEYWORDS = new Set(['menu', 'categories', 'category'])
@@ -272,6 +278,11 @@ async function runSearchAndReply(waId: string, query: string, offset: number): P
     await trySendText(waId, 'What item are you looking for? For example, "sneakers under ₦20,000".')
     return
   }
+  // "a gift", "something nice", "anything" — a category question, not a product name.
+  if (/^(?:a |an |some |any )?(?:gifts?|presents?|something|anything|stuff|items?|things?|products?|goods|surprise)(?: nice| good| special| small)?$/i.test(parseCatalogQuery(query).term)) {
+    await trySendText(waId, 'Happy to help you pick. Who is it for and roughly what budget? Popular picks: perfume, wristwatches, jewelry, sneakers, bags, skincare. Or type "categories" to browse everything.')
+    return
+  }
 
   const products = await searchCatalogProducts(query, offset, FETCH_PER_PAGE)
 
@@ -295,6 +306,16 @@ async function runSearchAndReply(waId: string, query: string, offset: number): P
       )
     }
     const wordCount = parseCatalogQuery(query).term.split(/\s+/).filter(Boolean).length
+    const cheapest = offset === 0 ? await cheapestIgnoringBudget(query) : null
+    if (cheapest) {
+      await trySendText(waId, `Nothing for "${parseCatalogQuery(query).term}" in that price range. The cheapest I have is ${cheapest.name} at NGN ${Number(cheapest.price || 0).toLocaleString('en-NG')} — reply "add" to take it, "details" to hear more, or try a different budget.`)
+      await WhatsAppBrowseState.findOneAndUpdate(
+        { waId },
+        { $set: { lastResults: [{ productId: String(cheapest.id || cheapest._id), messageId: '', name: String(cheapest.name || 'Product') }], lastResultsAt: new Date(), updatedAt: new Date() } },
+        { upsert: true }
+      )
+      return
+    }
     await trySendText(
       waId,
       offset > 0
@@ -567,6 +588,19 @@ async function tryHandleRecentResultReference(waId: string, text: string, state:
 
   const ref = parseResultReference(text, results)
   if (!ref) return false
+
+  if (ref.kind === 'unknown_word') {
+    // Nothing on screen matches ("the black one" when only red was shown) — a person
+    // would go and look for a black one.
+    const base = String(state?.lastQuery || '').trim()
+    if (base && !new RegExp(`\\b${ref.word}\\b`, 'i').test(base)) {
+      await trySendText(waId, `I didn't send a ${ref.word} one — let me look for "${ref.word} ${base}".`)
+      await runSearchAndReply(waId, `${ref.word} ${base}`, 0)
+      return true
+    }
+    await trySendText(waId, `I didn't send a ${ref.word} one. Here's what I sent:\n${listRecentResults(results)}\n\nReply with a number, or tell me what to search for.`)
+    return true
+  }
 
   if (ref.kind === 'out_of_range') {
     await trySendText(waId, `I only sent ${results.length} item${results.length === 1 ? '' : 's'}:\n${listRecentResults(results)}\n\nReply with one of those numbers, or search again.`)
@@ -971,13 +1005,23 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
     return
   }
 
-  if (mode === 'goods' && trimmed.includes(',')) {
+  // A comma-separated list of items — but not a sentence that happens to have a comma.
+  if (mode === 'goods' && trimmed.includes(',') && !/[?]/.test(trimmed) && splitShoppingList(trimmed).every((part) => part.split(/\s+/).length <= 5)) {
     const handled = await searchShoppingList(waId, trimmed)
     if (handled) return
   }
 
-  if (!trimmed || GREETING_KEYWORDS.has(lower)) {
+  if (!trimmed || GREETING_KEYWORDS.has(lower) || GREETING_PATTERN.test(trimmed) || NO_WORDS_PATTERN.test(trimmed)) {
     await trySendText(waId, mode === 'services' ? SERVICE_GREETING_MESSAGE : GREETING_MESSAGE)
+    return
+  }
+
+  const budgetOnly = trimmed.match(BUDGET_ONLY_PATTERN)
+  const budgetResidual = budgetOnly
+    ? trimmed.replace(/(?:₦|ngn\s*|n)?\d[\d,]*\s*[km]?\b/gi, ' ').replace(/[?.!,]/g, ' ').replace(/\b(?:i|have|get|got|my|budget|is|of|what|can|could|should|do|buy|purchase|with|for|to|spend|dey|only|just|and|the|a|an|naira|now|abeg|please|pls)\b/gi, ' ').trim()
+    : ''
+  if (budgetOnly && !budgetResidual) {
+    await trySendText(waId, `Plenty of options for ₦${budgetOnly[1].trim()}. What kind of item — for example "sneakers under ₦${budgetOnly[1].trim()}", "perfume" or "phone case"?`)
     return
   }
 

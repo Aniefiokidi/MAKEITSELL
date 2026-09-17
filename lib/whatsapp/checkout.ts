@@ -13,6 +13,8 @@
 //   route uses. The order/VAT/shipping totals shown to the buyer before confirming are
 //   recomputed here for DISPLAY only, using the identical formula; buildOrder is always
 //   the authoritative source of what's actually charged.
+import { answerBuyerFaq } from '@/lib/whatsapp/buyer-faq'
+import { findPlaceInText } from '@/lib/geo-utils'
 import { after } from 'next/server'
 import connectToDatabase from '@/lib/mongodb'
 import { Product } from '@/lib/models/Product'
@@ -372,19 +374,40 @@ async function handleNameReply(waId: string, text: string): Promise<void> {
   await beginAddressCollection(waId)
 }
 
+// Accepts the 4-line/4-comma format the prompt asks for, but also what people actually
+// send: three parts without a note, two parts ("12 Allen Avenue, Ikeja"), or one line
+// ("12 Allen Avenue Ikeja Lagos") — the city/state are recognised from the known-places
+// list (lib/geo-utils.ts) and the street is whatever comes before them.
 function parseAddressReply(text: string): { address: string; city: string; state: string; deliveryInstructions: string } | null {
   const trimmed = String(text || '').trim()
   if (!trimmed) return null
 
   let parts = trimmed.split('\n').map((p) => p.trim()).filter(Boolean)
-  if (parts.length !== 4) {
-    parts = trimmed.split(',').map((p) => p.trim()).filter(Boolean)
-  }
-  if (parts.length !== 4) return null
+  if (parts.length < 2) parts = trimmed.split(/,|;/).map((p) => p.trim()).filter(Boolean)
 
-  const [address, city, state, deliveryInstructions] = parts
-  if (!address || !city || !state || !deliveryInstructions) return null
-  return { address, city, state, deliveryInstructions }
+  if (parts.length >= 4) {
+    const [address, city, state, ...rest] = parts
+    return { address, city, state, deliveryInstructions: rest.join(', ') }
+  }
+  if (parts.length === 3) {
+    const [address, city, state] = parts
+    return { address, city, state, deliveryInstructions: '' }
+  }
+  if (parts.length === 2) {
+    const [address, where] = parts
+    const place = findPlaceInText(where)
+    if (!place) return null
+    return { address, city: place.name === place.state ? place.state : place.name, state: place.state, deliveryInstructions: '' }
+  }
+  // Single line: find the first known place and split around it.
+  const place = findPlaceInText(trimmed)
+  if (!place) return null
+  const escaped = place.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const at = trimmed.search(new RegExp(`\\b${escaped}\\b`, 'i'))
+  const address = at > 0 ? trimmed.slice(0, at).replace(/[\s,]+$/, '').trim() : ''
+  if (!address || !/\d/.test(address) && address.split(/\s+/).length < 2) return null
+  const after = trimmed.slice(at + place.name.length).replace(new RegExp(`^[\\s,]*${place.state}(?:\\s+state)?`, 'i'), '').replace(/^[\s,.-]+/, '').trim()
+  return { address, city: place.name === place.state ? place.state : place.name, state: place.state, deliveryInstructions: after }
 }
 
 async function handleAddressReply(waId: string, text: string): Promise<void> {
@@ -700,8 +723,26 @@ async function handleConfirmReply(waId: string, text: string): Promise<void> {
 
 // Dispatcher for the four "blocking" stages — lib/whatsapp/buyer.ts routes here directly
 // once it sees the buyer's stage isn't 'browsing'/'cart'.
+// Questions people ask while we're waiting for their name/address ("how much is
+// delivery?", "can I pay on delivery?") get answered, then the prompt is repeated.
+const MID_CHECKOUT_FAQ_TOPICS = new Set(['delivery', 'payment', 'returns', 'support', 'how-to-order'])
+const STAGE_REPROMPT: Record<string, string> = {
+  awaiting_name: 'When you\'re ready, just send your name to continue.',
+  awaiting_address: 'When you\'re ready, send your delivery address (street, city, state).',
+  choosing_couriers: 'Reply "yes" to go with the current delivery options, or "change <seller #> <option #>".',
+  confirming_total: 'Reply "confirm" to place the order, or "cancel".',
+}
+
 export async function handleCheckoutStageMessage(waId: string, text: string, stage: string): Promise<void> {
   const state = await loadState(waId)
+
+  if (STAGE_REPROMPT[stage]) {
+    const faq = answerBuyerFaq(text, { hasRecentResults: true })
+    if (faq?.kind === 'text' && MID_CHECKOUT_FAQ_TOPICS.has(faq.topic)) {
+      await trySendText(waId, `${faq.body.replace(/\s*Tell me what you'd like to buy to get started\.$/, '')}\n\n${STAGE_REPROMPT[stage]}`)
+      return
+    }
+  }
 
   switch (stage) {
     case 'awaiting_name':
