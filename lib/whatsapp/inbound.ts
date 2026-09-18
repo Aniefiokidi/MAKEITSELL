@@ -4,7 +4,7 @@
 import { handleInboundMessage, handleButtonReply, handleInboundImageMessage, handleInboundLocation, handleUnsupportedMessage } from '@/lib/whatsapp/commands'
 import { handleCategorySelection, handleServiceCategorySelection } from '@/lib/whatsapp/buyer'
 import { handleSavedAddressListReply } from '@/lib/whatsapp/checkout'
-import { sendTextMessage } from '@/lib/whatsapp/client'
+import { sendTextMessage, sendReadAndTyping } from '@/lib/whatsapp/client'
 import connectToDatabase from '@/lib/mongodb'
 import { WhatsAppInboundMessage } from '@/lib/models/WhatsAppInboundMessage'
 import { logInbound, recordOutcome } from '@/lib/whatsapp/conversation-log'
@@ -36,6 +36,9 @@ export async function processInboundMessage(message: any, route: (message: any, 
   const waId = String(message?.from || 'unknown')
   const type = String(message?.type || 'unknown')
   if (!(await claimInboundMessage(String(message?.id || ''), waId, type))) return
+
+  // Blue ticks + "typing…" right away; the actual reply follows when the handler is done.
+  void sendReadAndTyping(String(message?.id || ''))
 
   const summary = typeof message?.text?.body === 'string' ? message.text.body
     : message?.interactive?.button_reply?.title || message?.interactive?.list_reply?.title || message?.button?.text

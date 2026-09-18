@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import path from 'node:path'
 import { test, before, after, beforeEach } from 'node:test'
 import { startDb, stopDb, wipeDb, loadBot, texts, seedVendor, seedProduct, seedService, BUYER } from './harness.mjs'
-import { outbox } from './stub-client.mjs'
+import { outbox, typingCalls } from './stub-client.mjs'
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..')
 let inbound
@@ -60,4 +60,11 @@ test('a non-string text body is treated as unsupported, not searched', async () 
 test('unsupported message types get a nudge', async () => {
   const replies = await deliver({ id: 'wamid.audio', from: BUYER, type: 'audio', audio: { id: 'x' } })
   assert.match(texts(replies), /can't read voice notes/i)
+})
+
+test('every inbound message triggers a read receipt and typing indicator', async () => {
+  const before = typingCalls.length
+  await deliver(textMessage('hello', 'wamid.typing.1'))
+  assert.ok(typingCalls.includes('wamid.typing.1'))
+  assert.equal(typingCalls.length, before + 1)
 })

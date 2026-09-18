@@ -19,3 +19,5 @@ export async function sendInteractiveListMessage(to, body, buttonText, sections,
 export async function sendInteractiveButtons(to, body, buttons) {
   return record({ to, kind: 'buttons', body: String(body), buttons })
 }
+export const typingCalls = []
+export async function sendReadAndTyping(messageId) { typingCalls.push(messageId) }

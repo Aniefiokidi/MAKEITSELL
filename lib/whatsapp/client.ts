@@ -280,3 +280,22 @@ export async function sendInteractiveButtons(to: string, bodyText: string, butto
   logSend(to, 'buttons', String(bodyText || ''))
   return data
 }
+
+// Marks the inbound message as read (blue ticks) and shows the typing indicator until
+// we reply or ~25s pass — the buyer knows they've been heard while search/DB work runs.
+// Fire-and-forget; failures are logged and never affect the reply.
+export async function sendReadAndTyping(inboundMessageId: string): Promise<void> {
+  if (!inboundMessageId || isTestCaptureMode()) return
+  const { accessToken, phoneNumberId } = getConfig()
+  if (!accessToken || !phoneNumberId) return
+  try {
+    const response = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messaging_product: 'whatsapp', status: 'read', message_id: inboundMessageId, typing_indicator: { type: 'text' } }),
+    })
+    if (!response.ok) console.log('[whatsapp-client] read/typing indicator not accepted:', response.status)
+  } catch (error) {
+    console.log('[whatsapp-client] read/typing indicator failed:', error)
+  }
+}
