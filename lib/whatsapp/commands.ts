@@ -15,6 +15,7 @@ import { applyOrderVendorStatus, resolveOrderVendorTarget } from '@/lib/order-ve
 import { sendTextMessage } from '@/lib/whatsapp/client'
 import { handleBuyerMessage, handleBuyerLocationPin } from '@/lib/whatsapp/buyer'
 import { tryHandleSupportCommand } from '@/lib/whatsapp/handoff'
+import { parseVendorIntent } from '@/lib/whatsapp/vendor-intent'
 import { getVendorSalesSummary } from '@/lib/analytics'
 import { tryHandleWithdrawalFlow } from '@/lib/whatsapp/vendor-withdrawal'
 import { tryHandleVendorTopupCommand } from '@/lib/whatsapp/wallet-topup'
@@ -104,6 +105,23 @@ export async function handleInboundMessage(waId: string, text: string, contextMe
 
   if (SALES_COMMAND_PATTERN.test(trimmed)) {
     await handleSalesCommand(waId, vendorId, trimmed)
+    return
+  }
+
+  // Natural phrasings of the same commands ("how much did I make this week", "shipped
+  // AB12CD34", "what do I need to ship?").
+  const intent = parseVendorIntent(trimmed)
+  if (intent?.kind === 'balance') { await handleBalanceCommand(waId); return }
+  if (intent?.kind === 'sales') { await handleSalesCommand(waId, vendorId, intent.period === 'week' ? 'sales week' : 'sales today'); return }
+  if (intent?.kind === 'orders') { await handleVendorOrdersCommand(waId, vendorId); return }
+  if (intent?.kind === 'dispatched') {
+    const ref = await resolveVendorOrderRef(waId, intent.ref)
+    if (!ref) { await trySend(waId, `I couldn't tell which order "${intent.ref}" is. Reply "orders" to see the ones waiting to ship, then e.g. "dispatched 1".`); return }
+    await handleDispatchedCommand(waId, ref)
+    return
+  }
+  if (intent?.kind === 'greeting') {
+    await trySend(waId, `Hi! Here's what I can do for your store:\n- "orders" — what's waiting to be shipped\n- "dispatched 1" or "dispatched AB12CD34" — mark an order shipped\n- "sales" / "sales week" — your sales\n- "balance", "withdraw 5000", "topup 5000" — your wallet\n- "shop" — buy like a customer`)
     return
   }
 
@@ -211,6 +229,47 @@ async function resolveLinkedVendor(waId: string): Promise<string | null> {
 // Statuses a vendor's leg can already be at where "dispatched" no longer applies — the
 // item has already moved past that point, or the leg is cancelled entirely.
 const PAST_DISPATCH_STATUSES = new Set(['shipped', 'out_for_delivery', 'delivered', 'received', 'cancelled'])
+
+// Orders with items from this vendor that haven't shipped yet, numbered so the seller
+// can reply "dispatched 2". The refs are kept on WhatsAppLink for that lookup.
+export async function handleVendorOrdersCommand(waId: string, vendorId: string): Promise<void> {
+  await connectToDatabase()
+  const orders: any[] = await Order.find({
+    'vendors.vendorId': vendorId,
+    paymentStatus: { $in: ['paid', 'escrow'] },
+  }).sort({ createdAt: -1 }).limit(30).lean()
+  const pending = orders
+    .map((o) => ({ o, entry: (o.vendors || []).find((v: any) => String(v?.vendorId || '') === vendorId) }))
+    .filter(({ entry }) => entry && !PAST_DISPATCH_STATUSES.has(String(entry.status || '').toLowerCase()) && !['cancelled', 'received'].includes(String(entry.status || '').toLowerCase()))
+    .slice(0, 8)
+  if (pending.length === 0) {
+    await WhatsAppLink.updateOne({ vendorId }, { $set: { lastOrderRefs: [] } })
+    await trySend(waId, 'Nothing waiting to ship right now. 🎉')
+    return
+  }
+  const refs = pending.map(({ o }) => String(o.orderId).slice(0, 8).toUpperCase())
+  await WhatsAppLink.updateOne({ vendorId }, { $set: { lastOrderRefs: refs } })
+  const lines = pending.map(({ o, entry }, i) => {
+    const items: any[] = Array.isArray(entry.items) ? entry.items : []
+    const summary = items.slice(0, 2).map((it) => `${Number(it.quantity || 1)}x ${it.title || it.name || 'item'}`).join(', ') + (items.length > 2 ? ` +${items.length - 2} more` : '')
+    const where = [o.shippingInfo?.city, o.shippingInfo?.state].filter(Boolean).join(', ')
+    return `${i + 1}. ${refs[i]} — ${summary}${where ? ` → ${where}` : ''} (${formatNaira(Number(entry.total || 0))})`
+  })
+  await trySend(waId, `Orders waiting to ship:\n${lines.join('\n')}\n\nReply "dispatched 1" (or the ref) once one is with the courier.`)
+}
+
+// "dispatched 2" -> the 2nd ref from the last "orders" list; anything else is taken as a
+// ref (case-insensitive prefix of the order id).
+async function resolveVendorOrderRef(waId: string, given: string): Promise<string | null> {
+  const vendorId = await resolveLinkedVendor(waId)
+  if (/^\d{1,2}$/.test(given)) {
+    await connectToDatabase()
+    const link: any = await WhatsAppLink.findOne({ vendorId }).select('lastOrderRefs').lean()
+    const refs: string[] = Array.isArray(link?.lastOrderRefs) ? link.lastOrderRefs : []
+    return refs[Number(given) - 1] || null
+  }
+  return given.toUpperCase()
+}
 
 export async function handleDispatchedCommand(waId: string, ref: string): Promise<void> {
   const vendorId = await resolveLinkedVendor(waId)

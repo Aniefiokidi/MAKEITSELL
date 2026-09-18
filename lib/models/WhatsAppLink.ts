@@ -33,6 +33,8 @@ const WhatsAppLinkSchema = new Schema({
   // "shop"/"stop shopping". Financial vendor commands (withdraw/topup) are always checked
   // before this takes effect, regardless of its value — see commands.ts's dispatch order.
   shoppingMode: { type: Boolean, default: false },
+  // Refs from the last "orders" list, so "dispatched 2" can be resolved.
+  lastOrderRefs: { type: [String], default: [] },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });

@@ -21,7 +21,7 @@
 //
 // The ImageNet fallback is a SECOND forward pass (see image-classify.ts) — deliberately
 // only run for the rare product k-NN can't resolve, not unconditionally for every image.
-import { after } from 'next/server'
+import { deferAfterResponse as after } from '@/lib/defer'
 import connectToDatabase from './mongodb'
 import { Product as ProductModel } from './models/Product'
 import { computeImageHashFromBuffer } from './image-hash'

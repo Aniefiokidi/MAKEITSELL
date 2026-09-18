@@ -24,7 +24,7 @@
 // Reuses the same result-presentation pipeline as text search
 // (lib/whatsapp/product-results.ts) so paging, captions, and reply-to-select all behave
 // identically regardless of how the search started.
-import { after } from 'next/server'
+import { deferAfterResponse as after } from '@/lib/defer'
 import connectToDatabase from '@/lib/mongodb'
 import { Product } from '@/lib/models/Product'
 import { getProducts } from '@/lib/mongodb-operations'

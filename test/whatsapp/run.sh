@@ -7,4 +7,4 @@
 set -e
 cd "$(dirname "$0")/../.."
 node --experimental-strip-types --no-warnings --test test/whatsapp/*.test.mjs
-NODE_OPTIONS="--no-warnings" node --import ./test/whatsapp/scenarios/register.mjs --test test/whatsapp/scenarios/*.test.mjs
+NODE_OPTIONS="--no-warnings" node --import ./test/whatsapp/scenarios/register.mjs --test --test-timeout=120000 test/whatsapp/scenarios/*.test.mjs

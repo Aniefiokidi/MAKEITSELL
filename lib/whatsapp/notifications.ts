@@ -13,7 +13,7 @@
 // send below prefers its own template (buyer_order_status_update, submitted 2026-08-04)
 // the same way, but falls back to free text if that send fails for any reason — self-
 // healing regardless of whether Meta has finished reviewing it yet.
-import { after } from 'next/server'
+import { deferAfterResponse as after } from '@/lib/defer'
 import connectToDatabase from '@/lib/mongodb'
 import { Order } from '@/lib/models/Order'
 import { WhatsAppLink } from '@/lib/models/WhatsAppLink'

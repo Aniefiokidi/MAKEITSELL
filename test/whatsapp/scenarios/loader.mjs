@@ -9,6 +9,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const SHIM_MONGOOSE = pathToFileURL(path.join(ROOT, 'test/whatsapp/scenarios/shim-mongoose.mjs')).href
 const STUB_CLIENT = pathToFileURL(path.join(ROOT, 'test/whatsapp/scenarios/stub-client.mjs')).href
+const STUB_ORDER_NOTIFICATIONS = pathToFileURL(path.join(ROOT, 'test/whatsapp/scenarios/stub-order-notifications.mjs')).href
 
 function withExtension(fsPath) {
   if (existsSync(fsPath) && statSync(fsPath).isFile()) return fsPath
@@ -37,6 +38,7 @@ export async function resolve(specifier, context, nextResolve) {
     const resolved = withExtension(target)
     if (resolved) {
       if (resolved === path.join(ROOT, 'lib/whatsapp/client.ts')) return { url: STUB_CLIENT, shortCircuit: true }
+      if (resolved === path.join(ROOT, 'lib/order-notifications.ts')) return { url: STUB_ORDER_NOTIFICATIONS, shortCircuit: true }
       return { url: pathToFileURL(resolved).href, shortCircuit: true }
     }
   }
