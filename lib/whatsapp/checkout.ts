@@ -196,7 +196,15 @@ export async function handleProductAction(waId: string, productId: string, text:
   const variants = normalizeProductVariants(product)
   const variantSelection = selectProductVariants(product.name, variants, optionReply, quantity)
   if (variantSelection.prompt) {
-    await trySendText(waId, variantSelection.prompt)
+    let prompt = variantSelection.prompt
+    if (/^Choose Size/i.test(prompt)) {
+      const { recallBuyer } = await import('@/lib/whatsapp/buyer-memory')
+      const memory = await recallBuyer(waId)
+      const remembered = String(memory?.preferredSize || '').replace(/^(?:UK|EU|US)\s*/i, '')
+      const inStock = remembered && variants.find((v) => /size/i.test(v.label) && String(v.value).toUpperCase() === remembered.toUpperCase() && Number(v.stock) > 0)
+      if (inStock) prompt += ` You took ${inStock.value} last time — reply "add Size ${inStock.value}" to use it.`
+    }
+    await trySendText(waId, prompt)
     return
   }
 

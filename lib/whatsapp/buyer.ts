@@ -14,6 +14,7 @@ import { sendTextMessage, sendInteractiveListMessage, sendInteractiveButtons, ty
 import { markOrderReceived } from '@/lib/whatsapp/buyer-orders'
 import { beginHandoff, isHandedOff, forwardToSupport, endHandoff, supportNumberConfigured } from '@/lib/whatsapp/handoff'
 import { recordOutcome } from '@/lib/whatsapp/conversation-log'
+import { touchBuyer, rememberSearch, recallBuyer } from '@/lib/whatsapp/buyer-memory'
 import { PRODUCT_CATEGORIES } from '@/lib/product-categories'
 import { SERVICE_CATEGORIES } from '@/lib/service-categories'
 import { sendProductResults } from '@/lib/whatsapp/product-results'
@@ -273,8 +274,24 @@ const WELCOME_BUTTONS = [
 // "I received my order", "it has arrived", "got it" — releases escrow to the seller.
 const RECEIVED_PATTERN = /^(?:received|got it|i got it|it(?:'s| has| is) (?:here|arrived|delivered)|i(?:'ve| have)? (?:received|got|collected) (?:it|my (?:order|package|parcel|item|items|goods|delivery)|the (?:order|package|parcel|item|goods|delivery))|my (?:order|package|parcel) (?:has )?(?:arrived|came|is here)|(?:the )?(?:order|package|parcel) (?:has )?arrived|i don (?:collect|receive|get) (?:am|it|my order)|confirm (?:received|receipt|delivery)|mark (?:as )?received)(?:\s+(?:order\s+)?#?([A-Z0-9][A-Z0-9-]{3,20}))?[\s!.]*$/i
 
+const RETURNING_AFTER_MS = 6 * 60 * 60 * 1000
+
 async function sendWelcome(waId: string): Promise<void> {
   try {
+    // A returning buyer we know by name gets a welcome that picks up where they left
+    // off: reorder, continue the last search, or browse.
+    const memory = await recallBuyer(waId)
+    const away = memory?.lastActiveAt ? Date.now() - new Date(memory.lastActiveAt).getTime() : Infinity
+    if (memory?.name && away > RETURNING_AFTER_MS && (memory.lastOrderSummary || memory.lastSearch)) {
+      const buttons = [
+        ...(memory.lastOrderSummary ? [{ id: 'cmd:reorder', title: '🔁 Reorder last order' }] : []),
+        ...(memory.lastSearch ? [{ id: `cmd:${memory.lastSearch}`, title: `🔎 ${memory.lastSearch}`.slice(0, 20) }] : []),
+        { id: 'cmd:categories', title: '🛍️ Browse' },
+      ].slice(0, 3)
+      const body = `Welcome back, ${memory.name}! 👋${memory.lastOrderSummary ? ` Last time you ordered ${memory.lastOrderSummary}.` : ''}${memory.lastSearch ? ` You were looking at "${memory.lastSearch}".` : ''}\n\nTell me what you need, or tap a button:`
+      await sendInteractiveButtons(waId, body, buttons)
+      return
+    }
     await sendInteractiveButtons(waId, WELCOME_BODY, WELCOME_BUTTONS)
   } catch (error) {
     console.error(`[whatsapp-buyer] Welcome buttons failed for ${waId}, falling back to text:`, error)
@@ -322,6 +339,7 @@ async function runSearchAndReply(waId: string, query: string, offset: number): P
   }
 
   const products = await searchCatalogProducts(query, offset, FETCH_PER_PAGE)
+  if (offset === 0) void rememberSearch(waId, query)
 
   if (products.length === 0) {
     console.log(`[whatsapp-buyer] search: no results for "${query}" (offset ${offset}) — ${waId}`)
@@ -1044,6 +1062,10 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
   await connectToDatabase()
   const state: any = await WhatsAppBrowseState.findOne({ waId }).lean()
   const stage = String(state?.stage || 'browsing')
+  // Last-seen is updated AFTER a greeting is handled (sendWelcome reads it to decide
+  // whether this is a return visit); for everything else it's updated now.
+  const isGreeting = !trimmed || GREETING_KEYWORDS.has(lower) || GREETING_PATTERN.test(trimmed) || NO_WORDS_PATTERN.test(trimmed)
+  if (!isGreeting) void touchBuyer(waId)
   const mode = String(state?.browseMode || 'goods')
 
   // Human handoff: while a person is handling this buyer, questions go to support —
@@ -1223,6 +1245,7 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
   if (!trimmed || GREETING_KEYWORDS.has(lower) || GREETING_PATTERN.test(trimmed) || NO_WORDS_PATTERN.test(trimmed)) {
     if (mode === 'services') await trySendText(waId, SERVICE_GREETING_MESSAGE)
     else await sendWelcome(waId)
+    void touchBuyer(waId)
     return
   }
 

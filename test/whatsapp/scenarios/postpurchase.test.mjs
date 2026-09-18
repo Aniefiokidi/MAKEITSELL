@@ -155,3 +155,28 @@ test('an agent can find, add and check out for a handed-off buyer while the bot 
   await commands.handleInboundMessage(SUPPORT, 'help')
   assert.match(texts(outbox.slice(start)), /find NUMBER/)
 })
+
+test('a returning buyer is welcomed by name with reorder and last-search buttons', async () => {
+  const { user } = await buyerWithOrder({ orderId: 'ORD-LAST1', status: 'received', items: [{ productId: 'p1', title: 'Red Sneakers', quantity: 1, price: 15000 }] })
+  await say('sneakers size 42')
+  await WhatsAppBuyer.updateOne({ waId: BUYER }, { $set: { lastActiveAt: new Date(Date.now() - 24 * 3600 * 1000) } })
+  const welcome = last(await say('hi'))
+  assert.equal(welcome.kind, 'buttons')
+  assert.match(welcome.body, /Welcome back, David!/)
+  assert.match(welcome.body, /Last time you ordered Red Sneakers/)
+  assert.match(welcome.body, /looking at "sneakers"/)
+  assert.ok(welcome.buttons.some((b) => b.id === 'cmd:reorder'))
+  const mapping = await WhatsAppBuyer.findOne({ waId: BUYER }).lean()
+  assert.equal(mapping.preferredSize, '42')
+  assert.equal(String(user._id).length > 0, true)
+})
+
+test('a remembered size is suggested when a product asks for one', async () => {
+  const { store } = await seedVendor({ storeName: 'Boot Barn', phone: '+2348011110077' })
+  await seedProduct(store, { name: 'Leather Boots', price: 42000, stock: 4, variants: [{ label: 'Size', value: '42', stock: 2 }, { label: 'Size', value: '43', stock: 2 }] })
+  await buyerWithOrder({ orderId: 'ORD-SZ1' })
+  await say('sneakers size 42')
+  await say('boots')
+  const prompt = texts(await say('1'))
+  assert.match(prompt, /You took 42 last time/)
+})

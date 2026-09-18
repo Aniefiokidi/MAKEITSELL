@@ -27,6 +27,12 @@ const WhatsAppBuyerSchema = new Schema({
   // Account-claiming (lib/whatsapp/claim-account.ts) — a single-use, expiring token
   // embedded in the web link sent to the buyer, so setting a real password never happens
   // over WhatsApp chat itself.
+  // What we've learned about this buyer from their own messages and orders — used to
+  // personalise the welcome and pre-suggest sizes (lib/whatsapp/buyer-memory.ts).
+  preferredSize: { type: String },
+  preferredColors: { type: [String], default: [] },
+  lastSearches: { type: [String], default: [] },
+  lastActiveAt: { type: Date },
   claimToken: { type: String, default: null },
   claimTokenExpiresAt: { type: Date, default: null },
   updatedAt: { type: Date, default: Date.now },
