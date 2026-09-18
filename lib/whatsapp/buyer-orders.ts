@@ -14,6 +14,10 @@
 // wa_id reaches this function it has already been through that verification, so a
 // caller can't place an order "as" a wa_id it doesn't actually own without also forging
 // that signature — which requires a secret that never leaves the server.
+import { Order } from '@/lib/models/Order'
+import { WhatsAppBuyer } from '@/lib/models/WhatsAppBuyer'
+import { updateOrder } from '@/lib/mongodb-operations'
+import connectToDatabase from '@/lib/mongodb'
 import { buildOrder, type BuildOrderResult } from '@/lib/order-creation'
 import { findOrCreateBuyerForWaId, placeholderEmailForWaId } from '@/lib/whatsapp/buyer-identity'
 import { calculatePaystackCheckoutAmounts } from '@/lib/paystack-charges'
@@ -109,4 +113,44 @@ export async function initiateWaBuyerPaystackCheckout(
     totalAmount: paystackAmounts.orderAmount,
     authorizationUrl: paymentResult.authUrl,
   }
+}
+
+// "I received my order" from the buyer's own number — the chat equivalent of the signed
+// confirm-received link (app/api/orders/confirm-received-link): same guard (escrow, not
+// disputed), same update. `ref` is an optional short order ref when they have several.
+export async function markOrderReceived(waId: string, ref?: string): Promise<string> {
+  await connectToDatabase()
+  const mapping: any = await WhatsAppBuyer.findOne({ waId }).lean()
+  if (!mapping?.customerId) return "I don't see any orders on this number yet."
+
+  const candidates: any[] = await Order.find({
+    customerId: String(mapping.customerId),
+    paymentStatus: 'escrow',
+    status: { $in: ['confirmed', 'processing', 'shipped', 'out_for_delivery', 'delivered', 'received'] },
+  }).sort({ createdAt: -1 }).limit(10).lean()
+  const shortRef = (id: string) => String(id || '').slice(0, 8).toUpperCase()
+  const wanted = String(ref || '').toUpperCase().replace(/[^A-Z0-9-]/g, '')
+
+  // Already-received orders only matter when the buyer names one (or it's the only one).
+  const open = candidates.filter((o) => String(o.status || '') !== 'received')
+  let order = open.length === 1 ? open[0] : undefined
+  if (wanted) order = candidates.find((o) => shortRef(o.orderId).startsWith(wanted) || String(o.orderId).toUpperCase().startsWith(wanted))
+  if (!order && open.length === 0 && candidates.length === 1) order = candidates[0]
+  if (!order && open.length > 1) {
+    const lines = open.map((o) => {
+      const items = (Array.isArray(o.items) && o.items.length ? o.items : (o.vendors || []).flatMap((v: any) => v?.items || []))
+      const first = items[0]
+      return `- ${shortRef(o.orderId)}: ${first ? `${Number(first.quantity || 1)}x ${first.title || first.name || 'item'}` : 'items'}${items.length > 1 ? ` +${items.length - 1} more` : ''}`
+    })
+    return `Which order did you receive?\n${lines.join('\n')}\n\nReply e.g. "received ${shortRef(open[0].orderId)}".`
+  }
+  if (!order) {
+    return "I don't see a delivered order waiting for your confirmation. Type \"my orders\" to check their status."
+  }
+  const disputed = Boolean(order.disputeRaisedAt) || String(order.disputeStatus || '').toLowerCase() === 'active'
+  if (disputed) return `Order ${shortRef(order.orderId)} has an open dispute, so it can't be marked received until that's resolved.`
+  if (String(order.status || '') === 'received') return `Order ${shortRef(order.orderId)} is already marked as received — thank you!`
+
+  await updateOrder(order.orderId, { status: 'received', receivedAt: new Date() })
+  return `Thank you! Order ${shortRef(order.orderId)} is marked as received. The seller is paid after the protection window. If anything's wrong with it, reply "problem with my order" within 5 days and your payment stays protected.`
 }

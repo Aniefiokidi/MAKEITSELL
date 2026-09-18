@@ -16,3 +16,6 @@ export async function sendImageMessage(to, imageUrl, caption) { return record({ 
 export async function sendInteractiveListMessage(to, body, buttonText, sections, header, footer) {
   return record({ to, kind: 'list', body: String(body), buttonText, sections, header, footer })
 }
+export async function sendInteractiveButtons(to, body, buttons) {
+  return record({ to, kind: 'buttons', body: String(body), buttons })
+}

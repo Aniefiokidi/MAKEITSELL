@@ -232,3 +232,40 @@ export async function sendInteractiveListMessage(
 
   return data
 }
+
+export interface WhatsAppReplyButton {
+  id: string
+  title: string // Meta cap: 20 characters
+}
+
+// Sends up to three quick-reply buttons under a text body (Meta's hard cap is 3). Taps
+// come back as interactive.button_reply {id, title} on the webhook — see
+// lib/whatsapp/inbound.ts. Used for the welcome menu and yes/no confirmations.
+export async function sendInteractiveButtons(to: string, bodyText: string, buttons: WhatsAppReplyButton[]): Promise<any> {
+  const trimmed = buttons.slice(0, 3).map((b) => ({ type: 'reply', reply: { id: b.id, title: b.title.slice(0, 20) } }))
+  if (isTestCaptureMode()) {
+    captureLog('buttons', { to, bodyText, buttons: trimmed })
+    return { captured: true }
+  }
+  const { accessToken, phoneNumberId } = getConfig()
+  if (!accessToken || !phoneNumberId) {
+    throw new Error('WhatsApp is not configured — set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID')
+  }
+
+  const response = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to,
+      type: 'interactive',
+      interactive: { type: 'button', body: { text: bodyText }, action: { buttons: trimmed } },
+    }),
+  })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    console.error('[whatsapp-client] sendInteractiveButtons failed:', JSON.stringify(data))
+    throw new Error(data?.error?.message || `WhatsApp API request failed with status ${response.status}`)
+  }
+  return data
+}

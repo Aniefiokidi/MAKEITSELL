@@ -63,6 +63,13 @@ async function routeInboundMessage(message: any, waId: string): Promise<void> {
     // ones. context.id is the WhatsApp message ID of that original template send.
     console.log(`[whatsapp-webhook] Button reply from ${waId}: "${message.button?.text}" (context: ${message.context.id})`)
     await handleButtonReply(waId, String(message.context.id))
+  } else if (message?.type === 'interactive' && message?.interactive?.type === 'button_reply') {
+    // A tap on one of our quick-reply buttons (sendInteractiveButtons). The id is a
+    // command the text router already understands ("services", "my orders", ...), so
+    // it's routed exactly as if the buyer had typed it.
+    const buttonId = String(message.interactive.button_reply?.id || message.interactive.button_reply?.title || '')
+    console.log(`[whatsapp-webhook] Button tap from ${waId}: "${message.interactive.button_reply?.title}" (id: ${buttonId})`)
+    await handleInboundMessage(waId, buttonId.replace(/^cmd:/, ''))
   } else if (message?.type === 'interactive' && message?.interactive?.type === 'list_reply') {
     // Tap on a list message we sent ourselves via the Interactive API — distinct
     // from the template-embedded "button" type above. Three possible sources

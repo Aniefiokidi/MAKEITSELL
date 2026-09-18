@@ -182,6 +182,9 @@ export function notifyWaBuyerStageChange(orderId: string, customerId: string, ve
         console.log(`[whatsapp-notify] buyer_order_status_update template send failed, falling back to free text — order ${orderId}:`, templateError)
         await sendTextMessage(waId, `Order ${ref} update: ${summary} is now ${label}.`)
       }
+      if (status === 'delivered') {
+        await sendTextMessage(waId, 'Once it\'s in your hands, reply "received" so the seller can be paid. Anything wrong with it? Reply "problem with my order" — your payment stays protected.').catch(() => {})
+      }
       console.log(`[whatsapp-notify] Sent buyer stage-change — order ${orderId}, customer ${trimmedCustomerId} (${status})`)
     } catch (error) {
       console.error(`[whatsapp-notify] Failed to send buyer stage-change — order ${orderId}, customer ${trimmedCustomerId}:`, error)

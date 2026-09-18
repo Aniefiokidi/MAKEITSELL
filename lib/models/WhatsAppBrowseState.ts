@@ -67,6 +67,16 @@ const WhatsAppBrowseStateSchema = new Schema({
   // Set once an order is created and a Paystack link has been sent, so the buyer's
   // browse-state can be traced back to the order it's waiting on.
   pendingOrderId: { type: String },
+  // Paystack link for the unpaid order above, so "send the link again" can re-send it.
+  pendingPaymentUrl: { type: String },
+  pendingPaymentTotal: { type: Number },
+
+  // Human handoff (lib/whatsapp/handoff.ts): while mode is 'human' the bot stays quiet
+  // and forwards the buyer's messages to the support number, which replies through
+  // the bot. Falls back to 'bot' after HANDOFF_IDLE_HOURS without activity.
+  mode: { type: String, enum: ['bot', 'human'], default: 'bot' },
+  handoffAt: { type: Date },
+  handoffLastActivityAt: { type: Date },
 
   // Services are contact-only on WhatsApp (lib/whatsapp/service-contacts.ts): where the
   // buyer is (city centre or a shared pin) so providers can be ranked by distance, plus the

@@ -14,6 +14,7 @@ import { WhatsAppMessageMap } from '@/lib/models/WhatsAppMessageMap'
 import { applyOrderVendorStatus, resolveOrderVendorTarget } from '@/lib/order-vendor-status'
 import { sendTextMessage } from '@/lib/whatsapp/client'
 import { handleBuyerMessage, handleBuyerLocationPin } from '@/lib/whatsapp/buyer'
+import { tryHandleSupportCommand } from '@/lib/whatsapp/handoff'
 import { getVendorSalesSummary } from '@/lib/analytics'
 import { tryHandleWithdrawalFlow } from '@/lib/whatsapp/vendor-withdrawal'
 import { tryHandleVendorTopupCommand } from '@/lib/whatsapp/wallet-topup'
@@ -52,6 +53,10 @@ export async function handleInboundMessage(waId: string, text: string, contextMe
     const handled = await tryHandleLinkCode(waId, trimmed.toUpperCase())
     if (handled) return
   }
+
+  // The support team's own number relaying to buyers ("r <number> <text>") — checked
+  // before vendor/buyer routing so it works whatever else that number is linked as.
+  if (await tryHandleSupportCommand(waId, trimmed)) return
 
   // Not a linked vendor — route into buyer product browsing instead of the vendor help
   // menu. A linked vendor CAN also shop on the same number — see the shopping-mode

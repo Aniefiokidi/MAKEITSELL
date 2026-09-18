@@ -10,7 +10,9 @@ import { Store } from '@/lib/models/Store'
 import { WhatsAppBrowseState } from '@/lib/models/WhatsAppBrowseState'
 import { WhatsAppBuyer } from '@/lib/models/WhatsAppBuyer'
 import { Order } from '@/lib/models/Order'
-import { sendTextMessage, sendInteractiveListMessage, type WhatsAppListRow } from '@/lib/whatsapp/client'
+import { sendTextMessage, sendInteractiveListMessage, sendInteractiveButtons, type WhatsAppListRow } from '@/lib/whatsapp/client'
+import { markOrderReceived } from '@/lib/whatsapp/buyer-orders'
+import { beginHandoff, isHandedOff, forwardToSupport, endHandoff, supportNumberConfigured } from '@/lib/whatsapp/handoff'
 import { PRODUCT_CATEGORIES } from '@/lib/product-categories'
 import { SERVICE_CATEGORIES } from '@/lib/service-categories'
 import { sendProductResults } from '@/lib/whatsapp/product-results'
@@ -40,6 +42,7 @@ import {
   handleProductAction,
   tryHandleProductReply,
   reorderLastOrder,
+  tryHandleAwaitingPayment,
   resolveCartIndex,
   clearCart,
   setCartQuantity,
@@ -257,6 +260,26 @@ async function tryHandleStoreMention(waId: string, trimmed: string, wantsBooking
 // so this plainly spells out the three things they can actually do.
 const GREETING_MESSAGE =
   'Hi! Tell me what you need, for example "sneakers under ₦20,000". You can ask about price, stock, color, or size by replying to a product card.\n\nReply "add" to a card to choose it, "categories" to browse, "services" to find a provider near you, or "more" for more matches.'
+// Welcome with tappable buttons (Meta caps at 3). Ids are commands the router already
+// understands; the text falls back to the plain greeting if the interactive send fails.
+const WELCOME_BODY =
+  'Hi! 👋 I\'m the Make It Sell assistant. Tell me what you need — e.g. "sneakers under ₦20,000" or "plumber in Yaba" — or tap a button:'
+const WELCOME_BUTTONS = [
+  { id: 'cmd:categories', title: '🛍️ Browse products' },
+  { id: 'cmd:services', title: '🔧 Find a service' },
+  { id: 'cmd:my orders', title: '📦 My orders' },
+]
+// "I received my order", "it has arrived", "got it" — releases escrow to the seller.
+const RECEIVED_PATTERN = /^(?:received|got it|i got it|it(?:'s| has| is) (?:here|arrived|delivered)|i(?:'ve| have)? (?:received|got|collected) (?:it|my (?:order|package|parcel|item|items|goods|delivery)|the (?:order|package|parcel|item|goods|delivery))|my (?:order|package|parcel) (?:has )?(?:arrived|came|is here)|(?:the )?(?:order|package|parcel) (?:has )?arrived|i don (?:collect|receive|get) (?:am|it|my order)|confirm (?:received|receipt|delivery)|mark (?:as )?received)(?:\s+(?:order\s+)?#?([A-Z0-9][A-Z0-9-]{3,20}))?[\s!.]*$/i
+
+async function sendWelcome(waId: string): Promise<void> {
+  try {
+    await sendInteractiveButtons(waId, WELCOME_BODY, WELCOME_BUTTONS)
+  } catch (error) {
+    console.error(`[whatsapp-buyer] Welcome buttons failed for ${waId}, falling back to text:`, error)
+    await trySendText(waId, GREETING_MESSAGE)
+  }
+}
 
 // Every reply goes through one of these so a delivery failure never throws back up into
 // the webhook handler — matches the trySend discipline in lib/whatsapp/commands.ts.
@@ -1000,6 +1023,20 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
   const stage = String(state?.stage || 'browsing')
   const mode = String(state?.browseMode || 'goods')
 
+  // Human handoff: while a person is handling this buyer, the bot only listens for
+  // "bot"/"resume" and forwards everything else to support.
+  if (isHandedOff(state)) {
+    if (/^(?:bot|resume|back to bot|assistant)[\s!.]*$/i.test(trimmed)) {
+      await endHandoff(waId)
+      await trySendText(waId, "You're back with me. What can I find for you?")
+      return
+    }
+    await forwardToSupport(waId, trimmed, state)
+    return
+  }
+
+  if (stage === 'awaiting_payment' && (await tryHandleAwaitingPayment(waId, trimmed, state))) return
+
   if (lower === 'cancel') {
     if (stage === AWAITING_SERVICE_LOCATION_STAGE) {
       await WhatsAppBrowseState.findOneAndUpdate(
@@ -1062,6 +1099,12 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
       { upsert: true }
     )
     await trySendText(waId, GREETING_MESSAGE)
+    return
+  }
+
+  const receivedMatch = trimmed.match(RECEIVED_PATTERN)
+  if (receivedMatch) {
+    await trySendText(waId, await markOrderReceived(waId, receivedMatch[1]))
     return
   }
 
@@ -1150,7 +1193,8 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
   }
 
   if (!trimmed || GREETING_KEYWORDS.has(lower) || GREETING_PATTERN.test(trimmed) || NO_WORDS_PATTERN.test(trimmed)) {
-    await trySendText(waId, mode === 'services' ? SERVICE_GREETING_MESSAGE : GREETING_MESSAGE)
+    if (mode === 'services') await trySendText(waId, SERVICE_GREETING_MESSAGE)
+    else await sendWelcome(waId)
     return
   }
 
@@ -1179,6 +1223,10 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
   // sent without replying to a card — none of these are product names.
   const hasRecentResults = Array.isArray(state?.lastResults) && state.lastResults.length > 0
   const faq = answerBuyerFaq(trimmed, { hasRecentResults })
+  if (faq?.kind === 'text' && faq.topic === 'support' && supportNumberConfigured()) {
+    await beginHandoff(waId, trimmed)
+    return
+  }
   if (faq) {
     if (faq.kind === 'categories') {
       if (mode === 'services') await sendServiceCategoryMenu(waId)

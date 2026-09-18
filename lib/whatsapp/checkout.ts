@@ -36,6 +36,8 @@ import { canonicalSelectedVariantsKey, normalizeProductVariants } from '@/lib/pr
 // dispatch in lib/whatsapp/buyer.ts is bypassed while in one of these. 'cart' is
 // deliberately NOT here: a buyer with items in cart can still search, browse categories,
 // or add more, exactly like plain browsing.
+// 'awaiting_payment' is deliberately NOT blocking: a buyer with an unpaid order can
+// still browse, ask questions, or re-request the link — see tryHandleAwaitingPayment.
 export const BLOCKING_CHECKOUT_STAGES = new Set([
   'awaiting_name',
   'choosing_saved_address',
@@ -43,7 +45,6 @@ export const BLOCKING_CHECKOUT_STAGES = new Set([
   'quoting_delivery',
   'choosing_couriers',
   'confirming_total',
-  'awaiting_payment',
 ])
 
 async function trySendText(waId: string, body: string): Promise<void> {
@@ -320,6 +321,8 @@ export async function handleCancelCommand(waId: string, stage: string): Promise<
     deliveryQuotes: {},
     selectedCouriers: {},
     pendingOrderId: null,
+    pendingPaymentUrl: null,
+    pendingPaymentTotal: null,
   })
   await trySendText(waId, 'Checkout cancelled — your cart has been cleared. Search for a product to start again.')
   return true
@@ -397,6 +400,18 @@ export async function handleCheckoutStart(waId: string): Promise<void> {
   if (cart.length === 0) {
     await trySendText(waId, 'Your cart is empty — search for a product and reply to one of the results to add it, then type "checkout".')
     return
+  }
+
+  // An earlier order is still waiting for payment — don't silently start another.
+  if (state?.stage === 'awaiting_payment' && state?.pendingOrderId) {
+    const unpaid = await pendingOrderStatus(state.pendingOrderId)
+    if (unpaid === 'unpaid') {
+      await trySendText(
+        waId,
+        `You still have an unpaid order ${String(state.pendingOrderId).slice(0, 8).toUpperCase()}${state.pendingPaymentTotal ? ` for ${formatNaira(Number(state.pendingPaymentTotal))}` : ''}:\n${state.pendingPaymentUrl || ''}\n\nPay it and we'll continue, or reply "cancel" to drop it and check out this cart instead.`
+      )
+      return
+    }
   }
 
   const { customerId } = await findOrCreateBuyerForWaId(waId)
@@ -800,7 +815,7 @@ async function handleConfirmReply(waId: string, text: string): Promise<void> {
     return
   }
 
-  await saveState(waId, { stage: 'awaiting_payment', pendingOrderId: result.orderId })
+  await saveState(waId, { stage: 'awaiting_payment', pendingOrderId: result.orderId, pendingPaymentUrl: result.authorizationUrl, pendingPaymentTotal: result.totalAmount })
 
   // Only auto-save when this address was freshly typed, not when it was already picked
   // from the saved list (pendingShippingInfoFromSavedId set) — no point re-saving it.
@@ -814,6 +829,57 @@ async function handleConfirmReply(waId: string, text: string): Promise<void> {
     `Almost there! Tap the link below to pay ${formatNaira(result.totalAmount)} securely:\n\n${result.authorizationUrl}\n\nOnce payment is confirmed we'll message you here.`
     + (savedLabel ? `\n\n(Saved this address as "${savedLabel}" for next time.)` : '')
   )
+}
+
+// 'paid' | 'unpaid' | 'gone' for the order a buyer is waiting to pay.
+async function pendingOrderStatus(orderId: string): Promise<'paid' | 'unpaid' | 'gone'> {
+  await connectToDatabase()
+  const order: any = await Order.findOne({ orderId }).select('paymentStatus status').lean()
+  if (!order) return 'gone'
+  const paid = ['paid', 'escrow', 'released'].includes(String(order.paymentStatus || '').toLowerCase())
+  return paid ? 'paid' : 'unpaid'
+}
+
+// Messages while an order awaits payment: "send the link again", "I've paid", or a
+// question. Returns false when the message is something else (a new search, etc.) so
+// the normal router handles it — the buyer isn't held hostage by an unpaid order.
+export async function tryHandleAwaitingPayment(waId: string, text: string, state: any): Promise<boolean> {
+  const orderId = String(state?.pendingOrderId || '')
+  if (!orderId) return false
+  const ref = orderId.slice(0, 8).toUpperCase()
+  const status = await pendingOrderStatus(orderId)
+
+  if (status === 'paid') {
+    // Payment landed but the confirmation hook didn't clear the state (or the buyer
+    // asked before it ran) — clear it now.
+    await saveState(waId, { stage: 'browsing', cart: [], pendingShippingInfo: {}, deliveryQuotes: {}, selectedCouriers: {}, pendingOrderId: null, pendingPaymentUrl: null, pendingPaymentTotal: null })
+    if (/\b(paid|payment|transfer|sent the money|done|link|pay)\b/i.test(text)) {
+      await trySendText(waId, `Payment received — order ${ref} is confirmed! We'll message you here as it ships. Type "my orders" any time to check.`)
+      return true
+    }
+    return false
+  }
+  if (status === 'gone') {
+    await saveState(waId, { stage: 'browsing', pendingOrderId: null, pendingPaymentUrl: null, pendingPaymentTotal: null })
+    return false
+  }
+
+  const trimmed = String(text || '').trim()
+  if (/\b(link|resend|send (?:it|the link) again|pay(?: now)?|how (?:do|can) i pay|payment link|where (?:do|can) i pay)\b/i.test(trimmed)) {
+    await trySendText(
+      waId,
+      `Here's the payment link for order ${ref}${state.pendingPaymentTotal ? ` (${formatNaira(Number(state.pendingPaymentTotal))})` : ''}:\n\n${state.pendingPaymentUrl || 'Sorry, I no longer have the link — reply "cancel" and check out again.'}\n\nCard, bank transfer or USSD all work. I'll confirm here the moment it goes through.`
+    )
+    return true
+  }
+  if (/\b(i(?:'ve| have)? (?:already )?paid|payment (?:made|done|sent|successful)|i (?:have )?(?:made|sent|completed) (?:the )?(?:payment|transfer)|done paying|paid already|transferred|i don paid?|i don pay)\b/i.test(trimmed)) {
+    await trySendText(
+      waId,
+      `I can't see the payment for order ${ref} yet — it usually shows within a minute of Paystack confirming. I'll message you here as soon as it lands. If it's been a while, check that the payment went through on your bank/card app; reply "link" to try again, or "cancel" to drop the order.`
+    )
+    return true
+  }
+  return false
 }
 
 // Dispatcher for the four "blocking" stages — lib/whatsapp/buyer.ts routes here directly
