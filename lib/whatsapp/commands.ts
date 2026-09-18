@@ -155,6 +155,7 @@ export async function handleInboundLocation(waId: string, lat: number, lng: numb
 }
 
 export async function handleUnsupportedMessage(waId: string, type: string): Promise<void> {
+  await import('@/lib/whatsapp/conversation-log').then(({ recordOutcome }) => recordOutcome(waId, 'unsupported', { type })).catch(() => {})
   const label = type === 'audio' ? 'voice notes' : type === 'video' ? 'videos' : 'that message type'
   const vendorId = await resolveLinkedVendor(waId)
   const buyerMode = !vendorId || await isVendorShopping(vendorId)

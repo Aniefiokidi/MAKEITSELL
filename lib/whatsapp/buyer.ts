@@ -13,6 +13,7 @@ import { Order } from '@/lib/models/Order'
 import { sendTextMessage, sendInteractiveListMessage, sendInteractiveButtons, type WhatsAppListRow } from '@/lib/whatsapp/client'
 import { markOrderReceived } from '@/lib/whatsapp/buyer-orders'
 import { beginHandoff, isHandedOff, forwardToSupport, endHandoff, supportNumberConfigured } from '@/lib/whatsapp/handoff'
+import { recordOutcome } from '@/lib/whatsapp/conversation-log'
 import { PRODUCT_CATEGORIES } from '@/lib/product-categories'
 import { SERVICE_CATEGORIES } from '@/lib/service-categories'
 import { sendProductResults } from '@/lib/whatsapp/product-results'
@@ -364,6 +365,7 @@ async function runSearchAndReply(waId: string, query: string, offset: number): P
         }
       }
     }
+    await recordOutcome(waId, wordCount >= 4 ? 'clarify' : 'no_match', { query })
     const cheapest = offset === 0 ? await cheapestIgnoringBudget(query) : null
     if (cheapest) {
       await trySendText(waId, `Nothing for "${parseCatalogQuery(query).term}" in that price range. The cheapest I have is ${cheapest.name} at NGN ${Number(cheapest.price || 0).toLocaleString('en-NG')} — reply "add" to take it, "details" to hear more, or try a different budget.`)
@@ -511,6 +513,7 @@ async function runServiceSearchAndReply(
       { $set: baseUpdate, $unset: { lastQuery: '', lastCategorySlug: '', pendingServiceQuery: '', pendingServiceCategorySlug: '' } },
       { upsert: true }
     )
+    if (offset === 0) await recordOutcome(waId, 'no_match', { query: label, kind: 'service' })
     await trySendText(
       waId,
       offset > 0
@@ -1249,6 +1252,7 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
   const hasRecentResults = Array.isArray(state?.lastResults) && state.lastResults.length > 0
   const faq = answerBuyerFaq(trimmed, { hasRecentResults })
   if (faq?.kind === 'text' && faq.topic === 'support' && supportNumberConfigured()) {
+    await recordOutcome(waId, 'handoff')
     await beginHandoff(waId, trimmed)
     return
   }
@@ -1308,6 +1312,7 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
       await runSearchAndReply(waId, item, 0)
       return
     }
+    await recordOutcome(waId, 'clarify', { query: trimmed })
     await trySendText(waId, CONVERSATIONAL_CLARIFY_MESSAGE)
     return
   }

@@ -3,6 +3,12 @@
 
 const GRAPH_API_VERSION = 'v23.0'
 
+// Outbound logging is lazy-imported so this thin client stays free of model imports at
+// load time (it's imported by cron jobs and notification paths too).
+function logSend(to: string, kind: string, text: string, detail?: Record<string, unknown>): void {
+  import('@/lib/whatsapp/conversation-log').then(({ logOutbound }) => logOutbound(to, kind, text, detail)).catch(() => {})
+}
+
 function getConfig() {
   return {
     accessToken: String(process.env.WHATSAPP_ACCESS_TOKEN || '').trim(),
@@ -102,6 +108,7 @@ export async function sendTemplateMessage(
     throw new Error(data?.error?.message || `WhatsApp API request failed with status ${response.status}`)
   }
 
+  logSend(to, 'template', String(templateName || ''))
   return data
 }
 
@@ -136,6 +143,7 @@ export async function sendTextMessage(to: string, body: string): Promise<any> {
     throw new Error(data?.error?.message || `WhatsApp API request failed with status ${response.status}`)
   }
 
+  logSend(to, 'text', String(body || ''))
   return data
 }
 
@@ -174,6 +182,7 @@ export async function sendImageMessage(to: string, imageUrl: string, caption: st
     throw new Error(data?.error?.message || `WhatsApp API request failed with status ${response.status}`)
   }
 
+  logSend(to, 'image', String(caption || ''))
   return data
 }
 
@@ -230,6 +239,7 @@ export async function sendInteractiveListMessage(
     throw new Error(data?.error?.message || `WhatsApp API request failed with status ${response.status}`)
   }
 
+  logSend(to, 'list', String(bodyText || ''))
   return data
 }
 
@@ -267,5 +277,6 @@ export async function sendInteractiveButtons(to: string, bodyText: string, butto
     console.error('[whatsapp-client] sendInteractiveButtons failed:', JSON.stringify(data))
     throw new Error(data?.error?.message || `WhatsApp API request failed with status ${response.status}`)
   }
+  logSend(to, 'buttons', String(bodyText || ''))
   return data
 }

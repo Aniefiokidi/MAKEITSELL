@@ -7,6 +7,7 @@ import { handleSavedAddressListReply } from '@/lib/whatsapp/checkout'
 import { sendTextMessage } from '@/lib/whatsapp/client'
 import connectToDatabase from '@/lib/mongodb'
 import { WhatsAppInboundMessage } from '@/lib/models/WhatsAppInboundMessage'
+import { logInbound, recordOutcome } from '@/lib/whatsapp/conversation-log'
 // Records that we're handling this message id. False when another delivery of the same
 // webhook already claimed it (Meta retries on anything but a quick 200) — the caller
 // skips it rather than replying twice. A DB hiccup errs on the side of processing: one
@@ -35,6 +36,11 @@ export async function processInboundMessage(message: any, route: (message: any, 
   const waId = String(message?.from || 'unknown')
   const type = String(message?.type || 'unknown')
   if (!(await claimInboundMessage(String(message?.id || ''), waId, type))) return
+
+  const summary = typeof message?.text?.body === 'string' ? message.text.body
+    : message?.interactive?.button_reply?.title || message?.interactive?.list_reply?.title || message?.button?.text
+    || (message?.location ? `[location ${message.location.latitude},${message.location.longitude}]` : `[${type}]`)
+  await logInbound(waId, type, summary, message?.context?.id ? { replyTo: String(message.context.id) } : undefined)
 
   try {
     await route(message, waId)

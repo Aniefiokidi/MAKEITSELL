@@ -169,7 +169,15 @@ export async function handleProductAction(waId: string, productId: string, text:
   const hasVariants = normalizeProductVariants(product).length > 0
   const hasUnexpectedWords = optionReply && !/^(?:this|one|it|to cart)$/i.test(optionReply) && !hasVariants
   if (trimmedReply && (!quantityText && !addMatch || hasUnexpectedWords)) {
-    await trySendText(waId, answerProductQuestion(product, trimmedReply))
+    const answer = answerProductQuestion(product, trimmedReply)
+    if (/You can ask about price, stock, colors, sizes, or delivery/.test(answer)) {
+      // The generic fallback — we didn't really answer. Logged per product so sellers
+      // can be told what buyers keep asking (digest -> catalog quality).
+      import('@/lib/whatsapp/conversation-log').then(({ recordOutcome }) =>
+        recordOutcome(waId, 'product_question_unanswered', { productId: String(product._id), productName: product.name, question: trimmedReply })
+      ).catch(() => {})
+    }
+    await trySendText(waId, answer)
     return
   }
   const quantity = quantityText ? Number(quantityText) : 1
