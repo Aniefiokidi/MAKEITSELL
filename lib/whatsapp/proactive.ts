@@ -141,7 +141,9 @@ export async function sendBackInStockAlerts(): Promise<{ sent: number }> {
   const products: any[] = await Product.find({ _id: { $in: Array.from(new Set(watches.map((w) => w.productId))) }, status: 'active', stock: { $gt: 0 } }).lean()
   const byId = new Map(products.map((p) => [String(p._id), p]))
   let sent = 0
+  const optedOut = new Set((await WhatsAppBuyer.find({ waId: { $in: watches.map((w) => w.waId) }, marketingOptOut: true }).select('waId').lean()).map((b: any) => String(b.waId)))
   for (const watch of watches) {
+    if (optedOut.has(String(watch.waId))) { await WhatsAppStockWatch.deleteOne({ _id: watch._id }); continue }
     const product = byId.get(String(watch.productId))
     if (!product) continue
     const price = `NGN ${Number(product.price || 0).toLocaleString('en-NG')}`

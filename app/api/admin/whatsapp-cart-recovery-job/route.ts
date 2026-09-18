@@ -3,6 +3,7 @@ import { requireCronOrAdminAccess } from "@/lib/server-route-auth"
 import { connectToDatabase } from "@/lib/mongodb"
 import { WhatsAppBrowseState } from "@/lib/models/WhatsAppBrowseState"
 import { sendWaNotification } from "@/lib/whatsapp/notify"
+import { WhatsAppBuyer } from "@/lib/models/WhatsAppBuyer"
 
 // The bot's own cart (WhatsAppBrowseState.cart, keyed by waId) is a completely separate,
 // unrelated concept from the web Cart model app/api/admin/abandoned-cart-job targets
@@ -28,7 +29,11 @@ export async function POST(request: NextRequest) {
 
     let notified = 0
 
+    // Buyers who replied STOP get no marketing sends.
+    const optedOut = new Set((await WhatsAppBuyer.find({ waId: { $in: candidates.map((s) => s.waId) }, marketingOptOut: true }).select("waId").lean()).map((b: any) => String(b.waId)))
+
     for (const state of candidates) {
+      if (optedOut.has(String(state.waId))) continue
       const items = Array.isArray(state.cart) ? state.cart : []
       if (items.length === 0) continue
 

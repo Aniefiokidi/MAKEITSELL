@@ -29,6 +29,9 @@ const WhatsAppBuyerSchema = new Schema({
   // over WhatsApp chat itself.
   // What we've learned about this buyer from their own messages and orders — used to
   // personalise the welcome and pre-suggest sizes (lib/whatsapp/buyer-memory.ts).
+  // Replied STOP: no marketing sends (back-in-stock alerts, cart reminders). Utility
+  // messages about their own orders still go out.
+  marketingOptOut: { type: Boolean, default: false },
   preferredSize: { type: String },
   preferredColors: { type: [String], default: [] },
   lastSearches: { type: [String], default: [] },

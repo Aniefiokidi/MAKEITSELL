@@ -222,3 +222,19 @@ test('asking for an out-of-stock item registers a watch and the alert fires when
   assert.match(texts(outbox.slice(start)), /buyer_back_in_stock\] Tote Bag \| NGN 12,000/)
   assert.match(texts(await say('add')), /Added: Tote Bag x1/)
 })
+
+test('STOP opts a buyer out of stock alerts and START opts back in', async () => {
+  const { store } = await seedVendor({ storeName: 'Bag World', phone: '+2348011110088' })
+  const Product = (await import(path.join(ROOT, 'lib/models/Product.ts'))).Product
+  const bag = await seedProduct(store, { name: 'Tote Bag', price: 12000, stock: 1 })
+  await say('tote bag')
+  await Product.updateOne({ _id: bag._id }, { $set: { stock: 0 } })
+  await say('1')
+  assert.match(texts(await say('STOP')), /no more stock alerts/i)
+  await Product.updateOne({ _id: bag._id }, { $set: { stock: 5 } })
+  const proactive = await import(path.join(ROOT, 'lib/whatsapp/proactive.ts'))
+  assert.equal((await proactive.sendBackInStockAlerts()).sent, 0)
+  assert.match(texts(await say('start')), /back on/i)
+  const mapping = await WhatsAppBuyer.findOne({ waId: BUYER }).lean()
+  assert.equal(mapping.marketingOptOut, false)
+})

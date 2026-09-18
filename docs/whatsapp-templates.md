@@ -12,7 +12,7 @@ category *Utility* unless noted, language *English*. Parameter numbers must matc
 Already approved (referenced by existing code): `order_received`, `order_status_update`,
 `buyer_order_status_update`, `buyer_order_paid_confirmation`.
 
-## buyer_review_prompt — Utility
+## buyer_review_prompt — Utility (created via API 2026-09-18, id 4438111713095491)
 Used by: `lib/whatsapp/proactive.ts` (2 days after an order is marked received)
 
 ```
@@ -20,16 +20,18 @@ How was your {{1}}? Reply with a number from 1 to 5 (5 = loved it). Your rating 
 ```
 {{1}} = product name
 
-## buyer_back_in_stock — Marketing
+## buyer_back_in_stock — Marketing (created via API 2026-09-18, id 1693983339010379)
 Used by: `lib/whatsapp/proactive.ts` (when a product a buyer wanted is back)
 
 ```
 Good news — {{1}} is back in stock at {{2}}. Reply "add" to put it in your cart, or "details" to hear more.
 ```
 {{1}} = product name, {{2}} = price (e.g. NGN 15,000)
+Footer: "Reply STOP to opt out of stock alerts" — the bot honours STOP/START
+(WhatsAppBuyer.marketingOptOut), which also silences cart reminders.
 
-## cart_reminder — Marketing (if not already created)
-Used by: `app/api/admin/whatsapp-cart-recovery-job`
+## buyer_cart_recovery — Marketing (already approved)
+Used by: `app/api/admin/whatsapp-cart-recovery-job`. Respects STOP.
 
-Check `lib/whatsapp/notify.ts` callers for the exact name/params already in use before
-creating a duplicate.
+Templates can be listed/created with the system-user token:
+`GET/POST https://graph.facebook.com/v23.0/{WABA_ID}/message_templates`.

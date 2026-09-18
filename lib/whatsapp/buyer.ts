@@ -1156,6 +1156,23 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
     return
   }
 
+  if (/^(?:stop|unsubscribe|opt out|stop alerts|no more (?:alerts|messages))[\s!.]*$/i.test(trimmed)) {
+    const { WhatsAppStockWatch } = await import('@/lib/models/WhatsAppStockWatch')
+    const { findOrCreateBuyerForWaId } = await import('@/lib/whatsapp/buyer-identity')
+    await findOrCreateBuyerForWaId(waId) // the opt-out needs a record to live on
+    await Promise.all([
+      WhatsAppBuyer.updateOne({ waId }, { $set: { marketingOptOut: true } }),
+      WhatsAppStockWatch.deleteMany({ waId }),
+    ])
+    await trySendText(waId, "Done — no more stock alerts or reminders from me. You'll still get updates about orders you place. Reply \"start\" any time to turn alerts back on.")
+    return
+  }
+  if (/^(?:start|resume alerts|alerts on|subscribe)[\s!.]*$/i.test(trimmed)) {
+    await WhatsAppBuyer.updateOne({ waId }, { $set: { marketingOptOut: false } })
+    await trySendText(waId, 'Alerts are back on. 👍')
+    return
+  }
+
   const receivedMatch = trimmed.match(RECEIVED_PATTERN)
   if (receivedMatch) {
     await trySendText(waId, await markOrderReceived(waId, receivedMatch[1]))
