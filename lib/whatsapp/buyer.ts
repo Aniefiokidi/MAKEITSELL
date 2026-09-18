@@ -644,6 +644,24 @@ export async function handleBuyerLocationPin(waId: string, lat: number, lng: num
 
 const RECENT_RESULTS_TTL_MS = 48 * 60 * 60 * 1000 // matches WhatsAppProductMessageMap's TTL
 
+// During a human handoff: is this message something the bot should execute rather than
+// relay? Card references, cart/checkout commands, and replies a checkout step is waiting
+// for. Questions and anything unrecognised go to the agent.
+function isBuyerAction(text: string, state: any): boolean {
+  const stage = String(state?.stage || 'browsing')
+  if (BLOCKING_CHECKOUT_STAGES.has(stage) || stage === AWAITING_SERVICE_LOCATION_STAGE || stage === 'awaiting_payment') return true
+  const lower = text.toLowerCase()
+  if (lower === 'more' || lower === 'next' || lower === 'cancel') return true
+  if (CHECKOUT_INTENT_PATTERN.test(text) || CART_VIEW_PATTERN.test(text) || CLEAR_CART_PATTERN.test(text) || REMOVE_PATTERN.test(text) || CART_TOTAL_PATTERN.test(text)) return true
+  // A card reference counts only when it's a pick/add ("2", "add the black one", "both"),
+  // not a question about a card ("is it original?") — questions are the agent's.
+  const results: RecentResult[] = Array.isArray(state?.lastResults) ? state.lastResults : []
+  const ref = results.length > 0 ? parseResultReference(text, results) : null
+  if (ref?.kind === 'all') return true
+  if (ref?.kind === 'item' && (ref.remainder === '' || /^add(?:\s+\d+)?$/i.test(ref.remainder))) return true
+  return false
+}
+
 function appUrl(path: string): string {
   return `${String(process.env.NEXT_PUBLIC_APP_URL || 'https://makeitsell.ng').replace(/\/+$/, '')}${path}`
 }
@@ -1008,7 +1026,9 @@ async function sendMyBookings(waId: string): Promise<void> {
 // 13. Fallback: mode-aware search — this keeps "hair" or "how much for iPhone" reaching
 //    goods search while "hey"/"howfar" still greet, exactly as before; in services mode,
 //    the same fallback position reaches service search instead.
-export async function handleBuyerMessage(waId: string, text: string, contextMessageId?: string): Promise<void> {
+// `options.asAgent`: the message was issued by a support agent on the buyer's behalf
+// (lib/whatsapp/handoff.ts "find <number> ..."), so the human-mode gate is skipped.
+export async function handleBuyerMessage(waId: string, text: string, contextMessageId?: string, options: { asAgent?: boolean } = {}): Promise<void> {
   const trimmed = String(text || '').trim()
   const lower = trimmed.toLowerCase()
 
@@ -1023,16 +1043,21 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
   const stage = String(state?.stage || 'browsing')
   const mode = String(state?.browseMode || 'goods')
 
-  // Human handoff: while a person is handling this buyer, the bot only listens for
-  // "bot"/"resume" and forwards everything else to support.
-  if (isHandedOff(state)) {
+  // Human handoff: while a person is handling this buyer, questions go to support —
+  // but clear ACTIONS on what's on screen ("2", "add the black one", "checkout", an
+  // address mid-checkout) are still executed by the bot, with a copy to the agent, so
+  // the agent can do the finding and the bot the transacting.
+  if (!options.asAgent && isHandedOff(state)) {
     if (/^(?:bot|resume|back to bot|assistant)[\s!.]*$/i.test(trimmed)) {
       await endHandoff(waId)
       await trySendText(waId, "You're back with me. What can I find for you?")
       return
     }
-    await forwardToSupport(waId, trimmed, state)
-    return
+    if (!isBuyerAction(trimmed, state)) {
+      await forwardToSupport(waId, trimmed, state)
+      return
+    }
+    await forwardToSupport(waId, trimmed, state, { botHandled: true })
   }
 
   if (stage === 'awaiting_payment' && (await tryHandleAwaitingPayment(waId, trimmed, state))) return

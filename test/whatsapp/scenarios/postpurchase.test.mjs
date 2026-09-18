@@ -107,3 +107,51 @@ test('human handoff relays both ways and "bot" returns control', async () => {
 test('without a support number, "talk to a human" still gives the email', async () => {
   assert.match(texts(await say('talk to a human')), /support@makeitsell\.ng/)
 })
+
+test('an agent can find, add and check out for a handed-off buyer while the bot executes actions', async () => {
+  process.env.SUPPORT_WHATSAPP_NUMBER = SUPPORT
+  const { commands } = await loadBot()
+  const { store } = await seedVendor({ storeName: 'Shoe Hub', phone: '+2348011110050' })
+  await seedProduct(store, { name: 'Black Sneakers', price: 9000, stock: 5 })
+  await say('I want to talk to a human')
+
+  // Agent searches on the buyer's behalf: buyer gets cards, agent gets a summary.
+  let start = outbox.length
+  await commands.handleInboundMessage(SUPPORT, `find ${BUYER} sneakers`)
+  let sent = outbox.slice(start)
+  assert.ok(sent.some((m) => m.to === BUYER && /1\. .*Sneakers/.test(m.body)))
+  assert.ok(sent.some((m) => m.to === SUPPORT && /Sent to .*\n1\. /.test(m.body)))
+
+  // Buyer picks a card: the bot executes it and the agent gets a copy.
+  const pick = await say('2')
+  assert.ok(pick.some((m) => m.to === BUYER && /Added: .*Sneakers x1/.test(m.body)))
+  assert.ok(pick.some((m) => m.to === SUPPORT && /handled by bot/.test(m.body)))
+
+  // But a question still goes to the agent only.
+  const question = await say('is it original?')
+  assert.equal(question.length, 1)
+  assert.equal(question[0].to, SUPPORT)
+
+  // Agent adds another and views the cart.
+  start = outbox.length
+  await commands.handleInboundMessage(SUPPORT, `add ${BUYER} 1 x2`)
+  assert.match(texts(outbox.slice(start).filter((m) => m.to === SUPPORT)), /Added .*Sneakers to .*\n\n1\. /)
+  start = outbox.length
+  await commands.handleInboundMessage(SUPPORT, `cart ${BUYER}`)
+  assert.match(texts(outbox.slice(start)), /Subtotal: NGN/)
+
+  // Agent starts checkout; the buyer's name reply is handled by the bot.
+  start = outbox.length
+  await commands.handleInboundMessage(SUPPORT, `checkout ${BUYER}`)
+  assert.ok(outbox.slice(start).some((m) => m.to === BUYER && /What's your name/.test(m.body)))
+  const named = await say('David Okafor')
+  assert.ok(named.some((m) => m.to === BUYER && /address/i.test(m.body)))
+
+  // Service search and link.
+  start = outbox.length
+  await commands.handleInboundMessage(SUPPORT, `link ${BUYER} sneakers`)
+  assert.ok(outbox.slice(start).some((m) => m.to === BUYER && /\/search\?q=sneakers/.test(m.body)))
+  start = outbox.length
+  await commands.handleInboundMessage(SUPPORT, 'help')
+  assert.match(texts(outbox.slice(start)), /find NUMBER/)
+})

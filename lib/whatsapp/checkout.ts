@@ -224,6 +224,16 @@ export async function handleProductAction(waId: string, productId: string, text:
   )
 }
 
+// The cart as text — used for the buyer's "cart" reply and for a support agent
+// looking at a handed-off buyer's cart from their own phone.
+export async function describeCart(waId: string): Promise<string> {
+  const state = await loadState(waId)
+  const cart: any[] = Array.isArray(state?.cart) ? state.cart : []
+  if (cart.length === 0) return 'Cart is empty.'
+  const lines = cart.map((item, i) => `${i + 1}. ${item.title}${Array.isArray(item.selectedVariants) && item.selectedVariants.length ? ` (${item.selectedVariants.map((variant: any) => `${variant.label}: ${variant.value}`).join(', ')})` : ''} x${item.quantity} — ${formatNaira(Number(item.price || 0) * Number(item.quantity || 1))}`)
+  return `${lines.join('\n')}\nSubtotal: ${formatNaira(cartSubtotal(cart))}${state?.stage && state.stage !== 'browsing' ? `\nStage: ${state.stage}` : ''}`
+}
+
 export async function sendCartSummary(waId: string): Promise<void> {
   const state = await loadState(waId)
   const cart: any[] = Array.isArray(state?.cart) ? state.cart : []
