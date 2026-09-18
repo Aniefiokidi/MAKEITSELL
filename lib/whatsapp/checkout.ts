@@ -187,9 +187,13 @@ export async function handleProductAction(waId: string, productId: string, text:
   }
   const currentStock = Number(product.stock)
   if (currentStock !== 9999 && (!Number.isFinite(currentStock) || currentStock < quantity)) {
+    if (!(currentStock > 0)) {
+      const { watchStock } = await import('@/lib/whatsapp/proactive')
+      await watchStock(waId, product)
+    }
     await trySendText(waId, currentStock > 0
       ? `Only ${currentStock} unit${currentStock === 1 ? '' : 's'} of ${product.name} are currently listed. Reply with a smaller quantity.`
-      : `${product.name} is currently unavailable. Search for another item instead.`)
+      : `${product.name} is out of stock right now — I'll message you here the moment it's back. Want something similar in the meantime?`)
     return
   }
 

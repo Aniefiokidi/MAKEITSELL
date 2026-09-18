@@ -46,6 +46,8 @@ export interface IOrder extends Document {
   outForDeliveryAt?: Date;
   deliveredAt?: Date;
   receivedAt?: Date;
+  reviewPromptSentAt?: Date;
+  reviewPromptSkipped?: string;
   cancelledAt?: Date;
 }
 
@@ -94,6 +96,9 @@ const OrderSchema = new Schema<IOrder>({
   outForDeliveryAt: { type: Date },
   deliveredAt: { type: Date },
   receivedAt: { type: Date },
+  // WhatsApp "how was it?" prompt bookkeeping (lib/whatsapp/proactive.ts)
+  reviewPromptSentAt: { type: Date },
+  reviewPromptSkipped: { type: String },
   cancelledAt: { type: Date },
 });
 

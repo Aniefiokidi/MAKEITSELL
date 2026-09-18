@@ -180,3 +180,45 @@ test('a remembered size is suggested when a product asks for one', async () => {
   const prompt = texts(await say('1'))
   assert.match(prompt, /You took 42 last time/)
 })
+
+test('a review prompt is sent 2 days after receipt and a rating + comment becomes a review', async () => {
+  const { user } = await buyerWithOrder({ orderId: 'ORD-REV1', status: 'received', receivedAt: new Date(Date.now() - 3 * 86400000), items: [{ productId: 'p1', title: 'Red Sneakers', quantity: 1, price: 15000 }], vendors: [{ vendorId: 'v1', storeId: 's1', items: [] }] })
+  const proactive = await import(path.join(ROOT, 'lib/whatsapp/proactive.ts'))
+  const Review = (await import(path.join(ROOT, 'lib/models/Review.ts'))).Review
+  const start = outbox.length
+  const result = await proactive.sendReviewPrompts()
+  assert.equal(result.sent, 1)
+  assert.match(texts(outbox.slice(start)), /buyer_review_prompt\] Red Sneakers/)
+  assert.match(texts(await say('5')), /Great to hear/)
+  assert.match(texts(await say('Perfect fit, fast delivery')), /5-star review .* is posted/)
+  const review = await Review.findOne({ orderId: 'ORD-REV1' }).lean()
+  assert.equal(review.rating, 5)
+  assert.equal(review.comment, 'Perfect fit, fast delivery')
+  assert.equal(review.customerId, String(user._id))
+  // Not asked twice.
+  assert.equal((await proactive.sendReviewPrompts()).sent, 0)
+})
+
+test('an unrelated message during a review prompt is handled normally', async () => {
+  await buyerWithOrder({ orderId: 'ORD-REV2', status: 'received', receivedAt: new Date(Date.now() - 3 * 86400000) })
+  const proactive = await import(path.join(ROOT, 'lib/whatsapp/proactive.ts'))
+  await proactive.sendReviewPrompts()
+  assert.match(texts(await say('sneakers')), /1\. Red Sneakers/)
+  assert.match(texts(await say('4')), /Thanks — noted|Great to hear/)
+})
+
+test('asking for an out-of-stock item registers a watch and the alert fires when it returns', async () => {
+  const { store } = await seedVendor({ storeName: 'Bag World', phone: '+2348011110088' })
+  const Product = (await import(path.join(ROOT, 'lib/models/Product.ts'))).Product
+  const bag = await seedProduct(store, { name: 'Tote Bag', price: 12000, stock: 1 })
+  await say('tote bag')
+  await Product.updateOne({ _id: bag._id }, { $set: { stock: 0 } })
+  assert.match(texts(await say('1')), /out of stock right now — I'll message you/)
+  const proactive = await import(path.join(ROOT, 'lib/whatsapp/proactive.ts'))
+  assert.equal((await proactive.sendBackInStockAlerts()).sent, 0)
+  await Product.updateOne({ _id: bag._id }, { $set: { stock: 5 } })
+  const start = outbox.length
+  assert.equal((await proactive.sendBackInStockAlerts()).sent, 1)
+  assert.match(texts(outbox.slice(start)), /buyer_back_in_stock\] Tote Bag \| NGN 12,000/)
+  assert.match(texts(await say('add')), /Added: Tote Bag x1/)
+})

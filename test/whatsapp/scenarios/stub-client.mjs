@@ -10,7 +10,7 @@ function record(entry) {
 }
 export function resetOutbox() { outbox.length = 0 }
 export async function getBotDisplayPhoneNumber() { return '2340000000000' }
-export async function sendTemplateMessage(to, templateName, params) { return record({ to, kind: 'template', templateName, params }) }
+export async function sendTemplateMessage(to, templateName, params) { return record({ to, kind: 'template', templateName, params, body: `[template:${templateName}] ${(params || []).join(' | ')}` }) }
 export async function sendTextMessage(to, body) { return record({ to, kind: 'text', body: String(body) }) }
 export async function sendImageMessage(to, imageUrl, caption) { return record({ to, kind: 'image', imageUrl, body: String(caption) }) }
 export async function sendInteractiveListMessage(to, body, buttonText, sections, header, footer) {

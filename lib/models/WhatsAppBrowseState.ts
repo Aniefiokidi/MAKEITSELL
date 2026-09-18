@@ -75,6 +75,9 @@ const WhatsAppBrowseStateSchema = new Schema({
   // and forwards the buyer's messages to the support number, which replies through
   // the bot. Falls back to 'bot' after HANDOFF_IDLE_HOURS without activity.
   mode: { type: String, enum: ['bot', 'human'], default: 'bot' },
+  // A review the bot asked for and is waiting on (lib/whatsapp/proactive.ts):
+  // { orderId, productId, productName, vendorId, storeId, askedAt, rating? }
+  pendingReview: { type: Schema.Types.Mixed },
   handoffAt: { type: Date },
   handoffLastActivityAt: { type: Date },
 

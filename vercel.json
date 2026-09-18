@@ -48,6 +48,10 @@
     {
       "path": "/api/admin/whatsapp/digest?send=1",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/admin/whatsapp/proactive",
+      "schedule": "0 10 * * *"
     }
   ]
 }

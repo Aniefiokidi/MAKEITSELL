@@ -15,6 +15,7 @@ import { markOrderReceived } from '@/lib/whatsapp/buyer-orders'
 import { beginHandoff, isHandedOff, forwardToSupport, endHandoff, supportNumberConfigured } from '@/lib/whatsapp/handoff'
 import { recordOutcome } from '@/lib/whatsapp/conversation-log'
 import { touchBuyer, rememberSearch, recallBuyer } from '@/lib/whatsapp/buyer-memory'
+import { tryHandleReviewReply } from '@/lib/whatsapp/proactive'
 import { PRODUCT_CATEGORIES } from '@/lib/product-categories'
 import { SERVICE_CATEGORIES } from '@/lib/service-categories'
 import { sendProductResults } from '@/lib/whatsapp/product-results'
@@ -1086,6 +1087,9 @@ export async function handleBuyerMessage(waId: string, text: string, contextMess
   }
 
   if (stage === 'awaiting_payment' && (await tryHandleAwaitingPayment(waId, trimmed, state))) return
+
+  // A star rating (or comment) for a review the bot asked for after delivery.
+  if (state?.pendingReview && (await tryHandleReviewReply(waId, trimmed, state))) return
 
   if (lower === 'cancel') {
     if (stage === AWAITING_SERVICE_LOCATION_STAGE) {
